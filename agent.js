@@ -212,8 +212,10 @@ class QAAgent {
 
   /**
    * Initialize and run the agent
+   * @param {string} startURL - Optional URL to scan (if provided, scans just that URL)
+   * @param {boolean} skipCodebaseScan - Optional flag to skip codebase scanning (default: false)
    */
-  async run(startURL = null) {
+  async run(startURL = null, skipCodebaseScan = false) {
     console.log("\n╔════════════════════════════════════════╗");
     console.log("║  Agentic QA Engineer - LangGraph Agent ║");
     console.log("╚════════════════════════════════════════╝\n");
@@ -224,12 +226,16 @@ class QAAgent {
       : ["https://www.yahoo.com", "https://www.cbs.com", "https://www.github.com"];
 
     try {
-      // Step 1: Scan the codebase
-      console.log("📂 Step 1: Scanning codebase structure...");
-      this.state.task = "scan_codebase";
-      this.state.codebaseInfo = scanCodebase();
-      console.log("✅ Codebase scanned successfully");
-      this.printCodebaseInfo();
+      // Step 1: Scan the codebase (skipped for quick URL submissions from UI)
+      if (!skipCodebaseScan) {
+        console.log("📂 Step 1: Scanning codebase structure...");
+        this.state.task = "scan_codebase";
+        this.state.codebaseInfo = scanCodebase();
+        console.log("✅ Codebase scanned successfully");
+        this.printCodebaseInfo();
+      } else {
+        console.log("⏭️  Step 1: Skipping codebase scan (quick mode)");
+      }
 
       // Step 2: Submit URLs to frontend and collect results
       console.log("\n🚀 Step 2: Loading Project UI and Testing URLs...");
