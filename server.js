@@ -12,8 +12,8 @@ function normalizeUrl(input) {
     // add protocol if missing
     if (!/^https?:\/\//i.test(input)) return "http://" + input;
     return input;
-  } catch (e) {
-     
+  } catch {
+    // ignore parsing errors
     return input;
   }
 }
@@ -26,9 +26,8 @@ function generateRecommendations(results, features, performanceResults) {
   const recommendations = [];
   
   // Count issues by type
-  const accessibilityIssues = results.filter(r => ['MissingAlt', 'EmptyAlt', 'MissingLabel', 'HeadingOrder'].includes(r.type)).length;
-  const brokenLinks = results.filter(r => ['BadHref', 'BrokenImage'].includes(r.type)).length;
-  const performanceIssues = results.filter(r => r.type === 'RequestFailed').length;
+  const accessibilityIssues = results.filter(r => ["MissingAlt", "EmptyAlt", "MissingLabel", "HeadingOrder"].includes(r.type)).length;
+  const performanceIssues = results.filter(r => r.type === "RequestFailed").length;
 
   // Recommendation 1: Accessibility & Inclusivity Strategy
   if (accessibilityIssues > 8) {
@@ -38,14 +37,13 @@ function generateRecommendations(results, features, performanceResults) {
   } else {
     recommendations.push(`⭐ Accessibility Foundation Solid: Only ${accessibilityIssues || 0} minor issues. Next level: (1) ARIA live regions for dynamic content, (2) Semantic HTML audit, (3) Testing with real assistive tech users. This shows commitment to inclusive design—a competitive differentiator.`);
   }
-
   // Recommendation 2: Performance & User Experience
   if (performanceIssues > 3) {
     recommendations.push(`⚡ Critical Performance Issue: ${performanceIssues} failed requests. Each failure: (1) Increases bounce rate by 7%, (2) Costs ~$2.6M annually in lost revenue per 1sec delay. Actions: (1) Audit external dependencies for dead code, (2) Implement request retries with exponential backoff, (3) Set up error tracking (Sentry), (4) Cache aggressively. This is business-critical.`);
   } else if (performanceResults && performanceResults.loadTimeMs > 3000) {
-    recommendations.push(`⏱️ Load Time Optimization Critical: Page load >3 seconds. Each 100ms delay costs 1% conversion rate. Implement: (1) Image optimization (WebP format, lazy loading), (2) Code splitting (lazy load non-critical JS), (3) CDN adoption, (4) Service Worker caching, (5) Monitor Core Web Vitals monthly. Target: <2 seconds (mobile), <1 second (desktop).`);
+    recommendations.push("⏱️ Load Time Optimization Critical: Page load >3 seconds. Each 100ms delay costs 1% conversion rate. Implement: (1) Image optimization (WebP format, lazy loading), (2) Code splitting (lazy load non-critical JS), (3) CDN adoption, (4) Service Worker caching, (5) Monitor Core Web Vitals monthly. Target: <2 seconds (mobile), <1 second (desktop).");
   } else {
-    recommendations.push(`🚀 Performance Excellence: Load times solid. Maintain competitive advantage: (1) Monthly Core Web Vitals audits via Google Lighthouse, (2) Implement Service Workers for offline experience, (3) Progressive image loading (LQIP), (4) Database query optimization. Benchmark against competitors to stay ahead.`);
+    recommendations.push("🚀 Performance Excellence: Load times solid. Maintain competitive advantage: (1) Monthly Core Web Vitals audits via Google Lighthouse, (2) Implement Service Workers for offline experience, (3) Progressive image loading (LQIP), (4) Database query optimization. Benchmark against competitors to stay ahead.");
   }
 
   // Recommendation 3: API Design & Testing Strategy
@@ -55,7 +53,7 @@ function generateRecommendations(results, features, performanceResults) {
   } else if (apiCount > 3) {
     recommendations.push(`🧪 API Testing Foundation: ${apiCount} APIs identified. Critical gaps to fill: (1) Contract testing (verify endpoint schemas), (2) Integration tests (API chains), (3) Load testing under 100 concurrent users, (4) Security scanning (OWASP Top 10). Use Playwright for complex multi-step API flows. Coverage target: 85%+ of critical paths.`);
   } else {
-    recommendations.push(`📡 API Simplicity Advantage: Minimal APIs detected. Leverage this: (1) Comprehensive E2E tests covering all flows, (2) Mock API responses for frontend tests, (3) GraphQL evaluation (if complexity grows). Document all endpoints in OpenAPI 3.0 format for developer onboarding.`);
+    recommendations.push("📡 API Simplicity Advantage: Minimal APIs detected. Leverage this: (1) Comprehensive E2E tests covering all flows, (2) Mock API responses for frontend tests, (3) GraphQL evaluation (if complexity grows). Document all endpoints in OpenAPI 3.0 format for developer onboarding.");
   }
 
   // Recommendation 4: Testing & QA Automation Strategy
@@ -63,7 +61,7 @@ function generateRecommendations(results, features, performanceResults) {
   recommendations.push(`🧪 Advanced Testing Strategy: Current scan identified ${issueCount} issues. Build comprehensive test pyramid: (1) Unit tests (40%): Core functions, utilities, calculations, (2) Integration tests (30%): API interactions, database queries, feature workflows, (3) E2E tests (20%): Critical user journeys, (4) Visual regression (10%): Design consistency. Target: 80%+ code coverage. Tools: Playwright (E2E), Vitest (unit), Percy (visual). CI/CD integration mandatory for velocity.`);
 
   // Recommendation 5: Strategic QA Roadmap
-  recommendations.push(`🎯 Strategic QA Roadmap (Q1-Q2): (1) Week 1-2: Establish testing infrastructure (CI/CD pipelines, baseline metrics), (2) Week 3-4: Unit test coverage to 60%, accessibility audit + fixes, (3) Week 5-8: E2E test suite for critical paths (15+ scenarios), API contract testing, (4) Week 9-12: Performance optimization, security audit, stress testing. Success metrics: Deploy confidence > 95%, bug escape rate < 2%, incident response time < 30min. This roadmap prevents technical debt and scales your team.`);
+  recommendations.push("🎯 Strategic QA Roadmap (Q1-Q2): (1) Week 1-2: Establish testing infrastructure (CI/CD pipelines, baseline metrics), (2) Week 3-4: Unit test coverage to 60%, accessibility audit + fixes, (3) Week 5-8: E2E test suite for critical paths (15+ scenarios), API contract testing, (4) Week 9-12: Performance optimization, security audit, stress testing. Success metrics: Deploy confidence > 95%, bug escape rate < 2%, incident response time < 30min. This roadmap prevents technical debt and scales your team.");
 
   return recommendations;
 }
@@ -100,16 +98,14 @@ app.post("/scan", async (req, res) => {
     // request tracking for basic performance metrics
     let totalRequests = 0;
     let failedRequests = 0;
-    page.on("request", request => {
-       
+    page.on("request", () => {
       totalRequests += 1;
     });
     page.on("requestfailed", request => {
       failedRequests += 1;
       results.push(mapIssue("RequestFailed", `${request.url()} -> ${request.failure() && request.failure().errorText}`, "Check resource URL and server responses; ensure CORS and availability."));
     });
-    page.on("requestfinished", _request => {
-       
+    page.on("requestfinished", () => {
       // finished requests counted via `request` event; keep hooks for future metrics
     });
 
