@@ -151,7 +151,7 @@ app.post('/scan', async (req, res) => {
 
     // domResult is now a Promise result
     const { issues: domIssues, features, apis } = domResult;
-    domIssues.forEach(i => results.push(mapIssue(i.type, i.message, i.recommendation));
+    domIssues.forEach(i => results.push(mapIssue(i.type, i.message, i.recommendation)));
 
     // Performance / JMeter-like summary using resource timings
     const perf = await page.evaluate(() => {

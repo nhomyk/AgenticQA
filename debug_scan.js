@@ -1,44 +1,50 @@
-const puppeteer = require('puppeteer');
+
+/* eslint-env node */
+/* global require, console */
+const puppeteer = require("puppeteer");
 
 function mapIssue(type, message, recommendation) {
   return { type, message, recommendation };
 }
 
+module.exports = { mapIssue, run };
+
+
 async function run(target) {
   const results = [];
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: false, devtools: true, args: ['--no-sandbox'] });
+    browser = await puppeteer.launch({ headless: false, devtools: true, args: ["--no-sandbox"] });
   } catch (e) {
-    console.warn('Default puppeteer launch failed, retrying with system Chrome executable:', e.message || e);
+    console.warn("Default puppeteer launch failed, retrying with system Chrome executable:", e.message || e);
     try {
-      browser = await puppeteer.launch({ headless: false, devtools: true, executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', args: [] });
+      browser = await puppeteer.launch({ headless: false, devtools: true, executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: [] });
     } catch (e2) {
-      console.error('Failed to launch system Chrome as well:', e2.message || e2);
+      console.error("Failed to launch system Chrome as well:", e2.message || e2);
       throw e2;
     }
   }
   const page = await browser.newPage();
-  page.on('console', msg => {
+  page.on("console", msg => {
     try {
-      if (msg.type() === 'error') {
+      if (msg.type() === "error") {
         const text = msg.text();
-        console.error('PAGE CONSOLE ERROR:', text);
-        results.push(mapIssue('ConsoleError', text, 'Check the stack trace and source; fix the script error or wrap calls in try/catch.'));
+        console.error("PAGE CONSOLE ERROR:", text);
+        results.push(mapIssue("ConsoleError", text, "Check the stack trace and source; fix the script error or wrap calls in try/catch."));
       } else {
-        console.log('PAGE LOG:', msg.type(), msg.text());
+        console.log("PAGE LOG:", msg.type(), msg.text());
       }
     } catch (e) {}
   });
 
-  page.on('pageerror', err => {
-    console.error('PAGE ERROR:', err);
-    results.push(mapIssue('PageError', String(err), 'Fix the exception in page scripts; guard against undefined values.'));
+  page.on("pageerror", err => {
+    console.error("PAGE ERROR:", err);
+    results.push(mapIssue("PageError", String(err), "Fix the exception in page scripts; guard against undefined values."));
   });
 
-  page.on('requestfailed', request => {
-    console.warn('REQUEST FAILED:', request.url(), request.failure() && request.failure().errorText);
-    results.push(mapIssue('RequestFailed', `${request.url()} -> ${request.failure() && request.failure().errorText}`, 'Check resource URL and server responses; ensure CORS and availability.'));
+  page.on("requestfailed", request => {
+    console.warn("REQUEST FAILED:", request.url(), request.failure() && request.failure().errorText);
+    results.push(mapIssue("RequestFailed", `${request.url()} -> ${request.failure() && request.failure().errorText}`, "Check resource URL and server responses; ensure CORS and availability."));
   });
 
   await page.setViewport({ width: 1280, height: 900 });

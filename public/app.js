@@ -75,7 +75,6 @@ function generateCypressExample(testCase, url) {
   // Simple mapping for demo purposes
   return `// Cypress example for: ${testCase}\ndescribe('First test case', () => {\n  it('should run the test', () => {\n    cy.visit('${url}');\n    // TODO: Implement: ${testCase}\n  });\n});`;
 }
-}
 
 scanBtn.addEventListener('click', async () => {
   const url = urlInput.value.trim();
