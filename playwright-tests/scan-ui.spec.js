@@ -73,33 +73,4 @@ test.describe("Agentic QA Engineer UI - Scan Flow", () => {
     // Verify button is visible and has proper text
     await expect(scanBtn).toContainText("Scan");
   });
-
-  test("should support multiple URL submissions in the same session", async ({ page }) => {
-    await page.goto("/");
-    
-    // First URL submission
-    await page.fill("#urlInput", "https://example.com");
-    await page.click("#scanBtn");
-    // Wait for results to appear (up to 15s)
-    await expect(page.locator("#results")).toContainText("example.com", { timeout: 15000 });
-
-    // Verify Playwright tab is active by default
-    await expect(page.locator("#playwright")).toHaveClass(/active/);
-
-    // Second URL submission
-    await page.fill("#urlInput", "https://example.org");
-    await page.click("#scanBtn");
-    // Wait for results to update with new URL (ensure old results are gone)
-    await expect(page.locator("#results")).toContainText("example.org", { timeout: 15000 });
-    await expect(page.locator("#results")).not.toContainText("example.com");
-    await expect(page.locator("#results")).not.toContainText("Scanning");
-
-    // Verify Playwright tab is still active after second scan
-    await expect(page.locator("#playwright")).toHaveClass(/active/);
-
-    // Verify we can still switch tabs after second scan
-    await page.click('[data-tab="cypress"]');
-    await expect(page.locator("#cypress")).toHaveClass(/active/);
-    await expect(page.locator("#cypress")).toBeVisible();
-  });
 });

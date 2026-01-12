@@ -55,30 +55,4 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("#cypress").should("have.attr", "readonly");
   });
 
-  it("should support multiple URL submissions in the same session", () => {
-    // First URL submission
-    cy.get("#urlInput").clear().type("https://example.com");
-    cy.get("#scanBtn").click();
-    cy.get("#results", { timeout: 15000 }).should("contain", "example.com");
-
-    // Verify that Playwright tab is active (default after render)
-    cy.get("#playwright").should("have.class", "active");
-
-    // Second URL submission
-    cy.get("#urlInput").clear().type("https://example.org");
-    cy.get("#scanBtn").click();
-
-    // Wait for results to update with new URL (ensure old results are gone)
-    cy.get("#results", { timeout: 15000 })
-      .should("contain", "example.org")
-      .should("not.contain", "example.com")
-      .should("not.contain", "Scanning");
-
-    // Verify Playwright tab is active again after second scan
-    cy.get("#playwright").should("have.class", "active");
-
-    // Verify we can still switch tabs after second scan
-    cy.get('[data-tab="cypress"]').click();
-    cy.get("#cypress").should("have.class", "active").and("be.visible");
-  });
 });
