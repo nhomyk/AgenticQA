@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test:vitest": "vitest",
-    "test:cypress": "cypress run",
+    "test:cypress": "start-server-and-test start http://localhost:3000 cypress run",
     "agent": "node run-agent.js"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "puppeteer": "^24.35.0"
   },
   "devDependencies": {
+    "start-server-and-test": "^2.0.0",
     "@playwright/test": "^1.57.0",
     "@vitest/coverage-v8": "^4.0.17",
     "@vitest/ui": "^4.0.17",

@@ -24,9 +24,9 @@ function renderResults(resp) {
       // Heuristic: extract framework/library name from URL
       let match = url.match(/([\w-]+)(?:[./@-])/i);
       if (match && match[1]) {
-        let name = match[1].replace(/_/g, ' ');
+        let name = match[1].replace(/_/g, " ");
         // Filter out generic words
-        if (!['cdn', 'js', 'css', 'lib', 'dist', 'static', 'assets', 'min', 'main', 'bundle', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10'].includes(name.toLowerCase())) {
+        if (!["cdn", "js", "css", "lib", "dist", "static", "assets", "min", "main", "bundle", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"].includes(name.toLowerCase())) {
           techNames.push(name.charAt(0).toUpperCase() + name.slice(1));
         }
       }

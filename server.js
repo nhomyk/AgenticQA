@@ -355,7 +355,6 @@ app.post("/scan", async (req, res) => {
     const trimmed = results.slice(0, 25);
 
     await browser.close();
-    const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations, technologies };
     const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations, technologies: technologiesArr, technologyUrls };
     console.log("[SERVER] Responding with payload:", JSON.stringify(responsePayload, null, 2));
     res.json(responsePayload);
