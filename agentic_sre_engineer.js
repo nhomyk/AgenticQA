@@ -36,7 +36,7 @@ async function bumpVersion() {
       "remote",
       "set-url",
       "origin",
-      `https://${process.env.GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git`
+      `https://${process.env.GH_PAT}@github.com/nhomyk/AgenticQA.git`
     ]);
   }
   await git.commit(`chore: bump version to ${pkg.version}`);
@@ -94,7 +94,7 @@ async function autoFixAndCommit() {
       "remote",
       "set-url",
       "origin",
-      `https://${process.env.GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git`
+      `https://${process.env.GH_PAT}@github.com/nhomyk/AgenticQA.git`
     ]);
   }
   await git.commit("chore: auto-fix lint errors");
