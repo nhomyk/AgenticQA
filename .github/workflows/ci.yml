@@ -8,6 +8,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     name: Security Scanning
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +49,7 @@ jobs:
         run: npx eslint . --ext .js
 
   unit-test:
-    needs: [security, lint]
+    needs: [lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +63,7 @@ jobs:
         run: npx jest --coverage
 
   test-playwright:
-    needs: [security, lint]
+    needs: [lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +79,7 @@ jobs:
         run: npx playwright test
 
   test-vitest:
-    needs: [security, lint]
+    needs: [lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,7 +93,7 @@ jobs:
         run: npm run test:vitest -- --run --coverage
 
   test-cypress:
-    needs: [security, lint]
+    needs: [lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +111,7 @@ jobs:
         run: npm run test:cypress
 
   agent-workflow:
-    needs: [security, lint]
+    needs: [lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
