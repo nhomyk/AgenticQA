@@ -119,7 +119,12 @@ async function agenticSRELoop() {
     const run = await getLatestWorkflowRun();
     // 4. If failed, get logs and email
     if (run.conclusion !== "success") {
-      const logsUrl = await getWorkflowLogs(run.id);
+      let logsUrl = "Logs unavailable";
+      try {
+        logsUrl = await getWorkflowLogs(run.id);
+      } catch (err) {
+        console.error('Failed to fetch workflow logs:', err.message);
+      }
       await sendEmail(
         `CI Failed for AgenticQA v${newVersion}`,
         `Workflow failed. Logs: ${logsUrl}`
