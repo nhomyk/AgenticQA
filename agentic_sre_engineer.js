@@ -205,7 +205,7 @@ async function makeCodeChanges(failureAnalysis) {
   // Analyze failures and make intelligent code changes
   const { execSync } = require("child_process");
   
-  console.log('Analyzing test failures and making code changes...');
+  console.log("Analyzing test failures and making code changes...");
   
   // Extract test failure patterns and apply targeted fixes
   if (failureAnalysis && failureAnalysis.length > 0) {
@@ -223,26 +223,46 @@ async function makeCodeChanges(failureAnalysis) {
     }
   }
   
-  // Run tests to see what fails
+  let changesDetected = false;
+  
+  // 1. Check for ESLint errors before fixing
   try {
-    execSync('npm run test:vitest -- --run 2>&1', { stdio: 'pipe' });
+    console.log("Checking for linting issues...");
+    execSync("npx eslint . --ext .js", { stdio: "pipe" });
   } catch (err) {
-    console.log('Vitest issues detected');
+    const errorOutput = err.stdout?.toString() || err.stderr?.toString() || err.message;
+    if (errorOutput.includes("error") || errorOutput.includes("✖")) {
+      console.log("ESLint errors detected, applying fixes...");
+      changesDetected = true;
+    }
   }
   
-  // Apply automatic fixes
+  // 2. Apply ESLint fixes
   try {
-    execSync('npx eslint . --ext .js --fix', { stdio: 'pipe' });
-    console.log('ESLint auto-fixes applied');
+    execSync("npx eslint . --ext .js --fix", { stdio: "pipe" });
+    console.log("ESLint auto-fixes applied");
   } catch (err) {
-    console.log('ESLint fixes completed with warnings');
+    console.log("ESLint completed with warnings");
   }
   
-  // Commit changes
+  // 3. Run Vitest to catch runtime issues
+  try {
+    execSync("npm run test:vitest -- --run 2>&1", { stdio: "pipe" });
+  } catch (err) {
+    const output = err.stdout?.toString() || err.stderr?.toString() || err.message;
+    if (output.includes("FAIL") || output.includes("error")) {
+      console.log("Vitest issues detected");
+      changesDetected = true;
+    }
+  }
+  
+  // 4. Commit any changes made by fixes
   await git.add(".");
   const status = await git.status();
   
   if (status.files.length > 0) {
+    console.log(`Found ${status.files.length} changed file(s), committing...`);
+    
     await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
     await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
     if (process.env.GH_PAT) {
@@ -253,16 +273,19 @@ async function makeCodeChanges(failureAnalysis) {
         `https://${process.env.GH_PAT}@github.com/nhomyk/AgenticQA.git`
       ]);
     }
+    
     await git.commit("fix: agentic code repairs from test analysis");
     try {
       await git.push();
-      console.log('Code changes pushed');
+      console.log("Code changes pushed successfully");
     } catch (err) {
-      console.error('Push failed (non-critical):', err.message);
+      console.error("Push failed (non-critical):", err.message);
     }
     return true;
+  } else {
+    console.log("No changes to commit");
+    return false;
   }
-  return false;
 }
 
 async function redeployAndTest(iteration) {
