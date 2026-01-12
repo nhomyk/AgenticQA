@@ -80,36 +80,49 @@ app.post("/scan", async (req, res) => {
     async function detectTechnologies(page) {
       const techs = [];
       // React
-      const hasReact = await page.evaluate(() => !!window.React || !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__);
-      if (hasReact) techs.push("React");
+      if (await page.evaluate(() => !!window.React || !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__)) techs.push("React");
       // AngularJS
-      const hasAngular = await page.evaluate(() => !!window.angular);
-      if (hasAngular) techs.push("AngularJS");
+      if (await page.evaluate(() => !!window.angular)) techs.push("AngularJS");
       // Vue.js
-      const hasVue = await page.evaluate(() => !!window.Vue);
-      if (hasVue) techs.push("Vue.js");
+      if (await page.evaluate(() => !!window.Vue)) techs.push("Vue.js");
+      // Svelte
+      if (await page.evaluate(() => !!window.__svelte__)) techs.push("Svelte");
+      // Next.js
+      if (await page.evaluate(() => !!window.next)) techs.push("Next.js");
+      // Nuxt.js
+      if (await page.evaluate(() => !!window.__NUXT__)) techs.push("Nuxt.js");
       // jQuery
-      const hasJQuery = await page.evaluate(() => !!window.jQuery);
-      if (hasJQuery) techs.push("jQuery");
+      if (await page.evaluate(() => !!window.jQuery)) techs.push("jQuery");
+      // Lodash
+      if (await page.evaluate(() => !!window._ && !!window._.chunk)) techs.push("Lodash");
+      // Moment.js
+      if (await page.evaluate(() => !!window.moment)) techs.push("Moment.js");
       // Bootstrap (CSS)
-      const hasBootstrap = await page.evaluate(() =>
-        Array.from(document.querySelectorAll("link[rel=\"stylesheet\"], style")).some(
-          el => el.outerHTML.includes("bootstrap")
-        )
-      );
-      if (hasBootstrap) techs.push("Bootstrap");
+      if (await page.evaluate(() => Array.from(document.querySelectorAll("link[rel=\"stylesheet\"], style")).some(el => el.outerHTML.includes("bootstrap")))) techs.push("Bootstrap");
+      // Tailwind CSS
+      if (await page.evaluate(() => Array.from(document.querySelectorAll("link[rel=\"stylesheet\"]")).some(el => el.href.includes("tailwind")))) techs.push("Tailwind CSS");
+      // Bulma CSS
+      if (await page.evaluate(() => Array.from(document.querySelectorAll("link[rel=\"stylesheet\"]")).some(el => el.href.includes("bulma")))) techs.push("Bulma CSS");
+      // Google Analytics
+      if (await page.evaluate(() => !!window.ga || !!window.gtag)) techs.push("Google Analytics");
+      // Google Tag Manager
+      if (await page.evaluate(() => !!window.dataLayer)) techs.push("Google Tag Manager");
+      // WordPress
+      if (await page.evaluate(() => !!window.wp || document.body.classList.contains("wp-admin"))) techs.push("WordPress");
+      // Shopify
+      if (await page.evaluate(() => window.Shopify !== undefined)) techs.push("Shopify");
       // Meta generator
       const metaGenerator = await page.$eval("meta[name=\"generator\"]", el => el.content).catch(() => null);
       if (metaGenerator) techs.push(metaGenerator);
-      // Google Analytics
-      const hasGA = await page.evaluate(() => !!window.ga || !!window.gtag);
-      if (hasGA) techs.push("Google Analytics");
-      // WordPress
-      const isWordPress = await page.evaluate(() => !!window.wp || document.body.classList.contains("wp-admin"));
-      if (isWordPress) techs.push("WordPress");
-      // Shopify
-      const isShopify = await page.evaluate(() => window.Shopify !== undefined);
-      if (isShopify) techs.push("Shopify");
+      // Meta framework
+      const metaFramework = await page.$eval('meta[name="framework"]', el => el.content).catch(() => null);
+      if (metaFramework) techs.push(metaFramework);
+      // CDN/hosted libraries
+      const scripts = await page.$$eval('script[src]', els => els.map(e => e.src));
+      if (scripts.some(src => src.includes('cloudflare'))) techs.push("Cloudflare CDN");
+      if (scripts.some(src => src.includes('unpkg'))) techs.push("unpkg CDN");
+      if (scripts.some(src => src.includes('jsdelivr'))) techs.push("jsDelivr CDN");
+      if (scripts.some(src => src.includes('jquery'))) techs.push("jQuery (CDN)");
       // Add more as needed
       console.log("[SERVER] detectTechnologies found:", techs);
       return techs;
