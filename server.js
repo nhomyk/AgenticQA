@@ -226,3 +226,6 @@ app.post("/scan", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Agentic QA Engineer running on http://localhost:${PORT}`));
+
+// Export functions for testing
+module.exports = { normalizeUrl, mapIssue };

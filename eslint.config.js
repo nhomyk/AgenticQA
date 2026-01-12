@@ -1,5 +1,5 @@
 // eslint.config.js
-export default [
+module.exports = [
   {
     ignores: ["node_modules/**", "playwright-tests/**", "unit-tests/**"],
   },
@@ -31,7 +31,7 @@ export default [
     },
   },
   {
-    files: ["jest.config.js", "playwright.config.js"],
+    files: ["jest.config.cjs", "playwright.config.cjs"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
