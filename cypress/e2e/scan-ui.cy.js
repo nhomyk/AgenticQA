@@ -39,7 +39,7 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("h3").first().should("contain", "AgenticQA Engineer's Recommendations");
     // Verify other key sections exist
     cy.contains("h3", "Scan Results").should("exist");
-    cy.contains("h3", "Test Framework Examples").should("exist");
+    cy.contains("h3", "AI Generated Test Cases for your site").should("exist");
   });
 
   it("should have correct placeholder text in textareas", () => {
