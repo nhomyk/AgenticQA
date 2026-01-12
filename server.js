@@ -105,16 +105,23 @@ app.post("/scan", async (req, res) => {
       const hasGA = await page.evaluate(() => !!window.ga || !!window.gtag);
       if (hasGA) techs.push("Google Analytics");
       // WordPress
-      const isWordPress = await page.evaluate(() => !!window.wp || document.body.classList.contains('wp-admin'));
+      const isWordPress = await page.evaluate(() => !!window.wp || document.body.classList.contains("wp-admin"));
       if (isWordPress) techs.push("WordPress");
       // Shopify
       const isShopify = await page.evaluate(() => window.Shopify !== undefined);
       if (isShopify) techs.push("Shopify");
       // Add more as needed
+      console.log("[SERVER] detectTechnologies found:", techs);
       return techs;
     }
     console.log("[SERVER] Launching browser for:", target);
-    browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    try {
+      browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"], timeout: 20000 });
+    } catch (e) {
+      console.error("[SERVER] Puppeteer failed to launch:", e);
+      res.status(500).json({ error: "Puppeteer failed to launch: " + e.message });
+      return;
+    }
     const page = await browser.newPage();
 
     // collect console errors
@@ -299,6 +306,7 @@ app.post("/scan", async (req, res) => {
 
     // Detect technologies
     const technologies = await detectTechnologies(page);
+  console.log("[SERVER] Technologies detected for", target, ":", technologies);
 
     // trim to 25 issue results
     const trimmed = results.slice(0, 25);

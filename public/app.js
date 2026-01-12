@@ -19,12 +19,12 @@ function renderResults(resp) {
     return;
   }
 
-  // render detected technologies if present
+  // Always show the header for technologies
+  const headerT = "Technologies Detected\n\n";
   if (resp.technologies && Array.isArray(resp.technologies)) {
-    const headerT = "Technologies Detected\n\n";
     technologiesBox.value = headerT + (resp.technologies.length ? resp.technologies.join(", ") : "None detected");
   } else {
-    technologiesBox.value = "";
+    technologiesBox.value = headerT + "None detected";
   }
   if (!resp) return;
   if (resp.error) {
