@@ -9,7 +9,7 @@ const path = require("path");
 
 // === CONFIGURATION ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Set in your environment
-const REPO_OWNER = "nicholashomyk"; // Change if needed
+const REPO_OWNER = "nhomyk"; // Change if needed
 const REPO_NAME = "AgenticQA"; // Change if needed
 const BRANCH = "main";
 const EMAIL_TO = "nickhomyk@gmail.com";
