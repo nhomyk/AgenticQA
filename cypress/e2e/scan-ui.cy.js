@@ -1,0 +1,50 @@
+describe("Agentic QA Engineer - UI Tests", () => {
+  it("should load the homepage", () => {
+    cy.get("h1").should("contain", "Agentic QA Engineer");
+  });
+
+  it("should have all result boxes visible", () => {
+    cy.get("#results").should("be.visible");
+    cy.get("#testcases").should("be.visible");
+    cy.get("#performance").should("be.visible");
+    cy.get("#apis").should("be.visible");
+    cy.get("#playwright").should("be.visible");
+    cy.get("#cypress").should("be.visible");
+  });
+
+  it("should have proper input and button", () => {
+    cy.get("#urlInput").should("be.visible").should("have.attr", "placeholder", "https://example.com");
+    cy.get("#scanBtn").should("be.visible").should("contain", "Scan");
+  });
+
+  it("should display all headings", () => {
+    cy.get("h1").should("contain", "Agentic QA Engineer");
+    cy.get("h3").should("have.length.at.least", 6);
+    cy.get("h3").first().should("contain", "Scan Results");
+  });
+
+  it("should have correct placeholder text in textareas", () => {
+    cy.get("#results").should("have.attr", "placeholder").and("include", "Results will appear here");
+    cy.get("#testcases").should("have.attr", "placeholder").and("include", "test cases");
+    cy.get("#performance").should("have.attr", "placeholder").and("include", "JMeter-like performance");
+    cy.get("#apis").should("have.attr", "placeholder").and("include", "APIs");
+    cy.get("#playwright").should("have.attr", "placeholder").and("include", "Playwright");
+    cy.get("#cypress").should("have.attr", "placeholder").and("include", "Cypress");
+  });
+
+  it("should show error message if scanning without URL", () => {
+    cy.get("#scanBtn").click();
+    cy.on("window:alert", (text) => {
+      expect(text).to.include("URL");
+    });
+  });
+
+  it("should have readonly textareas", () => {
+    cy.get("#results").should("have.attr", "readonly");
+    cy.get("#testcases").should("have.attr", "readonly");
+    cy.get("#performance").should("have.attr", "readonly");
+    cy.get("#apis").should("have.attr", "readonly");
+    cy.get("#playwright").should("have.attr", "readonly");
+    cy.get("#cypress").should("have.attr", "readonly");
+  });
+});

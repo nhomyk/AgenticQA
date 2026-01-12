@@ -61,3 +61,19 @@ jobs:
         run: npm install
       - name: Run Vitest
         run: npm run test:vitest -- --run --coverage
+  test-cypress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Start server
+        run: npm start &
+      - name: Wait for server to start
+        run: sleep 3
+      - name: Run Cypress tests
+        run: npm run test:cypress

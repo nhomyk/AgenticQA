@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test:vitest": "vitest"
+    "test:vitest": "vitest",
+    "test:cypress": "cypress run"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
@@ -16,6 +17,7 @@
     "@playwright/test": "^1.57.0",
     "@vitest/coverage-v8": "^4.0.17",
     "@vitest/ui": "^4.0.17",
+    "cypress": "^15.8.2",
     "eslint": "^9.39.2",
     "jest": "^30.2.0",
     "vitest": "^4.0.17"
