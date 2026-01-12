@@ -27,8 +27,17 @@
       <button id="scanBtn">Scan</button>
     </div>
 
-    <h3>AgenticQA Engineer's Recommendations</h3>
-    <textarea id="recommendations" readonly placeholder="AI-powered recommendations for improvements will appear here"></textarea>
+
+    <div style="display: flex; gap: 24px; align-items: flex-start;">
+      <div style="flex: 1; min-width: 320px;">
+        <h3>AgenticQA Engineer's Recommendations</h3>
+        <textarea id="recommendations" readonly placeholder="AI-powered recommendations for improvements will appear here"></textarea>
+      </div>
+      <div style="flex: 1; min-width: 320px;">
+        <h3>Technologies Detected</h3>
+        <textarea id="technologies" readonly placeholder="Technologies used will appear here"></textarea>
+      </div>
+    </div>
 
     <h3>Scan Results</h3>
     <textarea id="results" readonly placeholder="Results will appear here (max 25 items)"></textarea>

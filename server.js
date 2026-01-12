@@ -76,6 +76,43 @@ app.post("/scan", async (req, res) => {
 
   let browser;
   try {
+    // Technology detection helper
+    async function detectTechnologies(page) {
+      const techs = [];
+      // React
+      const hasReact = await page.evaluate(() => !!window.React || !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__);
+      if (hasReact) techs.push("React");
+      // AngularJS
+      const hasAngular = await page.evaluate(() => !!window.angular);
+      if (hasAngular) techs.push("AngularJS");
+      // Vue.js
+      const hasVue = await page.evaluate(() => !!window.Vue);
+      if (hasVue) techs.push("Vue.js");
+      // jQuery
+      const hasJQuery = await page.evaluate(() => !!window.jQuery);
+      if (hasJQuery) techs.push("jQuery");
+      // Bootstrap (CSS)
+      const hasBootstrap = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).some(
+          el => el.outerHTML.includes("bootstrap")
+        )
+      );
+      if (hasBootstrap) techs.push("Bootstrap");
+      // Meta generator
+      const metaGenerator = await page.$eval('meta[name="generator"]', el => el.content).catch(() => null);
+      if (metaGenerator) techs.push(metaGenerator);
+      // Google Analytics
+      const hasGA = await page.evaluate(() => !!window.ga || !!window.gtag);
+      if (hasGA) techs.push("Google Analytics");
+      // WordPress
+      const isWordPress = await page.evaluate(() => !!window.wp || document.body.classList.contains('wp-admin'));
+      if (isWordPress) techs.push("WordPress");
+      // Shopify
+      const isShopify = await page.evaluate(() => window.Shopify !== undefined);
+      if (isShopify) techs.push("Shopify");
+      // Add more as needed
+      return techs;
+    }
     console.log("[SERVER] Launching browser for:", target);
     browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     const page = await browser.newPage();
@@ -260,11 +297,14 @@ app.post("/scan", async (req, res) => {
     // Generate AI recommendations based on scan results
     const recommendations = generateRecommendations(results, features, performanceResults);
 
+    // Detect technologies
+    const technologies = await detectTechnologies(page);
+
     // trim to 25 issue results
     const trimmed = results.slice(0, 25);
 
     await browser.close();
-    const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations };
+    const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations, technologies };
     console.log("[SERVER] Responding with payload:", JSON.stringify(responsePayload, null, 2));
     res.json(responsePayload);
   } catch (err) {

@@ -8,9 +8,17 @@ const playwrightBox = document.getElementById("playwright");
 const cypressBox = document.getElementById("cypress");
 const vitestBox = document.getElementById("vitest");
 const recommendationsBox = document.getElementById("recommendations");
+const technologiesBox = document.getElementById("technologies");
 
 
 function renderResults(resp) {
+    // render detected technologies if present
+    if (resp.technologies && Array.isArray(resp.technologies)) {
+      const headerT = "Technologies Detected\n\n";
+      technologiesBox.value = headerT + (resp.technologies.length ? resp.technologies.join(", ") : "None detected");
+    } else {
+      technologiesBox.value = "";
+    }
   if (!resp) return;
   if (resp.error) {
     resultsBox.value = "Error: " + resp.error;
