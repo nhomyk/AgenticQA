@@ -6,6 +6,7 @@ const performanceBox = document.getElementById("performance");
 const apisBox = document.getElementById("apis");
 const playwrightBox = document.getElementById("playwright");
 const cypressBox = document.getElementById("cypress");
+const vitestBox = document.getElementById("vitest");
 const recommendationsBox = document.getElementById("recommendations");
 
 
@@ -63,14 +64,16 @@ function renderResults(resp) {
     apisBox.value = "";
   }
 
-  // Playwright and Cypress examples for first test case
+  // Playwright, Cypress, and Vitest examples for first test case
   if (resp.testCases && Array.isArray(resp.testCases) && resp.testCases.length > 0) {
     const firstCase = resp.testCases[0] || "";
     playwrightBox.value = generatePlaywrightExample(firstCase, resp.url);
     cypressBox.value = generateCypressExample(firstCase, resp.url);
+    vitestBox.value = generateVitestExample(firstCase, resp.url);
   } else {
     playwrightBox.value = "";
     cypressBox.value = "";
+    vitestBox.value = "";
   }
 
   // render recommendations if present
@@ -93,6 +96,32 @@ function generateCypressExample(testCase, url) {
   // Simple mapping for demo purposes
   return `// Cypress example for: ${testCase}\ndescribe('First test case', () => {\n  it('should run the test', () => {\n    cy.visit('${url}');\n    // TODO: Implement: ${testCase}\n  });\n});`;
 }
+
+function generateVitestExample(testCase, url) {
+  // Simple mapping for demo purposes
+  return `// Vitest example for: ${testCase}\nimport { describe, it, expect } from 'vitest';\nimport { render, screen } from '@testing-library/vue';\n\ndescribe('First test case', () => {\n  it('should ${testCase.toLowerCase()}', async () => {\n    // Navigate to ${url}\n    // TODO: Implement: ${testCase}\n    expect(true).toBe(true);\n  });\n});`;
+}
+
+// Tab switching functionality
+document.querySelectorAll(".tab-button").forEach(button => {
+  button.addEventListener("click", () => {
+    const tabName = button.getAttribute("data-tab");
+    
+    // Hide all tab panes
+    document.querySelectorAll(".tab-pane").forEach(pane => {
+      pane.classList.remove("active");
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll(".tab-button").forEach(btn => {
+      btn.classList.remove("active");
+    });
+    
+    // Show selected tab pane and mark button as active
+    document.getElementById(tabName).classList.add("active");
+    button.classList.add("active");
+  });
+});
 
 scanBtn.addEventListener("click", async () => {
   const url = urlInput.value.trim();

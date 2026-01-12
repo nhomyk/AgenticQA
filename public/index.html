@@ -10,6 +10,13 @@
       button { padding: 8px 12px; }
       textarea { width: 100%; height: 360px; margin-top: 12px; font-family: monospace; }
       .small { font-size: 0.9em; color: #555 }
+      .tabs { display: flex; gap: 4px; margin-top: 12px; border-bottom: 2px solid #ddd; }
+      .tab-button { background: #f0f0f0; border: none; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+      .tab-button:hover { background: #e0e0e0; }
+      .tab-button.active { background: #fff; border-bottom-color: #0066cc; color: #0066cc; font-weight: bold; }
+      .tab-content { position: relative; }
+      .tab-pane { display: none; }
+      .tab-pane.active { display: block; }
     </style>
   </head>
   <body>
@@ -35,11 +42,17 @@
     <h3>APIs Used (first 10 calls)</h3>
     <textarea id="apis" readonly placeholder="APIs used on the page will appear here (max 10)"></textarea>
 
-    <h3>Playwright Example (first test case)</h3>
-    <textarea id="playwright" readonly placeholder="Playwright example for the first test case will appear here"></textarea>
-
-    <h3>Cypress Example (first test case)</h3>
-    <textarea id="cypress" readonly placeholder="Cypress example for the first test case will appear here"></textarea>
+    <h3>Test Framework Examples (first test case)</h3>
+    <div class="tabs">
+      <button class="tab-button active" data-tab="playwright">Playwright</button>
+      <button class="tab-button" data-tab="cypress">Cypress</button>
+      <button class="tab-button" data-tab="vitest">Vitest</button>
+    </div>
+    <div class="tab-content">
+      <textarea id="playwright" class="tab-pane active" readonly placeholder="Playwright example for the first test case will appear here"></textarea>
+      <textarea id="cypress" class="tab-pane" readonly placeholder="Cypress example for the first test case will appear here"></textarea>
+      <textarea id="vitest" class="tab-pane" readonly placeholder="Vitest example for the first test case will appear here"></textarea>
+    </div>
 
     <script src="/app.js"></script>
   </body>
