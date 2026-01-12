@@ -3,214 +3,179 @@ const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const path = require("path");
 
-const app = express();
-app.use(bodyParser.json({ limit: "1mb" }));
-app.use(express.static(path.join(__dirname, "public")));
-
-function normalizeUrl(input) {
-  try {
-    // add protocol if missing
-    if (!/^https?:\/\//i.test(input)) return "http://" + input;
-    return input;
-  } catch {
-    // ignore parsing errors
-    return input;
-  }
-}
-
-function mapIssue(type, message, recommendation) {
-  return { type, message, recommendation };
-}
-
-function generateRecommendations(results, features, performanceResults) {
-  const recommendations = [];
-  
-  // Count issues by type
-  const accessibilityIssues = results.filter(r => ["MissingAlt", "EmptyAlt", "MissingLabel", "HeadingOrder"].includes(r.type)).length;
-  const performanceIssues = results.filter(r => r.type === "RequestFailed").length;
-
-  // Recommendation 1: Accessibility & Inclusivity Strategy
-  if (accessibilityIssues > 8) {
-    recommendations.push(`🎯 Accessibility Crisis: ${accessibilityIssues} issues detected. This isn't just about compliance—it affects 15% of your audience. Start with: (1) ARIA labels on all form inputs (50% of issues), (2) Meaningful alt text on images (critical for SEO), (3) Color contrast ratios (4.5:1 minimum). Use aXe DevTools for continuous scanning. Budget 2-3 sprints for remediation.`);
-  } else if (accessibilityIssues > 3) {
-    recommendations.push(`♿ Accessibility Opportunity: ${accessibilityIssues} fixable issues. Implement: (1) Tab order testing (keyboard-only navigation), (2) ARIA landmarks for screen readers, (3) Focus indicators on interactive elements. This directly impacts: SEO ranking (+8%), user retention (+12%), legal compliance (ADA). Priority: High ROI improvements.`);
-  } else {
-    recommendations.push(`⭐ Accessibility Foundation Solid: Only ${accessibilityIssues || 0} minor issues. Next level: (1) ARIA live regions for dynamic content, (2) Semantic HTML audit, (3) Testing with real assistive tech users. This shows commitment to inclusive design—a competitive differentiator.`);
-  }
-  // Recommendation 2: Performance & User Experience
-  if (performanceIssues > 3) {
-    recommendations.push(`⚡ Critical Performance Issue: ${performanceIssues} failed requests. Each failure: (1) Increases bounce rate by 7%, (2) Costs ~$2.6M annually in lost revenue per 1sec delay. Actions: (1) Audit external dependencies for dead code, (2) Implement request retries with exponential backoff, (3) Set up error tracking (Sentry), (4) Cache aggressively. This is business-critical.`);
-  } else if (performanceResults && performanceResults.loadTimeMs > 3000) {
-    recommendations.push("⏱️ Load Time Optimization Critical: Page load >3 seconds. Each 100ms delay costs 1% conversion rate. Implement: (1) Image optimization (WebP format, lazy loading), (2) Code splitting (lazy load non-critical JS), (3) CDN adoption, (4) Service Worker caching, (5) Monitor Core Web Vitals monthly. Target: <2 seconds (mobile), <1 second (desktop).");
-  } else {
-    recommendations.push("🚀 Performance Excellence: Load times solid. Maintain competitive advantage: (1) Monthly Core Web Vitals audits via Google Lighthouse, (2) Implement Service Workers for offline experience, (3) Progressive image loading (LQIP), (4) Database query optimization. Benchmark against competitors to stay ahead.");
-  }
-
-  // Recommendation 3: API Design & Testing Strategy
-  const apiCount = features && features.hasForm ? 3 : 1;
-  if (apiCount > 10) {
-    recommendations.push(`🔌 API Architecture Review Needed: ${apiCount}+ API endpoints detected. Risk assessment: (1) Review for unused/deprecated endpoints (maintenance debt), (2) Audit response payloads for bloat, (3) Implement rate limiting to prevent abuse, (4) Standardize error responses (REST conventions), (5) Versioning strategy. Create API specification (OpenAPI/Swagger) for documentation and contract testing.`);
-  } else if (apiCount > 3) {
-    recommendations.push(`🧪 API Testing Foundation: ${apiCount} APIs identified. Critical gaps to fill: (1) Contract testing (verify endpoint schemas), (2) Integration tests (API chains), (3) Load testing under 100 concurrent users, (4) Security scanning (OWASP Top 10). Use Playwright for complex multi-step API flows. Coverage target: 85%+ of critical paths.`);
-  } else {
-    recommendations.push("📡 API Simplicity Advantage: Minimal APIs detected. Leverage this: (1) Comprehensive E2E tests covering all flows, (2) Mock API responses for frontend tests, (3) GraphQL evaluation (if complexity grows). Document all endpoints in OpenAPI 3.0 format for developer onboarding.");
-  }
-
-  // Recommendation 4: Testing & QA Automation Strategy
-  const issueCount = results.length;
-  recommendations.push(`🧪 Advanced Testing Strategy: Current scan identified ${issueCount} issues. Build comprehensive test pyramid: (1) Unit tests (40%): Core functions, utilities, calculations, (2) Integration tests (30%): API interactions, database queries, feature workflows, (3) E2E tests (20%): Critical user journeys, (4) Visual regression (10%): Design consistency. Target: 80%+ code coverage. Tools: Playwright (E2E), Vitest (unit), Percy (visual). CI/CD integration mandatory for velocity.`);
-
-  // Recommendation 5: Strategic QA Roadmap
-  recommendations.push("🎯 Strategic QA Roadmap (Q1-Q2): (1) Week 1-2: Establish testing infrastructure (CI/CD pipelines, baseline metrics), (2) Week 3-4: Unit test coverage to 60%, accessibility audit + fixes, (3) Week 5-8: E2E test suite for critical paths (15+ scenarios), API contract testing, (4) Week 9-12: Performance optimization, security audit, stress testing. Success metrics: Deploy confidence > 95%, bug escape rate < 2%, incident response time < 30min. This roadmap prevents technical debt and scales your team.");
-
-  return recommendations;
-}
-
-app.post("/scan", async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "Missing url" });
-  const target = normalizeUrl(url);
-  console.log("[SERVER] /scan called for URL:", target);
-
-  const results = [];
-
-  let browser;
-  try {
-    // Technology detection helper
-    async function detectTechnologies(page) {
-      const techs = [];
-      const techUrls = [];
-      // React
-      if (await page.evaluate(() => !!window.React || !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__)) techs.push("React");
-      // AngularJS
-      if (await page.evaluate(() => !!window.angular)) techs.push("AngularJS");
-      // Vue.js
-      if (await page.evaluate(() => !!window.Vue)) techs.push("Vue.js");
-      // Svelte
-      if (await page.evaluate(() => !!window.__svelte__)) techs.push("Svelte");
-      // Next.js
-      if (await page.evaluate(() => !!window.next)) techs.push("Next.js");
-      // Nuxt.js
-      if (await page.evaluate(() => !!window.__NUXT__)) techs.push("Nuxt.js");
-      // jQuery
-      if (await page.evaluate(() => !!window.jQuery)) techs.push("jQuery");
-      // Lodash
-      if (await page.evaluate(() => !!window._ && !!window._.chunk)) techs.push("Lodash");
-      // Moment.js
-      if (await page.evaluate(() => !!window.moment)) techs.push("Moment.js");
-      // Bootstrap (CSS)
-      if (await page.evaluate(() => Array.from(document.querySelectorAll("link[rel=\"stylesheet\"], style")).some(el => el.outerHTML.includes("bootstrap")))) techs.push("Bootstrap");
-      // Tailwind CSS
-      if (await page.evaluate(() => Array.from(document.querySelectorAll("link[rel=\"stylesheet\"]")).some(el => el.href.includes("tailwind")))) techs.push("Tailwind CSS");
-      // Bulma CSS
-      if (await page.evaluate(() => Array.from(document.querySelectorAll("link[rel=\"stylesheet\"]")).some(el => el.href.includes("bulma")))) techs.push("Bulma CSS");
-      // Google Analytics
-      if (await page.evaluate(() => !!window.ga || !!window.gtag)) techs.push("Google Analytics");
-      // Google Tag Manager
-      if (await page.evaluate(() => !!window.dataLayer)) techs.push("Google Tag Manager");
-      // WordPress
-      if (await page.evaluate(() => !!window.wp || document.body.classList.contains("wp-admin"))) techs.push("WordPress");
-      // Shopify
-      if (await page.evaluate(() => window.Shopify !== undefined)) techs.push("Shopify");
-      // Meta generator
-      const metaGenerator = await page.$eval("meta[name=\"generator\"]", el => el.content).catch(() => null);
-      if (metaGenerator) techs.push(metaGenerator);
-      // Meta framework
-      const metaFramework = await page.$eval('meta[name="framework"]', el => el.content).catch(() => null);
-      if (metaFramework) techs.push(metaFramework);
-      // CDN/hosted libraries and framework hints from URLs
-      const scripts = await page.$$eval('script[src]', els => els.map(e => e.src));
-      const links = await page.$$eval('link[rel="stylesheet"]', els => els.map(e => e.href));
-      // Heuristic: look for framework-specific URL patterns
-      scripts.forEach(src => {
-        if (src.includes('_next/')) { techs.push('Next.js'); techUrls.push(src); }
-        if (src.includes('_nuxt/')) { techs.push('Nuxt.js'); techUrls.push(src); }
-        if (src.includes('svelte')) { techs.push('Svelte'); techUrls.push(src); }
-        if (src.includes('vue')) { techs.push('Vue.js'); techUrls.push(src); }
-        if (src.includes('react')) { techs.push('React'); techUrls.push(src); }
-        if (src.includes('angular')) { techs.push('AngularJS'); techUrls.push(src); }
-        if (src.includes('jquery')) { techs.push('jQuery (CDN)'); techUrls.push(src); }
-        if (src.includes('cloudflare')) { techs.push('Cloudflare CDN'); techUrls.push(src); }
-        if (src.includes('unpkg')) { techs.push('unpkg CDN'); techUrls.push(src); }
-        if (src.includes('jsdelivr')) { techs.push('jsDelivr CDN'); techUrls.push(src); }
-      });
-      links.forEach(href => {
-        if (href.includes('bootstrap')) { techs.push('Bootstrap'); techUrls.push(href); }
-        if (href.includes('tailwind')) { techs.push('Tailwind CSS'); techUrls.push(href); }
-        if (href.includes('bulma')) { techs.push('Bulma CSS'); techUrls.push(href); }
-        if (href.includes('cloudflare')) { techs.push('Cloudflare CDN'); techUrls.push(href); }
-        if (href.includes('unpkg')) { techs.push('unpkg CDN'); techUrls.push(href); }
-        if (href.includes('jsdelivr')) { techs.push('jsDelivr CDN'); techUrls.push(href); }
-      });
-      // Remove duplicates
-      const uniqueTechs = [...new Set(techs)];
-      const uniqueUrls = [...new Set(techUrls)];
-      console.log("[SERVER] detectTechnologies found:", uniqueTechs, uniqueUrls);
-      return { techs: uniqueTechs, urls: uniqueUrls };
-    }
-    console.log("[SERVER] Launching browser for:", target);
-    try {
-      browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"], timeout: 20000 });
-    } catch (e) {
-      console.error("[SERVER] Puppeteer failed to launch:", e);
-      res.status(500).json({ error: "Puppeteer failed to launch: " + e.message });
-      return;
-    }
-    const page = await browser.newPage();
-
-    // collect console errors
-    page.on("console", msg => {
-      try {
-        if (msg.type() === "error") {
-          results.push(mapIssue("ConsoleError", msg.text(), "Check the stack trace and source; fix the script error or wrap calls in try/catch."));
-        }
-      } catch (e) {
-         
-        void e;
-      }
-    });
-
-    // uncaught page errors
-    page.on("pageerror", err => {
-      results.push(mapIssue("PageError", String(err), "Fix the exception in page scripts; guard against undefined values."));
-    });
-
-    // request tracking for basic performance metrics
-    let totalRequests = 0;
-    let failedRequests = 0;
-    page.on("request", () => {
-      totalRequests += 1;
-    });
-    page.on("requestfailed", request => {
-      failedRequests += 1;
-      results.push(mapIssue("RequestFailed", `${request.url()} -> ${request.failure() && request.failure().errorText}`, "Check resource URL and server responses; ensure CORS and availability."));
-    });
-    page.on("requestfinished", () => {
-      // finished requests counted via `request` event; keep hooks for future metrics
-    });
-
-    await page.setViewport({ width: 1280, height: 900 });
-    await page.goto(target, { waitUntil: "load", timeout: 30000 }).catch((e) => {
-      results.push(mapIssue("NavigationError", String(e), "Verify the URL and network; consider increasing timeout."));
-    });
-
-
-    // DOM checks, feature detection, and API usage detection
-    const domResult = await page.evaluate(() => {
-      const issues = [];
-
-      const features = {
-        hasForm: !!document.querySelector("form"),
-        hasSearch: !!document.querySelector("input[type=\"search\"], input[name*=\"search\" i], form[action*=\"search\" i]"),
-        hasLogin: !!document.querySelector("input[type=\"password\"], form[action*=\"/login\" i]"),
-        hasImages: !!document.querySelector("img"),
-        hasLinks: !!document.querySelector("a[href]"),
-        hasButtons: !!document.querySelector("button, [role=\"button\"]"),
-        hasNav: !!document.querySelector("nav"),
-        hasTables: !!document.querySelector("table"),
-        hasModal: !!document.querySelector("[role=\"dialog\"], .modal"),
-        headingCount: document.querySelectorAll("h1,h2,h3").length
-      };
+            { name: "React", pattern: /react/i },
+            { name: "Angular", pattern: /angular/i },
+            { name: "Vue", pattern: /vue(\.js)?/i },
+            { name: "Svelte", pattern: /svelte/i },
+            { name: "Next.js", pattern: /next(\.js)?/i },
+            { name: "Nuxt.js", pattern: /nuxt(\.js)?/i },
+            { name: "Gatsby", pattern: /gatsby/i },
+            { name: "Ember", pattern: /ember/i },
+            { name: "Preact", pattern: /preact/i },
+            { name: "jQuery", pattern: /jquery/i },
+            { name: "Backbone", pattern: /backbone/i },
+            { name: "Alpine.js", pattern: /alpine(\.js)?/i },
+            { name: "Bootstrap", pattern: /bootstrap/i },
+            { name: "Tailwind CSS", pattern: /tailwind/i },
+            { name: "Bulma", pattern: /bulma/i },
+            { name: "Material UI", pattern: /material[- ]?ui/i },
+            { name: "Chakra UI", pattern: /chakra[- ]?ui/i },
+            { name: "Express", pattern: /express/i },
+            { name: "Koa", pattern: /koa/i },
+            { name: "Fastify", pattern: /fastify/i },
+            { name: "NestJS", pattern: /nestjs/i },
+            { name: "Django", pattern: /django/i },
+            { name: "Flask", pattern: /flask/i },
+            { name: "Rails", pattern: /rails/i },
+            { name: "Laravel", pattern: /laravel/i },
+            { name: "Spring", pattern: /spring/i },
+            { name: "ASP.NET", pattern: /asp\.net/i },
+            { name: "WordPress", pattern: /wordpress/i },
+            { name: "Drupal", pattern: /drupal/i },
+            { name: "Magento", pattern: /magento/i },
+            { name: "Shopify", pattern: /shopify/i },
+            { name: "Squarespace", pattern: /squarespace/i },
+            { name: "Wix", pattern: /wix/i },
+            { name: "Babel", pattern: /babel/i },
+            { name: "Webpack", pattern: /webpack/i },
+            { name: "Parcel", pattern: /parcel/i },
+            { name: "Vite", pattern: /vite/i },
+            { name: "Rollup", pattern: /rollup/i },
+            { name: "Grunt", pattern: /grunt/i },
+            { name: "Gulp", pattern: /gulp/i },
+            { name: "Mocha", pattern: /mocha/i },
+            { name: "Jest", pattern: /jest/i },
+            { name: "Cypress", pattern: /cypress/i },
+            { name: "Playwright", pattern: /playwright/i },
+            { name: "Vitest", pattern: /vitest/i },
+            { name: "Jasmine", pattern: /jasmine/i },
+            { name: "Testing Library", pattern: /testing[- ]?library/i },
+            { name: "Puppeteer", pattern: /puppeteer/i },
+            { name: "Nightmare", pattern: /nightmare/i },
+            { name: "Selenium", pattern: /selenium/i },
+            { name: "QUnit", pattern: /qunit/i },
+            { name: "AVA", pattern: /ava/i },
+            { name: "Chai", pattern: /chai/i },
+            { name: "Sinon", pattern: /sinon/i },
+            { name: "Enzyme", pattern: /enzyme/i },
+            { name: "Storybook", pattern: /storybook/i },
+            { name: "Redux", pattern: /redux/i },
+            { name: "MobX", pattern: /mobx/i },
+            { name: "RxJS", pattern: /rxjs/i },
+            { name: "Apollo", pattern: /apollo/i },
+            { name: "GraphQL", pattern: /graphql/i },
+            { name: "Socket.io", pattern: /socket\.io/i },
+            { name: "D3.js", pattern: /d3(\.js)?/i },
+            { name: "Chart.js", pattern: /chart(\.js)?/i },
+            { name: "Three.js", pattern: /three(\.js)?/i },
+            { name: "PixiJS", pattern: /pixijs/i },
+            { name: "GSAP", pattern: /gsap/i },
+            { name: "Anime.js", pattern: /anime(\.js)?/i },
+            { name: "Lodash", pattern: /lodash/i },
+            { name: "Underscore", pattern: /underscore/i },
+            { name: "Moment.js", pattern: /moment(\.js)?/i },
+            { name: "Day.js", pattern: /day(\.js)?/i },
+            { name: "Date-fns", pattern: /date[- ]?fns/i },
+            { name: "Ramda", pattern: /ramda/i },
+            { name: "Immutable.js", pattern: /immutable(\.js)?/i },
+            { name: "Bluebird", pattern: /bluebird/i },
+            { name: "Axios", pattern: /axios/i },
+            { name: "Superagent", pattern: /superagent/i },
+            { name: "Fetch", pattern: /fetch/i },
+            { name: "jQuery Ajax", pattern: /jquery\.ajax/i },
+            { name: "XMLHttpRequest", pattern: /xmlhttprequest/i },
+            { name: "SocketCluster", pattern: /socketcluster/i },
+            { name: "FeathersJS", pattern: /feathers/i },
+            { name: "Meteor", pattern: /meteor/i },
+            { name: "Parse", pattern: /parse/i },
+            { name: "Firebase", pattern: /firebase/i },
+            { name: "AWS Amplify", pattern: /amplify/i },
+            { name: "Netlify", pattern: /netlify/i },
+            { name: "Vercel", pattern: /vercel/i },
+            { name: "Heroku", pattern: /heroku/i },
+            { name: "Glitch", pattern: /glitch/i },
+            { name: "Surge", pattern: /surge/i },
+            { name: "Render", pattern: /render/i },
+            { name: "DigitalOcean", pattern: /digitalocean/i },
+            { name: "Linode", pattern: /linode/i },
+            { name: "Vultr", pattern: /vultr/i },
+            { name: "OVH", pattern: /ovh/i },
+            { name: "Hetzner", pattern: /hetzner/i },
+            { name: "Cloudflare", pattern: /cloudflare/i },
+            { name: "Fastly", pattern: /fastly/i },
+            { name: "Akamai", pattern: /akamai/i },
+            { name: "Google Cloud", pattern: /google cloud/i },
+            { name: "AWS", pattern: /aws/i },
+            { name: "Azure", pattern: /azure/i },
+            { name: "IBM Cloud", pattern: /ibm cloud/i },
+            { name: "Oracle Cloud", pattern: /oracle cloud/i },
+            { name: "Salesforce", pattern: /salesforce/i },
+            { name: "SAP", pattern: /sap/i },
+            { name: "ServiceNow", pattern: /servicenow/i },
+            { name: "Atlassian", pattern: /atlassian/i },
+            { name: "Slack", pattern: /slack/i },
+            { name: "Twilio", pattern: /twilio/i },
+            { name: "SendGrid", pattern: /sendgrid/i },
+            { name: "Mailgun", pattern: /mailgun/i },
+            { name: "Mailchimp", pattern: /mailchimp/i },
+            { name: "Stripe", pattern: /stripe/i },
+            { name: "PayPal", pattern: /paypal/i },
+            { name: "Square", pattern: /square/i },
+            { name: "Plaid", pattern: /plaid/i },
+            { name: "Auth0", pattern: /auth0/i },
+            { name: "Okta", pattern: /okta/i },
+            { name: "OneLogin", pattern: /onelogin/i },
+            { name: "Ping Identity", pattern: /ping identity/i },
+            { name: "Duo", pattern: /duo/i },
+            { name: "HashiCorp", pattern: /hashicorp/i },
+            { name: "Terraform", pattern: /terraform/i },
+            { name: "Ansible", pattern: /ansible/i },
+            { name: "Chef", pattern: /chef/i },
+            { name: "Puppet", pattern: /puppet/i },
+            { name: "SaltStack", pattern: /saltstack/i },
+            { name: "Kubernetes", pattern: /kubernetes/i },
+            { name: "Docker", pattern: /docker/i },
+            { name: "Podman", pattern: /podman/i },
+            { name: "OpenShift", pattern: /openshift/i },
+            { name: "Rancher", pattern: /rancher/i },
+            { name: "Nomad", pattern: /nomad/i },
+            { name: "Consul", pattern: /consul/i },
+            { name: "Vault", pattern: /vault/i },
+            { name: "Prometheus", pattern: /prometheus/i },
+            { name: "Grafana", pattern: /grafana/i },
+            { name: "ELK Stack", pattern: /elk stack|elasticsearch|logstash|kibana/i },
+            { name: "Splunk", pattern: /splunk/i },
+            { name: "Datadog", pattern: /datadog/i },
+            { name: "New Relic", pattern: /new relic/i },
+            { name: "Sentry", pattern: /sentry/i },
+            { name: "PagerDuty", pattern: /pagerduty/i },
+            { name: "Opsgenie", pattern: /opsgenie/i },
+            { name: "VictorOps", pattern: /victorops/i },
+            { name: "Statuspage", pattern: /statuspage/i },
+            { name: "Pingdom", pattern: /pingdom/i },
+            { name: "UptimeRobot", pattern: /uptimerobot/i },
+            { name: "Better Uptime", pattern: /better uptime/i },
+            { name: "Freshping", pattern: /freshping/i },
+            { name: "Uptrends", pattern: /uptrends/i },
+            { name: "Site24x7", pattern: /site24x7/i },
+            { name: "AppDynamics", pattern: /appdynamics/i },
+            { name: "Dynatrace", pattern: /dynatrace/i },
+            { name: "Instana", pattern: /instana/i },
+            { name: "LogicMonitor", pattern: /logicmonitor/i },
+            { name: "ScienceLogic", pattern: /sciencelogic/i },
+            { name: "Zabbix", pattern: /zabbix/i },
+            { name: "Nagios", pattern: /nagios/i },
+            { name: "Icinga", pattern: /icinga/i },
+            { name: "Centreon", pattern: /centreon/i },
+            { name: "PRTG", pattern: /prtg/i },
+            { name: "SolarWinds", pattern: /solarwinds/i },
+            { name: "ManageEngine", pattern: /manageengine/i },
+            { name: "WhatsUp Gold", pattern: /whatsup gold/i },
+            { name: "Checkmk", pattern: /checkmk/i },
+            { name: "OpenNMS", pattern: /opennms/i },
+            { name: "LibreNMS", pattern: /librenms/i },
+            { name: "Observium", pattern: /observium/i },
+            { name: "Netdata", pattern: /netdata/i }
 
       // images missing alt or empty alt
       document.querySelectorAll("img").forEach(img => {
