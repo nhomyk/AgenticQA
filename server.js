@@ -79,6 +79,7 @@ app.post("/scan", async (req, res) => {
     // Technology detection helper
     async function detectTechnologies(page) {
       const techs = [];
+      const techUrls = [];
       // React
       if (await page.evaluate(() => !!window.React || !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__)) techs.push("React");
       // AngularJS
@@ -117,15 +118,35 @@ app.post("/scan", async (req, res) => {
       // Meta framework
       const metaFramework = await page.$eval('meta[name="framework"]', el => el.content).catch(() => null);
       if (metaFramework) techs.push(metaFramework);
-      // CDN/hosted libraries
+      // CDN/hosted libraries and framework hints from URLs
       const scripts = await page.$$eval('script[src]', els => els.map(e => e.src));
-      if (scripts.some(src => src.includes('cloudflare'))) techs.push("Cloudflare CDN");
-      if (scripts.some(src => src.includes('unpkg'))) techs.push("unpkg CDN");
-      if (scripts.some(src => src.includes('jsdelivr'))) techs.push("jsDelivr CDN");
-      if (scripts.some(src => src.includes('jquery'))) techs.push("jQuery (CDN)");
-      // Add more as needed
-      console.log("[SERVER] detectTechnologies found:", techs);
-      return techs;
+      const links = await page.$$eval('link[rel="stylesheet"]', els => els.map(e => e.href));
+      // Heuristic: look for framework-specific URL patterns
+      scripts.forEach(src => {
+        if (src.includes('_next/')) { techs.push('Next.js'); techUrls.push(src); }
+        if (src.includes('_nuxt/')) { techs.push('Nuxt.js'); techUrls.push(src); }
+        if (src.includes('svelte')) { techs.push('Svelte'); techUrls.push(src); }
+        if (src.includes('vue')) { techs.push('Vue.js'); techUrls.push(src); }
+        if (src.includes('react')) { techs.push('React'); techUrls.push(src); }
+        if (src.includes('angular')) { techs.push('AngularJS'); techUrls.push(src); }
+        if (src.includes('jquery')) { techs.push('jQuery (CDN)'); techUrls.push(src); }
+        if (src.includes('cloudflare')) { techs.push('Cloudflare CDN'); techUrls.push(src); }
+        if (src.includes('unpkg')) { techs.push('unpkg CDN'); techUrls.push(src); }
+        if (src.includes('jsdelivr')) { techs.push('jsDelivr CDN'); techUrls.push(src); }
+      });
+      links.forEach(href => {
+        if (href.includes('bootstrap')) { techs.push('Bootstrap'); techUrls.push(href); }
+        if (href.includes('tailwind')) { techs.push('Tailwind CSS'); techUrls.push(href); }
+        if (href.includes('bulma')) { techs.push('Bulma CSS'); techUrls.push(href); }
+        if (href.includes('cloudflare')) { techs.push('Cloudflare CDN'); techUrls.push(href); }
+        if (href.includes('unpkg')) { techs.push('unpkg CDN'); techUrls.push(href); }
+        if (href.includes('jsdelivr')) { techs.push('jsDelivr CDN'); techUrls.push(href); }
+      });
+      // Remove duplicates
+      const uniqueTechs = [...new Set(techs)];
+      const uniqueUrls = [...new Set(techUrls)];
+      console.log("[SERVER] detectTechnologies found:", uniqueTechs, uniqueUrls);
+      return { techs: uniqueTechs, urls: uniqueUrls };
     }
     console.log("[SERVER] Launching browser for:", target);
     try {
@@ -319,13 +340,23 @@ app.post("/scan", async (req, res) => {
 
     // Detect technologies
     const technologies = await detectTechnologies(page);
-  console.log("[SERVER] Technologies detected for", target, ":", technologies);
+    // Support old and new return format for backward compatibility
+    let technologiesArr = [];
+    let technologyUrls = [];
+    if (technologies && Array.isArray(technologies.techs)) {
+      technologiesArr = technologies.techs;
+      technologyUrls = technologies.urls;
+    } else if (Array.isArray(technologies)) {
+      technologiesArr = technologies;
+    }
+    console.log("[SERVER] Technologies detected for", target, ":", technologiesArr, technologyUrls);
 
     // trim to 25 issue results
     const trimmed = results.slice(0, 25);
 
     await browser.close();
     const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations, technologies };
+    const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations, technologies: technologiesArr, technologyUrls };
     console.log("[SERVER] Responding with payload:", JSON.stringify(responsePayload, null, 2));
     res.json(responsePayload);
   } catch (err) {

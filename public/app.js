@@ -14,11 +14,27 @@ const technologiesBox = document.getElementById("technologies");
 function renderResults(resp) {
   // Always show the header for technologies, even on error
   const headerT = "Technologies Detected\n\n";
-  if (resp && resp.technologies && Array.isArray(resp.technologies)) {
-    technologiesBox.value = headerT + (resp.technologies.length ? resp.technologies.join(", ") : "None detected");
-  } else {
-    technologiesBox.value = headerT + "None detected";
+  let techNames = [];
+  if (resp && Array.isArray(resp.technologies)) {
+    techNames = resp.technologies.slice();
   }
+  // Extract technology names from technologyUrls
+  if (resp && Array.isArray(resp.technologyUrls)) {
+    resp.technologyUrls.forEach(url => {
+      // Heuristic: extract framework/library name from URL
+      let match = url.match(/([\w-]+)(?:[./@-])/i);
+      if (match && match[1]) {
+        let name = match[1].replace(/_/g, ' ');
+        // Filter out generic words
+        if (!['cdn', 'js', 'css', 'lib', 'dist', 'static', 'assets', 'min', 'main', 'bundle', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10'].includes(name.toLowerCase())) {
+          techNames.push(name.charAt(0).toUpperCase() + name.slice(1));
+        }
+      }
+    });
+  }
+  // Deduplicate and sort
+  techNames = [...new Set(techNames)].sort();
+  technologiesBox.value = headerT + (techNames.length ? techNames.join(", ") : "None detected");
   if (!resp) return;
   if (resp.error) {
     resultsBox.value = "Error: " + resp.error;
