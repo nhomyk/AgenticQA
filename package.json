@@ -4,7 +4,8 @@
   "description": "Agentic QA Engineer: scans webpages for console errors and DOM issues using Puppeteer",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:vitest": "vitest"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
@@ -13,7 +14,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
+    "@vitest/ui": "^4.0.17",
     "eslint": "^9.39.2",
-    "jest": "^30.2.0"
+    "jest": "^30.2.0",
+    "vitest": "^4.0.17"
   }
 }

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1768226890480" clover="3.2.0">
-  <project timestamp="1768226890480" name="All files">
-    <metrics statements="244" coveredstatements="23" conditionals="173" coveredconditionals="6" methods="47" coveredmethods="4" elements="464" coveredelements="33" complexity="0" loc="244" ncloc="244" packages="2" files="3" classes="3"/>
+<coverage generated="1768228085168" clover="3.2.0">
+  <project timestamp="1768228085168" name="All files">
+    <metrics statements="245" coveredstatements="23" conditionals="175" coveredconditionals="6" methods="47" coveredmethods="4" elements="467" coveredelements="33" complexity="0" loc="245" ncloc="245" packages="2" files="3" classes="3"/>
     <package name="AgenticQA">
-      <metrics statements="188" coveredstatements="23" conditionals="150" coveredconditionals="6" methods="39" coveredmethods="4"/>
+      <metrics statements="189" coveredstatements="23" conditionals="152" coveredconditionals="6" methods="39" coveredmethods="4"/>
       <file name="debug_scan.js" path="/Users/nicholashomyk/mono/AgenticQA/debug_scan.js">
-        <metrics statements="67" coveredstatements="8" conditionals="44" coveredconditionals="2" methods="13" coveredmethods="2"/>
+        <metrics statements="67" coveredstatements="8" conditionals="44" coveredconditionals="1" methods="13" coveredmethods="2"/>
         <line num="2" count="1" type="stmt"/>
         <line num="5" count="1" type="stmt"/>
         <line num="8" count="1" type="stmt"/>
@@ -71,11 +71,11 @@
         <line num="102" count="0" type="stmt"/>
         <line num="103" count="0" type="stmt"/>
         <line num="104" count="0" type="stmt"/>
-        <line num="108" count="1" type="cond" truecount="2" falsecount="0"/>
+        <line num="108" count="1" type="cond" truecount="1" falsecount="1"/>
         <line num="109" count="1" type="stmt"/>
       </file>
       <file name="server.js" path="/Users/nicholashomyk/mono/AgenticQA/server.js">
-        <metrics statements="121" coveredstatements="15" conditionals="106" coveredconditionals="4" methods="26" coveredmethods="2"/>
+        <metrics statements="122" coveredstatements="15" conditionals="108" coveredconditionals="5" methods="26" coveredmethods="2"/>
         <line num="1" count="1" type="stmt"/>
         <line num="2" count="1" type="stmt"/>
         <line num="3" count="1" type="stmt"/>
@@ -195,8 +195,9 @@
         <line num="222" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="223" count="0" type="stmt"/>
         <line num="227" count="1" type="cond" truecount="2" falsecount="0"/>
-        <line num="228" count="1" type="stmt"/>
-        <line num="231" count="1" type="stmt"/>
+        <line num="228" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="229" count="0" type="stmt"/>
+        <line num="233" count="1" type="stmt"/>
       </file>
     </package>
     <package name="AgenticQA.public">
