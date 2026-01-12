@@ -30,6 +30,15 @@ async function bumpVersion() {
   await git.add(pkgPath);
   await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
   await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
+  // Set remote URL to use PAT for push
+  if (process.env.GH_PAT) {
+    await git.raw([
+      "remote",
+      "set-url",
+      "origin",
+      `https://${process.env.GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git`
+    ]);
+  }
   await git.commit(`chore: bump version to ${pkg.version}`);
   await git.push();
   return pkg.version;
@@ -79,6 +88,15 @@ async function autoFixAndCommit() {
   await git.add(".");
   await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
   await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
+  // Set remote URL to use PAT for push
+  if (process.env.GH_PAT) {
+    await git.raw([
+      "remote",
+      "set-url",
+      "origin",
+      `https://${process.env.GH_PAT}@github.com/${REPO_OWNER}/${REPO_NAME}.git`
+    ]);
+  }
   await git.commit("chore: auto-fix lint errors");
   await git.push();
 }
