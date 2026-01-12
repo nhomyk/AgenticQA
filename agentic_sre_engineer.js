@@ -37,11 +37,9 @@ async function bumpVersion() {
   await git.add(pkgPath);
   await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
   await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
-  // Configure git credentials if running in GitHub Actions
+  // Configure git token-based auth if running in GitHub Actions
   if (GITHUB_TOKEN) {
-    await git.raw(["config", "--global", "credential.helper", "store"]);
-    const credsFile = path.join(process.env.HOME || "/tmp", ".git-credentials");
-    fs.writeFileSync(credsFile, `https://x-access-token:${GITHUB_TOKEN}@github.com\n`, { mode: 0o600 });
+    await git.raw(["config", "--global", `url.https://x-access-token:${GITHUB_TOKEN}@github.com/.insteadOf`, "https://github.com/"]);
   }
   await git.commit(`chore: bump version to ${pkg.version}`);
   try {
@@ -294,11 +292,9 @@ async function makeCodeChanges(failureAnalysis) {
     
     await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
     await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
-    // Configure git credentials if running in GitHub Actions
-    if (process.env.GITHUB_TOKEN) {
-      await git.raw(["config", "--global", "credential.helper", "store"]);
-      const credsFile = path.join(process.env.HOME || "/tmp", ".git-credentials");
-      fs.writeFileSync(credsFile, `https://x-access-token:${process.env.GITHUB_TOKEN}@github.com\n`, { mode: 0o600 });
+    // Configure git token-based auth if running in GitHub Actions
+    if (GITHUB_TOKEN) {
+      await git.raw(["config", "--global", `url.https://x-access-token:${GITHUB_TOKEN}@github.com/.insteadOf`, "https://github.com/"]);
     }
     
     await git.commit("fix: agentic code repairs from test analysis");
