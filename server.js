@@ -66,7 +66,8 @@ app.post('/scan', async (req, res) => {
       results.push(mapIssue('NavigationError', String(e), 'Verify the URL and network; consider increasing timeout.'));
     });
 
-    // DOM checks and feature detection for test case generation
+
+    // DOM checks, feature detection, and API usage detection
     const domResult = await page.evaluate(() => {
       const issues = [];
 
@@ -122,10 +123,35 @@ app.post('/scan', async (req, res) => {
         }
       }
 
-      return { issues, features };
+      // API usage detection (fetch/XHR)
+      const apiCalls = [];
+      const origFetch = window.fetch;
+      window.__apiCalls = [];
+      window.fetch = function(...args) {
+        window.__apiCalls.push(args[0]);
+        return origFetch.apply(this, args);
+      };
+      const origXhrOpen = window.XMLHttpRequest && window.XMLHttpRequest.prototype.open;
+      if (origXhrOpen) {
+        window.XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+          window.__apiCalls.push(url);
+          return origXhrOpen.call(this, method, url, ...rest);
+        };
+      }
+
+      // Wait a bit to collect API calls (simulate page activity)
+      return new Promise(resolve => {
+        setTimeout(() => {
+          const apis = (window.__apiCalls || []).slice(0, 10);
+          resolve({ issues, features, apis });
+        }, 2000);
+      });
     });
 
-    domResult.issues.forEach(i => results.push(mapIssue(i.type, i.message, i.recommendation)));
+
+    // domResult is now a Promise result
+    const { issues: domIssues, features, apis } = domResult;
+    domIssues.forEach(i => results.push(mapIssue(i.type, i.message, i.recommendation));
 
     // Performance / JMeter-like summary using resource timings
     const perf = await page.evaluate(() => {
@@ -154,7 +180,7 @@ app.post('/scan', async (req, res) => {
 
     // generate recommended test cases (10 positive, 10 negative) based on features
     const testCases = [];
-    const f = domResult.features;
+    const f = features;
     // helper to push up to 20
     const pushIf = (title) => { if (testCases.length < 20) testCases.push(title); };
 
@@ -186,7 +212,7 @@ app.post('/scan', async (req, res) => {
     const trimmed = results.slice(0, 25);
 
     await browser.close();
-    res.json({ url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults });
+    res.json({ url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [] });
   } catch (err) {
     if (browser) await browser.close();
     res.status(500).json({ error: String(err), results: results.slice(0,25) });

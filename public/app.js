@@ -3,6 +3,10 @@ const urlInput = document.getElementById('urlInput');
 const resultsBox = document.getElementById('results');
 const testcasesBox = document.getElementById('testcases');
 const performanceBox = document.getElementById('performance');
+const apisBox = document.getElementById('apis');
+const playwrightBox = document.getElementById('playwright');
+const cypressBox = document.getElementById('cypress');
+
 
 function renderResults(resp) {
   if (!resp) return;
@@ -40,6 +44,37 @@ function renderResults(resp) {
   } else {
     performanceBox.value = '';
   }
+
+  // render APIs used if present
+  if (resp.apis && Array.isArray(resp.apis) && resp.apis.length > 0) {
+    const headerA = 'APIs used on this page (first 10 calls)\n\n';
+    const apiLines = resp.apis.map((a, i) => `${i+1}. ${a}`);
+    apisBox.value = headerA + apiLines.join('\n');
+  } else {
+    apisBox.value = '';
+  }
+
+  // Playwright and Cypress examples for first test case
+  if (resp.testCases && resp.testCases.length > 0) {
+    const firstCase = resp.testCases[0] || '';
+    playwrightBox.value = generatePlaywrightExample(firstCase, resp.url);
+    cypressBox.value = generateCypressExample(firstCase, resp.url);
+  } else {
+    playwrightBox.value = '';
+    cypressBox.value = '';
+  }
+
+}
+
+function generatePlaywrightExample(testCase, url) {
+  // Simple mapping for demo purposes
+  return `// Playwright example for: ${testCase}\nconst { test, expect } = require('@playwright/test');\n\ntest('First test case', async ({ page }) => {\n  await page.goto('${url}');\n  // TODO: Implement: ${testCase}\n});`;
+}
+
+function generateCypressExample(testCase, url) {
+  // Simple mapping for demo purposes
+  return `// Cypress example for: ${testCase}\ndescribe('First test case', () => {\n  it('should run the test', () => {\n    cy.visit('${url}');\n    // TODO: Implement: ${testCase}\n  });\n});`;
+}
 }
 
 scanBtn.addEventListener('click', async () => {
