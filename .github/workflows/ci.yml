@@ -160,8 +160,6 @@ on:
             git add .
             git diff --cached --quiet || git commit -m "fix: auto-fix by Agentic SRE Engineer"
             git push || true
-          echo "  • Submitted URL to frontend for QA analysis"
-          echo "  • Analyzed scan results"
           echo "  • Generated 3 AI-powered recommendations"
           echo ""
           echo "💡 Recommendations cover:"
