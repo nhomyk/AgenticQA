@@ -11,7 +11,15 @@ test.describe('Agentic QA Engineer UI', () => {
     await expect(page.locator('#testcases')).toBeVisible();
     await expect(page.locator('#performance')).toBeVisible();
     await expect(page.locator('#apis')).toBeVisible();
+    // Playwright tab is active by default
     await expect(page.locator('#playwright')).toBeVisible();
+    // Test that tab elements exist (Cypress and Vitest are hidden by default)
+    await expect(page.locator('#cypress')).toHaveClass(/tab-pane/);
+    await expect(page.locator('#vitest')).toHaveClass(/tab-pane/);
+    // Test tab switching
+    await page.click('[data-tab="cypress"]');
     await expect(page.locator('#cypress')).toBeVisible();
+    await page.click('[data-tab="vitest"]');
+    await expect(page.locator('#vitest')).toBeVisible();
   });
 });

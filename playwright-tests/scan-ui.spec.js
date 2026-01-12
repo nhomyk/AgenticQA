@@ -12,12 +12,18 @@ test.describe("Agentic QA Engineer UI - Scan Flow", () => {
 
   test("should have all result boxes visible on the page", async ({ page }) => {
     await page.goto("/");
-    // Verify all textarea boxes are present and visible
+    // Verify all textarea boxes are present
     await expect(page.locator("#results")).toBeVisible();
     await expect(page.locator("#testcases")).toBeVisible();
     await expect(page.locator("#performance")).toBeVisible();
     await expect(page.locator("#apis")).toBeVisible();
+    // Playwright tab is active by default
     await expect(page.locator("#playwright")).toBeVisible();
+    // Test that Cypress and Vitest tabs exist (hidden by default due to tabbed interface)
+    await expect(page.locator("#cypress")).toHaveClass(/tab-pane/);
+    await expect(page.locator("#vitest")).toHaveClass(/tab-pane/);
+    // Verify we can switch tabs
+    await page.click('[data-tab="cypress"]');
     await expect(page.locator("#cypress")).toBeVisible();
   });
 
@@ -30,6 +36,7 @@ test.describe("Agentic QA Engineer UI - Scan Flow", () => {
     const apisPlaceholder = await page.locator("#apis").getAttribute("placeholder");
     const playwrightPlaceholder = await page.locator("#playwright").getAttribute("placeholder");
     const cypressPlaceholder = await page.locator("#cypress").getAttribute("placeholder");
+    const vitestPlaceholder = await page.locator("#vitest").getAttribute("placeholder");
 
     expect(resultsPlaceholder).toContain("Results will appear here");
     expect(testcasesPlaceholder).toContain("test cases");
@@ -37,6 +44,7 @@ test.describe("Agentic QA Engineer UI - Scan Flow", () => {
     expect(apisPlaceholder).toContain("APIs used");
     expect(playwrightPlaceholder).toContain("Playwright");
     expect(cypressPlaceholder).toContain("Cypress");
+    expect(vitestPlaceholder).toContain("Vitest");
   });
 
   test("should have input field and scan button", async ({ page }) => {

@@ -114,7 +114,13 @@ describe("Integration - Full Scan Flow", () => {
   it("should display code examples in readonly format", () => {
     cy.get("#playwright").should("have.attr", "readonly");
     cy.get("#cypress").should("have.attr", "readonly");
-    cy.get("#playwright").should("be.visible");
-    cy.get("#cypress").should("be.visible");
+    cy.get("#vitest").should("have.attr", "readonly");
+    // Playwright tab is active by default
+    cy.get("#playwright").should("have.class", "active");
+    // Test tab switching
+    cy.get('[data-tab="cypress"]').click();
+    cy.get("#cypress").should("have.class", "active").and("be.visible");
+    cy.get('[data-tab="vitest"]').click();
+    cy.get("#vitest").should("have.class", "active").and("be.visible");
   });
 });

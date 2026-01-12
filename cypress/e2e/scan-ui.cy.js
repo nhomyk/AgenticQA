@@ -8,8 +8,10 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("#testcases").should("be.visible");
     cy.get("#performance").should("be.visible");
     cy.get("#apis").should("be.visible");
-    cy.get("#playwright").should("be.visible");
-    cy.get("#cypress").should("be.visible");
+    // Test example tabs exist (Playwright is active by default)
+    cy.get("#playwright").should("exist").and("have.class", "active");
+    cy.get("#cypress").should("exist");
+    cy.get("#vitest").should("exist");
   });
 
   it("should have proper input and button", () => {
@@ -20,7 +22,11 @@ describe("Agentic QA Engineer - UI Tests", () => {
   it("should display all headings", () => {
     cy.get("h1").should("contain", "Agentic QA Engineer");
     cy.get("h3").should("have.length.at.least", 6);
-    cy.get("h3").first().should("contain", "Scan Results");
+    // First h3 is now "AgenticQA Engineer's Recommendations"
+    cy.get("h3").first().should("contain", "AgenticQA Engineer's Recommendations");
+    // Verify other key sections exist
+    cy.contains("h3", "Scan Results").should("exist");
+    cy.contains("h3", "Test Framework Examples").should("exist");
   });
 
   it("should have correct placeholder text in textareas", () => {
@@ -30,6 +36,7 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("#apis").should("have.attr", "placeholder").and("include", "APIs");
     cy.get("#playwright").should("have.attr", "placeholder").and("include", "Playwright");
     cy.get("#cypress").should("have.attr", "placeholder").and("include", "Cypress");
+    cy.get("#vitest").should("have.attr", "placeholder").and("include", "Vitest");
   });
 
   it("should show error message if scanning without URL", () => {
