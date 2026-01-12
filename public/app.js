@@ -98,12 +98,12 @@ function renderResults(resp) {
     apisBox.value = "";
   }
 
-  // Playwright, Cypress, and Vitest examples for first test case
-  if (resp.testCases && Array.isArray(resp.testCases) && resp.testCases.length > 0) {
-    const firstCase = resp.testCases[0] || "";
-    playwrightBox.value = generatePlaywrightExample(firstCase, resp.url);
-    cypressBox.value = generateCypressExample(firstCase, resp.url);
-    vitestBox.value = generateVitestExample(firstCase, resp.url);
+  // Playwright, Cypress, and Vitest examples for second test case
+  if (resp.testCases && Array.isArray(resp.testCases) && resp.testCases.length > 1) {
+    const secondCase = resp.testCases[1] || "";
+    playwrightBox.value = generatePlaywrightExample(secondCase, resp.url);
+    cypressBox.value = generateCypressExample(secondCase, resp.url);
+    vitestBox.value = generateVitestExample(secondCase, resp.url);
   } else {
     playwrightBox.value = "";
     cypressBox.value = "";
