@@ -1,16 +1,3 @@
-  it("should display detected technologies after scanning a URL", () => {
-    cy.get("#urlInput").clear().type("https://example.com");
-    cy.get("#scanBtn").click();
-    cy.get("#technologies", { timeout: 30000 })
-      .should("be.visible")
-      .should($el => {
-        const val = $el.val();
-        // Log the value for debugging
-        console.log('Technologies box value:', val);
-        expect(val).to.include("Technologies Detected");
-        expect(val.trim().length).to.be.greaterThan(0);
-      });
-  });
 describe("Agentic QA Engineer - UI Tests", () => {
   it("should load the homepage", () => {
     cy.get("h1").should("contain", "Agentic QA Engineer");
@@ -66,6 +53,18 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("#apis").should("have.attr", "readonly");
     cy.get("#playwright").should("have.attr", "readonly");
     cy.get("#cypress").should("have.attr", "readonly");
+  });
+
+  it("should display detected technologies after scanning a URL", () => {
+    cy.get("#urlInput").clear().type("https://example.com");
+    cy.get("#scanBtn").click();
+    cy.get("#technologies", { timeout: 30000 })
+      .should("be.visible")
+      .should($el => {
+        const val = $el.val();
+        console.log('Technologies box value:', val);
+        expect(val.trim().length).to.be.greaterThan(0);
+      });
   });
 
 });

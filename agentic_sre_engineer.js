@@ -99,16 +99,103 @@ async function sendEmail(subject, text) {
   });
 }
 
-async function analyzeTestFailures(jobs) {
-  const failedJobs = jobs.filter(job => job.conclusion === 'failure');
+async function getJobLogs(runId, jobName) {
+  try {
+    const octokit = await initOctokit();
+    const { data: jobs } = await octokit.actions.listJobsForWorkflowRun({
+      owner: REPO_OWNER,
+      repo: REPO_NAME,
+      run_id: runId,
+    });
+    
+    const job = jobs.jobs.find(j => j.name === jobName);
+    if (!job) {
+      console.log(`Job ${jobName} not found`);
+      return null;
+    }
+
+    // Fetch the logs for this job
+    const logsResponse = await octokit.request(
+      'GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs',
+      {
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        job_id: job.id,
+        headers: {
+          'Accept': 'application/vnd.github.v3.raw',
+        },
+      }
+    );
+    
+    return logsResponse.data;
+  } catch (err) {
+    console.log(`Failed to fetch logs for ${jobName}: ${err.message}`);
+    return null;
+  }
+}
+
+async function parseTestFailures(jobName, logs) {
+  if (!logs) return [];
+  
   const failures = [];
   
-  for (const job of failedJobs) {
-    failures.push({
-      name: job.name,
-      conclusion: job.conclusion,
-      logs_url: job.logs_url,
-    });
+  // Parse different test frameworks
+  if (jobName.includes('playwright')) {
+    const lines = logs.split('\n');
+    let currentTest = null;
+    
+    for (const line of lines) {
+      if (line.includes('✘') || line.includes('FAIL') || line.includes('×')) {
+        currentTest = line.trim();
+      }
+      if (line.includes('Error:') || line.includes('expected') || line.includes('AssertionError')) {
+        if (currentTest) {
+          failures.push({ test: currentTest, error: line.trim() });
+        }
+      }
+    }
+  } else if (jobName.includes('vitest')) {
+    const lines = logs.split('\n');
+    let currentTest = null;
+    
+    for (const line of lines) {
+      if (line.includes('✓') || line.includes('✘') || line.includes('FAIL')) {
+        currentTest = line.trim();
+      }
+      if (line.includes('AssertionError') || line.includes('Expected') || line.includes('Received')) {
+        if (currentTest) {
+          failures.push({ test: currentTest, error: line.trim() });
+        }
+      }
+    }
+  } else if (jobName.includes('cypress')) {
+    const lines = logs.split('\n');
+    let currentTest = null;
+    
+    for (const line of lines) {
+      if (line.includes('1)') || line.includes('failing') || line.includes('Error')) {
+        currentTest = line.trim();
+      }
+      if (line.includes('AssertionError') || line.includes('expected') || line.includes('Cypress')) {
+        if (currentTest) {
+          failures.push({ test: currentTest, error: line.trim() });
+        }
+      }
+    }
+  } else if (jobName.includes('jest') || jobName.includes('unit')) {
+    const lines = logs.split('\n');
+    let currentTest = null;
+    
+    for (const line of lines) {
+      if (line.includes('●') || line.includes('FAIL')) {
+        currentTest = line.trim();
+      }
+      if (line.includes('Error:') || line.includes('expected') || line.includes('AssertionError')) {
+        if (currentTest) {
+          failures.push({ test: currentTest, error: line.trim() });
+        }
+      }
+    }
   }
   
   return failures;
@@ -120,11 +207,27 @@ async function makeCodeChanges(failureAnalysis) {
   
   console.log('Analyzing test failures and making code changes...');
   
+  // Extract test failure patterns and apply targeted fixes
+  if (failureAnalysis && failureAnalysis.length > 0) {
+    console.log(`\nAnalyzing ${failureAnalysis.length} test failure(s):`);
+    
+    for (const failure of failureAnalysis) {
+      console.log(`  - ${failure.jobName}: ${failure.failures.length} issue(s)`);
+      
+      // Log specific failures for debugging
+      if (failure.failures.length > 0) {
+        failure.failures.slice(0, 3).forEach(f => {
+          console.log(`    • ${f.test}`);
+        });
+      }
+    }
+  }
+  
   // Run tests to see what fails
   try {
     execSync('npm run test:vitest -- --run 2>&1', { stdio: 'pipe' });
   } catch (err) {
-    console.log('Vitest failures detected');
+    console.log('Vitest issues detected');
   }
   
   // Apply automatic fixes
@@ -228,14 +331,29 @@ async function agenticSRELoop() {
     
     // Get detailed job results
     const jobs = await getWorkflowJobResults(run.id);
-    const failures = await analyzeTestFailures(jobs);
+    
+    // Fetch logs for all failed jobs
+    const failureAnalysis = [];
+    for (const job of jobs) {
+      if (job.conclusion === 'failure') {
+        const logs = await getJobLogs(run.id, job.name);
+        const testFailures = await parseTestFailures(job.name, logs);
+        failureAnalysis.push({
+          jobName: job.name,
+          status: job.conclusion,
+          failures: testFailures,
+        });
+      }
+    }
+    
+    const failures = jobs.filter(job => job.conclusion === 'failure');
     
     if (failures.length > 0) {
       console.log(`Found ${failures.length} failed job(s):`);
       failures.forEach(f => console.log(`  - ${f.name}`));
       
       // Make code changes based on failures
-      const changesApplied = await makeCodeChanges(failures);
+      const changesApplied = await makeCodeChanges(failureAnalysis);
       
       if (changesApplied && iteration < MAX_ITERATIONS) {
         // Re-test with new changes
