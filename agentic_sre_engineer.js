@@ -1,3 +1,9 @@
+  // Debug: print remotes before push
+  const remotes = await git.getRemotes(true);
+  console.log('Git remotes before push:', remotes);
+  // Debug: print remotes before push
+  const remotes = await git.getRemotes(true);
+  console.log('Git remotes before push:', remotes);
 // Agentic SRE Engineer - LangGraph Agent
 // Automates CI/CD monitoring, version bumping, and code fixes with email notifications
 
