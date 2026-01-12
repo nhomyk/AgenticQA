@@ -50,6 +50,7 @@ jobs:
 
   unit-test:
     needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +65,7 @@ jobs:
 
   test-playwright:
     needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +82,7 @@ jobs:
 
   test-vitest:
     needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +97,7 @@ jobs:
 
   test-cypress:
     needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
