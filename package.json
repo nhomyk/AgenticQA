@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "test:vitest": "vitest",
-    "test:cypress": "start-server-and-test start http://localhost:3000 cypress run",
+    "cypress": "cypress run",
+    "test:cypress": "start-server-and-test start http://localhost:3000 cypress",
     "agent": "node run-agent.js"
   },
   "dependencies": {
