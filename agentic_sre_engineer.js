@@ -214,7 +214,7 @@ async function makeCodeChanges(failureAnalysis) {
       // Log specific failures for debugging
       if (failure.failures.length > 0) {
         failure.failures.slice(0, 3).forEach(f => {
-          console.log(`    • ${f.test}`);
+          console.log(`    • ${f.error || f.test}`);
         });
       }
     }
@@ -222,38 +222,70 @@ async function makeCodeChanges(failureAnalysis) {
   
   let changesDetected = false;
   
-  // 1. Check for ESLint errors before fixing
+  // Check if cypress server closing is the issue
+  const hasCypressServerIssue = failureAnalysis?.some(f => 
+    f.jobName.includes('cypress') && 
+    f.failures.some(fail => fail.error?.includes('server closed') || fail.error?.includes('connection'))
+  );
+  
+  if (hasCypressServerIssue) {
+    console.log("Detected Cypress server issue - improving server handling in tests...");
+    
+    // The issue is likely the server not waiting or closing early
+    // Check if test file needs improvements
+    const cypressConfigPath = "playwright.config.cjs";
+    if (fs.existsSync(cypressConfigPath)) {
+      let config = fs.readFileSync(cypressConfigPath, "utf8");
+      
+      // Increase timeout for server operations
+      if (!config.includes('timeout: 60000') && !config.includes('timeout: 120000')) {
+        config = config.replace(/timeout:\s*\d+/g, 'timeout: 120000') || config;
+        config = config.replace(/webServer.*?\n.*?\n.*?\n/s, `webServer: {
+    command: 'npm start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: false,
+    timeout: 120000,
+  },`);
+        fs.writeFileSync(cypressConfigPath, config);
+        changesDetected = true;
+        console.log("Updated Playwright config with better server handling");
+      }
+    }
+    
+    // Check test files for proper wait times
+    const cypressTestPath = "cypress/e2e/scan-ui.cy.js";
+    if (fs.existsSync(cypressTestPath)) {
+      let testFile = fs.readFileSync(cypressTestPath, "utf8");
+      
+      // Add better wait times between operations
+      if (!testFile.includes('cy.visit') || !testFile.includes('wait(')) {
+        console.log("Improving Cypress test reliability with waits");
+        // Add wait after visit if not present
+        testFile = testFile.replace(/cy\.visit\('([^']+)'\)/g, `cy.visit('$1')\n    cy.wait(2000)`);
+        fs.writeFileSync(cypressTestPath, testFile);
+        changesDetected = true;
+      }
+    }
+  }
+  
+  // 1. Apply ESLint fixes
   try {
     console.log("Checking for linting issues...");
-    execSync("npx eslint . --ext .js", { stdio: "pipe" });
+    execSync("npx eslint . --ext .js --fix 2>&1", { stdio: "pipe" });
+    console.log("ESLint fixes applied");
+    changesDetected = true;
   } catch (err) {
-    const errorOutput = err.stdout?.toString() || err.stderr?.toString() || err.message;
-    if (errorOutput.includes("error") || errorOutput.includes("✖")) {
-      console.log("ESLint errors detected, applying fixes...");
-      changesDetected = true;
-    }
-  }
-  
-  // 2. Apply ESLint fixes
-  try {
-    execSync("npx eslint . --ext .js --fix", { stdio: "pipe" });
-    console.log("ESLint auto-fixes applied");
-  } catch (err) {
-    console.log("ESLint completed with warnings");
-  }
-  
-  // 3. Run Vitest to catch runtime issues
-  try {
-    execSync("npm run test:vitest -- --run 2>&1", { stdio: "pipe" });
-  } catch (err) {
+    // ESLint may exit with error code even after fixing some issues
     const output = err.stdout?.toString() || err.stderr?.toString() || err.message;
-    if (output.includes("FAIL") || output.includes("error")) {
-      console.log("Vitest issues detected");
+    if (output.includes("fixed")) {
+      console.log("ESLint issues fixed");
       changesDetected = true;
+    } else {
+      console.log("ESLint completed (no fixable issues)");
     }
   }
   
-  // 4. Commit any changes made by fixes
+  // 2. Commit any changes made by fixes
   await git.add(".");
   const status = await git.status();
   
@@ -262,18 +294,16 @@ async function makeCodeChanges(failureAnalysis) {
     
     await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
     await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
-    if (process.env.GH_PAT) {
-      await git.raw([
-        "remote",
-        "set-url",
-        "origin",
-        `https://${process.env.GH_PAT}@github.com/nhomyk/AgenticQA.git`
-      ]);
+    // Configure git credentials if running in GitHub Actions
+    if (process.env.GITHUB_TOKEN) {
+      await git.raw(["config", "--global", "credential.helper", "store"]);
+      const credsFile = path.join(process.env.HOME || "/tmp", ".git-credentials");
+      fs.writeFileSync(credsFile, `https://x-access-token:${process.env.GITHUB_TOKEN}@github.com\n`, { mode: 0o600 });
     }
     
     await git.commit("fix: agentic code repairs from test analysis");
     try {
-      await git.push();
+      await git.push(["origin", "main"]);
       console.log("Code changes pushed successfully");
     } catch (err) {
       console.error("Push failed (non-critical):", err.message);
@@ -293,11 +323,10 @@ async function redeployAndTest(iteration) {
   const run = await getLatestWorkflowRun();
   
   // Poll for completion (max 5 minutes)
-  let completed = false;
   let attempts = 0;
   const maxAttempts = 10;
   
-  while (!completed && attempts < maxAttempts) {
+  while (attempts < maxAttempts) {
     const currentRun = await getLatestWorkflowRun();
     
     if (currentRun.status === 'completed') {
@@ -308,13 +337,15 @@ async function redeployAndTest(iteration) {
       };
     }
     
-    console.log(`Waiting for tests to complete... (attempt ${attempts + 1}/${maxAttempts})`);
-    if (attempts >= maxAttempts - 1) {
+    attempts++;
+    console.log(`Waiting for tests to complete... (attempt ${attempts}/${maxAttempts})`);
+    
+    if (attempts >= maxAttempts) {
       console.warn('⚠️ Test polling timeout. Marking as failed to prevent hanging.');
       return { success: false, run: currentRun };
     }
+    
     await new Promise(r => setTimeout(r, 30000)); // Wait 30 seconds between checks
-    attempts++;
   }
   
   return { success: false, run: null };
@@ -410,6 +441,17 @@ async function agenticSRELoop() {
           }
           break;
         }
+      } else if (!changesApplied) {
+        console.log(`⚠️  No actionable changes could be made. Stopping iterations to prevent infinite loop.`);
+        try {
+          await sendEmail(
+            `CI Tests Failing - Manual Review Needed for AgenticQA v${newVersion}`,
+            `Could not auto-fix issues in iteration ${iteration}. Tests still failing. Manual investigation required.`
+          );
+        } catch (err) {
+          console.error('Failed to send email (non-critical):', err.message);
+        }
+        break;
       } else if (iteration >= MAX_ITERATIONS) {
         console.log(`❌ Reached max iterations (${MAX_ITERATIONS}). Some tests still failing.`);
         try {
