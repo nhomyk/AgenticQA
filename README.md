@@ -48,6 +48,23 @@ Agentic QA Engineer is a lightweight Node.js service and web UI that scans webpa
 
 - `POST /scan` — Accepts `{ url: "https://example.com" }` and returns scan results, test cases, and performance summary as JSON
 
+## Development & Testing
+
+### Linting
+```bash
+npx eslint . --ext .js
+```
+
+### Unit Tests
+```bash
+npx jest --coverage
+```
+
+### Playwright Tests
+```bash
+npx playwright test
+```
+
 ## Notes & Limitations
 
 - Results are limited to 25 items per scan

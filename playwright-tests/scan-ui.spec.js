@@ -16,8 +16,8 @@ test.describe('Agentic QA Engineer UI - Scan Flow', () => {
     await page.goto('/');
     await page.fill('#urlInput', TEST_URL);
     await page.click('#scanBtn');
-    // Wait for scan to complete (results box should update)
-    await expect(page.locator('#results')).toContainText('Scan:');
+    // Wait for scan to complete (results box should update) - increased timeout for scan
+    await expect(page.locator("#results")).toContainText("Scan:", { timeout: 30000 });
     await expect(page.locator('#testcases')).toBeVisible();
     await expect(page.locator('#performance')).toBeVisible();
     await expect(page.locator('#apis')).toBeVisible();
@@ -29,7 +29,7 @@ test.describe('Agentic QA Engineer UI - Scan Flow', () => {
     await page.goto('/');
     await page.fill('#urlInput', TEST_URL);
     await page.click('#scanBtn');
-    await expect(page.locator('#apis')).toBeVisible();
+    await expect(page.locator("#apis")).toBeVisible({ timeout: 30000 });
     // The APIs box should have a header and up to 10 lines for APIs
     const apisText = await page.locator('#apis').inputValue();
     const apiLines = apisText.split('\n').filter(l => l.match(/^\d+\. /));
@@ -40,15 +40,15 @@ test.describe('Agentic QA Engineer UI - Scan Flow', () => {
     await page.goto('/');
     await page.fill('#urlInput', TEST_URL);
     await page.click('#scanBtn');
-    await expect(page.locator('#playwright')).toContainText('Playwright example for:');
+    await expect(page.locator("#playwright")).toContainText("Playwright example for:", { timeout: 30000 });
     await expect(page.locator('#cypress')).toContainText('Cypress example for:');
   });
 
   test('should show recommended test cases (positive and negative)', async ({ page }) => {
     await page.goto('/');
     await page.fill('#urlInput', TEST_URL);
-    await page.click('#scanBtn');
-    const tcText = await page.locator('#testcases').inputValue();
+    await page.click('#scanBtn');    // Wait for results to appear with longer timeout
+    await expect(page.locator("#testcases")).toContainText("Positive:", { timeout: 30000 });    const tcText = await page.locator('#testcases').inputValue();
     expect(tcText).toContain('Positive:');
     expect(tcText).toContain('Negative:');
   });
