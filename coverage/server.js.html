@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for AgenticQA/server.js</title>
+    <title>Code coverage report for server.js</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../prettify.css" />
-    <link rel="stylesheet" href="../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <link rel="stylesheet" href="prettify.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../sort-arrow-sprite.png);
+            background-image: url(sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,7 +19,7 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">AgenticQA</a> server.js</h1>
+        <h1><a href="index.html">All files</a> server.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
@@ -553,7 +553,7 @@ function mapIssue(type, message, recommendation) {
   return { type, message, recommendation };
 }
 &nbsp;
-app.post("/scan", <span class="fstat-no" title="function not covered" >as</span>ync (req, res) =&gt; {
+app.post("/scan", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
   const { url } = <span class="cstat-no" title="statement not covered" >req.body;</span>
 <span class="cstat-no" title="statement not covered" >  if (!url) <span class="cstat-no" title="statement not covered" >return res.status(400).json({ error: "Missing url" });</span></span>
   const target = <span class="cstat-no" title="statement not covered" >normalizeUrl(url);</span>
@@ -566,7 +566,7 @@ app.post("/scan", <span class="fstat-no" title="function not covered" >as</span>
     const page = <span class="cstat-no" title="statement not covered" >await browser.newPage();</span>
 &nbsp;
     // collect console errors
-<span class="cstat-no" title="statement not covered" >    page.on("console", <span class="fstat-no" title="function not covered" >ms</span>g =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on("console", <span class="fstat-no" title="function not covered" >msg </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      try {</span>
 <span class="cstat-no" title="statement not covered" >        if (msg.type() === "error") {</span>
 <span class="cstat-no" title="statement not covered" >          results.push(mapIssue("ConsoleError", msg.text(), "Check the stack trace and source; fix the script error or wrap calls in try/catch."));</span>
@@ -578,22 +578,22 @@ app.post("/scan", <span class="fstat-no" title="function not covered" >as</span>
     });
 &nbsp;
     // uncaught page errors
-<span class="cstat-no" title="statement not covered" >    page.on("pageerror", <span class="fstat-no" title="function not covered" >er</span>r =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on("pageerror", <span class="fstat-no" title="function not covered" >err </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      results.push(mapIssue("PageError", String(err), "Fix the exception in page scripts; guard against undefined values."));</span>
     });
 &nbsp;
     // request tracking for basic performance metrics
     let totalRequests = <span class="cstat-no" title="statement not covered" >0;</span>
     let failedRequests = <span class="cstat-no" title="statement not covered" >0;</span>
-<span class="cstat-no" title="statement not covered" >    page.on("request", <span class="fstat-no" title="function not covered" >re</span>quest =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on("request", <span class="fstat-no" title="function not covered" >request </span>=&gt; {</span>
        
 <span class="cstat-no" title="statement not covered" >      totalRequests += 1;</span>
     });
-<span class="cstat-no" title="statement not covered" >    page.on("requestfailed", <span class="fstat-no" title="function not covered" >re</span>quest =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on("requestfailed", <span class="fstat-no" title="function not covered" >request </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      failedRequests += 1;</span>
 <span class="cstat-no" title="statement not covered" >      results.push(mapIssue("RequestFailed", `${request.url()} -&gt; ${request.failure() &amp;&amp; request.failure().errorText}`, "Check resource URL and server responses; ensure CORS and availability."));</span>
     });
-<span class="cstat-no" title="statement not covered" >    page.on("requestfinished", <span class="fstat-no" title="function not covered" >_r</span>equest =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on("requestfinished", <span class="fstat-no" title="function not covered" >_request </span>=&gt; {</span>
        
       // finished requests counted via `request` event; keep hooks for future metrics
     });
@@ -622,7 +622,7 @@ app.post("/scan", <span class="fstat-no" title="function not covered" >as</span>
       };
 &nbsp;
       // images missing alt or empty alt
-<span class="cstat-no" title="statement not covered" >      document.querySelectorAll("img").forEach(<span class="fstat-no" title="function not covered" >im</span>g =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      document.querySelectorAll("img").forEach(<span class="fstat-no" title="function not covered" >img </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        if (!img.hasAttribute("alt")) {</span>
 <span class="cstat-no" title="statement not covered" >          issues.push({ type: "MissingAlt", message: `img src=${img.currentSrc || img.src} missing alt`, recommendation: "Add meaningful alt text describing the image." });</span>
         } else <span class="cstat-no" title="statement not covered" >if (img.getAttribute("alt").trim() === "") {</span>
@@ -634,7 +634,7 @@ app.post("/scan", <span class="fstat-no" title="function not covered" >as</span>
       });
 &nbsp;
       // inputs without labels or aria-label
-<span class="cstat-no" title="statement not covered" >      document.querySelectorAll("input, textarea, select").forEach(<span class="fstat-no" title="function not covered" >el</span> =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      document.querySelectorAll("input, textarea, select").forEach(<span class="fstat-no" title="function not covered" >el </span>=&gt; {</span>
         const id = <span class="cstat-no" title="statement not covered" >el.id;</span>
         const hasLabel = <span class="cstat-no" title="statement not covered" >id &amp;&amp; document.querySelector(`label[for="${id}"]`);</span>
         const aria = <span class="cstat-no" title="statement not covered" >el.getAttribute("aria-label") || el.getAttribute("aria-labelledby");</span>
@@ -663,20 +663,20 @@ app.post("/scan", <span class="fstat-no" title="function not covered" >as</span>
       // API usage detection (fetch/XHR)
       const origFetch = <span class="cstat-no" title="statement not covered" >window.fetch;</span>
 <span class="cstat-no" title="statement not covered" >      window.__apiCalls = [];</span>
-<span class="cstat-no" title="statement not covered" >      window.fetch = <span class="fstat-no" title="function not covered" >fu</span>nction(...args) {</span>
+<span class="cstat-no" title="statement not covered" >      window.fetch = <span class="fstat-no" title="function not covered" >function(</span>...args) {</span>
 <span class="cstat-no" title="statement not covered" >        window.__apiCalls.push(args[0]);</span>
 <span class="cstat-no" title="statement not covered" >        return origFetch.apply(this, args);</span>
       };
       const origXhrOpen = <span class="cstat-no" title="statement not covered" >window.XMLHttpRequest &amp;&amp; window.XMLHttpRequest.prototype.open;</span>
 <span class="cstat-no" title="statement not covered" >      if (origXhrOpen) {</span>
-<span class="cstat-no" title="statement not covered" >        window.XMLHttpRequest.prototype.open = <span class="fstat-no" title="function not covered" >fu</span>nction(method, url, ...rest) {</span>
+<span class="cstat-no" title="statement not covered" >        window.XMLHttpRequest.prototype.open = <span class="fstat-no" title="function not covered" >function(</span>method, url, ...rest) {</span>
 <span class="cstat-no" title="statement not covered" >          window.__apiCalls.push(url);</span>
 <span class="cstat-no" title="statement not covered" >          return origXhrOpen.call(this, method, url, ...rest);</span>
         };
       }
 &nbsp;
       // Wait a bit to collect API calls (simulate page activity)
-<span class="cstat-no" title="statement not covered" >      return new Promise(<span class="fstat-no" title="function not covered" >re</span>solve =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      return new Promise(<span class="fstat-no" title="function not covered" >resolve </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        setTimeout(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
           const apis = <span class="cstat-no" title="statement not covered" >(window.__apiCalls || []).slice(0, 10);</span>
 <span class="cstat-no" title="statement not covered" >          resolve({ issues, features, apis });</span>
@@ -769,16 +769,16 @@ module.exports = { normalizeUrl, mapIssue };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-12T14:28:05.160Z
+                at 2026-01-12T14:31:58.090Z
             </div>
-        <script src="../prettify.js"></script>
+        <script src="prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../sorter.js"></script>
-        <script src="../block-navigation.js"></script>
+        <script src="sorter.js"></script>
+        <script src="block-navigation.js"></script>
     </body>
 </html>
     

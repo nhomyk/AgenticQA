@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for AgenticQA/debug_scan.js</title>
+    <title>Code coverage report for debug_scan.js</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../prettify.css" />
-    <link rel="stylesheet" href="../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../favicon.png" />
+    <link rel="stylesheet" href="prettify.css" />
+    <link rel="stylesheet" href="base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../sort-arrow-sprite.png);
+            background-image: url(sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,7 +19,7 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">AgenticQA</a> debug_scan.js</h1>
+        <h1><a href="index.html">All files</a> debug_scan.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">2.27% </span>
+                <span class="strong">4.54% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/44</span>
+                <span class='fraction'>2/44</span>
             </div>
         
             
@@ -176,7 +176,7 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -306,7 +306,7 @@ async function run(target) {
     }
   }
   const page = <span class="cstat-no" title="statement not covered" >await browser.newPage();</span>
-<span class="cstat-no" title="statement not covered" >  page.on("console", <span class="fstat-no" title="function not covered" >ms</span>g =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  page.on("console", <span class="fstat-no" title="function not covered" >msg </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      if (msg.type() === "error") {</span>
         const text = <span class="cstat-no" title="statement not covered" >msg.text();</span>
@@ -320,12 +320,12 @@ async function run(target) {
     }
   });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  page.on("pageerror", <span class="fstat-no" title="function not covered" >er</span>r =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  page.on("pageerror", <span class="fstat-no" title="function not covered" >err </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    console.error("PAGE ERROR:", err);</span>
 <span class="cstat-no" title="statement not covered" >    results.push(mapIssue("PageError", String(err), "Fix the exception in page scripts; guard against undefined values."));</span>
   });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  page.on("requestfailed", <span class="fstat-no" title="function not covered" >re</span>quest =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  page.on("requestfailed", <span class="fstat-no" title="function not covered" >request </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    console.warn("REQUEST FAILED:", request.url(), request.failure() &amp;&amp; request.failure().errorText);</span>
 <span class="cstat-no" title="statement not covered" >    results.push(mapIssue("RequestFailed", `${request.url()} -&gt; ${request.failure() &amp;&amp; request.failure().errorText}`, "Check resource URL and server responses; ensure CORS and availability."));</span>
   });
@@ -340,7 +340,7 @@ async function run(target) {
 &nbsp;
   const domIssues = <span class="cstat-no" title="statement not covered" >await page.evaluate(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
     const issues = <span class="cstat-no" title="statement not covered" >[];</span>
-<span class="cstat-no" title="statement not covered" >    document.querySelectorAll("img").forEach(<span class="fstat-no" title="function not covered" >im</span>g =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    document.querySelectorAll("img").forEach(<span class="fstat-no" title="function not covered" >img </span>=&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      if (!img.hasAttribute("alt")) {</span>
 <span class="cstat-no" title="statement not covered" >        issues.push({ type: "MissingAlt", message: `img src=${img.currentSrc || img.src} missing alt`, recommendation: "Add meaningful alt text describing the image." });</span>
       } else <span class="cstat-no" title="statement not covered" >if (img.getAttribute("alt").trim() === "") {</span>
@@ -350,7 +350,7 @@ async function run(target) {
 <span class="cstat-no" title="statement not covered" >        issues.push({ type: "BrokenImage", message: `img src=${img.currentSrc || img.src} appears broken (naturalWidth=0)`, recommendation: "Ensure the image URL is correct and the resource is served." });</span>
       }
     });
-<span class="cstat-no" title="statement not covered" >    document.querySelectorAll("input, textarea, select").forEach(<span class="fstat-no" title="function not covered" >el</span> =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    document.querySelectorAll("input, textarea, select").forEach(<span class="fstat-no" title="function not covered" >el </span>=&gt; {</span>
       const id = <span class="cstat-no" title="statement not covered" >el.id;</span>
       const hasLabel = <span class="cstat-no" title="statement not covered" >id &amp;&amp; document.querySelector(`label[for="${id}"]`);</span>
       const aria = <span class="cstat-no" title="statement not covered" >el.getAttribute("aria-label") || el.getAttribute("aria-labelledby");</span>
@@ -382,14 +382,14 @@ async function run(target) {
 <span class="cstat-no" title="statement not covered" >  console.log("\nBrowser open for debugging. Press ENTER in this terminal to close the browser and exit.");</span>
 <span class="cstat-no" title="statement not covered" >  process.stdin.setRawMode(false);</span>
 <span class="cstat-no" title="statement not covered" >  process.stdin.resume();</span>
-<span class="cstat-no" title="statement not covered" >  process.stdin.once("data", <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  process.stdin.once("data", <span class="fstat-no" title="function not covered" >async </span>() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    await browser.close();</span>
 <span class="cstat-no" title="statement not covered" >    process.exit(0);</span>
   });
 }
 &nbsp;
-const target = process.argv[2] || <span class="branch-1 cbranch-no" title="branch not covered" >"https://example.com";</span>
-run(target).catch(<span class="fstat-no" title="function not covered" >er</span>r =&gt; { <span class="cstat-no" title="statement not covered" >console.error(err); <span class="cstat-no" title="statement not covered" ></span>process.exit(1); </span>});
+const target = process.argv[2] || "https://example.com";
+run(target).catch(<span class="fstat-no" title="function not covered" >err </span>=&gt; { <span class="cstat-no" title="statement not covered" >console.error(err); <span class="cstat-no" title="statement not covered" ></span>process.exit(1); </span>});
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -397,16 +397,16 @@ run(target).catch(<span class="fstat-no" title="function not covered" >er</span>
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-12T14:28:05.160Z
+                at 2026-01-12T14:31:58.090Z
             </div>
-        <script src="../prettify.js"></script>
+        <script src="prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../sorter.js"></script>
-        <script src="../block-navigation.js"></script>
+        <script src="sorter.js"></script>
+        <script src="block-navigation.js"></script>
     </body>
 </html>
     
