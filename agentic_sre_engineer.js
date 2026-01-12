@@ -110,43 +110,41 @@ async function autoFixAndCommit() {
 }
 
 async function agenticSRELoop() {
-  while (true) {
-    // 1. Bump version
-    const newVersion = await bumpVersion();
-    // 2. Wait for CI to run
-    await new Promise(r => setTimeout(r, 60000)); // Wait 1 min for CI
-    // 3. Get latest workflow run
-    const run = await getLatestWorkflowRun();
-    // 4. If failed, get logs and email
-    if (run.conclusion !== "success") {
-      let logsUrl = "Logs unavailable";
-      try {
-        logsUrl = await getWorkflowLogs(run.id);
-      } catch (err) {
-        console.error('Failed to fetch workflow logs:', err.message);
-      }
-      try {
-        await sendEmail(
-          `CI Failed for AgenticQA v${newVersion}`,
-          `Workflow failed. Logs: ${logsUrl}`
-        );
-      } catch (err) {
-        console.error('Failed to send email (non-critical):', err.message);
-      }
-      // 5. Auto-fix and commit
-      await autoFixAndCommit();
-      continue; // Repeat loop
-    } else {
-      try {
-        await sendEmail(
-          `CI Passed for AgenticQA v${newVersion}`,
-          `All tests passed! Version: ${newVersion}`
-        );
-      } catch (err) {
-        console.error('Failed to send email (non-critical):', err.message);
-      }
-      break;
+  // 1. Bump version
+  const newVersion = await bumpVersion();
+  // 2. Wait for CI to run
+  await new Promise(r => setTimeout(r, 60000)); // Wait 1 min for CI
+  // 3. Get latest workflow run
+  const run = await getLatestWorkflowRun();
+  // 4. If failed, get logs and email
+  if (run.conclusion !== "success") {
+    let logsUrl = "Logs unavailable";
+    try {
+      logsUrl = await getWorkflowLogs(run.id);
+    } catch (err) {
+      console.error('Failed to fetch workflow logs:', err.message);
     }
+    try {
+      await sendEmail(
+        `CI Failed for AgenticQA v${newVersion}`,
+        `Workflow failed. Logs: ${logsUrl}`
+      );
+    } catch (err) {
+      console.error('Failed to send email (non-critical):', err.message);
+    }
+    // 5. Auto-fix and commit
+    await autoFixAndCommit();
+    console.log('SRE workflow complete: Fixed issues and attempted commit');
+  } else {
+    try {
+      await sendEmail(
+        `CI Passed for AgenticQA v${newVersion}`,
+        `All tests passed! Version: ${newVersion}`
+      );
+    } catch (err) {
+      console.error('Failed to send email (non-critical):', err.message);
+    }
+    console.log('SRE workflow complete: All tests passed');
   }
 }
 
