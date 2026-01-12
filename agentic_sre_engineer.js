@@ -4,6 +4,7 @@
   // Debug: print remotes before push
   const remotes = await git.getRemotes(true);
   console.log('Git remotes before push:', remotes);
+
 // Agentic SRE Engineer - LangGraph Agent
 // Automates CI/CD monitoring, version bumping, and code fixes with email notifications
 
@@ -12,6 +13,12 @@ const simpleGit = require("simple-git");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
 const path = require("path");
+  // Debug: print remotes before push
+  const remotes = await git.getRemotes(true);
+  console.log('Git remotes before push:', remotes);
+  // Debug: print remotes before push
+  const remotes = await git.getRemotes(true);
+  console.log('Git remotes before push:', remotes);
 
 // === CONFIGURATION ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Set in your environment
