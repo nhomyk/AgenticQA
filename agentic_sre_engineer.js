@@ -125,18 +125,26 @@ async function agenticSRELoop() {
       } catch (err) {
         console.error('Failed to fetch workflow logs:', err.message);
       }
-      await sendEmail(
-        `CI Failed for AgenticQA v${newVersion}`,
-        `Workflow failed. Logs: ${logsUrl}`
-      );
+      try {
+        await sendEmail(
+          `CI Failed for AgenticQA v${newVersion}`,
+          `Workflow failed. Logs: ${logsUrl}`
+        );
+      } catch (err) {
+        console.error('Failed to send email (non-critical):', err.message);
+      }
       // 5. Auto-fix and commit
       await autoFixAndCommit();
       continue; // Repeat loop
     } else {
-      await sendEmail(
-        `CI Passed for AgenticQA v${newVersion}`,
-        `All tests passed! Version: ${newVersion}`
-      );
+      try {
+        await sendEmail(
+          `CI Passed for AgenticQA v${newVersion}`,
+          `All tests passed! Version: ${newVersion}`
+        );
+      } catch (err) {
+        console.error('Failed to send email (non-critical):', err.message);
+      }
       break;
     }
   }
