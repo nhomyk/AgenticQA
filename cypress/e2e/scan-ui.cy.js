@@ -6,7 +6,6 @@
       .should($el => {
         const val = $el.val();
         // Log the value for debugging
-        // eslint-disable-next-line no-console
         console.log('Technologies box value:', val);
         expect(val).to.include("Technologies Detected");
         expect(val.trim().length).to.be.greaterThan(0);

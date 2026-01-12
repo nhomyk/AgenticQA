@@ -26,10 +26,10 @@ let browser;
 // Dummy detectTechnologies for now (replace with real logic if needed)
 async function detectTechnologies(page) {
   // Example: look for script tags and try to infer tech
-  const techs = await page.$$eval('script[src]', scripts =>
+  const techs = await page.$$eval("script[src]", scripts =>
     scripts.map(s => s.src.match(/([\w-]+)(?:[./@-])/i)).filter(Boolean).map(m => m[1])
   );
-  const urls = await page.$$eval('script[src]', scripts => scripts.map(s => s.src));
+  const urls = await page.$$eval("script[src]", scripts => scripts.map(s => s.src));
   return { techs, urls };
 }
 
