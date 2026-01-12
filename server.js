@@ -93,13 +93,13 @@ app.post("/scan", async (req, res) => {
       if (hasJQuery) techs.push("jQuery");
       // Bootstrap (CSS)
       const hasBootstrap = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).some(
+        Array.from(document.querySelectorAll("link[rel=\"stylesheet\"], style")).some(
           el => el.outerHTML.includes("bootstrap")
         )
       );
       if (hasBootstrap) techs.push("Bootstrap");
       // Meta generator
-      const metaGenerator = await page.$eval('meta[name="generator"]', el => el.content).catch(() => null);
+      const metaGenerator = await page.$eval("meta[name=\"generator\"]", el => el.content).catch(() => null);
       if (metaGenerator) techs.push(metaGenerator);
       // Google Analytics
       const hasGA = await page.evaluate(() => !!window.ga || !!window.gtag);

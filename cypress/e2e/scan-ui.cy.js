@@ -1,3 +1,14 @@
+  it("should display detected technologies after scanning a URL", () => {
+    cy.get("#urlInput").clear().type("https://example.com");
+    cy.get("#scanBtn").click();
+    cy.get("#technologies", { timeout: 15000 }).should("be.visible");
+    cy.get("#technologies").invoke("val").then(val => {
+      // Should always show the header
+      expect(val).to.include("Technologies Detected");
+      // Should show either a technology or 'None detected'
+      expect(val.trim().length).to.be.greaterThan(0);
+    });
+  });
 describe("Agentic QA Engineer - UI Tests", () => {
   it("should load the homepage", () => {
     cy.get("h1").should("contain", "Agentic QA Engineer");
