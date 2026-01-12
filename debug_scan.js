@@ -1,6 +1,4 @@
 
-/* eslint-env node */
-/* global require, console */
 const puppeteer = require("puppeteer");
 
 function mapIssue(type, message, recommendation) {
@@ -34,7 +32,9 @@ async function run(target) {
       } else {
         console.log("PAGE LOG:", msg.type(), msg.text());
       }
-    } catch (e) {}
+    } catch (_e) {
+      void _e;
+    }
   });
 
   page.on("pageerror", err => {
@@ -49,42 +49,42 @@ async function run(target) {
 
   await page.setViewport({ width: 1280, height: 900 });
   try {
-    await page.goto(target, { waitUntil: 'load', timeout: 60000 });
+    await page.goto(target, { waitUntil: "load", timeout: 60000 });
   } catch (e) {
-    console.error('NAVIGATION ERROR', e);
-    results.push(mapIssue('NavigationError', String(e), 'Verify the URL and network; consider increasing timeout.'));
+    console.error("NAVIGATION ERROR", e);
+    results.push(mapIssue("NavigationError", String(e), "Verify the URL and network; consider increasing timeout."));
   }
 
   const domIssues = await page.evaluate(() => {
     const issues = [];
-    document.querySelectorAll('img').forEach(img => {
-      if (!img.hasAttribute('alt')) {
-        issues.push({ type: 'MissingAlt', message: `img src=${img.currentSrc || img.src} missing alt`, recommendation: 'Add meaningful alt text describing the image.' });
-      } else if (img.getAttribute('alt').trim() === '') {
-        issues.push({ type: 'EmptyAlt', message: `img src=${img.currentSrc || img.src} has empty alt`, recommendation: 'Provide descriptive alt text or mark as decorative with alt="" and role="presentation".' });
+    document.querySelectorAll("img").forEach(img => {
+      if (!img.hasAttribute("alt")) {
+        issues.push({ type: "MissingAlt", message: `img src=${img.currentSrc || img.src} missing alt`, recommendation: "Add meaningful alt text describing the image." });
+      } else if (img.getAttribute("alt").trim() === "") {
+        issues.push({ type: "EmptyAlt", message: `img src=${img.currentSrc || img.src} has empty alt`, recommendation: "Provide descriptive alt text or mark as decorative with alt=\"\" and role=\"presentation\"." });
       }
       if (img.naturalWidth === 0) {
-        issues.push({ type: 'BrokenImage', message: `img src=${img.currentSrc || img.src} appears broken (naturalWidth=0)`, recommendation: 'Ensure the image URL is correct and the resource is served.' });
+        issues.push({ type: "BrokenImage", message: `img src=${img.currentSrc || img.src} appears broken (naturalWidth=0)`, recommendation: "Ensure the image URL is correct and the resource is served." });
       }
     });
-    document.querySelectorAll('input, textarea, select').forEach(el => {
+    document.querySelectorAll("input, textarea, select").forEach(el => {
       const id = el.id;
       const hasLabel = id && document.querySelector(`label[for="${id}"]`);
-      const aria = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby');
-      if (!hasLabel && !aria && el.type !== 'hidden') {
-        issues.push({ type: 'MissingLabel', message: `Form control (${el.tagName.toLowerCase()} type=${el.type || 'n/a'}) missing label or aria-label`, recommendation: 'Add a <label> or aria-label to improve accessibility.' });
+      const aria = el.getAttribute("aria-label") || el.getAttribute("aria-labelledby");
+      if (!hasLabel && !aria && el.type !== "hidden") {
+        issues.push({ type: "MissingLabel", message: `Form control (${el.tagName.toLowerCase()} type=${el.type || "n/a"}) missing label or aria-label`, recommendation: "Add a <label> or aria-label to improve accessibility." });
       }
     });
-    document.querySelectorAll('a').forEach(a => {
-      const href = a.getAttribute('href');
-      if (!href || href.trim() === '' || href === '#') {
-        issues.push({ type: 'BadHref', message: `anchor text="${(a.textContent||'').trim().slice(0,30)}" has href="${href}"`, recommendation: 'Use meaningful hrefs or use button elements for actions.' });
+    document.querySelectorAll("a").forEach(a => {
+      const href = a.getAttribute("href");
+      if (!href || href.trim() === "" || href === "#") {
+        issues.push({ type: "BadHref", message: `anchor text="${(a.textContent||"").trim().slice(0,30)}" has href="${href}"`, recommendation: "Use meaningful hrefs or use button elements for actions." });
       }
     });
-    const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6')).map(h => parseInt(h.tagName.slice(1)));
+    const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map(h => parseInt(h.tagName.slice(1)));
     for (let i = 1; i < headings.length; i++) {
       if (headings[i] > headings[i-1] + 1) {
-        issues.push({ type: 'HeadingOrder', message: `Possible heading order issue: ...${headings[i-1]} -> ${headings[i]}`, recommendation: 'Ensure heading levels follow a logical sequence for accessibility and structure.' });
+        issues.push({ type: "HeadingOrder", message: `Possible heading order issue: ...${headings[i-1]} -> ${headings[i]}`, recommendation: "Ensure heading levels follow a logical sequence for accessibility and structure." });
         break;
       }
     }
@@ -96,14 +96,14 @@ async function run(target) {
   const trimmed = results.slice(0, 25);
   console.log(JSON.stringify({ url: target, results: trimmed, totalFound: results.length }, null, 2));
 
-  console.log('\nBrowser open for debugging. Press ENTER in this terminal to close the browser and exit.');
+  console.log("\nBrowser open for debugging. Press ENTER in this terminal to close the browser and exit.");
   process.stdin.setRawMode(false);
   process.stdin.resume();
-  process.stdin.once('data', async () => {
+  process.stdin.once("data", async () => {
     await browser.close();
     process.exit(0);
   });
 }
 
-const target = process.argv[2] || 'https://example.com';
+const target = process.argv[2] || "https://example.com";
 run(target).catch(err => { console.error(err); process.exit(1); });
