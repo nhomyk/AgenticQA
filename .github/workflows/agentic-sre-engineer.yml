@@ -1,0 +1,56 @@
+name: Agentic SRE Engineer
+
+on:
+  workflow_run:
+    workflows: ["CI", "Node.js CI", "Test"]
+    types:
+      - completed
+
+jobs:
+  agentic-sre-engineer:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Download failed workflow logs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download ${{ github.event.workflow_run.id }} -D ./ci-logs || true
+
+      - name: Run Agentic SRE Engineer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        run: |
+          node agentic_sre_engineer.js
+
+      - name: Commit and push changes (if any)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --cached --quiet || git commit -m "fix: auto-fix by Agentic SRE Engineer"
+          git push || true
+
+      - name: Notify by email
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        run: |
+          node -e 'require("./agentic_sre_engineer.js").sendEmail("Agentic SRE Engineer Results", "Agentic SRE Engineer has completed the auto-fix and redeploy process. See repository for details.", "nickhomyk@gmail.com")'
