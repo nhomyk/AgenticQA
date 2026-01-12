@@ -28,6 +28,8 @@ async function bumpVersion() {
   pkg.version = `${major}.${minor}.${patch + 1}`;
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
   await git.add(pkgPath);
+  await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
+  await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
   await git.commit(`chore: bump version to ${pkg.version}`);
   await git.push();
   return pkg.version;
@@ -75,6 +77,8 @@ async function autoFixAndCommit() {
   const { execSync } = require("child_process");
   execSync("npx eslint . --ext .js --fix");
   await git.add(".");
+  await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
+  await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
   await git.commit("chore: auto-fix lint errors");
   await git.push();
 }
