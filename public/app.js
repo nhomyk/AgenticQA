@@ -12,16 +12,9 @@ const technologiesBox = document.getElementById("technologies");
 
 
 function renderResults(resp) {
-  if (!resp) return;
-  if (resp.error) {
-    resultsBox.value = "Error: " + resp.error;
-    technologiesBox.value = "";
-    return;
-  }
-
-  // Always show the header for technologies
+  // Always show the header for technologies, even on error
   const headerT = "Technologies Detected\n\n";
-  if (resp.technologies && Array.isArray(resp.technologies)) {
+  if (resp && resp.technologies && Array.isArray(resp.technologies)) {
     technologiesBox.value = headerT + (resp.technologies.length ? resp.technologies.join(", ") : "None detected");
   } else {
     technologiesBox.value = headerT + "None detected";
