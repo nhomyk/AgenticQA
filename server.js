@@ -278,5 +278,5 @@ if (require.main === module) {
   app.listen(PORT, () => console.log(`Agentic QA Engineer running on http://localhost:${PORT}`));
 }
 
-// Export functions for testing (ESM)
-export { normalizeUrl, mapIssue };
+// Export functions for testing (CommonJS)
+module.exports = { normalizeUrl, mapIssue };

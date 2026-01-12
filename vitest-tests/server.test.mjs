@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeUrl, mapIssue } from "../server.js";
+const { normalizeUrl, mapIssue } = require("../server.js");
 
 describe("server.js", () => {
   it("should normalize URLs by adding http protocol if missing", () => {
