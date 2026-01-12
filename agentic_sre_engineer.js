@@ -37,18 +37,15 @@ async function bumpVersion() {
   await git.add(pkgPath);
   await git.raw(["config", "--global", "user.name", "github-actions[bot]"]);
   await git.raw(["config", "--global", "user.email", "github-actions[bot]@users.noreply.github.com"]);
-  // Set remote URL to use PAT for push
-  if (process.env.GH_PAT) {
-    await git.raw([
-      "remote",
-      "set-url",
-      "origin",
-      `https://${process.env.GH_PAT}@github.com/nhomyk/AgenticQA.git`
-    ]);
+  // Configure git credentials if running in GitHub Actions
+  if (GITHUB_TOKEN) {
+    await git.raw(["config", "--global", "credential.helper", "store"]);
+    const credsFile = path.join(process.env.HOME || "/tmp", ".git-credentials");
+    fs.writeFileSync(credsFile, `https://x-access-token:${GITHUB_TOKEN}@github.com\n`, { mode: 0o600 });
   }
   await git.commit(`chore: bump version to ${pkg.version}`);
   try {
-    await git.push();
+    await git.push(["origin", "main"]);
   } catch (err) {
     console.error('Push failed (non-critical):', err.message);
   }
@@ -312,6 +309,10 @@ async function redeployAndTest(iteration) {
     }
     
     console.log(`Waiting for tests to complete... (attempt ${attempts + 1}/${maxAttempts})`);
+    if (attempts >= maxAttempts - 1) {
+      console.warn('⚠️ Test polling timeout. Marking as failed to prevent hanging.');
+      return { success: false, run: currentRun };
+    }
     await new Promise(r => setTimeout(r, 30000)); // Wait 30 seconds between checks
     attempts++;
   }
@@ -324,15 +325,29 @@ async function agenticSRELoop() {
   let iteration = 0;
   let success = false;
   
+  // Set a hard timeout for the entire workflow (25 minutes)
+  const workflowTimeout = 25 * 60 * 1000;
+  const startTime = Date.now();
+  
+  const timeoutCheck = () => {
+    if (Date.now() - startTime > workflowTimeout) {
+      console.warn('⚠️ Workflow timeout reached. Exiting to prevent hang.');
+      process.exit(0);
+    }
+  };
+  
   // 1. Bump version
   const newVersion = await bumpVersion();
   console.log(`Version bumped to ${newVersion}`);
+  timeoutCheck();
   
   // 2. Wait for initial CI to run
   await new Promise(r => setTimeout(r, 60000)); // Wait 1 min for CI
+  timeoutCheck();
   
   // 3-6. Iterative testing and fixing loop
   while (iteration < MAX_ITERATIONS && !success) {
+    timeoutCheck();
     iteration++;
     console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===`);
     
