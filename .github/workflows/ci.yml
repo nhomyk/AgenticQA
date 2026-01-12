@@ -111,7 +111,7 @@ jobs:
         run: npm run test:cypress
 
   agent-workflow:
-    needs: [lint]
+    needs: [lint, unit-test, test-playwright, test-vitest, test-cypress]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
