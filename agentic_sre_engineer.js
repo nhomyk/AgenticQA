@@ -40,7 +40,11 @@ async function bumpVersion() {
     ]);
   }
   await git.commit(`chore: bump version to ${pkg.version}`);
-  await git.push();
+  try {
+    await git.push();
+  } catch (err) {
+    console.error('Push failed (non-critical):', err.message);
+  }
   return pkg.version;
 }
 
@@ -98,7 +102,11 @@ async function autoFixAndCommit() {
     ]);
   }
   await git.commit("chore: auto-fix lint errors");
-  await git.push();
+  try {
+    await git.push();
+  } catch (err) {
+    console.error('Push failed (non-critical):', err.message);
+  }
 }
 
 async function agenticSRELoop() {
