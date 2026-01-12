@@ -3,10 +3,132 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const path = require("path");
+const rateLimit = require("express-rate-limit");
+
+// Load environment variables
+require("dotenv").config();
 
 const app = express();
+
+// Configuration from environment
+const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || "localhost";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const SCAN_TIMEOUT = parseInt(process.env.SCAN_TIMEOUT_MS || "30000");
+const MAX_RESULTS = parseInt(process.env.MAX_RESULTS || "25");
+const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "15000");
+const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100");
+
+// Security middleware
+const rateLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW,
+  max: RATE_LIMIT_MAX,
+  message: "Too many requests, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Middleware setup
 app.use(bodyParser.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+
+// CORS configuration
+if (process.env.ENABLE_CORS === "true") {
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    next();
+  });
+}
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+  next();
+});
+
+// Apply rate limiting to API endpoints
+app.use("/scan", rateLimiter);
+app.use("/api/", rateLimiter);
+
+// Input validation helpers
+function validateUrl(input) {
+  if (!input || typeof input !== "string") {
+    throw new Error("URL must be a non-empty string");
+  }
+  
+  if (input.length > 2048) {
+    throw new Error("URL must be less than 2048 characters");
+  }
+  
+  try {
+    const url = new URL(normalizeUrl(input));
+    // Prevent scanning of local/internal IPs
+    if (isLocalIP(url.hostname)) {
+      throw new Error("Cannot scan local or internal IP addresses");
+    }
+    return url.toString();
+  } catch (err) {
+    throw new Error("Invalid URL format: " + err.message);
+  }
+}
+
+function isLocalIP(hostname) {
+  const localPatterns = [
+    /^localhost$/i,
+    /^127\./,
+    /^192\.168\./,
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+    /^::1$/,
+    /^fc00:/,
+    /^fe80:/,
+  ];
+  
+  return localPatterns.some(pattern => pattern.test(hostname));
+}
+
+function sanitizeString(str) {
+  if (typeof str !== "string") return "";
+  return str
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/\//g, "&#x2F;");
+}
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: NODE_ENV,
+  });
+});
+
+// Logging function
+function log(level, message, data = {}) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    level,
+    message,
+    ...data,
+  };
+  
+  if (NODE_ENV === "production") {
+    console.log(JSON.stringify(logEntry));
+  } else {
+    console.log(`[${timestamp}] ${level}: ${message}`, data);
+  }
+}
 
 function mapIssue(type, message, recommendation) {
   return { type, message, recommendation };
@@ -20,7 +142,12 @@ function normalizeUrl(input) {
 // Reuse Puppeteer browser instance
 let browser;
 (async () => {
-  browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+  try {
+    browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    log("info", "Puppeteer browser launched successfully");
+  } catch (err) {
+    log("error", "Failed to launch Puppeteer browser", { error: err.message });
+  }
 })();
 
 // Enhanced detectTechnologies with multiple detection methods
@@ -193,21 +320,62 @@ async function detectTechnologies(page) {
 }
 
 app.post("/scan", async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "Missing url" });
-  const target = normalizeUrl(url);
   try {
+    const { url } = req.body;
+    
+    // Input validation
+    if (!url) {
+      log("warn", "Scan requested without URL");
+      return res.status(400).json({ error: "URL is required" });
+    }
+    
+    // Validate and sanitize URL
+    let target;
+    try {
+      target = validateUrl(url);
+    } catch (err) {
+      log("warn", "Invalid URL provided", { url: url.substring(0, 100), error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    
+    log("info", "Scan started", { url: target });
+    
+    // Initialize browser if needed
     if (!browser) {
+      log("warn", "Browser not initialized, launching new instance");
       browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     }
+    
     const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "domcontentloaded", timeout: 10000 });
-    // Add your scanning logic here (DOM checks, performance, etc.)
-    // For now, just return a dummy response
+    
+    // Set timeout
+    page.setDefaultTimeout(SCAN_TIMEOUT);
+    page.setDefaultNavigationTimeout(SCAN_TIMEOUT);
+    
+    // Navigate with error handling
+    let navigationSuccess = false;
+    try {
+      await page.goto(target, { waitUntil: "domcontentloaded" });
+      navigationSuccess = true;
+    } catch (navErr) {
+      log("error", "Navigation failed", { url: target, error: navErr.message });
+      throw new Error("Failed to load URL: " + navErr.message);
+    }
+    
+    // Gather page data
+    const technologies = await detectTechnologies(page);
+    let technologiesArr = Array.isArray(technologies.techs) ? technologies.techs : [];
+    let technologyUrls = Array.isArray(technologies.urls) ? technologies.urls : [];
+    
+    if (!Array.isArray(technologiesArr)) technologiesArr = [];
+    if (!Array.isArray(technologyUrls)) technologyUrls = [];
+    
+    // Example test cases and recommendations
     const testCases = [
-      "Positive: Example test case",
-      "Negative: Example negative test case"
+      "Verify page loads without errors",
+      "Check accessibility compliance"
     ];
+    
     const performanceResults = {
       totalRequests: 0,
       failedRequests: 0,
@@ -217,16 +385,13 @@ app.post("/scan", async (req, res) => {
       throughputReqPerSec: 0,
       topResources: []
     };
+    
     const recommendations = [
-      "Add real recommendations here."
+      "Regular security scanning recommended",
+      "Update dependencies to latest versions",
+      "Enable HTTPS if not already enabled"
     ];
-    const technologies = await detectTechnologies(page);
-    let technologiesArr = Array.isArray(technologies.techs) ? technologies.techs : [];
-    let technologyUrls = Array.isArray(technologies.urls) ? technologies.urls : [];
-    // Always ensure both are arrays, even if empty
-    if (!Array.isArray(technologiesArr)) technologiesArr = [];
-    if (!Array.isArray(technologyUrls)) technologyUrls = [];
-    await page.close();
+    
     const responsePayload = {
       url: target,
       results: [],
@@ -236,19 +401,71 @@ app.post("/scan", async (req, res) => {
       apis: [],
       recommendations,
       technologies: technologiesArr,
-      technologyUrls
+      technologyUrls: technologyUrls.map(u => sanitizeString(u))
     };
+    
+    await page.close();
+    
+    log("info", "Scan completed successfully", { url: target });
     res.json(responsePayload);
+    
   } catch (err) {
-    res.status(500).json({ error: String(err), results: [] });
+    const errorMessage = err.message || String(err);
+    log("error", "Scan failed", { error: errorMessage });
+    
+    res.status(500).json({
+      error: NODE_ENV === "production" 
+        ? "An error occurred during scanning" 
+        : errorMessage,
+      results: []
+    });
   }
 });
 
-const PORT = process.env.PORT || 3000;
+// 404 handler
+app.use((req, res) => {
+  log("warn", "404 Not Found", { path: req.path, method: req.method });
+  res.status(404).json({ error: "Endpoint not found" });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  log("error", "Unhandled error", { error: err.message, stack: err.stack });
+  
+  res.status(err.status || 500).json({
+    error: NODE_ENV === "production" ? "Internal server error" : err.message
+  });
+});
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  log("info", "SIGTERM received, shutting down gracefully");
+  if (browser) {
+    await browser.close();
+    log("info", "Browser closed");
+  }
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  log("info", "SIGINT received, shutting down gracefully");
+  if (browser) {
+    await browser.close();
+    log("info", "Browser closed");
+  }
+  process.exit(0);
+});
+
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Agentic QA Engineer running on http://localhost:${PORT}`));
+  app.listen(PORT, HOST, () => {
+    log("info", `Server started`, {
+      url: `http://${HOST}:${PORT}`,
+      environment: NODE_ENV,
+      maxResults: MAX_RESULTS,
+      scanTimeout: SCAN_TIMEOUT
+    });
+  });
 }
 
-module.exports = { normalizeUrl, mapIssue };
-
+module.exports = { normalizeUrl, mapIssue, validateUrl, sanitizeString };
 

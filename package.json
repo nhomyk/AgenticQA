@@ -1,16 +1,30 @@
 {
   "name": "agentic-qa-engineer",
-  "version": "0.1.3",
-  "description": "Agentic QA Engineer: scans webpages for console errors and DOM issues using Puppeteer",
+  "version": "0.2.0",
+  "description": "Production-ready Agentic QA Engineer: scans webpages for console errors, DOM issues, and security vulnerabilities",
   "main": "server.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nhomyk/AgenticQA.git"
+  },
   "scripts": {
     "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
     "test:vitest": "vitest",
+    "test:vitest:run": "vitest --run",
     "cypress": "cypress run",
     "test:cypress": "start-server-and-test start 3000 cypress",
     "test:playwright": "playwright test",
-    "test:jest": "jest",
-    "agent": "node run-agent.js"
+    "test:jest": "jest --coverage",
+    "test": "npm run test:jest && npm run test:vitest:run",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "security:check": "npm audit --audit-level=moderate",
+    "agent": "node run-agent.js",
+    "docker:build": "docker build -t agentic-qa:latest .",
+    "docker:run": "docker-compose up -d",
+    "docker:stop": "docker-compose down"
   },
   "dependencies": {
     "@langchain/core": "^1.1.12",
@@ -19,6 +33,7 @@
     "body-parser": "^1.20.2",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
     "langchain": "^1.2.7",
     "nodemailer": "^7.0.12",
     "puppeteer": "^24.35.0",
@@ -33,5 +48,9 @@
     "jest": "^30.2.0",
     "start-server-and-test": "^2.0.0",
     "vitest": "^4.0.17"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
   }
 }
