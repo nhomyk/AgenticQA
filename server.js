@@ -106,12 +106,12 @@ async function detectTechnologies(page) {
     // 4. Detect from HTTP headers
     const responseHeaders = await page.evaluate(() => {
       return {
-        server: document.head?.querySelector('meta[http-equiv="Server"]')?.content || "",
-        powered: document.head?.querySelector('meta[http-equiv="X-UA-Compatible"]')?.content || ""
+        server: document.head?.querySelector("meta[http-equiv=\"Server\"]")?.content || "",
+        powered: document.head?.querySelector("meta[http-equiv=\"X-UA-Compatible\"]")?.content || ""
       };
     });
     
-    if (responseHeaders.server) detectedTechs.add(responseHeaders.server.split('/')[0]);
+    if (responseHeaders.server) detectedTechs.add(responseHeaders.server.split("/")[0]);
 
     // 5. Detect common patterns in page content
     const pageContent = await page.evaluate(() => {
@@ -120,16 +120,16 @@ async function detectTechnologies(page) {
       
       // Look for framework signatures in HTML
       const patterns = {
-        'Next.js': /__NEXT_DATA__|next\.js|next\/page/i,
-        'Vue.js': /v-|Vue\.|__VUE__|nuxt/i,
-        'Angular': /ng-|angular|ng-app/i,
-        'Ember.js': /ember|EMBER|ember\.js/i,
-        'Backbone.js': /Backbone|backbone/i,
-        'Svelte': /svelte|sveltekit/i,
-        'Astro': /astro/i,
-        'Gatsby': /gatsby/i,
-        'Remix': /remix/i,
-        'SvelteKit': /sveltekit/i
+        "Next.js": /__NEXT_DATA__|next\.js|next\/page/i,
+        "Vue.js": /v-|Vue\.|__VUE__|nuxt/i,
+        "Angular": /ng-|angular|ng-app/i,
+        "Ember.js": /ember|EMBER|ember\.js/i,
+        "Backbone.js": /Backbone|backbone/i,
+        "Svelte": /svelte|sveltekit/i,
+        "Astro": /astro/i,
+        "Gatsby": /gatsby/i,
+        "Remix": /remix/i,
+        "SvelteKit": /sveltekit/i
       };
       
       for (const [name, regex] of Object.entries(patterns)) {
@@ -145,23 +145,23 @@ async function detectTechnologies(page) {
 
     // 6. Detect from favicon and common library patterns
     const commonLibraries = {
-      'jQuery': /jquery/i,
-      'Lodash': /lodash/i,
-      'Axios': /axios/i,
-      'Fetch API': /fetch/i,
-      'Moment.js': /moment/i,
-      'D3.js': /d3/i,
-      'Three.js': /three/i,
-      'Chart.js': /chart/i,
-      'DataTables': /datatables/i,
-      'Slick': /slick/i,
-      'Owl Carousel': /owl/i,
-      'Bootstrap': /bootstrap/i,
-      'Font Awesome': /font-?awesome/i,
-      'Animate.css': /animate/i,
-      'AOS': /aos|animate-on-scroll/i,
-      'Popper.js': /popper/i,
-      'Tooltip': /tooltip/i
+      "jQuery": /jquery/i,
+      "Lodash": /lodash/i,
+      "Axios": /axios/i,
+      "Fetch API": /fetch/i,
+      "Moment.js": /moment/i,
+      "D3.js": /d3/i,
+      "Three.js": /three/i,
+      "Chart.js": /chart/i,
+      "DataTables": /datatables/i,
+      "Slick": /slick/i,
+      "Owl Carousel": /owl/i,
+      "Bootstrap": /bootstrap/i,
+      "Font Awesome": /font-?awesome/i,
+      "Animate.css": /animate/i,
+      "AOS": /aos|animate-on-scroll/i,
+      "Popper.js": /popper/i,
+      "Tooltip": /tooltip/i
     };
     
     for (const [name, pattern] of Object.entries(commonLibraries)) {
@@ -179,11 +179,11 @@ async function detectTechnologies(page) {
     .map(t => {
       // Normalize: capitalize, remove special chars
       return t
-        .replace(/[-_]/g, ' ')
+        .replace(/[-_]/g, " ")
         .replace(/\b\w/g, char => char.toUpperCase())
         .trim();
     })
-    .filter(t => t.length > 1 && !['Js', 'Css', 'Min', 'Latest', 'Stable'].includes(t))
+    .filter(t => t.length > 1 && !["Js", "Css", "Min", "Latest", "Stable"].includes(t))
     .sort();
 
   return { 
