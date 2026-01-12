@@ -1,3 +1,29 @@
+# SRE Agent job runs last, after all other jobs
+sre-agent:
+  runs-on: ubuntu-latest
+  needs: [lint, unit-test, test-playwright, test-vitest, test-cypress, agent-workflow]
+  if: ${{ always() }}
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Install dependencies
+      run: npm install
+    - name: Run Agentic SRE Engineer
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      run: |
+        node agentic_sre_engineer.js
+    - name: Commit and push changes (if any)
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add .
+        git diff --cached --quiet || git commit -m "fix: auto-fix by Agentic SRE Engineer"
+        git push || true
 name: Lint and Test
 
 on:
