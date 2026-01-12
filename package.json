@@ -6,11 +6,16 @@
   "scripts": {
     "start": "node server.js",
     "test:vitest": "vitest",
-    "test:cypress": "cypress run"
+    "test:cypress": "cypress run",
+    "agent": "node run-agent.js"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.12",
+    "@langchain/langgraph": "^1.0.15",
     "body-parser": "^1.20.2",
+    "dotenv": "^17.2.3",
     "express": "^4.18.2",
+    "langchain": "^1.2.7",
     "puppeteer": "^24.35.0"
   },
   "devDependencies": {

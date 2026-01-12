@@ -6,6 +6,7 @@ const performanceBox = document.getElementById("performance");
 const apisBox = document.getElementById("apis");
 const playwrightBox = document.getElementById("playwright");
 const cypressBox = document.getElementById("cypress");
+const recommendationsBox = document.getElementById("recommendations");
 
 
 function renderResults(resp) {
@@ -14,8 +15,14 @@ function renderResults(resp) {
     resultsBox.value = "Error: " + resp.error;
     return;
   }
-  const header = `Scan: ${resp.url}\nFound: ${resp.totalFound} (showing ${resp.results.length})\n---\n`;
-  const lines = resp.results.map((r, i) => `${i+1}. [${r.type}] ${r.message}\n   Fix: ${r.recommendation}`);
+  
+  // Log for debugging
+  console.log("renderResults called with:", { hasRecs: !!resp.recommendations, recsCount: resp.recommendations?.length });
+  
+  // Ensure results is an array
+  const results = Array.isArray(resp.results) ? resp.results : [];
+  const header = `Scan: ${resp.url}\nFound: ${resp.totalFound || results.length} (showing ${results.length})\n---\n`;
+  const lines = results.map((r, i) => `${i+1}. [${r.type}] ${r.message}\n   Fix: ${r.recommendation}`);
   resultsBox.value = header + lines.join("\n\n");
 
   // render test cases if present
@@ -39,7 +46,9 @@ function renderResults(resp) {
     lines.push(`Page Load Time (ms): ${p.loadTimeMs}`);
     lines.push(`Throughput (req/sec): ${p.throughputReqPerSec}`);
     lines.push("\nTop Resources:");
-    p.topResources.forEach((r, i) => lines.push(`${i+1}. ${r.name} — ${r.timeMs}ms (${r.type})`));
+    if (Array.isArray(p.topResources)) {
+      p.topResources.forEach((r, i) => lines.push(`${i+1}. ${r.name} — ${r.timeMs}ms (${r.type})`));
+    }
     performanceBox.value = headerP + lines.join("\n");
   } else {
     performanceBox.value = "";
@@ -55,13 +64,22 @@ function renderResults(resp) {
   }
 
   // Playwright and Cypress examples for first test case
-  if (resp.testCases && resp.testCases.length > 0) {
+  if (resp.testCases && Array.isArray(resp.testCases) && resp.testCases.length > 0) {
     const firstCase = resp.testCases[0] || "";
     playwrightBox.value = generatePlaywrightExample(firstCase, resp.url);
     cypressBox.value = generateCypressExample(firstCase, resp.url);
   } else {
     playwrightBox.value = "";
     cypressBox.value = "";
+  }
+
+  // render recommendations if present
+  if (resp.recommendations && Array.isArray(resp.recommendations)) {
+    const headerR = "AgenticQA Engineer's Recommendations\n\n";
+    const recLines = resp.recommendations.map((r, i) => `${i+1}. ${r}`);
+    recommendationsBox.value = headerR + recLines.join("\n\n");
+  } else {
+    recommendationsBox.value = "";
   }
 
 }
@@ -81,8 +99,10 @@ scanBtn.addEventListener("click", async () => {
   if (!url) return alert("Please enter a URL to scan");
   resultsBox.value = "Scanning " + url + " ...";
   try {
+    console.log("Fetch initiated for:", url);
     const resp = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
     const data = await resp.json();
+    console.log("Fetch complete. Data keys:", Object.keys(data));
     renderResults(data);
   } catch (e) {
     resultsBox.value = "Error scanning: " + e;

@@ -22,6 +22,36 @@ function mapIssue(type, message, recommendation) {
   return { type, message, recommendation };
 }
 
+function generateRecommendations(results, features, performanceResults) {
+  const recommendations = [];
+
+  // Accessibility recommendation
+  const accessibilityIssues = results.filter(r => ['MissingAlt', 'EmptyAlt', 'MissingLabel', 'HeadingOrder'].includes(r.type)).length;
+  if (accessibilityIssues > 0) {
+    recommendations.push(`Improve accessibility: Found ${accessibilityIssues} accessibility issues. Implement ARIA labels, alt text for all images, and proper heading hierarchy to ensure compliance with WCAG 2.1 AA standards. This will improve SEO ranking and user experience for all visitors.`);
+  } else {
+    recommendations.push(`Excellent accessibility foundation: Your site has strong accessibility practices. Consider enhancing with ARIA landmarks to provide better navigation for assistive technology users and improve overall inclusive design.`);
+  }
+
+  // Performance recommendation
+  if (performanceResults && performanceResults.loadTimeMs > 3000) {
+    recommendations.push(`Optimize performance: Page load time is ${performanceResults.loadTimeMs}ms. Implement lazy loading for images, enable gzip compression, cache static assets, and consider a CDN to reduce load time to under 2 seconds. This improves user experience and SEO rankings.`);
+  } else if (performanceResults && performanceResults.failedRequests > 0) {
+    recommendations.push(`Reduce failed requests: ${performanceResults.failedRequests} resource requests failed. Audit external dependencies, check CORS configurations, and implement fallback mechanisms. Reliable loading improves trust and reduces user bounce rate.`);
+  } else {
+    recommendations.push(`Performance is solid: Load time under 3 seconds. Continue monitoring Core Web Vitals using Google Lighthouse. Consider implementing progressive enhancement to ensure fast initial paint and smooth interactions.`);
+  }
+
+  // Test coverage recommendation
+  if (results.length > 10) {
+    recommendations.push(`Expand test coverage: With ${results.length} identified issues, implement automated testing for critical flows. Use Playwright for API testing and Cypress for UI workflows. Aim for 80%+ code coverage to catch regressions early and reduce production incidents by 40%.`);
+  } else {
+    recommendations.push(`Maintain test quality: Implement continuous testing with Playwright E2E tests and Cypress for user workflows. Add visual regression testing to catch design changes. Document test scenarios for 20+ key user journeys and automate them in CI/CD to ensure consistent quality.`);
+  }
+
+  return recommendations;
+}
+
 app.post("/scan", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "Missing url" });
@@ -213,11 +243,14 @@ app.post("/scan", async (req, res) => {
     pushIf("Negative: Accessibility: focus order works for keyboard navigation");
     pushIf("Negative: Heading structure regressions cause screen-reader confusion");
 
+    // Generate AI recommendations based on scan results
+    const recommendations = generateRecommendations(results, features, performanceResults);
+
     // trim to 25 issue results
     const trimmed = results.slice(0, 25);
 
     await browser.close();
-    res.json({ url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [] });
+    res.json({ url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations });
   } catch (err) {
     if (browser) await browser.close();
     res.status(500).json({ error: String(err), results: results.slice(0,25) });

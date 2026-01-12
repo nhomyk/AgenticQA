@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Fetch</title>
+</head>
+<body>
+  <h1>Testing Fetch</h1>
+  <div id="output" style="white-space: pre; border: 1px solid black; padding: 10px; font-family: monospace;"></div>
+  
+  <script>
+    async function test() {
+      const resp = await fetch("/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: "http://localhost:3000" })
+      });
+      const data = await resp.json();
+      
+      let output = "";
+      output += "Response keys: " + Object.keys(data).join(", ") + "\n";
+      output += "Recommendations: " + (data.recommendations ? "YES (" + data.recommendations.length + " items)" : "NO") + "\n";
+      output += "\nFirst recommendation:\n" + (data.recommendations?.[0] || "NONE");
+      
+      document.getElementById("output").textContent = output;
+    }
+    test().catch(e => {
+      document.getElementById("output").textContent = "ERROR: " + e.message;
+    });
+  </script>
+</body>
+</html>
