@@ -17,22 +17,32 @@ function normalizeUrl(input) {
   return input;
 }
 
-
+// Reuse Puppeteer browser instance
+let browser;
+(async () => {
+  browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+})();
 
 // Dummy detectTechnologies for now (replace with real logic if needed)
-async function detectTechnologies() {
-  return { techs: [], urls: [] };
+async function detectTechnologies(page) {
+  // Example: look for script tags and try to infer tech
+  const techs = await page.$$eval('script[src]', scripts =>
+    scripts.map(s => s.src.match(/([\w-]+)(?:[./@-])/i)).filter(Boolean).map(m => m[1])
+  );
+  const urls = await page.$$eval('script[src]', scripts => scripts.map(s => s.src));
+  return { techs, urls };
 }
 
 app.post("/scan", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "Missing url" });
   const target = normalizeUrl(url);
-  let browser;
   try {
-    browser = await puppeteer.launch({ headless: true });
+    if (!browser) {
+      browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    }
     const page = await browser.newPage();
-    await page.goto(target, { waitUntil: "networkidle2", timeout: 20000 });
+    await page.goto(target, { waitUntil: "domcontentloaded", timeout: 10000 });
     // Add your scanning logic here (DOM checks, performance, etc.)
     // For now, just return a dummy response
     const testCases = [
@@ -52,18 +62,12 @@ app.post("/scan", async (req, res) => {
       "Add real recommendations here."
     ];
     const technologies = await detectTechnologies(page);
-    let technologiesArr = [];
-    let technologyUrls = [];
-    if (technologies && Array.isArray(technologies.techs)) {
-      technologiesArr = Array.isArray(technologies.techs) ? technologies.techs : [];
-      technologyUrls = Array.isArray(technologies.urls) ? technologies.urls : [];
-    } else if (Array.isArray(technologies)) {
-      technologiesArr = technologies;
-    }
+    let technologiesArr = Array.isArray(technologies.techs) ? technologies.techs : [];
+    let technologyUrls = Array.isArray(technologies.urls) ? technologies.urls : [];
     // Always ensure both are arrays, even if empty
     if (!Array.isArray(technologiesArr)) technologiesArr = [];
     if (!Array.isArray(technologyUrls)) technologyUrls = [];
-    await browser.close();
+    await page.close();
     const responsePayload = {
       url: target,
       results: [],
@@ -77,10 +81,8 @@ app.post("/scan", async (req, res) => {
     };
     res.json(responsePayload);
   } catch (err) {
-    if (browser) await browser.close();
     res.status(500).json({ error: String(err), results: [] });
   }
-
 });
 
 const PORT = process.env.PORT || 3000;
