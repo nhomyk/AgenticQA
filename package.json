@@ -1,6 +1,6 @@
 {
   "name": "agentic-qa-engineer",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Agentic QA Engineer: scans webpages for console errors and DOM issues using Puppeteer",
   "main": "server.js",
   "scripts": {
