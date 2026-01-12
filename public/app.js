@@ -17,6 +17,16 @@ function renderResults(resp) {
     return;
   }
   
+  // Reset tab state to Playwright (first tab) for new results
+  document.querySelectorAll(".tab-pane").forEach(pane => {
+    pane.classList.remove("active");
+  });
+  document.querySelectorAll(".tab-button").forEach(btn => {
+    btn.classList.remove("active");
+  });
+  document.getElementById("playwright").classList.add("active");
+  document.querySelector('[data-tab="playwright"]').classList.add("active");
+  
   // Log for debugging
   console.log("renderResults called with:", { hasRecs: !!resp.recommendations, recsCount: resp.recommendations?.length });
   
@@ -128,12 +138,14 @@ scanBtn.addEventListener("click", async () => {
   if (!url) return alert("Please enter a URL to scan");
   resultsBox.value = "Scanning " + url + " ...";
   try {
-    console.log("Fetch initiated for:", url);
+    console.log("[UI] Fetch initiated for:", url);
     const resp = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+    console.log("[UI] Fetch response status:", resp.status);
     const data = await resp.json();
-    console.log("Fetch complete. Data keys:", Object.keys(data));
+    console.log("[UI] Fetch complete. Data:", data);
     renderResults(data);
   } catch (e) {
+    console.error("[UI] Error during fetch:", e);
     resultsBox.value = "Error scanning: " + e;
   }
 });

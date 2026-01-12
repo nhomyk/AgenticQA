@@ -70,11 +70,13 @@ app.post("/scan", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "Missing url" });
   const target = normalizeUrl(url);
+  console.log("[SERVER] /scan called for URL:", target);
 
   const results = [];
 
   let browser;
   try {
+    console.log("[SERVER] Launching browser for:", target);
     browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     const page = await browser.newPage();
 
@@ -262,7 +264,9 @@ app.post("/scan", async (req, res) => {
     const trimmed = results.slice(0, 25);
 
     await browser.close();
-    res.json({ url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations });
+    const responsePayload = { url: target, results: trimmed, totalFound: results.length, testCases: testCases.slice(0,20), performanceResults, apis: apis || [], recommendations };
+    console.log("[SERVER] Responding with payload:", JSON.stringify(responsePayload, null, 2));
+    res.json(responsePayload);
   } catch (err) {
     if (browser) await browser.close();
     res.status(500).json({ error: String(err), results: results.slice(0,25) });
