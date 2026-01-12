@@ -25,7 +25,7 @@ function renderResults(resp) {
     btn.classList.remove("active");
   });
   document.getElementById("playwright").classList.add("active");
-  document.querySelector('[data-tab="playwright"]').classList.add("active");
+  document.querySelector("[data-tab=\"playwright\"]").classList.add("active");
   
   // Log for debugging
   console.log("renderResults called with:", { hasRecs: !!resp.recommendations, recsCount: resp.recommendations?.length });
