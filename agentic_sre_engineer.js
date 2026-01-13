@@ -1142,6 +1142,20 @@ async function agenticSRELoop() {
     } catch (err) {
       console.error('Failed to send email (non-critical):', err.message);
     }
+    
+    // CRITICAL: If failures were detected but not fixed, force re-run anyway
+    console.log(`\n🔄 Failures detected but not fixed - forcing re-run attempt...`);
+    try {
+      const triggerResult = await reRunCurrentWorkflow();
+      if (triggerResult.success) {
+        console.log(`✅ Re-run triggered even without code changes`);
+        console.log(`   Next run may succeed or provide more diagnostic data`);
+      } else {
+        console.log(`⚠️  Re-run trigger failed`);
+      }
+    } catch (err) {
+      console.log(`⚠️  Re-run error: ${err.message}`);
+    }
   }
 
   console.log(`\nSRE workflow complete after ${iteration} iteration(s)`);
@@ -1152,6 +1166,10 @@ async function agenticSRELoop() {
     console.log(`✅ CODE CHANGES DETECTED`);
     console.log(`✅ WORKFLOW RE-RUN: TRIGGERED`);
     console.log(`📊 Check the latest workflow run to see pipeline re-run results`);
+  } else if (failureAnalysis.length > 0) {
+    console.log(`⚠️  TEST FAILURES DETECTED (no auto-fixes)`);
+    console.log(`✅ WORKFLOW RE-RUN: FORCED ATTEMPT`);
+    console.log(`   Next run may succeed or provide diagnostics`);
   } else {
     console.log(`ℹ️ NO CODE CHANGES MADE`);
     console.log(`ℹ️ NO RE-RUN TRIGGERED`);

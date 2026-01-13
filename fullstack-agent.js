@@ -282,17 +282,19 @@ async function analyzeAndFixFailures() {
   
   if (!GITHUB_RUN_ID || !GITHUB_TOKEN) {
     log('⚠️  Cannot access workflow run info (running locally?)\n');
-    return false;
+    return { failuresDetected: false, failuresFixed: false };
   }
   
   try {
     const jobs = await getJobsForRun();
     log(`Found ${jobs.length} jobs in current workflow run\n`);
     
-    let changesFound = false;
+    let failuresDetected = false;
+    let failuresFixed = false;
     
     for (const job of jobs) {
       if (job.conclusion === 'failure') {
+        failuresDetected = true;
         log(`  ⚠️  FAILED JOB: ${job.name}`);
         
         const logs = await getJobLogs(job.id);
@@ -307,11 +309,11 @@ async function analyzeAndFixFailures() {
             // Apply specific fixes based on failure type
             if (failure.type === 'cypress') {
               if (fixFailingCypressTests()) {
-                changesFound = true;
+                failuresFixed = true;
               }
             } else if (failure.type === 'jest' || failure.type === 'playwright') {
               if (fixTestByAnalyzingLogs(logs, failure.type)) {
-                changesFound = true;
+                failuresFixed = true;
               }
             }
           }
@@ -319,10 +321,10 @@ async function analyzeAndFixFailures() {
       }
     }
     
-    return changesFound;
+    return { failuresDetected, failuresFixed };
   } catch (err) {
     log(`⚠️  Error analyzing failures: ${err.message}\n`);
-    return false;
+    return { failuresDetected: false, failuresFixed: false };
   }
 }
 
@@ -728,7 +730,7 @@ async function triggerNewPipeline() {
 
 async function main() {
   try {
-    log('\n🤖 === FULLSTACK AGENT v3.0 ===');
+    log('\n🤖 === FULLSTACK AGENT v3.1 ===');
     log(`Run ID: ${GITHUB_RUN_ID}`);
     log('═══════════════════════════════════\n');
     
@@ -736,18 +738,26 @@ async function main() {
     generatePipelineReport();
     
     let changesApplied = false;
+    let testFailuresDetected = false;
     
     // STRATEGY 0: Analyze actual workflow failures (NEW - real failure analysis)
-    log('🎯 === FULLSTACK AGENT v3.1 ===');
-    log('Real Failure Analysis & Auto-Fix\n');
+    log('📊 STEP 1: Analyzing actual workflow failures...\n');
     
-    const failureFixed = await analyzeAndFixFailures();
-    if (failureFixed) {
+    const failureAnalysis = await analyzeAndFixFailures();
+    testFailuresDetected = failureAnalysis.failuresDetected;
+    
+    if (failureAnalysis.failuresFixed) {
       changesApplied = true;
+      log('\n✅ Failures detected and fixes applied');
+    } else if (failureAnalysis.failuresDetected) {
+      log('\n⚠️  Failures detected but no automatic fixes available');
+      log('   Agents will force re-run to allow manual inspection\n');
+    } else {
+      log('\n✅ No test failures detected');
     }
     
     // STRATEGY 1: Scan and fix known issues in source files (fallback)
-    log('📝 Scanning source files for bugs...\n');
+    log('\n📝 STEP 2: Scanning source files for bugs...\n');
     
     const filesToCheck = [
       'public/app.js',
@@ -834,13 +844,41 @@ async function main() {
     const hasChanges = statusOutput.trim().length > 0;
     
     if (!hasChanges) {
-      log('✅ No changes to commit\n');
-      log('\n✅ === FULLSTACK AGENT v3.0 COMPLETE ===');
+      log('✅ No code changes to commit\n');
+      
+      // CRITICAL: If test failures were detected, force re-run attempt
+      // This ensures re-run happens even if agent couldn't auto-fix
+      if (testFailuresDetected) {
+        log('⚠️  Test failures detected but could not auto-fix\n');
+        log('🔄 Forcing pipeline re-run to allow re-evaluation...\n');
+        
+        try {
+          const triggerSuccess = await triggerNewPipeline();
+          if (triggerSuccess) {
+            log('✅ Pipeline re-run triggered');
+            log('   Check workflow for next run results\n');
+          } else {
+            log('⚠️  Re-run trigger failed - GitHub API may be unreachable');
+            log('   Pipeline should auto-trigger on next push\n');
+          }
+        } catch (err) {
+          log(`⚠️  Re-run error: ${err.message}`);
+        }
+      }
+      
+      log('\n✅ === FULLSTACK AGENT v3.1 COMPLETE ===');
+      log('   ✓ Analyzed actual workflow failures');
       log('   ✓ Scanned source files & code quality verified');
-      log('   ✓ Analyzed code coverage');
-      log('   ✓ No fixes needed\n');
-      log('   ℹ️  NO CODE CHANGES MADE');
-      log('   ℹ️  NO PIPELINE RE-RUN TRIGGERED\n');
+      log('   ✓ Analyzed code coverage\n');
+      
+      if (testFailuresDetected) {
+        log('   ℹ️  TEST FAILURES DETECTED (no auto-fixes)');
+        log('   ℹ️  PIPELINE RE-RUN ATTEMPTED\n');
+      } else {
+        log('   ℹ️  NO CODE CHANGES MADE');
+        log('   ℹ️  NO PIPELINE RE-RUN TRIGGERED\n');
+      }
+      
       process.exit(0);
     }
     
