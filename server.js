@@ -720,12 +720,12 @@ if (require.main === module) {
 }
 
 // NEW: Utility function for formatting API responses
-function formatApiResponse(data, status = 'success') {
+function formatApiResponse(data, status = "success") {
   return {
     status,
     data,
     timestamp: new Date().toISOString(),
-    version: '1.0'
+    version: "1.0"
   };
 }
 
