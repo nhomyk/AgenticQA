@@ -1,0 +1,3 @@
+Cypress test failed: Element 'Technologies Detected' not found
+Expected: toBe('Technologies Detected')
+But got: 'AgenticQA'

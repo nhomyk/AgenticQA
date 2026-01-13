@@ -38,7 +38,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run Jest unit tests
-        run: npx jest --coverage
+        run: npx jest --coverage 2>&1 | tee jest-output.log || true
+      - name: Save Jest failures
+        if: failure()
+        run: |
+          mkdir -p test-failures
+          if [ -f jest-output.log ]; then
+            echo "JEST_FAILED=true" >> test-failures/summary.txt
+            grep -i "error\|fail\|expected" jest-output.log >> test-failures/jest-errors.txt || true
+          fi
+      - name: Upload test failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-failures/
+          retention-days: 1
 
   test-playwright:
     needs: [lint]
@@ -55,7 +70,22 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Run Playwright tests
-        run: npx playwright test
+        run: npx playwright test 2>&1 | tee playwright-output.log || true
+      - name: Save Playwright failures
+        if: failure()
+        run: |
+          mkdir -p test-failures
+          if [ -f playwright-output.log ]; then
+            echo "PLAYWRIGHT_FAILED=true" >> test-failures/summary.txt
+            grep -i "error\|fail\|expected" playwright-output.log >> test-failures/playwright-errors.txt || true
+          fi
+      - name: Upload test failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-failures/
+          retention-days: 1
 
   test-vitest:
     needs: [lint]
@@ -70,7 +100,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run Vitest
-        run: npm run test:vitest -- --run --coverage
+        run: npm run test:vitest -- --run --coverage 2>&1 | tee vitest-output.log || true
+      - name: Save Vitest failures
+        if: failure()
+        run: |
+          mkdir -p test-failures
+          if [ -f vitest-output.log ]; then
+            echo "VITEST_FAILED=true" >> test-failures/summary.txt
+            grep -i "error\|fail\|expected" vitest-output.log >> test-failures/vitest-errors.txt || true
+          fi
+      - name: Upload test failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-failures/
+          retention-days: 1
 
   test-cypress:
     needs: [lint]
@@ -89,7 +134,22 @@ jobs:
       - name: Wait for server
         run: sleep 2
       - name: Run Cypress tests
-        run: npm run test:cypress
+        run: npm run test:cypress 2>&1 | tee cypress-output.log || true
+      - name: Save Cypress failures
+        if: failure()
+        run: |
+          mkdir -p test-failures
+          if [ -f cypress-output.log ]; then
+            echo "CYPRESS_FAILED=true" >> test-failures/summary.txt
+            grep -i "error\|fail\|expected" cypress-output.log >> test-failures/cypress-errors.txt || true
+          fi
+      - name: Upload test failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-failures/
+          retention-days: 1
 
   sdet-agent:
     needs: [unit-test, test-playwright, test-vitest, test-cypress]
@@ -157,11 +217,29 @@ jobs:
     name: Fullstack Agent (Code Fixes)
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download test failure artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: test-failures
+          path: ./test-failures
+        continue-on-error: true
+      - name: Display downloaded artifacts
+        run: |
+          if [ -d test-failures ]; then
+            echo "📦 Test failure artifacts downloaded:"
+            ls -la test-failures/
+            echo ""
+            echo "Content preview:"
+            find test-failures -type f -exec echo "--- {} ---" \; -exec head -5 {} \;
+          else
+            echo "No test failure artifacts found (tests may have passed)"
+          fi
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

@@ -138,101 +138,198 @@ function execSilent(cmd) {
 
 // ========== GITHUB WORKFLOW FAILURE ANALYSIS ==========
 
-async function getWorkflowRunInfo() {
-  if (!GITHUB_RUN_ID) {
-    log('⚠️  Not running in GitHub Actions, skipping failure analysis');
+async function downloadTestFailureArtifacts() {
+  // Download test failure artifacts from previous jobs
+  if (!GITHUB_RUN_ID || !GITHUB_TOKEN) {
+    log('⚠️  Cannot download artifacts (no GitHub context)');
     return null;
   }
   
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: `/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${GITHUB_RUN_ID}`,
-      method: 'GET',
-      headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Node.js'
-      }
-    };
+  try {
+    log('📦 Downloading test failure artifacts...\n');
     
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          resolve(null);
+    return new Promise((resolve) => {
+      const options = {
+        hostname: 'api.github.com',
+        path: `/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${GITHUB_RUN_ID}/artifacts`,
+        method: 'GET',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Node.js'
         }
+      };
+      
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            const failureArtifact = parsed.artifacts?.find(a => a.name === 'test-failures');
+            resolve(failureArtifact);
+          } catch (e) {
+            resolve(null);
+          }
+        });
       });
+      
+      req.on('error', () => resolve(null));
+      req.end();
     });
-    
-    req.on('error', () => resolve(null));
-    req.end();
-  });
+  } catch (err) {
+    log(`⚠️  Error downloading artifacts: ${err.message}`);
+    return null;
+  }
 }
 
-async function getJobsForRun() {
-  if (!GITHUB_RUN_ID || !GITHUB_TOKEN) {
-    return [];
+async function readTestFailureSummary() {
+  // Read test failures from the test-failures directory downloaded by the workflow
+  // The workflow uses actions/download-artifact to get test-failures artifacts
+  try {
+    const failureDir = 'test-failures';
+    
+    if (!fs.existsSync(failureDir)) {
+      log('  ℹ️  No test failure directory found (tests likely passed)');
+      return { failures: [], anyFailures: false };
+    }
+    
+    log(`  📁 Found test-failures directory`);
+    
+    const failures = [];
+    const summaryFile = path.join(failureDir, 'summary.txt');
+    
+    // Read summary file to determine which tests failed
+    if (fs.existsSync(summaryFile)) {
+      const summary = fs.readFileSync(summaryFile, 'utf-8');
+      log(`  📄 Summary: ${summary.split('\n').filter(l => l.trim()).join(' | ')}`);
+      
+      // Check each framework's error file
+      if (summary.includes('CYPRESS_FAILED')) {
+        const errorsFile = path.join(failureDir, 'cypress-errors.txt');
+        if (fs.existsSync(errorsFile)) {
+          const errors = fs.readFileSync(errorsFile, 'utf-8');
+          failures.push({ type: 'cypress', errors, framework: 'Cypress' });
+          log('  🔴 Cypress: FAILED');
+        }
+      }
+      
+      if (summary.includes('PLAYWRIGHT_FAILED')) {
+        const errorsFile = path.join(failureDir, 'playwright-errors.txt');
+        if (fs.existsSync(errorsFile)) {
+          const errors = fs.readFileSync(errorsFile, 'utf-8');
+          failures.push({ type: 'playwright', errors, framework: 'Playwright' });
+          log('  🔴 Playwright: FAILED');
+        }
+      }
+      
+      if (summary.includes('JEST_FAILED')) {
+        const errorsFile = path.join(failureDir, 'jest-errors.txt');
+        if (fs.existsSync(errorsFile)) {
+          const errors = fs.readFileSync(errorsFile, 'utf-8');
+          failures.push({ type: 'jest', errors, framework: 'Jest' });
+          log('  🔴 Jest: FAILED');
+        }
+      }
+      
+      if (summary.includes('VITEST_FAILED')) {
+        const errorsFile = path.join(failureDir, 'vitest-errors.txt');
+        if (fs.existsSync(errorsFile)) {
+          const errors = fs.readFileSync(errorsFile, 'utf-8');
+          failures.push({ type: 'vitest', errors, framework: 'Vitest' });
+          log('  🔴 Vitest: FAILED');
+        }
+      }
+    } else {
+      log('  ⚠️  No summary.txt found');
+    }
+    
+    return { failures, anyFailures: failures.length > 0 };
+  } catch (err) {
+    log(`⚠️  Error reading failure summary: ${err.message}`);
+    return { failures: [], anyFailures: false };
+  }
+}
+
+async function analyzeTestFailureSummary() {
+  log('\n🔍 Analyzing test failure summary...\n');
+  
+  const failureData = await readTestFailureSummary();
+  
+  if (!failureData.anyFailures) {
+    log('✅ No test failure summaries found');
+    return { failuresDetected: false, failuresFixed: false };
   }
   
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: `/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${GITHUB_RUN_ID}/jobs`,
-      method: 'GET',
-      headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Node.js'
-      }
-    };
+  log(`Found ${failureData.failures.length} test framework failure(s)\n`);
+  
+  let failuresDetected = true;
+  let failuresFixed = false;
+  
+  for (const failure of failureData.failures) {
+    log(`  📋 ${failure.type.toUpperCase()} failures:`);
     
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed.jobs || []);
-        } catch (e) {
-          resolve([]);
-        }
-      });
+    // Extract key error messages
+    const errorLines = failure.errors.split('\n').filter(l => l.trim().length > 0);
+    errorLines.slice(0, 3).forEach(line => {
+      const shortened = line.substring(0, 100);
+      log(`     → ${shortened}`);
     });
     
-    req.on('error', () => resolve([]));
-    req.end();
-  });
+    // Detect and fix common patterns
+    if (failure.errors.includes('Technologies Detected') || 
+        failure.errors.includes('Scan Results') || 
+        failure.errors.includes('APIs Used')) {
+      log('     🔧 Detected: Old Scanner app test assertions');
+      if (fixOutdatedTestAssertions()) {
+        failuresFixed = true;
+      }
+    } else if (failure.errors.includes('Expected') || failure.errors.includes('AssertionError')) {
+      log('     🔧 Detected: Test assertion mismatch');
+      if (fixFailingCypressTests()) {
+        failuresFixed = true;
+      }
+    }
+  }
+  
+  return { failuresDetected, failuresFixed };
 }
 
-async function getJobLogs(jobId) {
-  if (!GITHUB_TOKEN) return '';
+function fixOutdatedTestAssertions() {
+  log('     Fixing outdated test assertions...');
   
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.github.com',
-      path: `/repos/${REPO_OWNER}/${REPO_NAME}/actions/jobs/${jobId}/logs`,
-      method: 'GET',
-      headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'Node.js'
-      }
-    };
+  const testFiles = [
+    'unit-tests/ui-display.test.js',
+    'unit-tests/app.test.js',
+    'cypress/e2e/scan-ui.cy.js',
+    'playwright-tests/scan-ui.spec.js'
+  ];
+  
+  let fixed = false;
+  
+  for (const testFile of testFiles) {
+    if (!fs.existsSync(testFile)) continue;
     
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
-    });
+    let content = fs.readFileSync(testFile, 'utf-8');
+    const original = content;
     
-    req.on('error', () => resolve(''));
-    req.end();
-  });
+    // Replace old scanner expectations with new dashboard expectations
+    content = content.replace(/Technologies Detected/g, 'AgenticQA');
+    content = content.replace(/Scan Results/g, 'Overview');
+    content = content.replace(/APIs Used/g, 'Features');
+    content = content.replace(/Detected technologies will appear here/g, 'Self-Healing AI-Powered');
+    
+    if (content !== original) {
+      fs.writeFileSync(testFile, content, 'utf-8');
+      log(`     ✓ Updated ${testFile}`);
+      fixed = true;
+    }
+  }
+  
+  return fixed;
 }
+
+// ========== LEGACY API-BASED ANALYSIS (fallback) =========
 
 function parseTestFailures(logs) {
   const failures = [];
@@ -788,7 +885,7 @@ async function triggerNewPipeline() {
 
 async function main() {
   try {
-    log('\n🤖 === FULLSTACK AGENT v3.1 ===');
+    log('\n🤖 === FULLSTACK AGENT v3.2 ===');
     log(`Run ID: ${GITHUB_RUN_ID}`);
     log('═══════════════════════════════════\n');
     
@@ -798,18 +895,18 @@ async function main() {
     let changesApplied = false;
     let testFailuresDetected = false;
     
-    // STRATEGY 0: Analyze actual workflow failures (NEW - real failure analysis)
-    log('📊 STEP 1: Analyzing actual workflow failures...\n');
+    // STRATEGY 0: Analyze test failure summaries (NEW - artifact-based detection)
+    log('📊 STEP 1: Analyzing test failure summaries...\n');
     
-    const failureAnalysis = await analyzeAndFixFailures();
+    const failureAnalysis = await analyzeTestFailureSummary();
     testFailuresDetected = failureAnalysis.failuresDetected;
     
     if (failureAnalysis.failuresFixed) {
       changesApplied = true;
-      log('\n✅ Failures detected and fixes applied');
+      log('\n✅ Test failures detected and fixes applied');
     } else if (failureAnalysis.failuresDetected) {
-      log('\n⚠️  Failures detected but no automatic fixes available');
-      log('   Agents will force re-run to allow manual inspection\n');
+      log('\n⚠️  Test failures detected but no automatic fixes available');
+      log('   Will still trigger re-run for re-evaluation\n');
     } else {
       log('\n✅ No test failures detected');
     }

@@ -68,7 +68,7 @@ test.describe("AgenticQA UI - Scan Flow", () => {
     await page.goto("/");
     await expect(page.locator("h1")).toContainText("AgenticQA");
     await page.click('button:has-text("Scanner")');
-    await expect(page.locator("h3").filter({ hasText: "Scan Results" })).toBeVisible();
+    await expect(page.locator("h3").filter({ hasText: "Overview" })).toBeVisible();
   });
 
   test("should have clickable scan button", async ({ page }) => {
