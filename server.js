@@ -320,12 +320,24 @@ async function detectTechnologies(page) {
 }
 
 app.post("/scan", async (req, res) => {
+  let page = null;
+  const requestTimeout = setTimeout(() => {
+    log("error", "Scan request timeout after " + SCAN_TIMEOUT + "ms");
+    if (page) {
+      page.close().catch(() => {});
+    }
+    if (!res.headersSent) {
+      res.status(504).json({ error: "Scan request timed out", results: [] });
+    }
+  }, SCAN_TIMEOUT + 5000); // 5 second buffer above page timeout
+  
   try {
     const { url } = req.body;
     
     // Input validation
     if (!url) {
       log("warn", "Scan requested without URL");
+      clearTimeout(requestTimeout);
       return res.status(400).json({ error: "URL is required" });
     }
     
@@ -335,6 +347,7 @@ app.post("/scan", async (req, res) => {
       target = validateUrl(url);
     } catch (err) {
       log("warn", "Invalid URL provided", { url: url.substring(0, 100), error: err.message });
+      clearTimeout(requestTimeout);
       return res.status(400).json({ error: err.message });
     }
     
@@ -346,7 +359,7 @@ app.post("/scan", async (req, res) => {
       browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     }
     
-    const page = await browser.newPage();
+    page = await browser.newPage();
     
     // Set timeout
     page.setDefaultTimeout(SCAN_TIMEOUT);
@@ -402,8 +415,13 @@ app.post("/scan", async (req, res) => {
       technologyUrls: technologyUrls.map(u => sanitizeString(u))
     };
     
-    await page.close();
+    if (page) {
+      await page.close().catch(err => {
+        log("warn", "Error closing page", { error: err.message });
+      });
+    }
     
+    clearTimeout(requestTimeout);
     log("info", "Scan completed successfully", { url: target });
     res.json(responsePayload);
     
@@ -411,12 +429,22 @@ app.post("/scan", async (req, res) => {
     const errorMessage = err.message || String(err);
     log("error", "Scan failed", { error: errorMessage });
     
-    res.status(500).json({
-      error: NODE_ENV === "production" 
-        ? "An error occurred during scanning" 
-        : errorMessage,
-      results: []
-    });
+    if (page) {
+      await page.close().catch(err => {
+        log("warn", "Error closing page in catch block", { error: err.message });
+      });
+    }
+    
+    clearTimeout(requestTimeout);
+    
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: NODE_ENV === "production" 
+          ? "An error occurred during scanning" 
+          : errorMessage,
+        results: []
+      });
+    }
   }
 });
 
