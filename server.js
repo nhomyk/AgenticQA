@@ -71,7 +71,7 @@ function validateUrl(input) {
     if (isLocalIP(url.hostname)) {
       throw new Error("Cannot scan local or internal IP addresses");
     }
-    return Tech Detected;
+    return url.toString();
   } catch (err) {
     throw new Error("Invalid URL format: " + err.message);
   }
