@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Technology Scanner - Detect frameworks, libraries, and patterns in web applications">
+    <title>Technology Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 3rem 2rem;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .input-section {
+            margin-bottom: 3rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        input[type="url"] {
+            flex: 1;
+            min-width: 250px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 0.75rem 2rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .results-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .result-box {
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .result-box:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+        }
+
+        .result-box h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .result-box textarea {
+            width: 100%;
+            height: 200px;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            background: white;
+        }
+
+        .result-box textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .button-group button {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .button-group button:nth-child(2) {
+            background: #28a745;
+        }
+
+        .button-group button:nth-child(2):hover {
+            background: #218838;
+        }
+
+        .button-group button:nth-child(3) {
+            background: #17a2b8;
+        }
+
+        .button-group button:nth-child(3):hover {
+            background: #138496;
+        }
+
+        .icon {
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+
+            .results-section {
+                grid-template-columns: 1fr;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            input[type="url"] {
+                min-width: auto;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Technology Scanner</h1>
+            <p>Detect frameworks, libraries, and patterns in web applications</p>
+        </div>
+
+        <div class="content">
+            <div style="margin-bottom: 1rem;">
+                <a href="/" class="nav-link">← Back to AgenticQA Dashboard</a>
+            </div>
+
+            <div class="input-section">
+                <h2 style="margin-bottom: 1rem; color: #333;">Enter URL to Scan</h2>
+                <div class="input-group">
+                    <input type="url" id="urlInput" placeholder="https://example.com" value="">
+                    <button id="scanBtn">Scan Website</button>
+                </div>
+                <p style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+                    💡 Tip: Enter the full URL including protocol (http:// or https://)
+                </p>
+            </div>
+
+            <div id="results-container" style="display: none;">
+                <div class="results-section">
+                    <div class="result-box">
+                        <h3><span class="icon">📚</span>Technologies Detected</h3>
+                        <textarea id="technologies" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download Script</button>
+                            <button onclick="copyToClipboard('technologies')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">🧪</span>Playwright Test Cases</h3>
+                        <textarea id="playwright" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('playwright')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">🌿</span>Cypress Test Cases</h3>
+                        <textarea id="cypress" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('cypress')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">⚡</span>Vitest Test Cases</h3>
+                        <textarea id="vitest" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('vitest')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">✅</span>Test Cases</h3>
+                        <textarea id="testcases" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('testcases')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">⚙️</span>Scan Results</h3>
+                        <textarea id="results" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('results')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">📊</span>Performance Metrics</h3>
+                        <textarea id="performance" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('performance')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">🔗</span>APIs Used</h3>
+                        <textarea id="apis" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('apis')">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <h3><span class="icon">💡</span>Recommendations</h3>
+                        <textarea id="recommendations" readonly></textarea>
+                        <div class="button-group">
+                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="copyToClipboard('recommendations')">📋 Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="empty-state" class="empty-state">
+                Enter a URL above and click "Scan Website" to analyze the technology stack
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+    <script>
+        // Override to show/hide results containers
+        const originalRenderResults = window.renderResults;
+        window.renderResults = function(resp) {
+            originalRenderResults(resp);
+            document.getElementById('results-container').style.display = 'grid';
+            document.getElementById('empty-state').style.display = 'none';
+        };
+
+        // Show loading state
+        const originalScan = scanBtn.onclick;
+        if (scanBtn) {
+            scanBtn.addEventListener('click', function() {
+                if (urlInput.value.trim()) {
+                    document.getElementById('empty-state').innerHTML = '<div class="loading"><div class="spinner"></div>Scanning website...</div>';
+                    document.getElementById('results-container').style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
