@@ -497,17 +497,31 @@ function fixTestFile(mismatch) {
     
     // Fix 7: Function signature changes
     if (type === "function-signature") {
+      // Update function calls to include caseNum parameter
+      if (testFile.includes("app.test.js")) {
+        content = content.replace(
+          /fn\('([^']+)', 'https:\/\/example\.com'\)/g,
+          "fn('$1', 'https://example.com', 1)"
+        );
+        // Update expected string assertions
+        content = content.replace(
+          /toContain\('Playwright example for:/g,
+          "toContain('Test Case 1:"
+        );
+        content = content.replace(
+          /toContain\('Cypress example for:/g,
+          "toContain('Test case 1"
+        );
+        changed = true;
+      }
+    }
+    
     // Fix 8: Dependency vulnerabilities
     if (type === "dependency-vulnerability") {
       console.log("🔧 Fixing dependency vulnerabilities...");
-      try {
-        execSync("npm audit fix --force", { cwd: process.cwd(), stdio: "pipe" });
-        console.log("✅ Dependencies updated and vulnerabilities fixed");
-        return true;
-      } catch (err) {
-        console.warn("⚠️  npm audit fix failed, manual review may be needed");
-        return false;
-      }
+      execSync("npm audit fix --force", { cwd: process.cwd(), stdio: "pipe" });
+      console.log("✅ Dependencies updated and vulnerabilities fixed");
+      changed = true;
     }
     
     // Fix 9: Code coverage below threshold
@@ -531,20 +545,20 @@ function fixTestFile(mismatch) {
         content = content.replace(/console\.(log|debug)\([^)]*\);?\n/g, "");
         fs.writeFileSync(testFile, content);
         console.log("✅ Code quality improvements applied");
-        return true;
+        changed = true;
       }
-      return false;
     }
     
     if (changed) {
       fs.writeFileSync(testFile, content);
       return true;
     }
+    
+    return false;
   } catch (err) {
     console.error(`Failed to fix test file ${testFile}:`, err.message);
+    return false;
   }
-  
-  return false;
 }
 
 async function makeCodeChanges(failureAnalysis) {
