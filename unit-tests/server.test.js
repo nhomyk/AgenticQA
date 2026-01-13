@@ -21,8 +21,6 @@ describe('server.js utility functions', () => {
 
 
 // Auto-generated tests by fullstack-agent
-const { expect, test, describe } = require('@jest/globals');
-
 describe('server.js Auto-Generated Tests', () => {
 
   test('validateUrl should exist', () => {
