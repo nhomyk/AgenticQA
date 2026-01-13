@@ -227,8 +227,24 @@ async function makeCodeChanges(failureAnalysis) {
   );
   
   if (hasPortInUseError) {
-    console.log("Detected port in use error - port cleanup needed...");
-    console.log("Note: Ensure npm run test:cypress is run sequentially and not in parallel");
+    console.log("Detected port in use error - fixing test script to clean up ports...");
+    
+    // Update package.json to kill lingering processes before tests
+    const pkgPath = "package.json";
+    if (fs.existsSync(pkgPath)) {
+      let pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      
+      // Check if test:cypress script already has port cleanup
+      if (!pkg.scripts["test:cypress"].includes("lsof") && !pkg.scripts["test:cypress"].includes("fuser")) {
+        // Add port cleanup command before starting server
+        const oldScript = pkg.scripts["test:cypress"];
+        pkg.scripts["test:cypress"] = "lsof -ti:3000 | xargs kill -9 2>/dev/null || true && " + oldScript;
+        
+        fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+        changesDetected = true;
+        console.log("Updated test:cypress script with port cleanup");
+      }
+    }
   }
   
   // Check for ESLint issues and handle them specifically

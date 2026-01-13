@@ -14,7 +14,7 @@
     "test:vitest": "vitest",
     "test:vitest:run": "vitest --run",
     "cypress": "cypress run",
-    "test:cypress": "start-server-and-test start 3000 cypress",
+    "test:cypress": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true && start-server-and-test start 3000 cypress",
     "test:playwright": "playwright test",
     "test:jest": "jest --coverage",
     "test": "npm run test:jest && npm run test:vitest:run",
