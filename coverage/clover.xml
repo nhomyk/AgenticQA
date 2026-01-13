@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1768322656345" clover="3.2.0">
-  <project timestamp="1768322656345" name="All files">
-    <metrics statements="492" coveredstatements="40" conditionals="257" coveredconditionals="16" methods="93" coveredmethods="4" elements="842" coveredelements="60" complexity="0" loc="492" ncloc="492" packages="2" files="3" classes="3"/>
+<coverage generated="1768329528912" clover="3.2.0">
+  <project timestamp="1768329528912" name="All files">
+    <metrics statements="493" coveredstatements="40" conditionals="258" coveredconditionals="16" methods="94" coveredmethods="4" elements="845" coveredelements="60" complexity="0" loc="493" ncloc="493" packages="2" files="3" classes="3"/>
     <package name="AgenticQA">
-      <metrics statements="349" coveredstatements="40" conditionals="206" coveredconditionals="16" methods="67" coveredmethods="4"/>
+      <metrics statements="350" coveredstatements="40" conditionals="207" coveredconditionals="16" methods="68" coveredmethods="4"/>
       <file name="debug_scan.js" path="/Users/nicholashomyk/mono/AgenticQA/debug_scan.js">
         <metrics statements="67" coveredstatements="8" conditionals="44" coveredconditionals="1" methods="13" coveredmethods="2"/>
         <line num="2" count="1" type="stmt"/>
@@ -75,7 +75,7 @@
         <line num="109" count="1" type="stmt"/>
       </file>
       <file name="server.js" path="/Users/nicholashomyk/mono/AgenticQA/server.js">
-        <metrics statements="282" coveredstatements="32" conditionals="162" coveredconditionals="15" methods="54" coveredmethods="2"/>
+        <metrics statements="283" coveredstatements="32" conditionals="163" coveredconditionals="15" methods="55" coveredmethods="2"/>
         <line num="2" count="1" type="stmt"/>
         <line num="3" count="1" type="stmt"/>
         <line num="4" count="1" type="stmt"/>
@@ -357,7 +357,8 @@
         <line num="712" count="0" type="stmt"/>
         <line num="716" count="0" type="stmt"/>
         <line num="719" count="0" type="stmt"/>
-        <line num="722" count="1" type="stmt"/>
+        <line num="724" count="0" type="stmt"/>
+        <line num="732" count="1" type="stmt"/>
       </file>
     </package>
     <package name="AgenticQA.public">
