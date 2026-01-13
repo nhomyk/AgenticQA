@@ -1,53 +1,76 @@
-describe("AgenticQA - UI Tests", () => {
-  it("should load the homepage", () => {
+describe("AgenticQA Dashboard - UI Tests", () => {
+  beforeEach(() => {
+    cy.visit("/");
+  });
+
+  it("should load the homepage with correct title", () => {
     cy.get("h1").should("contain", "AgenticQA");
+    cy.get(".tagline").should("contain", "Self-Healing, AI-Powered Quality Assurance");
   });
 
-  it("should have all result boxes visible", () => {
-    // Click on scanner tab to view scanner section
-    cy.contains(".tab-btn", "Scanner").click();
-    cy.get("#results").should("be.visible");
-    cy.get("#testcases").should("be.visible");
-    cy.get("#performance").should("be.visible");
-    cy.get("#apis").should("be.visible");
-    // Test example tabs exist (Playwright is active by default)
-    cy.get("#playwright").should("exist").and("have.class", "active");
-    cy.get("#cypress").should("exist");
-    cy.get("#vitest").should("exist");
+  it("should display all navigation tabs", () => {
+    cy.contains(".tab-btn", "Overview").should("be.visible");
+    cy.contains(".tab-btn", "Features").should("be.visible");
+    cy.contains(".tab-btn", "Use Cases").should("be.visible");
+    cy.contains(".tab-btn", "Technical").should("be.visible");
+    cy.contains(".tab-btn", "Pricing").should("be.visible");
   });
 
-  it("should have proper input and button", () => {
-    cy.contains(".tab-btn", "Scanner").click();
-    cy.get("#urlInput").should("be.visible").should("have.attr", "placeholder", "https://example.com");
-    cy.get("#scanBtn").should("be.visible").should("contain", "Scan");
+  it("should have Overview tab active by default", () => {
+    cy.get("#overview").should("have.class", "active");
   });
 
-  it("should display all headings", () => {
-    cy.get("h1").should("contain", "AgenticQA");
-    cy.contains("h2", "Scan Any Website").should("exist");
-    cy.contains("h3", "Recommendations").should("exist");
-    cy.contains("h3", "Scan Results").should("exist");
-    cy.contains("h3", "Test Code Examples").should("exist");
+  it("should switch to Features tab when clicked", () => {
+    cy.contains(".tab-btn", "Features").click();
+    cy.get("#features").should("have.class", "active");
+    cy.get("#overview").should("not.have.class", "active");
   });
 
-  it("should have correct placeholder text in textareas", () => {
-    cy.contains(".tab-btn", "Scanner").click();
-    cy.get("#results").should("have.attr", "placeholder").and("include", "will appear here");
-    cy.get("#testcases").should("have.attr", "placeholder").and("include", "test cases");
-    cy.get("#performance").should("have.attr", "placeholder").and("include", "Performance");
-    cy.get("#apis").should("have.attr", "placeholder").and("include", "API");
-    // Verify framework tabs exist as divs (they will be populated after scan)
-    cy.get("#playwright").should("exist").and("have.class", "tab-pane");
-    cy.get("#cypress").should("exist").and("have.class", "tab-pane");
-    cy.get("#vitest").should("exist").and("have.class", "tab-pane");
+  it("should switch to Use Cases tab and show content", () => {
+    cy.contains(".tab-btn", "Use Cases").click();
+    cy.get("#use-cases").should("have.class", "active");
+    cy.contains("h2", "How AgenticQA Solves Real Problems").should("be.visible");
+    cy.contains("h3", "Codebase Knowledge").should("be.visible");
+    cy.contains("h3", "Code Generation").should("be.visible");
+    cy.contains("h3", "Code Review").should("be.visible");
+    cy.contains("h3", "Code Deployment").should("be.visible");
+    cy.contains("h3", "Testing All Aspects of Code").should("be.visible");
+    cy.contains("h3", "UI Functionality Testing").should("be.visible");
   });
 
-  it("should show error message if scanning without URL", () => {
-    cy.contains(".tab-btn", "Scanner").click();
-    cy.get("#scanBtn").click();
-    cy.on("window:alert", (text) => {
-      expect(text).to.include("URL");
-    });
+  it("should switch to Technical tab and show architecture", () => {
+    cy.contains(".tab-btn", "Technical").click();
+    cy.get("#technical").should("have.class", "active");
+    cy.contains("h2", "Technical Architecture").should("be.visible");
+    cy.contains("h3", "Why AgenticQA is Technically Impressive").should("be.visible");
+  });
+
+  it("should switch to Pricing tab and display pricing cards", () => {
+    cy.contains(".tab-btn", "Pricing").click();
+    cy.get("#pricing").should("have.class", "active");
+    cy.contains("h2", "Simple, Transparent Pricing").should("be.visible");
+    cy.contains("h3", "Starter").should("be.visible");
+    cy.contains("h3", "Professional").should("be.visible");
+    cy.contains("h3", "Enterprise").should("be.visible");
+  });
+
+  it("should display CTA button in hero section", () => {
+    cy.get(".cta-button").should("contain", "Start Free Trial");
+  });
+
+  it("should have proper responsive layout", () => {
+    cy.get(".dashboard-container").should("be.visible");
+    cy.get(".tabs").should("be.visible");
+    cy.get(".content.active").should("be.visible");
+  });
+
+  it("should display use case cards with hover effects", () => {
+    cy.contains(".tab-btn", "Use Cases").click();
+    cy.get(".use-case-card").should("have.length", 6);
+    cy.get(".use-case-card").first().should("be.visible");
+  });
+
+});
   });
 
   it("should have readonly textareas", () => {
