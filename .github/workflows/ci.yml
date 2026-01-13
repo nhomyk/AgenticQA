@@ -145,7 +145,7 @@ jobs:
 
   fullstack-agent:
     needs: [sdet-agent]
-    if: failure()
+    if: always() && (contains(needs.*.result, 'failure'))
     runs-on: ubuntu-latest
     name: Fullstack Agent (Code Fixes)
     steps:
