@@ -54,15 +54,31 @@ function renderResults(resp) {
     return;
   }
   
-  // Reset tab state to Playwright (first tab) for new results
-  document.querySelectorAll(".tab-pane").forEach(pane => {
-    pane.classList.remove("active");
-  });
-  document.querySelectorAll(".tab-button").forEach(btn => {
-    btn.classList.remove("active");
-  });
-  document.getElementById("playwright").classList.add("active");
-  document.querySelector("[data-tab=\"playwright\"]").classList.add("active");
+  // Reset tab state to Playwright (first tab) for new results (only if tabs exist)
+  const tabPanes = document.querySelectorAll(".tab-pane");
+  if (tabPanes.length > 0) {
+    tabPanes.forEach(pane => {
+      pane.classList.remove("active");
+    });
+  }
+  
+  const tabButtons = document.querySelectorAll(".tab-button");
+  if (tabButtons.length > 0) {
+    tabButtons.forEach(btn => {
+      btn.classList.remove("active");
+    });
+  }
+  
+  // Try to activate Playwright tab if it exists
+  const playwrightPane = document.getElementById("playwright");
+  if (playwrightPane) {
+    playwrightPane.classList.add("active");
+  }
+  
+  const playwrightBtn = document.querySelector("[data-tab=\"playwright\"]");
+  if (playwrightBtn) {
+    playwrightBtn.classList.add("active");
+  }
   
   // Log for debugging
   console.log("renderResults called with:", { hasRecs: !!resp.recommendations, recsCount: resp.recommendations?.length });
