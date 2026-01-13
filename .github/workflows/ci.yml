@@ -143,6 +143,29 @@ jobs:
           console.log('\n✅ SDET Agent Assessment Complete\n');
           SDET_SCRIPT
 
+  fullstack-agent:
+    needs: [lint, unit-test, test-playwright, test-vitest, test-cypress]
+    if: failure()
+    runs-on: ubuntu-latest
+    name: Fullstack Agent (Code Fixes)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Set up git credentials
+        run: |
+          git config --global user.name "fullstack-agent[bot]"
+          git config --global user.email "fullstack-agent[bot]@users.noreply.github.com"
+      - name: Run Fullstack Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: node fullstack-agent.js
+
   sre-agent:
     needs: [sdet-agent]
     runs-on: ubuntu-latest
