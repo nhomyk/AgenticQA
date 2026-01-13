@@ -50,19 +50,62 @@ async function initOctokit() {
 async function triggerNewPipeline() {
   log('\n🔄 Triggering new pipeline...');
   
+  if (!GITHUB_TOKEN) {
+    log('⚠️  No GITHUB_TOKEN - skipping pipeline trigger');
+    return false;
+  }
+  
   try {
-    const octokit = await initOctokit();
-    if (!octokit) return false;
-    
-    await octokit.actions.createWorkflowDispatch({
-      owner: REPO_OWNER,
-      repo: REPO_NAME,
-      workflow_id: 'ci.yml',
-      ref: 'main',
-    });
-    
-    log('✅ New pipeline triggered');
-    return true;
+    // Try Octokit first
+    try {
+      const { Octokit } = await import('@octokit/rest');
+      const octokit = new Octokit({ auth: GITHUB_TOKEN });
+      
+      await octokit.actions.createWorkflowDispatch({
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        workflow_id: 'ci.yml',
+        ref: 'main',
+      });
+      
+      log('✅ Pipeline triggered via API');
+      return true;
+    } catch (err) {
+      log(`  Octokit unavailable, trying direct HTTP...`);
+      
+      // Fallback: Direct HTTP request
+      return new Promise((resolve) => {
+        const postData = JSON.stringify({
+          ref: 'main'
+        });
+        
+        const options = {
+          hostname: 'api.github.com',
+          path: `/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/ci.yml/dispatches`,
+          method: 'POST',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+            'Content-Length': postData.length,
+            'User-Agent': 'Node.js'
+          }
+        };
+        
+        const req = require('https').request(options, (res) => {
+          resolve(res.statusCode === 204);
+          res.on('data', () => {});
+        });
+        
+        req.on('error', (err) => {
+          log(`  HTTP request failed: ${err.message}`);
+          resolve(false);
+        });
+        
+        req.write(postData);
+        req.end();
+      });
+    }
   } catch (err) {
     log(`⚠️  Failed to trigger: ${err.message}`);
     return false;
