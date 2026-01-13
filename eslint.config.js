@@ -1,7 +1,7 @@
 // eslint.config.js
 module.exports = [
   {
-    ignores: ["node_modules/**", "playwright-tests/**", "unit-tests/**"],
+    ignores: ["node_modules/**", "playwright-tests/**", "unit-tests/**", "coverage/**", "vitest-tests/**"],
   },
   {
     files: ["server.js", "debug_scan.js"],
@@ -21,6 +21,7 @@ module.exports = [
         window: "readonly",
         performance: "readonly",
         setTimeout: "readonly",
+        URL: "readonly",
       },
     },
     rules: {

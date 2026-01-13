@@ -353,10 +353,8 @@ app.post("/scan", async (req, res) => {
     page.setDefaultNavigationTimeout(SCAN_TIMEOUT);
     
     // Navigate with error handling
-    let navigationSuccess = false;
     try {
       await page.goto(target, { waitUntil: "domcontentloaded" });
-      navigationSuccess = true;
     } catch (navErr) {
       log("error", "Navigation failed", { url: target, error: navErr.message });
       throw new Error("Failed to load URL: " + navErr.message);
@@ -429,7 +427,7 @@ app.use((req, res) => {
 });
 
 // Error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   log("error", "Unhandled error", { error: err.message, stack: err.stack });
   
   res.status(err.status || 500).json({
@@ -458,7 +456,7 @@ process.on("SIGINT", async () => {
 
 if (require.main === module) {
   app.listen(PORT, HOST, () => {
-    log("info", `Server started`, {
+    log("info", "Server started", {
       url: `http://${HOST}:${PORT}`,
       environment: NODE_ENV,
       maxResults: MAX_RESULTS,
