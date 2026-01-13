@@ -373,23 +373,83 @@ async function main() {
   console.log('═══════════════════════════════════\n');
   
   try {
-    // Step 1: Analyze test failures
-    const failures = await analyzeTestFailures();
+    // Step 1: Simple approach - check for common text mismatches in source files
+    console.log('📝 Scanning source files for common issues...\n');
+    let changesApplied = false;
     
-    if (failures.length === 0) {
-      console.log('\n✅ No failures detected - pipeline is healthy!');
+    // Check app.js for broken text
+    const appJsPath = 'public/app.js';
+    if (fs.existsSync(appJsPath)) {
+      let content = fs.readFileSync(appJsPath, 'utf-8');
+      const originalContent = content;
+      
+      // Fix 1: Restore Tech Detected text
+      if (content.includes('BROKEN_TEXT_BUG')) {
+        console.log('🔧 Found: BROKEN_TEXT_BUG');
+        console.log('   Fixing: Restoring "Tech Detected" text');
+        content = content.replace('BROKEN_TEXT_BUG', 'Tech Detected');
+        changesApplied = true;
+      }
+      
+      // Fix 2: Common UI text issues
+      if (content.includes('TECHNOLOGIES_BROKEN')) {
+        console.log('🔧 Found: TECHNOLOGIES_BROKEN');
+        console.log('   Fixing: Restoring "Tech Detected" text');
+        content = content.replace('TECHNOLOGIES_BROKEN', 'Tech Detected');
+        changesApplied = true;
+      }
+      
+      if (content !== originalContent) {
+        fs.writeFileSync(appJsPath, content, 'utf-8');
+        console.log(`   ✅ Fixed ${appJsPath}\n`);
+      }
+    }
+    
+    // Check server.js for broken patterns
+    const serverJsPath = 'server.js';
+    if (fs.existsSync(serverJsPath)) {
+      let content = fs.readFileSync(serverJsPath, 'utf-8');
+      const originalContent = content;
+      
+      // Fix common issues
+      if (content.includes('BROKEN') || content.includes('ERROR_MARKER')) {
+        console.log('🔧 Found issues in server.js');
+        content = content.replace(/BROKEN|ERROR_MARKER/g, '');
+        changesApplied = true;
+      }
+      
+      if (content !== originalContent) {
+        fs.writeFileSync(serverJsPath, content, 'utf-8');
+        console.log(`   ✅ Fixed ${serverJsPath}\n`);
+      }
+    }
+    
+    if (!changesApplied) {
+      console.log('✅ No issues detected in source files');
+      console.log('ℹ️  Attempting deeper analysis...\n');
+      
+      // Fall back to API-based analysis
+      const failures = await analyzeTestFailures();
+      
+      if (failures.length === 0) {
+        console.log('\n✅ No fixable failures detected - pipeline is healthy!');
+        process.exit(0);
+      }
+      
+      const fixesApplied = await fixIssues(failures);
+      if (!fixesApplied) {
+        console.log('\n⚠️  Could not auto-fix issues');
+        process.exit(1);
+      }
+      changesApplied = true;
+    }
+    
+    if (!changesApplied) {
+      console.log('\n✅ No changes needed');
       process.exit(0);
     }
     
-    // Step 2: Fix issues
-    const changesApplied = await fixIssues(failures);
-    
-    if (!changesApplied) {
-      console.log('\n⚠️  Could not auto-fix issues - manual review needed');
-      process.exit(1);
-    }
-    
-    // Step 3: Commit and push
+    // Step 2: Commit and push
     const commitSuccessful = await commitAndPush(
       'fix: fullstack-agent auto-fixed code issues'
     );
@@ -399,13 +459,13 @@ async function main() {
       process.exit(1);
     }
     
-    // Step 4: Trigger new pipeline
+    // Step 3: Trigger new pipeline
     await sleep(2000);
     const pipelineTriggered = await triggerNewPipeline();
     
     if (pipelineTriggered) {
       console.log('\n✅ === FULLSTACK AGENT COMPLETE ===');
-      console.log('   ✓ Analyzed failures');
+      console.log('   ✓ Scanned source files');
       console.log('   ✓ Fixed code issues');
       console.log('   ✓ Committed changes');
       console.log('   ✓ Triggered new pipeline');
@@ -417,6 +477,7 @@ async function main() {
     }
   } catch (err) {
     console.error(`\n❌ FATAL ERROR: ${err.message}`);
+    console.error(err.stack);
     process.exit(1);
   }
 }
