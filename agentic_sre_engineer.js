@@ -52,6 +52,23 @@ async function bumpVersion() {
 
 async function getLatestWorkflowRun() {
   const octokit = await initOctokit();
+  
+  // If we're running in GitHub Actions, use the current run ID
+  const currentRunId = process.env.GITHUB_RUN_ID;
+  if (currentRunId) {
+    try {
+      const { data } = await octokit.actions.getWorkflowRun({
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        run_id: parseInt(currentRunId),
+      });
+      return data;
+    } catch (err) {
+      console.warn('Failed to get current run:', err.message);
+    }
+  }
+  
+  // Fallback: get the most recent run
   const { data } = await octokit.actions.listWorkflowRunsForRepo({
     owner: REPO_OWNER,
     repo: REPO_NAME,

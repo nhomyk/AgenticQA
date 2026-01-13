@@ -18,7 +18,7 @@ const technologiesBox = document.getElementById("technologies");
 
 function renderResults(resp) {
   // Always show the header for technologies, even on error
-  const headerT = "TECHNOLOGIES_BROKEN\n\n";
+  const headerT = "Tech Detected\n\n";
   let techNames = [];
   if (resp && Array.isArray(resp.technologies)) {
     techNames = resp.technologies.slice();
