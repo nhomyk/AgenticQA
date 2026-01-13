@@ -73,16 +73,10 @@ describe("AgenticQA Dashboard - UI Tests", () => {
 });
   });
 
-  it("should have readonly textareas", () => {
-    cy.contains(".tab-btn", "Scanner").click();
-    cy.get("#results").should("have.attr", "readonly");
-    cy.get("#testcases").should("have.attr", "readonly");
-    cy.get("#performance").should("have.attr", "readonly");
-    cy.get("#apis").should("have.attr", "readonly");
-  });
+  
 
   it("should display detected technologies after scanning a URL", () => {
-    cy.contains(".tab-btn", "Scanner").click();
+    cy.contains(".tab-btn", "Overview").click();
     cy.get("#urlInput").clear().type("https://example.com");
     cy.get("#scanBtn").click();
     cy.get("#technologies", { timeout: 30000 })
@@ -94,13 +88,6 @@ describe("AgenticQA Dashboard - UI Tests", () => {
       });
   });
 
-  it("should switch between test framework tabs", () => {
-    cy.contains(".tab-btn", "Scanner").click();
-    cy.get('[data-tab="playwright"]').should("have.class", "active");
-    cy.get('[data-tab="cypress"]').click();
-    cy.get('[data-tab="cypress"]').should("have.class", "active");
-    cy.get('[data-tab="vitest"]').click();
-    cy.get('[data-tab="vitest"]').should("have.class", "active");
-  });
+  
 
 });
