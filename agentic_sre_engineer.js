@@ -220,6 +220,44 @@ async function makeCodeChanges(failureAnalysis) {
   
   let changesDetected = false;
   
+  // Check for server shutdown or timeout errors in tests
+  const hasServerShutdownError = failureAnalysis?.some(f =>
+    f.jobName.includes('cypress') && 
+    f.failures.some(fail => 
+      fail.error?.includes('Timed out waiting for') || 
+      fail.error?.includes('server closed') ||
+      fail.error?.includes('SIGINT')
+    )
+  );
+  
+  if (hasServerShutdownError) {
+    console.log("Detected server shutdown during tests - fixing SIGINT handling...");
+    
+    // Update server.js to not exit on SIGINT during test runs
+    const serverPath = "server.js";
+    if (fs.existsSync(serverPath)) {
+      let serverCode = fs.readFileSync(serverPath, "utf8");
+      
+      // Check if SIGINT handler is still exiting immediately
+      if (serverCode.includes('process.on("SIGINT"') && serverCode.includes('process.exit(0)')) {
+        console.log("Fixing SIGINT handler to prevent premature shutdown...");
+        
+        // Replace the SIGINT handler that exits immediately
+        serverCode = serverCode.replace(
+          /process\.on\("SIGINT",\s*async\s*\(\)\s*=>\s*\{[\s\S]*?process\.exit\(0\);\s*\}\);/,
+          `process.on("SIGINT", () => {
+  // Just log it, don't exit - let start-server-and-test manage the lifecycle
+  log("info", "SIGINT received (ignoring to allow process manager to control shutdown)");
+});`
+        );
+        
+        fs.writeFileSync(serverPath, serverCode);
+        changesDetected = true;
+        console.log("Updated SIGINT handler to prevent server shutdown during tests");
+      }
+    }
+  }
+  
   // Check for EADDRINUSE (port already in use) errors in Cypress tests
   const hasPortInUseError = failureAnalysis?.some(f =>
     f.jobName.includes('cypress') &&

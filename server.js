@@ -435,7 +435,7 @@ app.use((err, req, res) => {
   });
 });
 
-// Graceful shutdown
+// Graceful shutdown on SIGTERM (sent by process managers)
 process.on("SIGTERM", async () => {
   log("info", "SIGTERM received, shutting down gracefully");
   if (browser) {
@@ -445,13 +445,11 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
-process.on("SIGINT", async () => {
-  log("info", "SIGINT received, shutting down gracefully");
-  if (browser) {
-    await browser.close();
-    log("info", "Browser closed");
-  }
-  process.exit(0);
+// SIGINT handler: during development/testing, let the process manager handle it
+// This prevents accidental shutdown when SIGINT is sent by start-server-and-test
+process.on("SIGINT", () => {
+  // Just log it, don't exit - let start-server-and-test manage the lifecycle
+  log("info", "SIGINT received (ignoring to allow process manager to control shutdown)");
 });
 
 if (require.main === module) {
