@@ -383,65 +383,25 @@ async function makeCodeChanges(failureAnalysis) {
   }
 }
 
-async function redeployAndTest(iteration) {
-  // Trigger new workflow run by committing
-  console.log(`Iteration ${iteration}: Running tests...`);
-  await new Promise(r => setTimeout(r, 15000)); // Wait 15 seconds for new run to start (CI usually triggers in 10-20s)
-  
-  const run = await getLatestWorkflowRun();
-  
-  // Validate that we have a valid workflow run
-  if (!run) {
-    console.warn('⚠️ No workflow run found. This may indicate running locally without GitHub Actions.');
-    console.warn('⚠️ Skipping test polling. Please ensure tests pass before committing.');
-    return { success: false, run: null, skipped: true };
+async function triggerNewWorkflow() {
+  try {
+    const octokit = await initOctokit();
+    console.log('🚀 Triggering new CI workflow...');
+    
+    await octokit.actions.createWorkflowDispatch({
+      owner: REPO_OWNER,
+      repo: REPO_NAME,
+      workflow_id: 'ci.yml',
+      ref: 'main',
+    });
+    
+    console.log('✅ New CI workflow triggered successfully');
+    console.log('📊 SRE Agent will not wait for results. New workflow will run independently.');
+    return { success: true };
+  } catch (err) {
+    console.error('❌ Failed to trigger new workflow:', err.message);
+    return { success: false };
   }
-  
-  // Poll for completion (max 15 minutes - tests can take time)
-  let attempts = 0;
-  const maxAttempts = 60;  // 60 attempts * 15 seconds = 15 minutes
-  const pollStartTime = Date.now();
-  const maxPollDuration = 15 * 60 * 1000; // 15 minutes absolute timeout
-  
-  while (attempts < maxAttempts) {
-    const currentRun = await getLatestWorkflowRun();
-    
-    // Safety check: if we can't get a valid run, exit early
-    if (!currentRun) {
-      console.error('❌ Lost connection to workflow run. Tests may be stuck.');
-      return { success: false, run: null };
-    }
-    
-    if (currentRun.status === 'completed') {
-      console.log(`Test run completed with conclusion: ${currentRun.conclusion}`);
-      return {
-        success: currentRun.conclusion === 'success',
-        run: currentRun,
-      };
-    }
-    
-    attempts++;
-    const elapsedMs = Date.now() - pollStartTime;
-    
-    if (attempts % 4 === 0) {
-      console.log(`Waiting for tests to complete... (attempt ${attempts}/${maxAttempts}, elapsed: ${Math.round(elapsedMs / 60000)}min)`);
-    }
-    
-    // Check for absolute timeout exceeded
-    if (elapsedMs > maxPollDuration) {
-      console.error(`❌ Test polling timeout after ${Math.round(maxPollDuration / 60000)} minutes. Tests appear stuck.`);
-      return { success: false, run: currentRun };
-    }
-    
-    if (attempts >= maxAttempts) {
-      console.error(`❌ Test polling timeout after ${Math.round(maxAttempts * 15 / 60)} minutes. Tests appear stuck.`);
-      return { success: false, run: currentRun };
-    }
-    
-    await new Promise(r => setTimeout(r, 15000)); // Wait 15 seconds between checks (faster iteration)
-  }
-  
-  return { success: false, run: null };
 }
 
 async function agenticSRELoop() {
@@ -449,134 +409,115 @@ async function agenticSRELoop() {
   let iteration = 0;
   let success = false;
   
-  // Set a hard timeout for the entire workflow (15 minutes - reduced from 25)
-  const workflowTimeout = 15 * 60 * 1000;
-  const startTime = Date.now();
+  // Get the FAILED workflow run that triggered this SRE job
+  const failedRun = await getLatestWorkflowRun();
   
-  const timeoutCheck = () => {
-    if (Date.now() - startTime > workflowTimeout) {
-      console.warn('⚠️ Workflow timeout reached. Exiting to prevent hang.');
-      process.exit(0);
-    }
-  };
-  
-  // 1. Bump version
-  const newVersion = await bumpVersion();
-  console.log(`Version bumped to ${newVersion}`);
-  timeoutCheck();
-  
-  // 2. Wait for initial CI to run
-  await new Promise(r => setTimeout(r, 40000)); // Wait 40 seconds for CI to start (usually faster)
-  timeoutCheck();
-  
-  // Check if we can access GitHub Actions
-  const initialRun = await getLatestWorkflowRun();
-  if (!initialRun) {
+  if (!failedRun) {
     console.warn('⚠️ Cannot access GitHub Actions workflow runs.');
     console.warn('⚠️ This typically means you are running locally without GitHub Actions.');
-    console.warn('⚠️ Please ensure tests pass locally before committing.');
     console.warn('⚠️ Exiting SRE agent.');
     return;
   }
+
+  console.log(`Analyzing failed workflow run #${failedRun.id}...`);
+
+  // Step 1: Analyze test failures from the run that triggered this SRE job
+  const jobs = await getWorkflowJobResults(failedRun.id);
+  const failureAnalysis = [];
   
-  // 3-6. Iterative testing and fixing loop
-  while (iteration < MAX_ITERATIONS && !success) {
-    timeoutCheck();
-    iteration++;
-    console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===`);
-    
-    const run = await getLatestWorkflowRun();
-    
-    if (!run) {
-      console.error('❌ Lost connection to workflow run.');
-      break;
-    }
-    
-    if (run.conclusion === 'success') {
-      console.log('✅ All tests passed!');
-      success = true;
-      try {
-        await sendEmail(
-          `CI Passed for AgenticQA v${newVersion}`,
-          `All tests passed after ${iteration} iteration(s)! Version: ${newVersion}`
-        );
-      } catch (err) {
-        console.error('Failed to send email (non-critical):', err.message);
-      }
-      break;
-    }
-    
-    // Get detailed job results
-    const jobs = await getWorkflowJobResults(run.id);
-    
-    // Fetch logs for all failed jobs
-    const failureAnalysis = [];
-    for (const job of jobs) {
-      if (job.conclusion === 'failure') {
-        const logs = await getJobLogs(run.id, job.name);
-        const testFailures = await parseTestFailures(job.name, logs);
-        failureAnalysis.push({
-          jobName: job.name,
-          status: job.conclusion,
-          failures: testFailures,
-        });
-      }
-    }
-    
-    const failures = jobs.filter(job => job.conclusion === 'failure');
-    
-    if (failures.length > 0) {
-      console.log(`Found ${failures.length} failed job(s):`);
-      failures.forEach(f => console.log(`  - ${f.name}`));
-      
-      // Make code changes based on failures
-      const changesApplied = await makeCodeChanges(failureAnalysis);
-      
-      if (iteration < MAX_ITERATIONS) {
-        // Re-test with new changes or system state
-        console.log(`Triggering re-test to check if issues are resolved...`);
-        const testResult = await redeployAndTest(iteration + 1);
-        
-        if (testResult.skipped) {
-          console.warn('⚠️ Test execution was skipped (running locally without GitHub Actions).');
-          console.warn('⚠️ Exiting SRE agent. Please verify tests pass before committing.');
-          break;
-        }
-        
-        if (testResult.success) {
-          console.log('✅ Tests passed after fixes!');
-          success = true;
-          try {
-            await sendEmail(
-              `CI Passed for AgenticQA v${newVersion}`,
-              `All tests passed after ${iteration + 1} iteration(s)! Version: ${newVersion}`
-            );
-          } catch (err) {
-            console.error('Failed to send email (non-critical):', err.message);
-          }
-          break;
-        } else if (!changesApplied) {
-          console.log(`⚠️ No code changes were made in iteration ${iteration}. Tests still failing.`);
-        }
-      } else {
-        console.log(`❌ Reached max iterations (${MAX_ITERATIONS}). Some tests still failing.`);
-        try {
-          await sendEmail(
-            `CI Still Failing for AgenticQA v${newVersion}`,
-            `Tests still failing after ${MAX_ITERATIONS} iterations. Manual review needed.`
-          );
-        } catch (err) {
-          console.error('Failed to send email (non-critical):', err.message);
-        }
-        break;
-      }
-    } else {
-      console.log('No failed jobs found');
-      success = true;
-      break;
+  for (const job of jobs) {
+    if (job.conclusion === 'failure') {
+      const logs = await getJobLogs(failedRun.id, job.name);
+      const testFailures = await parseTestFailures(job.name, logs);
+      failureAnalysis.push({
+        jobName: job.name,
+        status: job.conclusion,
+        failures: testFailures,
+      });
     }
   }
-  
+
+  if (failureAnalysis.length === 0) {
+    console.log('✅ No failures found to analyze');
+    return;
+  }
+
+  console.log(`\nFound ${failureAnalysis.length} failed job(s):`);
+  failureAnalysis.forEach(f => console.log(`  - ${f.jobName}`));
+
+  // Step 2: Bump version
+  const newVersion = await bumpVersion();
+  console.log(`Version bumped to ${newVersion}`);
+
+  // Step 3: Make code changes (iteratively if needed)
+  while (iteration < MAX_ITERATIONS && !success) {
+    iteration++;
+    console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===`);
+
+    // Apply fixes based on failure analysis
+    const changesApplied = await makeCodeChanges(failureAnalysis);
+
+    if (changesApplied) {
+      console.log('✅ Code changes applied');
+      
+      // Commit and push changes
+      await git.add('.');
+      const status = await git.status();
+      
+      if (status.files.length > 0) {
+        await git.raw(['config', '--global', 'user.name', 'github-actions[bot]']);
+        await git.raw(['config', '--global', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
+        
+        if (GITHUB_TOKEN) {
+          await git.raw(['config', '--global', `url.https://x-access-token:${GITHUB_TOKEN}@github.com/.insteadOf`, 'https://github.com/']);
+        }
+        
+        await git.commit(`fix: agentic code repairs from test analysis (iteration ${iteration})`);
+        
+        try {
+          await git.push(['origin', 'main']);
+          console.log('✅ Changes pushed to main');
+          
+          // Trigger new workflow run
+          const triggerResult = await triggerNewWorkflow();
+          
+          if (triggerResult.success) {
+            success = true;
+            try {
+              await sendEmail(
+                `SRE Agent Fixed Code - AgenticQA v${newVersion}`,
+                `Changes applied in iteration ${iteration}.\nNew CI workflow has been triggered.\nPlease monitor the new workflow run for test results.`
+              );
+            } catch (err) {
+              console.error('Failed to send email (non-critical):', err.message);
+            }
+            break;
+          }
+        } catch (err) {
+          console.error('Push failed:', err.message);
+        }
+      } else {
+        console.log('⚠️ No files changed');
+      }
+    } else {
+      console.log('⚠️ No code changes were made in iteration ' + iteration);
+      if (iteration < MAX_ITERATIONS) {
+        console.log('Retrying with different approach...');
+      }
+    }
+  }
+
+  if (!success) {
+    try {
+      await sendEmail(
+        `SRE Agent Failed - Manual Review Needed`,
+        `Could not apply fixes after ${MAX_ITERATIONS} iterations. Please review manually.`
+      );
+    } catch (err) {
+      console.error('Failed to send email (non-critical):', err.message);
+    }
+  }
+
   console.log(`\nSRE workflow complete after ${iteration} iteration(s)`);
 }
 
