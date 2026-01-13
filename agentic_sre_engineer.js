@@ -390,9 +390,9 @@ async function redeployAndTest(iteration) {
   
   const run = await getLatestWorkflowRun();
   
-  // Poll for completion (max 4 minutes instead of 5)
+  // Poll for completion (max 15 minutes - tests can take time)
   let attempts = 0;
-  const maxAttempts = 8;
+  const maxAttempts = 60;  // 60 attempts * 15 seconds = 15 minutes
   
   while (attempts < maxAttempts) {
     const currentRun = await getLatestWorkflowRun();
@@ -406,10 +406,12 @@ async function redeployAndTest(iteration) {
     }
     
     attempts++;
-    console.log(`Waiting for tests to complete... (attempt ${attempts}/${maxAttempts})`);
+    if (attempts % 4 === 0) {
+      console.log(`Waiting for tests to complete... (attempt ${attempts}/${maxAttempts}, elapsed: ${Math.round(attempts * 15 / 60)}min)`);
+    }
     
     if (attempts >= maxAttempts) {
-      console.warn('⚠️ Test polling timeout. Marking as failed to prevent hanging.');
+      console.error(`❌ Test polling timeout after ${Math.round(maxAttempts * 15 / 60)} minutes. Tests appear stuck.`);
       return { success: false, run: currentRun };
     }
     
