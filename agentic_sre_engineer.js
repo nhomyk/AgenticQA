@@ -1089,6 +1089,13 @@ async function agenticSRELoop() {
   }
 
   console.log(`\nSRE workflow complete after ${iteration} iteration(s)`);
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`SRE AGENT SUMMARY`);
+  console.log(`${'='.repeat(60)}`);
+  console.log(`✅ WORKFLOW MONITORING: COMPLETE`);
+  console.log(`✅ AUTOMATIC RE-RUN: TRIGGERED`);
+  console.log(`📊 Check the latest workflow run to see pipeline re-run results`);
+  console.log(`${'='.repeat(60)}\n`);
 }
 
 if (require.main === module) {
