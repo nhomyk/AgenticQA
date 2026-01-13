@@ -34,9 +34,10 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("#testcases").should("have.attr", "placeholder").and("include", "test cases");
     cy.get("#performance").should("have.attr", "placeholder").and("include", "JMeter-like performance");
     cy.get("#apis").should("have.attr", "placeholder").and("include", "APIs");
-    cy.get("#playwright").should("have.attr", "placeholder").and("include", "Playwright");
-    cy.get("#cypress").should("have.attr", "placeholder").and("include", "Cypress");
-    cy.get("#vitest").should("have.attr", "placeholder").and("include", "Vitest");
+    // Verify framework tabs exist as divs (they will be populated after scan)
+    cy.get("#playwright").should("exist").and("have.class", "tab-pane");
+    cy.get("#cypress").should("exist").and("have.class", "tab-pane");
+    cy.get("#vitest").should("exist").and("have.class", "tab-pane");
   });
 
   it("should show error message if scanning without URL", () => {
@@ -51,8 +52,6 @@ describe("Agentic QA Engineer - UI Tests", () => {
     cy.get("#testcases").should("have.attr", "readonly");
     cy.get("#performance").should("have.attr", "readonly");
     cy.get("#apis").should("have.attr", "readonly");
-    cy.get("#playwright").should("have.attr", "readonly");
-    cy.get("#cypress").should("have.attr", "readonly");
   });
 
   it("should display detected technologies after scanning a URL", () => {

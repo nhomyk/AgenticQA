@@ -89,13 +89,16 @@ describe("Integration - Full Scan Flow", () => {
       "#testcases": "Recommended test cases",
       "#performance": "JMeter-like performance",
       "#apis": "APIs used",
-      "#playwright": "Playwright example",
-      "#cypress": "Cypress example",
     };
 
     Object.entries(placeholders).forEach(([selector, expectedText]) => {
       cy.get(selector).should("have.attr", "placeholder").and("include", expectedText);
     });
+    
+    // Verify framework tabs exist as divs (they will be populated after scan)
+    cy.get("#playwright").should("exist").and("have.class", "tab-pane");
+    cy.get("#cypress").should("exist").and("have.class", "tab-pane");
+    cy.get("#vitest").should("exist").and("have.class", "tab-pane");
   });
 
   it("should have consistent spacing and layout structure", () => {

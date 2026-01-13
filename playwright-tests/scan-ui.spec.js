@@ -17,34 +17,34 @@ test.describe("Agentic QA Engineer UI - Scan Flow", () => {
     await expect(page.locator("#testcases")).toBeVisible();
     await expect(page.locator("#performance")).toBeVisible();
     await expect(page.locator("#apis")).toBeVisible();
-    // Playwright tab is active by default
-    await expect(page.locator("#playwright")).toBeVisible();
+    // Playwright tab container exists and is active by default
+    await expect(page.locator("#playwright")).toHaveClass(/tab-pane/);
+    await expect(page.locator("#playwright")).toHaveClass(/active/);
     // Test that Cypress and Vitest tabs exist (hidden by default due to tabbed interface)
     await expect(page.locator("#cypress")).toHaveClass(/tab-pane/);
     await expect(page.locator("#vitest")).toHaveClass(/tab-pane/);
     // Verify we can switch tabs
     await page.click('[data-tab="cypress"]');
-    await expect(page.locator("#cypress")).toBeVisible();
+    await expect(page.locator("#cypress")).toHaveClass(/active/);
   });
 
   test("should have proper placeholders for all boxes", async ({ page }) => {
     await page.goto("/");
-    // Verify placeholders are set correctly
+    // Verify placeholders are set correctly for textarea elements
     const resultsPlaceholder = await page.locator("#results").getAttribute("placeholder");
     const testcasesPlaceholder = await page.locator("#testcases").getAttribute("placeholder");
     const performancePlaceholder = await page.locator("#performance").getAttribute("placeholder");
     const apisPlaceholder = await page.locator("#apis").getAttribute("placeholder");
-    const playwrightPlaceholder = await page.locator("#playwright").getAttribute("placeholder");
-    const cypressPlaceholder = await page.locator("#cypress").getAttribute("placeholder");
-    const vitestPlaceholder = await page.locator("#vitest").getAttribute("placeholder");
 
     expect(resultsPlaceholder).toContain("Results will appear here");
     expect(testcasesPlaceholder).toContain("test cases");
     expect(performancePlaceholder).toContain("JMeter-like performance results");
     expect(apisPlaceholder).toContain("APIs used");
-    expect(playwrightPlaceholder).toContain("Playwright");
-    expect(cypressPlaceholder).toContain("Cypress");
-    expect(vitestPlaceholder).toContain("Vitest");
+    
+    // Verify framework tabs exist as divs (they get populated with content after scan)
+    await expect(page.locator("#playwright")).toHaveClass(/tab-pane/);
+    await expect(page.locator("#cypress")).toHaveClass(/tab-pane/);
+    await expect(page.locator("#vitest")).toHaveClass(/tab-pane/);
   });
 
   test("should have input field and scan button", async ({ page }) => {
