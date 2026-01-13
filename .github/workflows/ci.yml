@@ -92,7 +92,7 @@ jobs:
         run: npm run test:cypress
 
   sdet-agent:
-    needs: [lint]
+    needs: [unit-test, test-playwright, test-vitest, test-cypress]
     if: always()
     runs-on: ubuntu-latest
     name: SDET Agent (Manual UI Testing)
@@ -151,7 +151,7 @@ jobs:
           SDET_SCRIPT
 
   fullstack-agent:
-    needs: [lint]
+    needs: [sdet-agent]
     if: always()
     runs-on: ubuntu-latest
     name: Fullstack Agent (Code Fixes)
@@ -180,7 +180,7 @@ jobs:
         run: node fullstack-agent.js
 
   sre-agent:
-    needs: [lint]
+    needs: [fullstack-agent]
     if: always()
     runs-on: ubuntu-latest
     name: SRE Agent (Code & Pipeline Fixes)
