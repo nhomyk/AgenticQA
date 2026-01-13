@@ -19,6 +19,12 @@ const technologiesBox = document.getElementById("technologies");
 
 
 function renderResults(resp) {
+  // Safety check: only render if scanner elements exist on the page
+  if (!technologiesBox || !resultsBox) {
+    console.warn("Scanner elements not found on this page, skipping renderResults");
+    return;
+  }
+  
   // Always show the header for technologies, even on error
   const headerT = "Tech Detected\n\n";
   let techNames = [];
@@ -68,16 +74,16 @@ function renderResults(resp) {
   resultsBox.value = results.length > 0 ? header + lines.join("\n\n") : "No issues detected during scan.";
 
   // render test cases if present
-  if (resp.testCases && Array.isArray(resp.testCases)) {
+  if (testcasesBox && resp.testCases && Array.isArray(resp.testCases)) {
     const headerTC = "Reccomended test cases for this page\n\n";
     const tcLines = resp.testCases.map((t, i) => `${i+1}. ${t}`);
     testcasesBox.value = headerTC + tcLines.join("\n");
-  } else {
+  } else if (testcasesBox) {
     testcasesBox.value = "";
   }
 
   // render performance results if present
-  if (resp.performanceResults) {
+  if (performanceBox && resp.performanceResults) {
     const p = resp.performanceResults;
     const headerP = "Performance Results (simulated JMeter summary)\n\n";
     const lines = [];
@@ -92,16 +98,16 @@ function renderResults(resp) {
       p.topResources.forEach((r, i) => lines.push(`${i+1}. ${r.name} — ${r.timeMs}ms (${r.type})`));
     }
     performanceBox.value = headerP + lines.join("\n");
-  } else {
+  } else if (performanceBox) {
     performanceBox.value = "";
   }
 
   // render APIs used if present
-  if (resp.apis && Array.isArray(resp.apis) && resp.apis.length > 0) {
+  if (apisBox && resp.apis && Array.isArray(resp.apis) && resp.apis.length > 0) {
     const headerA = "APIs used on this page (first 10 calls)\n\n";
     const apiLines = resp.apis.map((a, i) => `${i+1}. ${a}`);
     apisBox.value = headerA + apiLines.join("\n");
-  } else {
+  } else if (apisBox) {
     apisBox.value = "No API calls detected during scan.";
   }
 
@@ -109,18 +115,18 @@ function renderResults(resp) {
   if (resp.testCases && Array.isArray(resp.testCases)) {
     const numCases = Math.min(5, resp.testCases.length);
     renderTestCaseScripts(resp.testCases.slice(0, numCases), resp.url);
-  } else {
+  } else if (playwrightBox && cypressBox && vitestBox) {
     playwrightBox.innerHTML = "";
     cypressBox.innerHTML = "";
     vitestBox.innerHTML = "";
   }
 
   // render recommendations if present
-  if (resp.recommendations && Array.isArray(resp.recommendations)) {
+  if (recommendationsBox && resp.recommendations && Array.isArray(resp.recommendations)) {
     const headerR = "AgenticQA Engineer's Recommendations\n\n";
     const recLines = resp.recommendations.map((r, i) => `${i+1}. ${r}`);
     recommendationsBox.value = headerR + recLines.join("\n\n");
-  } else {
+  } else if (recommendationsBox) {
     recommendationsBox.value = "";
   }
 
@@ -135,6 +141,8 @@ function renderTestCaseScripts(testCases, url) {
 
   frameworks.forEach(framework => {
     const container = document.getElementById(framework.id);
+    if (!container) return; // Skip if element doesn't exist on this page
+    
     container.innerHTML = "";
     
     testCases.forEach((testCase, index) => {
