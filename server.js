@@ -493,9 +493,9 @@ if (require.main === module) {
   let server = null;
   
   const startServer = () => {
-    server = app.listen(PORT, HOST, () => {
+    server = app.listen(PORT, "0.0.0.0", () => {  // Listen on all interfaces
       log("info", "Server started", {
-        url: `http://${HOST}:${PORT}`,
+        url: `http://127.0.0.1:${PORT}`,
         environment: NODE_ENV,
         maxResults: MAX_RESULTS,
         scanTimeout: SCAN_TIMEOUT
