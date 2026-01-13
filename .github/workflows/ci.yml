@@ -197,10 +197,3 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node agentic_sre_engineer.js
-      - name: Commit and push fixes
-        run: |
-          git add . || true
-          git diff --cached --quiet || (
-            git commit -m "fix: auto-fixes by Agentic SRE Engineer" && 
-            git push
-          ) || true

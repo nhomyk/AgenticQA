@@ -864,7 +864,6 @@ async function triggerNewWorkflow() {
 
 async function reRunCurrentWorkflow() {
   try {
-    const octokit = await initOctokit();
     const currentRunId = process.env.GITHUB_RUN_ID;
     
     if (!currentRunId) {
@@ -872,22 +871,86 @@ async function reRunCurrentWorkflow() {
       return { success: false };
     }
     
-    console.log('🔄 Attempting to re-run current workflow jobs...');
+    console.log(`\n🔄 === WORKFLOW RE-RUN SEQUENCE ===`);
+    console.log(`Run ID: ${currentRunId}`);
+    console.log(`Token available: ${!!GITHUB_TOKEN}`);
     
-    // Re-run all failed jobs in the current workflow
-    await octokit.actions.reRunWorkflowFailedJobs({
-      owner: REPO_OWNER,
-      repo: REPO_NAME,
-      run_id: parseInt(currentRunId),
-    });
-    
-    console.log('✅ Workflow re-run triggered successfully');
-    console.log('⏳ All pipeline jobs will re-execute to verify fixes');
-    return { success: true };
+    // Attempt 1: Try Octokit API with reRunWorkflow
+    console.log(`\n📍 Attempt #1: Octokit reRunWorkflow API...`);
+    try {
+      const octokit = await initOctokit();
+      console.log(`  Calling: actions.reRunWorkflow`);
+      
+      const response = await octokit.actions.reRunWorkflow({
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        run_id: parseInt(currentRunId),
+      });
+      
+      console.log(`✅ SUCCESS: Workflow re-run triggered`);
+      console.log(`   Response status: ${response.status}`);
+      return { success: true };
+    } catch (err1) {
+      console.log(`❌ Failed: ${err1.message}`);
+      
+      // Attempt 2: Try direct GitHub REST API via fetch
+      console.log(`\n📍 Attempt #2: Direct GitHub REST API...`);
+      try {
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${currentRunId}/rerun`;
+        console.log(`  POST ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Length': '0',
+          },
+        });
+        
+        console.log(`  Response status: ${response.status}`);
+        
+        if (response.status === 201 || response.status === 204) {
+          console.log(`✅ SUCCESS: Workflow re-run triggered via REST API`);
+          return { success: true };
+        } else {
+          const body = await response.text();
+          console.log(`❌ Failed with status ${response.status}: ${body}`);
+        }
+      } catch (err2) {
+        console.log(`❌ Failed: ${err2.message}`);
+        
+        // Attempt 3: Try GitHub CLI
+        console.log(`\n📍 Attempt #3: GitHub CLI...`);
+        try {
+          const { execSync } = require('child_process');
+          
+          // First, set the token for gh CLI
+          process.env.GH_TOKEN = GITHUB_TOKEN;
+          
+          const cmd = `gh run rerun ${currentRunId} --repo ${REPO_OWNER}/${REPO_NAME}`;
+          console.log(`  Command: ${cmd}`);
+          
+          const output = execSync(cmd, {
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+          
+          console.log(`  Output: ${output}`);
+          console.log(`✅ SUCCESS: Workflow re-run triggered via GitHub CLI`);
+          return { success: true };
+        } catch (err3) {
+          console.log(`❌ Failed: ${err3.message}`);
+          
+          // Attempt 4: Fallback to new workflow dispatch
+          console.log(`\n📍 Attempt #4: Creating new workflow dispatch...`);
+          return await triggerNewWorkflow();
+        }
+      }
+    }
   } catch (err) {
-    console.error('⚠️ Failed to re-run failed jobs (non-critical):', err.message);
-    console.log('Falling back to triggering new workflow dispatch...');
-    return await triggerNewWorkflow();
+    console.error(`\n❌ Unexpected error in reRunCurrentWorkflow: ${err.message}`);
+    return { success: false };
   }
 }
 
