@@ -1,3 +1,8 @@
+/* global document, fetch, window, navigator, Blob */
+// Make functions globally available for onclick handlers
+window.downloadScript = downloadScript;
+window.copyToClipboard = copyToClipboard;
+
 const scanBtn = document.getElementById("scanBtn");
 const urlInput = document.getElementById("urlInput");
 const resultsBox = document.getElementById("results");
@@ -98,16 +103,14 @@ function renderResults(resp) {
     apisBox.value = "";
   }
 
-  // Playwright, Cypress, and Vitest examples for second test case
-  if (resp.testCases && Array.isArray(resp.testCases) && resp.testCases.length > 1) {
-    const secondCase = resp.testCases[1] || "";
-    playwrightBox.value = generatePlaywrightExample(secondCase, resp.url);
-    cypressBox.value = generateCypressExample(secondCase, resp.url);
-    vitestBox.value = generateVitestExample(secondCase, resp.url);
+  // Render first 5 test cases with Playwright, Cypress, and Vitest examples
+  if (resp.testCases && Array.isArray(resp.testCases)) {
+    const numCases = Math.min(5, resp.testCases.length);
+    renderTestCaseScripts(resp.testCases.slice(0, numCases), resp.url);
   } else {
-    playwrightBox.value = "";
-    cypressBox.value = "";
-    vitestBox.value = "";
+    playwrightBox.innerHTML = "";
+    cypressBox.innerHTML = "";
+    vitestBox.innerHTML = "";
   }
 
   // render recommendations if present
@@ -121,19 +124,64 @@ function renderResults(resp) {
 
 }
 
-function generatePlaywrightExample(testCase, url) {
-  // Simple mapping for demo purposes
-  return `// Playwright example for: ${testCase}\nconst { test, expect } = require('@playwright/test');\n\ntest('First test case', async ({ page }) => {\n  await page.goto('${url}');\n  // TODO: Implement: ${testCase}\n});`;
+function renderTestCaseScripts(testCases, url) {
+  const frameworks = [
+    { id: "playwright", name: "Playwright", generator: generatePlaywrightExample },
+    { id: "cypress", name: "Cypress", generator: generateCypressExample },
+    { id: "vitest", name: "Vitest", generator: generateVitestExample }
+  ];
+
+  frameworks.forEach(framework => {
+    const container = document.getElementById(framework.id);
+    container.innerHTML = "";
+    
+    testCases.forEach((testCase, index) => {
+      const script = framework.generator(testCase, url, index + 1);
+      const scriptDiv = document.createElement("div");
+      scriptDiv.className = "test-case-script";
+      scriptDiv.innerHTML = `
+        <h4>Test Case ${index + 1}: ${testCase.substring(0, 50)}${testCase.length > 50 ? "..." : ""}</h4>
+        <textarea readonly>${script}</textarea>
+        <div class="test-case-buttons">
+          <button onclick="downloadScript('${framework.name}-test-${index + 1}.js', this.previousElementSibling.value)">Download</button>
+          <button onclick="copyToClipboard(this.previousElementSibling.previousElementSibling.value)">Copy</button>
+        </div>
+      `;
+      container.appendChild(scriptDiv);
+    });
+  });
 }
 
-function generateCypressExample(testCase, url) {
-  // Simple mapping for demo purposes
-  return `// Cypress example for: ${testCase}\ndescribe('First test case', () => {\n  it('should run the test', () => {\n    cy.visit('${url}');\n    // TODO: Implement: ${testCase}\n  });\n});`;
+function downloadScript(filename, content) {
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }
 
-function generateVitestExample(testCase, url) {
-  // Simple mapping for demo purposes
-  return `// Vitest example for: ${testCase}\nimport { describe, it, expect } from 'vitest';\nimport { render, screen } from '@testing-library/vue';\n\ndescribe('First test case', () => {\n  it('should ${testCase.toLowerCase()}', async () => {\n    // Navigate to ${url}\n    // TODO: Implement: ${testCase}\n    expect(true).toBe(true);\n  });\n});`;
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Script copied to clipboard!");
+  }).catch(err => {
+    console.error("Failed to copy:", err);
+  });
+}
+
+function generatePlaywrightExample(testCase, url, caseNum) {
+  return `// Playwright Test Case ${caseNum}: ${testCase}\nconst { test, expect } = require('@playwright/test');\n\ntest('Test case ${caseNum}: ${testCase}', async ({ page }) => {\n  await page.goto('${url}');\n  // TODO: Implement: ${testCase}\n  expect(true).toBe(true);\n});`;
+}
+
+function generateCypressExample(testCase, url, caseNum) {
+  return `// Cypress Test Case ${caseNum}: ${testCase}\ndescribe('Test case ${caseNum}', () => {\n  it('should ${testCase.toLowerCase()}', () => {\n    cy.visit('${url}');\n    // TODO: Implement: ${testCase}\n    expect(true).to.be.true;\n  });\n});`;
+}
+
+function generateVitestExample(testCase, url, caseNum) {
+  return `// Vitest Test Case ${caseNum}: ${testCase}\nimport { describe, it, expect } from 'vitest';\nimport { render, screen } from '@testing-library/vue';\n\ndescribe('Test case ${caseNum}', () => {\n  it('should ${testCase.toLowerCase()}', async () => {\n    // Navigate to ${url}\n    // TODO: Implement: ${testCase}\n    expect(true).toBe(true);\n  });\n});`;
 }
 
 // Tab switching functionality

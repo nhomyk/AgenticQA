@@ -17,6 +17,11 @@
       .tab-content { position: relative; }
       .tab-pane { display: none; }
       .tab-pane.active { display: block; }
+      .test-case-script { margin: 16px 0; padding: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 4px; }
+      .test-case-script h4 { margin: 0 0 8px 0; }
+      .test-case-script textarea { width: 100%; height: 240px; margin-bottom: 8px; font-family: monospace; font-size: 12px; }
+      .test-case-buttons { display: flex; gap: 8px; }
+      .test-case-buttons button { padding: 6px 12px; font-size: 12px; }
     </style>
   </head>
   <body>
@@ -58,9 +63,9 @@
       <button class="tab-button" data-tab="vitest">Vitest</button>
     </div>
     <div class="tab-content">
-      <textarea id="playwright" class="tab-pane active" readonly placeholder="Playwright example for the first test case will appear here"></textarea>
-      <textarea id="cypress" class="tab-pane" readonly placeholder="Cypress example for the first test case will appear here"></textarea>
-      <textarea id="vitest" class="tab-pane" readonly placeholder="Vitest example for the first test case will appear here"></textarea>
+      <div id="playwright" class="tab-pane active"></div>
+      <div id="cypress" class="tab-pane"></div>
+      <div id="vitest" class="tab-pane"></div>
     </div>
 
     <script src="/app.js"></script>
