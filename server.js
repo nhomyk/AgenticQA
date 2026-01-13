@@ -12,7 +12,6 @@ const app = express();
 
 // Configuration from environment
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || "localhost";
 const NODE_ENV = process.env.NODE_ENV || "development";
 const SCAN_TIMEOUT = parseInt(process.env.SCAN_TIMEOUT_MS || "30000");
 const MAX_RESULTS = parseInt(process.env.MAX_RESULTS || "25");

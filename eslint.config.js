@@ -21,6 +21,7 @@ module.exports = [
         window: "readonly",
         performance: "readonly",
         setTimeout: "readonly",
+        clearTimeout: "readonly",
         URL: "readonly",
       },
     },
