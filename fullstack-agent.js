@@ -354,7 +354,10 @@ function fixTestByAnalyzingLogs(logs, testType) {
   return fixed;
 }
 
-// ========== LEGACY STRATEGIES (fallback) ========== 
+// ========== LEGACY STRATEGIES (fallback) ==========
+
+// Analyze and fix failing Cypress tests
+function fixFailingCypressTests() {
   log('\n🔧 Analyzing Cypress test compatibility...\n');
   
   const cypressTestDir = 'cypress/e2e';
