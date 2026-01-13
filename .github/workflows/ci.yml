@@ -177,6 +177,9 @@ jobs:
     runs-on: ubuntu-latest
     name: SRE Agent (Code & Pipeline Fixes)
     if: always()
+    permissions:
+      contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js

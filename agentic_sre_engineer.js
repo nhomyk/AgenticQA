@@ -862,6 +862,35 @@ async function triggerNewWorkflow() {
   }
 }
 
+async function reRunCurrentWorkflow() {
+  try {
+    const octokit = await initOctokit();
+    const currentRunId = process.env.GITHUB_RUN_ID;
+    
+    if (!currentRunId) {
+      console.log('⚠️ Not running in GitHub Actions, cannot re-run workflow');
+      return { success: false };
+    }
+    
+    console.log('🔄 Attempting to re-run current workflow jobs...');
+    
+    // Re-run all failed jobs in the current workflow
+    await octokit.actions.reRunWorkflowFailedJobs({
+      owner: REPO_OWNER,
+      repo: REPO_NAME,
+      run_id: parseInt(currentRunId),
+    });
+    
+    console.log('✅ Workflow re-run triggered successfully');
+    console.log('⏳ All pipeline jobs will re-execute to verify fixes');
+    return { success: true };
+  } catch (err) {
+    console.error('⚠️ Failed to re-run failed jobs (non-critical):', err.message);
+    console.log('Falling back to triggering new workflow dispatch...');
+    return await triggerNewWorkflow();
+  }
+}
+
 async function agenticSRELoop() {
   const MAX_ITERATIONS = 3;
   let iteration = 0;
@@ -907,6 +936,11 @@ async function agenticSRELoop() {
 
   if (failureAnalysis.length === 0) {
     console.log('✅ No failures found to analyze');
+    console.log('\n🔄 Triggering workflow re-run to verify all tests pass...');
+    const reRunResult = await reRunCurrentWorkflow();
+    if (reRunResult.success) {
+      console.log('✅ Pipeline will re-run to confirm all tests pass');
+    }
     return;
   }
 
@@ -946,15 +980,15 @@ async function agenticSRELoop() {
           await git.push(['origin', 'main']);
           console.log('✅ Changes pushed to main');
           
-          // Trigger new workflow run
-          const triggerResult = await triggerNewWorkflow();
+          // Trigger re-run of failed jobs to verify fixes
+          const triggerResult = await reRunCurrentWorkflow();
           
           if (triggerResult.success) {
             success = true;
             try {
               await sendEmail(
                 `SRE Agent Fixed Code - AgenticQA v${newVersion}`,
-                `Changes applied in iteration ${iteration}.\nNew CI workflow has been triggered.\nPlease monitor the new workflow run for test results.`
+                `Changes applied in iteration ${iteration}.\nPipeline jobs have been triggered to verify fixes.\nPlease monitor the workflow for test results.`
               );
             } catch (err) {
               console.error('Failed to send email (non-critical):', err.message);
