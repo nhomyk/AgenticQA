@@ -393,13 +393,13 @@ async function makeCodeChanges(failureAnalysis) {
 async function redeployAndTest(iteration) {
   // Trigger new workflow run by committing
   console.log(`Iteration ${iteration}: Running tests...`);
-  await new Promise(r => setTimeout(r, 30000)); // Wait 30 seconds for new run to start
+  await new Promise(r => setTimeout(r, 15000)); // Wait 15 seconds for new run to start (CI usually triggers in 10-20s)
   
   const run = await getLatestWorkflowRun();
   
-  // Poll for completion (max 5 minutes)
+  // Poll for completion (max 4 minutes instead of 5)
   let attempts = 0;
-  const maxAttempts = 10;
+  const maxAttempts = 8;
   
   while (attempts < maxAttempts) {
     const currentRun = await getLatestWorkflowRun();
@@ -420,7 +420,7 @@ async function redeployAndTest(iteration) {
       return { success: false, run: currentRun };
     }
     
-    await new Promise(r => setTimeout(r, 30000)); // Wait 30 seconds between checks
+    await new Promise(r => setTimeout(r, 15000)); // Wait 15 seconds between checks (faster iteration)
   }
   
   return { success: false, run: null };
@@ -431,8 +431,8 @@ async function agenticSRELoop() {
   let iteration = 0;
   let success = false;
   
-  // Set a hard timeout for the entire workflow (25 minutes)
-  const workflowTimeout = 25 * 60 * 1000;
+  // Set a hard timeout for the entire workflow (15 minutes - reduced from 25)
+  const workflowTimeout = 15 * 60 * 1000;
   const startTime = Date.now();
   
   const timeoutCheck = () => {
@@ -448,7 +448,7 @@ async function agenticSRELoop() {
   timeoutCheck();
   
   // 2. Wait for initial CI to run
-  await new Promise(r => setTimeout(r, 60000)); // Wait 1 min for CI
+  await new Promise(r => setTimeout(r, 40000)); // Wait 40 seconds for CI to start (usually faster)
   timeoutCheck();
   
   // 3-6. Iterative testing and fixing loop
