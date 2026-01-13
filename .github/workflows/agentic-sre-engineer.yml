@@ -57,6 +57,13 @@ jobs:
           git diff --cached --quiet || git commit -m "fix: auto-fix by Agentic SRE Engineer"
           git push origin main || true
 
+      - name: Trigger CI workflow for testing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering CI workflow to test SRE changes..."
+          gh workflow run ci.yml --ref main || echo "Could not trigger workflow (non-critical)"
+
       - name: Notify by email
         env:
           SMTP_USER: ${{ secrets.SMTP_USER }}
