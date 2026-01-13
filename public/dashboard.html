@@ -294,6 +294,38 @@
             background: #e8e8e8;
         }
 
+        .use-case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .use-case-card {
+            padding: 1.5rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .use-case-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+            transform: translateY(-3px);
+        }
+
+        .use-case-card h3 {
+            color: #667eea;
+            font-size: 1.3rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .use-case-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+
         h1, h2, h3 {
             margin-bottom: 1rem;
         }
@@ -321,6 +353,7 @@
         <nav class="tabs">
             <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
             <button class="tab-btn" onclick="switchTab('features')">Features</button>
+            <button class="tab-btn" onclick="switchTab('use-cases')">Use Cases</button>
             <button class="tab-btn" onclick="switchTab('technical')">Technical</button>
             <button class="tab-btn" onclick="switchTab('pricing')">Pricing</button>
         </nav>
@@ -370,6 +403,46 @@
                     <li>Enterprise deployment options</li>
                     <li>Advanced security scanning</li>
                 </ul>
+            </div>
+        </section>
+
+        <!-- Use Cases Tab -->
+        <section id="use-cases" class="content">
+            <h2>How AgenticQA Solves Real Problems</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 2rem; font-size: 1.1rem;">
+                AgenticQA empowers teams to ship code faster with confidence. Here are the key use cases:
+            </p>
+            
+            <div class="use-case-grid">
+                <div class="use-case-card">
+                    <h3>📚 Codebase Knowledge</h3>
+                    <p>AgenticQA agents understand your entire codebase structure, dependencies, and patterns. They maintain institutional knowledge and can answer questions about your code automatically, eliminating onboarding delays for new team members.</p>
+                </div>
+
+                <div class="use-case-card">
+                    <h3>🤖 Code Generation</h3>
+                    <p>Automatically generate boilerplate code, test fixtures, and utility functions based on your project patterns. Agents analyze your codebase and generate code that matches your conventions and standards.</p>
+                </div>
+
+                <div class="use-case-card">
+                    <h3>🔍 Code Review</h3>
+                    <p>AI-powered code review that catches bugs, suggests improvements, and verifies best practices before human review. Reduce review cycles and catch issues early in the development process.</p>
+                </div>
+
+                <div class="use-case-card">
+                    <h3>🚀 Code Deployment</h3>
+                    <p>Automatically validate deployments, run smoke tests, and verify that your application works post-deployment. Agents handle pre-flight checks and ensure safe rollouts with confidence.</p>
+                </div>
+
+                <div class="use-case-card">
+                    <h3>✅ Testing All Aspects of Code</h3>
+                    <p>Comprehensive test coverage including unit tests, integration tests, end-to-end tests, and performance tests. AgenticQA agents generate and maintain tests across your entire test pyramid.</p>
+                </div>
+
+                <div class="use-case-card">
+                    <h3>🎨 UI Functionality Testing</h3>
+                    <p>Automated visual and functional testing for your UI. Agents interact with your application like real users, testing user flows, form submissions, navigation, and responsiveness across devices.</p>
+                </div>
             </div>
         </section>
 
