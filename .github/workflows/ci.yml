@@ -92,7 +92,8 @@ jobs:
         run: npm run test:cypress
 
   sdet-agent:
-    needs: [unit-test, test-playwright, test-vitest, test-cypress]
+    needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     name: SDET Agent (Manual UI Testing)
     steps:
@@ -150,8 +151,8 @@ jobs:
           SDET_SCRIPT
 
   fullstack-agent:
-    needs: [sdet-agent]
-    if: always() && (contains(needs.*.result, 'failure'))
+    needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     name: Fullstack Agent (Code Fixes)
     permissions:
@@ -179,10 +180,10 @@ jobs:
         run: node fullstack-agent.js
 
   sre-agent:
-    needs: [sdet-agent, fullstack-agent]
+    needs: [lint]
+    if: always()
     runs-on: ubuntu-latest
     name: SRE Agent (Code & Pipeline Fixes)
-    if: always()
     permissions:
       contents: write
       actions: write
