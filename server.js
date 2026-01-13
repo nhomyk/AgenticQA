@@ -389,14 +389,159 @@ app.post("/scan", async (req, res) => {
     if (!Array.isArray(technologiesArr)) technologiesArr = [];
     if (!Array.isArray(technologyUrls)) technologyUrls = [];
     
+    // Detect security issues
+    const results = [];
+    
+    // Check for mixed content warnings
+    const hasHttp = target.startsWith("http://");
+    if (hasHttp) {
+      results.push(mapIssue("security", "Page uses unencrypted HTTP protocol", "Use HTTPS instead of HTTP for secure connections"));
+    }
+    
+    // Check for console errors and warnings
+    const consoleMessages = [];
+    page.on("console", msg => {
+      if (msg.type() === "error" || msg.type() === "warning") {
+        consoleMessages.push(msg.text());
+      }
+    });
+    
+    // Detect potential security and accessibility issues from page content
+    const pageIssues = await page.evaluate(() => {
+      const issues = [];
+      
+      // Check for missing alt text on images
+      const imgsWithoutAlt = document.querySelectorAll("img:not([alt])").length;
+      if (imgsWithoutAlt > 0) {
+        issues.push({
+          type: "accessibility",
+          message: `Found ${imgsWithoutAlt} images without alt text`,
+          recommendation: "Add descriptive alt text to all images for accessibility"
+        });
+      }
+      
+      // Check for missing form labels
+      const inputsWithoutLabel = document.querySelectorAll("input:not([aria-label]):not([id])").length;
+      if (inputsWithoutLabel > 0) {
+        issues.push({
+          type: "accessibility",
+          message: `Found ${inputsWithoutLabel} form inputs without labels`,
+          recommendation: "Use label elements or aria-label attributes on all form inputs"
+        });
+      }
+      
+      // Check for color contrast issues
+      const lowContrastElements = document.querySelectorAll("[style*='color']").length;
+      if (lowContrastElements > 5) {
+        issues.push({
+          type: "accessibility",
+          message: "Multiple elements with inline color styles detected",
+          recommendation: "Use CSS classes for styling to ensure color contrast compliance"
+        });
+      }
+      
+      // Check for missing viewport meta tag
+      if (!document.querySelector("meta[name='viewport']")) {
+        issues.push({
+          type: "performance",
+          message: "Missing viewport meta tag",
+          recommendation: "Add <meta name='viewport' content='width=device-width, initial-scale=1'>"
+        });
+      }
+      
+      // Check for render-blocking resources
+      const scripts = document.querySelectorAll("script[src]").length;
+      if (scripts > 5) {
+        issues.push({
+          type: "performance",
+          message: `Found ${scripts} external script tags (may block rendering)`,
+          recommendation: "Use async or defer attributes on scripts to improve page load time"
+        });
+      }
+      
+      return issues;
+    });
+    
+    results.push(...pageIssues);
+    
+    // Detect API calls
+    const apis = [];
+    const requestsIntercepted = [];
+    
+    page.on("response", async response => {
+      const url = response.url();
+      // Capture API/AJAX calls (filter out document and stylesheet requests)
+      if ((url.includes("/api/") || url.includes(".json") || url.match(/\.(jpg|png|css|js|ico|woff|woff2)$/)) === false) {
+        if (!requestsIntercepted.includes(url)) {
+          requestsIntercepted.push(url);
+        }
+      }
+    });
+    
+    // Wait a bit to catch any async API calls
+    await page.waitForTimeout(1000).catch(() => {});
+    
+    // Extract actual XHR/Fetch endpoints from network
+    const networkRequests = await page.evaluate(() => {
+      // Try to capture from performance timing
+      const entries = performance.getEntriesByType("resource");
+      return entries
+        .filter(e => e.name.includes("/api/") || e.name.includes(".json"))
+        .slice(0, 10)
+        .map(e => e.name);
+    });
+    
+    apis.push(...networkRequests);
+    
+    // Also look for fetch/XHR calls in scripts
+    const pageApis = await page.evaluate(() => {
+      const found = [];
+      const scripts = document.querySelectorAll("script");
+      let totalCode = "";
+      
+      for (const script of scripts) {
+        if (script.textContent) {
+          totalCode += script.textContent + "\n";
+        }
+      }
+      
+      // Look for common API patterns
+      const patterns = [
+        /fetch\(['"`]([^'"`]+)['"`]/gi,
+        /\.get\(['"`]([^'"`]+)['"`]/gi,
+        /\.post\(['"`]([^'"`]+)['"`]/gi,
+        /api['\s]*:\s*['"`]([^'"`]+)['"`]/gi,
+        /endpoint\s*=\s*['"`]([^'"`]+)['"`]/gi
+      ];
+      
+      for (const pattern of patterns) {
+        let match;
+        while ((match = pattern.exec(totalCode)) !== null) {
+          if (match[1]) {
+            found.push(match[1]);
+          }
+        }
+      }
+      
+      return found.slice(0, 10);
+    });
+    
+    apis.push(...pageApis);
+    
+    // Deduplicate and limit
+    const uniqueApis = [...new Set(apis)].filter(a => a && a.length > 0 && !a.startsWith("blob:")).slice(0, 10);
+    
     // Example test cases and recommendations
     const testCases = [
       "Verify page loads without errors",
-      "Check accessibility compliance"
+      "Check accessibility compliance",
+      `Validate that ${results.length} identified issues are addressed`,
+      "Test all API endpoints for proper error handling",
+      "Verify responsive design on mobile devices"
     ];
     
     const performanceResults = {
-      totalRequests: 0,
+      totalRequests: requestsIntercepted.length,
       failedRequests: 0,
       resourceCount: 0,
       avgResponseTimeMs: 0,
@@ -406,18 +551,20 @@ app.post("/scan", async (req, res) => {
     };
     
     const recommendations = [
-      "Regular security scanning recommended",
+      results.length > 0 ? `Fix ${results.length} identified accessibility and performance issues` : "Continue regular accessibility and performance monitoring",
       "Update dependencies to latest versions",
-      "Enable HTTPS if not already enabled"
+      "Enable HTTPS if not already enabled",
+      "Implement proper error handling for all API calls",
+      "Add CORS headers if serving cross-origin requests"
     ];
     
     const responsePayload = {
       url: target,
-      results: [],
-      totalFound: 0,
+      results: results.slice(0, 10),  // Limit to 10 results
+      totalFound: results.length,
       testCases,
       performanceResults,
-      apis: [],
+      apis: uniqueApis,
       recommendations,
       technologies: technologiesArr,
       technologyUrls: technologyUrls.map(u => sanitizeString(u))

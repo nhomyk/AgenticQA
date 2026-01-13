@@ -313,16 +313,34 @@ class QAAgent {
   }
 
   async testEmptyStates() {
-    console.log('  ✓ Testing Empty States...');
+    console.log('  ✓ Testing Empty States & Scan Results...');
     
-    const emptyStates = await this.page.evaluate(() => {
+    // Perform a scan first
+    await this.page.click('#urlInput');
+    await this.page.keyboard.type('https://example.com');
+    await this.page.click('#scanBtn');
+    
+    // Wait for scan to complete
+    await this.sleep(3000);
+    
+    const scanResults = await this.page.evaluate(() => {
+      const resultsValue = document.getElementById('results')?.value || '';
+      const apisValue = document.getElementById('apis')?.value || '';
+      const technologiesValue = document.getElementById('technologies')?.value || '';
+      
       return {
-        noIssuesMessage: document.getElementById('results')?.placeholder?.includes('Results'),
-        noApisMessage: document.getElementById('apis')?.placeholder?.includes('APIs')
+        resultsValue,
+        apisValue,
+        technologiesValue,
+        hasResults: resultsValue.length > 0 && !resultsValue.includes('No issues detected'),
+        hasApis: apisValue.length > 0 && !apisValue.includes('No API calls detected'),
+        hasTechnologies: technologiesValue.length > 0 && !technologiesValue.includes('None detected'),
+        resultsEmpty: resultsValue.includes('No issues detected'),
+        apisEmpty: apisValue.includes('No API calls detected')
       };
     });
     
-    this.testResults[QA_TESTS.EMPTY_STATES] = emptyStates;
+    this.testResults[QA_TESTS.EMPTY_STATES] = scanResults;
   }
 
   async testIntegration() {
@@ -334,19 +352,23 @@ class QAAgent {
     await this.page.click('#scanBtn');
     
     // Wait for scan to complete
-    await this.page.waitForFunction(
-      () => document.getElementById('results')?.value?.length > 0,
-      { timeout: 10000 }
-    ).catch(() => {
-      // Results might still be empty which is ok for example.com
-    });
+    await this.sleep(3000);
     
     const integrationResult = await this.page.evaluate(() => {
+      const resultsValue = document.getElementById('results')?.value || '';
+      const apisValue = document.getElementById('apis')?.value || '';
+      const technologiesValue = document.getElementById('technologies')?.value || '';
+      
       return {
         urlInputFilled: document.getElementById('urlInput')?.value?.length > 0,
-        resultsPopulated: document.getElementById('results')?.value?.length > 0,
-        technologiesVisible: document.getElementById('technologies')?.value?.length > 0,
-        recommendationsVisible: document.getElementById('recommendations')?.value?.length > 0
+        resultsPopulated: resultsValue.length > 0,
+        resultsHasData: !resultsValue.includes('No issues detected during scan'),
+        apisPopulated: apisValue.length > 0,
+        apisHasData: !apisValue.includes('No API calls detected during scan'),
+        technologiesVisible: technologiesValue.length > 0,
+        recommendationsVisible: document.getElementById('recommendations')?.value?.length > 0,
+        resultsValue: resultsValue.substring(0, 100),
+        apisValue: apisValue.substring(0, 100)
       };
     });
     

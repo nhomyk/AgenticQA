@@ -247,6 +247,21 @@ function analyzeAssertionMismatches(failureAnalysis) {
       });
     }
     
+    // Scan results always empty (server not detecting issues)
+    if (failure.failures.some(f => 
+      f.error?.includes("resultsHasData") ||
+      f.error?.includes("apisHasData") ||
+      f.error?.includes("No issues detected during scan") ||
+      f.error?.includes("No API calls detected during scan")
+    )) {
+      mismatches.push({
+        framework: failure.jobName,
+        testFile: identifyTestFile(failure.jobName),
+        description: "Scan results and APIs always empty - server detection not working",
+        type: "scan-results-empty"
+      });
+    }
+    
     // Test assertion on attributes that no longer exist
     if (failure.failures.some(f => 
       f.error?.includes("toHaveAttribute") || 
@@ -403,7 +418,16 @@ function fixTestFile(mismatch) {
       changed = true;
     }
     
-    // Fix 5: Function signature changes
+    // Fix 5: Scan results empty - server not detecting issues and APIs
+    if (type === "scan-results-empty") {
+      // This is a server-side issue, not a test issue
+      // The fix is in server.js - it needs to detect security issues and API calls
+      // For now, we note this needs server.js updates
+      console.log("ℹ️  Scan results empty issue detected - needs server.js fix (already applied)");
+      return false;  // This is handled by server updates, not test fixes
+    }
+    
+    // Fix 6: Function signature changes
     if (type === "function-signature") {
       // Update function calls to include caseNum parameter
       if (testFile.includes("app.test.js")) {
