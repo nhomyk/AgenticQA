@@ -669,8 +669,91 @@ npm run agent "http://localhost:3000"
 - [ ] Multi-agent collaboration for distributed analysis
 - [ ] WebSocket support for real-time updates
 - [ ] Result export (JSON, PDF, HTML reports)
+- [ ] Performance trend tracking
+- [ ] Custom test case generation rules
 
 For detailed agent documentation, see [AGENT.md](./AGENT.md).
+
+## CI/CD & Automated Testing Infrastructure
+
+### GitHub Actions Workflows
+
+#### 1. **Continuous Integration (CI) Workflow** (`ci.yml`)
+Runs on every push and pull request with comprehensive testing:
+
+- **Security Scanning** - npm audit, dependency vulnerability checks, secret detection
+- **Linting** - ESLint validation across all JavaScript files
+- **Unit Testing** - Jest with code coverage reporting
+- **E2E Testing** - Playwright for cross-browser testing
+- **Vitest** - Fast unit tests with coverage metrics
+- **Cypress** - Full E2E test suite for UI interactions
+- **Conditional Execution** - Tests run independently even if linting fails (with `if: always()`)
+
+**Test Results:**
+- Each test suite can be run independently
+- Failed tests trigger the SRE Engineer workflow automatically
+- All test jobs depend on lint but continue even if lint warnings occur
+
+#### 2. **Agentic SRE Engineer Workflow** (`agentic-sre-engineer.yml`)
+Automatically diagnoses and fixes failing CI jobs:
+
+**Capabilities:**
+- ✅ Detects failing workflow runs and analyzes root causes
+- ✅ Removes unused ESLint directives from generated files
+- ✅ Adds missing globals (URL, etc.) to ESLint configuration
+- ✅ Fixes unused variables and quote consistency issues
+- ✅ Handles port conflicts (EADDRINUSE errors)
+- ✅ Configures proper server shutdown and cleanup
+- ✅ Retries tests multiple times to handle intermittent failures
+- ✅ Auto-commits fixes and pushes to main branch
+- ✅ Triggers CI workflow after making fixes to validate results
+- ✅ Sends email notifications on completion
+
+**Key Features:**
+- Graceful error handling with non-critical operations
+- Timeout prevention (hard stop at 25 minutes)
+- Multiple iteration support (up to 3 attempts)
+- Intelligent issue detection from workflow logs
+- Git authentication using GITHUB_TOKEN with proper URL rewriting
+
+**How It Works:**
+1. Monitors failed workflow runs (lint, tests)
+2. Analyzes logs to identify specific issues
+3. Makes intelligent code changes:
+   - Applies ESLint --fix
+   - Updates configuration files
+   - Improves error handling
+   - Fixes server/port issues
+4. Commits changes and retriggers CI
+5. Sends summary via email
+
+### Running Tests Locally
+
+**All Tests:**
+```bash
+npm test              # Run all test suites
+```
+
+**Individual Test Suites:**
+```bash
+npm run test:vitest   # Vitest (18 tests, <300ms)
+npx jest --coverage   # Jest (5 tests with coverage)
+npx playwright test   # Playwright (7+ E2E tests)
+npm run test:cypress  # Cypress (22 E2E tests)
+npx eslint . --ext .js  # Linting
+```
+
+**Server Management:**
+```bash
+# Terminal 1: Start server
+npm start
+
+# Terminal 2: Run a single test
+npx playwright test
+
+# Or run tests with server management
+npm run test:cypress  # Uses start-server-and-test
+```
 
 ## Notes & Limitations
 
@@ -678,6 +761,8 @@ For detailed agent documentation, see [AGENT.md](./AGENT.md).
 - Puppeteer downloads a Chromium binary on first install (requires network access)
 - Some advanced accessibility or performance issues may not be detected
 - For troubleshooting Puppeteer launch issues, ensure Chrome/Chromium is available and accessible
+- SRE Agent requires GITHUB_TOKEN with `contents: write` permission
+- SMTP configuration needed for email notifications (SMTP_USER, SMTP_PASS, SMTP_HOST, SMTP_PORT)
 
 ## License
 
