@@ -139,16 +139,21 @@ function normalizeUrl(input) {
   return input;
 }
 
-// Reuse Puppeteer browser instance
+// Reuse Puppeteer browser instance (lazy initialized)
 let browser;
-(async () => {
+let browserInitialized = false;
+
+async function initializeBrowser() {
+  if (browserInitialized) return;
+  browserInitialized = true;
+  
   try {
     browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     log("info", "Puppeteer browser launched successfully");
   } catch (err) {
     log("error", "Failed to launch Puppeteer browser", { error: err.message });
   }
-})();
+}
 
 // Enhanced detectTechnologies with multiple detection methods
 async function detectTechnologies(page) {
@@ -353,10 +358,14 @@ app.post("/scan", async (req, res) => {
     
     log("info", "Scan started", { url: target });
     
-    // Initialize browser if needed
+    // Initialize browser if needed (lazy loading)
     if (!browser) {
-      log("warn", "Browser not initialized, launching new instance");
-      browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+      log("info", "Initializing Puppeteer browser on first scan request");
+      await initializeBrowser();
+    }
+    
+    if (!browser) {
+      throw new Error("Browser failed to initialize");
     }
     
     page = await browser.newPage();
