@@ -144,7 +144,7 @@ jobs:
           SDET_SCRIPT
 
   fullstack-agent:
-    needs: [lint, unit-test, test-playwright, test-vitest, test-cypress]
+    needs: [sdet-agent]
     if: failure()
     runs-on: ubuntu-latest
     name: Fullstack Agent (Code Fixes)
@@ -167,7 +167,7 @@ jobs:
         run: node fullstack-agent.js
 
   sre-agent:
-    needs: [sdet-agent]
+    needs: [fullstack-agent]
     runs-on: ubuntu-latest
     name: SRE Agent (Code & Pipeline Fixes)
     if: always()
