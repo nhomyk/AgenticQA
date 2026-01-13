@@ -719,5 +719,15 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { normalizeUrl, mapIssue, validateUrl, sanitizeString };
+// NEW: Utility function for formatting API responses
+function formatApiResponse(data, status = 'success') {
+  return {
+    status,
+    data,
+    timestamp: new Date().toISOString(),
+    version: '1.0'
+  };
+}
+
+module.exports = { normalizeUrl, mapIssue, validateUrl, sanitizeString, formatApiResponse };
 
