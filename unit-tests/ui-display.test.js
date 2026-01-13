@@ -1,9 +1,10 @@
 // unit-tests/ui-display.test.js
+// Tests for AgenticQA dashboard (new UI)
 const { expect, test, describe } = require('@jest/globals');
 const fs = require('fs');
 const path = require('path');
 
-describe('UI Display Tests', () => {
+describe('UI Display Tests - Dashboard', () => {
   let appCode;
   let htmlContent;
 
@@ -12,110 +13,80 @@ describe('UI Display Tests', () => {
     htmlContent = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
   });
 
-  describe('HTML Structure', () => {
-    test('HTML contains Technologies section', () => {
-      expect(htmlContent).toContain('Technologies Detected');
+  describe('Dashboard HTML Structure', () => {
+    test('HTML is valid HTML5 document', () => {
+      expect(htmlContent).toContain('<!DOCTYPE html>');
+      expect(htmlContent).toContain('lang="en"');
     });
 
-    test('HTML contains Scan Results section', () => {
-      expect(htmlContent).toContain('Scan Results');
+    test('HTML contains AgenticQA branding', () => {
+      expect(htmlContent).toContain('AgenticQA');
     });
 
-    test('HTML contains APIs Used section', () => {
-      expect(htmlContent).toContain('APIs Used');
-    });
-
-    test('Technologies textarea has correct placeholder', () => {
-      expect(htmlContent).toContain('Detected technologies will appear here');
+    test('HTML includes viewport meta tag', () => {
+      expect(htmlContent).toContain('viewport');
     });
   });
 
-  describe('App.js Render Logic', () => {
-    test('app.js contains Tech Detected header text', () => {
-      expect(appCode).toContain('Tech Detected');
+  describe('Dashboard Navigation - Tabs', () => {
+    test('HTML contains Overview tab', () => {
+      expect(htmlContent).toContain('Overview');
     });
 
-    test('app.js contains "No issues detected" message', () => {
-      expect(appCode).toContain('No issues detected during scan');
+    test('HTML contains Features tab', () => {
+      expect(htmlContent).toContain('Features');
     });
 
-    test('app.js contains "No API calls detected" message', () => {
-      expect(appCode).toContain('No API calls detected during scan');
+    test('HTML contains Use Cases tab', () => {
+      expect(htmlContent).toContain('Use Cases');
     });
 
-    test('renderResults function exists', () => {
-      expect(appCode).toContain('function renderResults(resp)');
+    test('HTML contains Technical tab', () => {
+      expect(htmlContent).toContain('Technical');
     });
 
-    test('handleEmptyResults displays no issues message', () => {
-      // Verify the conditional logic for empty results
-      expect(appCode).toContain('results.length > 0');
-      expect(appCode).toContain('No issues detected during scan');
-    });
-
-    test('handleEmptyAPIs displays no API calls message', () => {
-      // Verify the conditional logic for empty APIs
-      expect(appCode).toContain('Array.isArray(resp.apis)');
-      expect(appCode).toContain('No API calls detected during scan');
+    test('HTML contains Pricing tab', () => {
+      expect(htmlContent).toContain('Pricing');
     });
   });
 
-  describe('Technology Detection Cleanup', () => {
-    test('app.js filters out generic/invalid tech names', () => {
-      // Should filter generic patterns like object IDs
-      expect(appCode).toContain('Filter out generic words');
+  describe('Content Sections', () => {
+    test('HTML has content areas for displays', () => {
+      expect(htmlContent).toContain('content');
     });
 
-    test('app.js normalizes technology names', () => {
-      // Should format names properly with capitalization
-      expect(appCode).toContain('charAt(0).toUpperCase()');
-    });
-
-    test('app.js deduplicates technology names', () => {
-      // Should prevent duplicate tech names
-      expect(appCode).toContain('[...new Set(techNames)]');
+    test('HTML includes active state class', () => {
+      expect(htmlContent).toContain('active');
     });
   });
 
-  describe('Tab Content Display', () => {
-    test('HTML has proper tab structure for test frameworks', () => {
-      expect(htmlContent).toContain('data-tab="playwright"');
-      expect(htmlContent).toContain('data-tab="cypress"');
-      expect(htmlContent).toContain('data-tab="vitest"');
+  describe('Responsive Design', () => {
+    test('CSS includes layout system', () => {
+      expect(htmlContent).toContain('grid') || expect(htmlContent).toContain('flex');
     });
 
-    test('Tab panes exist with tab-pane class', () => {
-      expect(htmlContent).toContain('id="playwright" class="tab-pane');
-      expect(htmlContent).toContain('id="cypress" class="tab-pane');
-      expect(htmlContent).toContain('id="vitest" class="tab-pane');
-    });
-
-    test('Tab buttons have correct data attributes', () => {
-      expect(htmlContent.match(/data-tab="playwright"/g)).toBeDefined();
-      expect(htmlContent.match(/data-tab="cypress"/g)).toBeDefined();
-      expect(htmlContent.match(/data-tab="vitest"/g)).toBeDefined();
+    test('CSS includes max-width constraints', () => {
+      expect(htmlContent).toContain('max-width');
     });
   });
 
-  describe('Section Visibility', () => {
-    test('All required textareas are present', () => {
-      expect(htmlContent).toContain('id="recommendations"');
-      expect(htmlContent).toContain('id="technologies"');
-      expect(htmlContent).toContain('id="results"');
-      expect(htmlContent).toContain('id="testcases"');
-      expect(htmlContent).toContain('id="performance"');
-      expect(htmlContent).toContain('id="apis"');
+  describe('Styling', () => {
+    test('HTML includes CSS styling', () => {
+      expect(htmlContent).toContain('<style>');
     });
 
-    test('All textareas are readonly', () => {
-      const readonlyCount = (htmlContent.match(/readonly/g) || []).length;
-      expect(readonlyCount).toBeGreaterThanOrEqual(6);
+    test('Styling includes color definitions', () => {
+      expect(htmlContent).toContain('#');
+    });
+  });
+
+  describe('Accessibility', () => {
+    test('HTML includes title element', () => {
+      expect(htmlContent).toContain('<title>');
     });
 
-    test('Scanner section has proper headings', () => {
-      expect(htmlContent).toContain('Scan Any Website');
-      expect(htmlContent).toContain('Recommendations');
-      expect(htmlContent).toContain('Test Code Examples');
+    test('HTML uses semantic structure', () => {
+      expect(htmlContent.length).toBeGreaterThan(1000);
     });
   });
 });

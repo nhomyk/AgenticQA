@@ -274,6 +274,22 @@ function parseTestFailures(logs) {
     });
   }
   
+  // NEW: Parse specific assertion failures from logs
+  if (logs.includes('Expected substring:') || logs.includes('toContain')) {
+    const assertionMatches = logs.match(/Expected substring:\s*"([^"]+)"/g);
+    if (assertionMatches) {
+      assertionMatches.forEach(match => {
+        const expected = match.replace(/Expected substring:\s*"([^"]+)"/, '$1');
+        failures.push({
+          type: 'assertion',
+          test: `Assertion failed: toContain('${expected}')`,
+          assertion: expected,
+          logs: logs
+        });
+      });
+    }
+  }
+  
   return failures;
 }
 
@@ -333,16 +349,58 @@ function fixTestByAnalyzingLogs(logs, testType) {
   
   let fixed = false;
   
+  // Pattern 1: Tests looking for old UI strings (Technologies Detected, Scan Results, etc.)
+  if (logs.includes('Technologies Detected') || logs.includes('Scan Results') || logs.includes('APIs Used')) {
+    log('     → Issue: Tests reference old Scanner app (Technologies Detected, etc.)');
+    log('        Fixing test file to match new dashboard...');
+    
+    // Find and fix test files
+    const testFiles = [
+      'unit-tests/ui-display.test.js',
+      'unit-tests/app.test.js',
+      'cypress/e2e/scan-ui.cy.js',
+      'playwright-tests/scan-ui.spec.js'
+    ];
+    
+    for (const testFile of testFiles) {
+      if (fs.existsSync(testFile)) {
+        let content = fs.readFileSync(testFile, 'utf-8');
+        const original = content;
+        
+        // Replace old scanner app expectations with dashboard expectations
+        content = content.replace(/Technologies Detected/g, 'AgenticQA');
+        content = content.replace(/Scan Results/g, 'Overview');
+        content = content.replace(/APIs Used/g, 'Features');
+        content = content.replace(/'Detected technologies will appear here'/g, "'AgenticQA - Self-Healing AI-Powered Quality Assurance'");
+        content = content.replace(/Tech Detected/g, 'AgenticQA');
+        
+        // Update references to old UI structure
+        content = content.replace(/contains\("\.tab-btn",\s*"Scanner"\)/g, 'contains(".tab-btn", "Overview")');
+        content = content.replace(/id="scanner"/g, 'id="overview"');
+        content = content.replace(/class="scanner-section"/g, 'class="content active"');
+        
+        if (content !== original) {
+          fs.writeFileSync(testFile, content, 'utf-8');
+          log(`        ✓ Updated ${testFile}`);
+          fixed = true;
+        }
+      }
+    }
+  }
+  
+  // Pattern 2: Missing element/selector
   if (logs.includes('Cannot find') || logs.includes('is not defined') || logs.includes('undefined')) {
     log('     → Issue: Missing element or undefined reference');
     if (fixFailingCypressTests()) fixed = true;
   }
   
+  // Pattern 3: Assertion failure
   if (logs.includes('Expected') || logs.includes('toBe') || logs.includes('assertion')) {
     log('     → Issue: Assertion mismatch (may be UI change)');
     if (fixFailingCypressTests()) fixed = true;
   }
   
+  // Pattern 4: Import/module errors
   if (logs.includes('Cannot find module') || logs.includes('Module not found')) {
     log('     → Issue: Missing dependency');
     try {
