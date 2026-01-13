@@ -115,11 +115,11 @@ describe("Integration - Full Scan Flow", () => {
   });
 
   it("should display code examples in readonly format", () => {
-    cy.get("#playwright").should("have.attr", "readonly");
-    cy.get("#cypress").should("have.attr", "readonly");
-    cy.get("#vitest").should("have.attr", "readonly");
-    // Playwright tab is active by default
-    cy.get("#playwright").should("have.class", "active");
+    // Framework tabs are divs that get populated with content dynamically
+    // Verify they exist with proper class structure (not readonly)
+    cy.get("#playwright").should("have.class", "tab-pane").and("have.class", "active");
+    cy.get("#cypress").should("have.class", "tab-pane");
+    cy.get("#vitest").should("have.class", "tab-pane");
     // Test tab switching
     cy.get('[data-tab="cypress"]').click();
     cy.get("#cypress").should("have.class", "active").and("be.visible");

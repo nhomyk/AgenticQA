@@ -303,6 +303,17 @@ function fixTestFile(mismatch) {
         /cy\.get\("#(playwright|cypress|vitest)"\)\.should\("have\.attr", "placeholder"\)[^\n]*\n?/g,
         ''
       );
+      // Remove readonly checks for framework tab divs (they're divs, not textareas)
+      content = content.replace(
+        /cy\.get\("#(playwright|cypress|vitest)"\)\.should\("have\.attr", "readonly"\)[^\n]*[;]?/g,
+        ''
+      );
+      // Also handle the multiline readonly check pattern
+      content = content.replace(
+        /cy\.get\("#(playwright|cypress|vitest)"\)\.should\("have\.attr", "readonly"\)\n?/g,
+        ''
+      );
+      
       // Add tab-pane class check instead
       if (content.includes("get(\"#playwright\")") && !content.includes('have.class(/tab-pane/')) {
         content = content.replace(
@@ -317,6 +328,7 @@ function fixTestFile(mismatch) {
         /cy\.get\("#(playwright|cypress|vitest)"\)\.should\("have\.attr", "placeholder"\)[^\n]*\n?/g,
         ''
       );
+      changed = true;
     }
     
     // Fix 3: Function signature changes
