@@ -471,20 +471,36 @@ async function main() {
     }
     
     // Commit
-    execSilent('git commit -m "fix: fullstack-agent auto-fixed code issues and generated tests"');
+    try {
+      execSync('git commit -m "fix: fullstack-agent auto-fixed code issues and generated tests"', { stdio: 'inherit' });
+    } catch (err) {
+      log(`❌ Commit failed: ${err.message}`);
+      process.exit(1);
+    }
     log('✅ Changes committed\n');
     
     // Push
     log('🚀 Pushing to main...\n');
-    execSilent('git push origin main');
+    try {
+      execSync('git push origin main', { stdio: 'inherit' });
+    } catch (err) {
+      log(`❌ Push failed: ${err.message}`);
+      log('   This may block pipeline re-runs. Check git auth and permissions.');
+      process.exit(1);
+    }
     log('✅ Changes pushed\n');
     
     // STEP 3: Trigger new pipeline (only if changes were made)
     log('🔄 Code changes detected - triggering new pipeline...\n');
     try {
-      await triggerNewPipeline();
+      const triggerSuccess = await triggerNewPipeline();
+      if (!triggerSuccess) {
+        log('⚠️  Pipeline trigger via API failed, but changes are pushed');
+        log('   GitHub should auto-trigger workflow on push');
+      }
     } catch (err) {
-      log(`⚠️  Pipeline trigger skipped: ${err.message}\n`);
+      log(`⚠️  Pipeline trigger error: ${err.message}\n`);
+      log('   GitHub should auto-trigger workflow on push');
     }
     
     log('\n✅ === FULLSTACK AGENT v3.0 COMPLETE ===');
