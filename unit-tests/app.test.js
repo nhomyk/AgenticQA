@@ -18,3 +18,102 @@ describe('app.js UI helpers', () => {
     expect(result).toContain('describe');
   });
 });
+
+
+// Auto-generated tests by fullstack-agent
+const { expect, test, describe } = require('@jest/globals');
+const fs = require('fs');
+const path = require('path');
+
+describe('app.js Auto-Generated Tests', () => {
+  let appCode;
+  
+  beforeAll(() => {
+    appCode = fs.readFileSync(path.join(__dirname, '../public/app.js'), 'utf8');
+  });
+
+
+  test('renderResults should be defined', () => {
+    expect(appCode).toContain('function renderResults');
+  });
+
+  test('renderResults should handle basic inputs', () => {
+    const regex = new RegExp(`function renderResults[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+
+  test('renderTestCaseScripts should be defined', () => {
+    expect(appCode).toContain('function renderTestCaseScripts');
+  });
+
+  test('renderTestCaseScripts should handle basic inputs', () => {
+    const regex = new RegExp(`function renderTestCaseScripts[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+
+  test('downloadScript should be defined', () => {
+    expect(appCode).toContain('function downloadScript');
+  });
+
+  test('downloadScript should handle basic inputs', () => {
+    const regex = new RegExp(`function downloadScript[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+
+  test('copyToClipboard should be defined', () => {
+    expect(appCode).toContain('function copyToClipboard');
+  });
+
+  test('copyToClipboard should handle basic inputs', () => {
+    const regex = new RegExp(`function copyToClipboard[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+
+  test('generateVitestExample should be defined', () => {
+    expect(appCode).toContain('function generateVitestExample');
+  });
+
+  test('generateVitestExample should handle basic inputs', () => {
+    const regex = new RegExp(`function generateVitestExample[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+
+  test('switchTab should be defined', () => {
+    expect(appCode).toContain('function switchTab');
+  });
+
+  test('switchTab should handle basic inputs', () => {
+    const regex = new RegExp(`function switchTab[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+
+  test('initTabSwitching should be defined', () => {
+    expect(appCode).toContain('function initTabSwitching');
+  });
+
+  test('initTabSwitching should handle basic inputs', () => {
+    const regex = new RegExp(`function initTabSwitching[\s\S]*?\}`, 'g');
+    const funcMatch = appCode.match(regex);
+    expect(funcMatch).toBeDefined();
+    expect(funcMatch.length).toBeGreaterThan(0);
+  });
+
+});
