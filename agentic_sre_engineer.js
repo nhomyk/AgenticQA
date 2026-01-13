@@ -5,6 +5,7 @@ const simpleGit = require("simple-git");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
 const path = require("path");
+const https = require("https");
 
 // === PLATFORM KNOWLEDGE ===
 const PLATFORM_KNOWLEDGE = {
