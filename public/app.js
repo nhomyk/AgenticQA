@@ -2,7 +2,9 @@
 // Make functions globally available for onclick handlers
 window.downloadScript = downloadScript;
 window.copyToClipboard = copyToClipboard;
+window.switchTab = switchTab;
 
+// Get scanner elements (may not exist on dashboard page)
 const scanBtn = document.getElementById("scanBtn");
 const urlInput = document.getElementById("urlInput");
 const resultsBox = document.getElementById("results");
@@ -205,6 +207,27 @@ function generateVitestExample(testCase, url, caseNum) {
 }
 
 // Tab switching functionality
+function switchTab(tabName) {
+  // Hide all content sections
+  document.querySelectorAll(".content").forEach(section => {
+    section.classList.remove("active");
+  });
+  
+  // Remove active class from all tab buttons
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.classList.remove("active");
+  });
+  
+  // Show selected tab content
+  const tabContent = document.getElementById(tabName);
+  if (tabContent) {
+    tabContent.classList.add("active");
+  }
+  
+  // Mark the clicked button as active
+  event.target.classList.add("active");
+}
+
 function initTabSwitching() {
   const buttons = document.querySelectorAll(".tab-button");
   if (buttons.length === 0) {
@@ -249,19 +272,22 @@ if (document.readyState === "loading") {
   initTabSwitching();
 }
 
-scanBtn.addEventListener("click", async () => {
-  const url = urlInput.value.trim();
-  if (!url) return alert("Please enter a URL to scan");
-  resultsBox.value = "Scanning " + url + " ...";
-  try {
-    console.log("[UI] Fetch initiated for:", url);
-    const resp = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
-    console.log("[UI] Fetch response status:", resp.status);
-    const data = await resp.json();
+// Only attach scanner event listeners if scanner elements exist on the page
+if (scanBtn && urlInput && resultsBox) {
+  scanBtn.addEventListener("click", async () => {
+    const url = urlInput.value.trim();
+    if (!url) return alert("Please enter a URL to scan");
+    resultsBox.value = "Scanning " + url + " ...";
+    try {
+      console.log("[UI] Fetch initiated for:", url);
+      const resp = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+      console.log("[UI] Fetch response status:", resp.status);
+      const data = await resp.json();
     console.log("[UI] Fetch complete. Data:", data);
     renderResults(data);
   } catch (e) {
     console.error("[UI] Error during fetch:", e);
     resultsBox.value = "Error scanning: " + e;
   }
-});
+  });
+}
