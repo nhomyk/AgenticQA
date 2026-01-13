@@ -479,7 +479,7 @@ app.post("/scan", async (req, res) => {
     });
     
     // Wait a bit to catch any async API calls
-    await page.waitForTimeout(1000).catch(() => {});
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Extract actual XHR/Fetch endpoints from network
     const networkRequests = await page.evaluate(() => {
