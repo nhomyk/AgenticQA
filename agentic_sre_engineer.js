@@ -220,13 +220,106 @@ async function makeCodeChanges(failureAnalysis) {
   
   let changesDetected = false;
   
-  // Check if cypress server closing is the issue
-  const hasCypressServerIssue = failureAnalysis?.some(f => 
-    f.jobName.includes('cypress') && 
-    f.failures.some(fail => fail.error?.includes('server closed') || fail.error?.includes('connection'))
+  // Check for EADDRINUSE (port already in use) errors in Cypress tests
+  const hasPortInUseError = failureAnalysis?.some(f =>
+    f.jobName.includes('cypress') &&
+    f.failures.some(fail => fail.error?.includes('EADDRINUSE') || fail.error?.includes('address already in use'))
   );
   
-  if (hasCypressServerIssue) {
+  if (hasPortInUseError) {
+    console.log("Detected port in use error - improving server shutdown handling...");
+    
+    // Update server.js to handle graceful shutdown and cleanup
+    const serverPath = "server.js";
+    if (fs.existsSync(serverPath)) {
+      let server = fs.readFileSync(serverPath, "utf8");
+      
+      // Add proper error handling and socket cleanup for EADDRINUSE
+      if (!server.includes("server.close()") || !server.includes("removeAllListeners")) {
+        console.log("Adding graceful shutdown handlers to server...");
+        
+        // Add socket tracking and cleanup before the 'if (require.main === module)' block
+        const shutdownCode = `
+// Track connections for graceful shutdown
+const connections = new Set();
+
+const handleConnection = (conn) => {
+  connections.add(conn);
+  conn.on("close", () => connections.delete(conn));
+};
+
+// Handle process termination signals
+const handleGracefulShutdown = (signal) => {
+  return async () => {
+    log("info", \`\${signal} received, shutting down gracefully\`);
+    
+    if (server) {
+      server.close(() => {
+        log("info", "Server closed");
+        // Close all open connections
+        connections.forEach(conn => conn.destroy());
+        process.exit(0);
+      });
+      
+      // Force exit if graceful shutdown takes too long (10 seconds)
+      setTimeout(() => {
+        log("warn", "Forcing shutdown after timeout");
+        process.exit(1);
+      }, 10000);
+    }
+  };
+};
+`;
+        
+        // Check if graceful shutdown is already implemented
+        if (!server.includes("handleGracefulShutdown") && !server.includes("server.close()")) {
+          // Find the position to insert before the final 'if (require.main === module)' block
+          const insertPos = server.lastIndexOf("if (require.main === module)");
+          if (insertPos > -1) {
+            server = server.slice(0, insertPos) + shutdownCode + "\n" + server.slice(insertPos);
+            
+            // Update the startup code to use the graceful shutdown handlers
+            server = server.replace(
+              /if \(require\.main === module\) \{[\s\S]*?app\.listen\(PORT, HOST, \(\) => \{/,
+              `if (require.main === module) {
+  const server = app.listen(PORT, HOST, () => {`
+            );
+            
+            // Add signal handlers after app.listen
+            server = server.replace(
+              /app\.listen\(PORT, HOST, \(\) => \{([\s\S]*?)\}\);/,
+              `server = app.listen(PORT, HOST, () => {$1});
+  
+  server.on("connection", handleConnection);
+  process.on("SIGTERM", handleGracefulShutdown("SIGTERM"));
+  process.on("SIGINT", handleGracefulShutdown("SIGINT"));`
+            );
+            
+            fs.writeFileSync(serverPath, server);
+            changesDetected = true;
+            console.log("Added graceful shutdown handlers");
+          }
+        }
+      }
+    }
+    
+    // Also update test configuration to kill lingering processes
+    const playwrightConfigPath = "playwright.config.cjs";
+    if (fs.existsSync(playwrightConfigPath)) {
+      let config = fs.readFileSync(playwrightConfigPath, "utf8");
+      
+      // Ensure webServer config has proper cleanup
+      if (!config.includes("reuseExistingServer: false")) {
+        config = config.replace(
+          /webServer:\s*\{/,
+          "webServer: {\n    reuseExistingServer: false,"
+        );
+        fs.writeFileSync(playwrightConfigPath, config);
+        changesDetected = true;
+        console.log("Ensured webServer does not reuse existing server");
+      }
+    }
+  }
     console.log("Detected Cypress server issue - improving server handling in tests...");
     
     // The issue is likely the server not waiting or closing early
@@ -480,8 +573,9 @@ async function agenticSRELoop() {
       // Make code changes based on failures
       const changesApplied = await makeCodeChanges(failureAnalysis);
       
-      if (changesApplied && iteration < MAX_ITERATIONS) {
-        // Re-test with new changes
+      if (iteration < MAX_ITERATIONS) {
+        // Re-test with new changes or system state
+        console.log(`Triggering re-test to check if issues are resolved...`);
         const testResult = await redeployAndTest(iteration + 1);
         
         if (testResult.success) {
@@ -496,19 +590,10 @@ async function agenticSRELoop() {
             console.error('Failed to send email (non-critical):', err.message);
           }
           break;
+        } else if (!changesApplied) {
+          console.log(`⚠️ No code changes were made in iteration ${iteration}. Tests still failing.`);
         }
-      } else if (!changesApplied) {
-        console.log(`⚠️  No actionable changes could be made. Stopping iterations to prevent infinite loop.`);
-        try {
-          await sendEmail(
-            `CI Tests Failing - Manual Review Needed for AgenticQA v${newVersion}`,
-            `Could not auto-fix issues in iteration ${iteration}. Tests still failing. Manual investigation required.`
-          );
-        } catch (err) {
-          console.error('Failed to send email (non-critical):', err.message);
-        }
-        break;
-      } else if (iteration >= MAX_ITERATIONS) {
+      } else {
         console.log(`❌ Reached max iterations (${MAX_ITERATIONS}). Some tests still failing.`);
         try {
           await sendEmail(

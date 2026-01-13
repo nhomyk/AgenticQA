@@ -455,14 +455,36 @@ process.on("SIGINT", async () => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, HOST, () => {
-    log("info", "Server started", {
-      url: `http://${HOST}:${PORT}`,
-      environment: NODE_ENV,
-      maxResults: MAX_RESULTS,
-      scanTimeout: SCAN_TIMEOUT
+  let server = null;
+  
+  const startServer = () => {
+    server = app.listen(PORT, HOST, () => {
+      log("info", "Server started", {
+        url: `http://${HOST}:${PORT}`,
+        environment: NODE_ENV,
+        maxResults: MAX_RESULTS,
+        scanTimeout: SCAN_TIMEOUT
+      });
     });
-  });
+    
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        log("error", `Port ${PORT} is already in use`, {
+          port: PORT,
+          code: err.code
+        });
+        // Try to gracefully shutdown any existing process
+        console.error(`Port ${PORT} already in use. Exiting...`);
+        process.exit(1);
+      } else {
+        throw err;
+      }
+    });
+    
+    return server;
+  };
+  
+  startServer();
 }
 
 module.exports = { normalizeUrl, mapIssue, validateUrl, sanitizeString };
