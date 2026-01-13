@@ -8,6 +8,8 @@ const path = require("path");
 
 // === CONFIGURATION ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Set in your environment
+const GH_PAT = process.env.GH_PAT; // Alternative token source
+const EFFECTIVE_TOKEN = GITHUB_TOKEN || GH_PAT; // Use whichever is available
 const REPO_OWNER = "nhomyk"; // Change if needed
 const REPO_NAME = "AgenticQA"; // Change if needed
 const BRANCH = "main";
@@ -23,7 +25,10 @@ const git = simpleGit();
 async function initOctokit() {
   if (!octokit) {
     const { Octokit } = await import("@octokit/rest");
-    octokit = new Octokit({ auth: GITHUB_TOKEN });
+    if (!EFFECTIVE_TOKEN) {
+      console.warn('⚠️ WARNING: No GitHub token found in GITHUB_TOKEN or GH_PAT environment variables');
+    }
+    octokit = new Octokit({ auth: EFFECTIVE_TOKEN });
   }
   return octokit;
 }
@@ -873,9 +878,9 @@ async function reRunCurrentWorkflow() {
     
     console.log(`\n🔄 === WORKFLOW RE-RUN SEQUENCE ===`);
     console.log(`Run ID: ${currentRunId}`);
-    console.log(`Token available: ${!!GITHUB_TOKEN}`);
-    
-    // Attempt 1: Try Octokit API with reRunWorkflow
+    console.log(`GITHUB_TOKEN available: ${!!process.env.GITHUB_TOKEN}`);
+    console.log(`GH_PAT available: ${!!process.env.GH_PAT}`);
+    console.log(`EFFECTIVE_TOKEN available: ${!!EFFECTIVE_TOKEN}`);
     console.log(`\n📍 Attempt #1: Octokit reRunWorkflow API...`);
     try {
       const octokit = await initOctokit();
@@ -902,7 +907,7 @@ async function reRunCurrentWorkflow() {
         const response = await fetch(url, {
           method: 'POST',
           headers: {
-            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Authorization': `token ${EFFECTIVE_TOKEN}`,
             'Accept': 'application/vnd.github.v3+json',
             'Content-Length': '0',
           },
@@ -925,8 +930,8 @@ async function reRunCurrentWorkflow() {
         try {
           const { execSync } = require('child_process');
           
-          // First, set the token for gh CLI
-          process.env.GH_TOKEN = GITHUB_TOKEN;
+          // Set the token for gh CLI (use EFFECTIVE_TOKEN which prefers GITHUB_TOKEN)
+          process.env.GH_TOKEN = EFFECTIVE_TOKEN;
           
           const cmd = `gh run rerun ${currentRunId} --repo ${REPO_OWNER}/${REPO_NAME}`;
           console.log(`  Command: ${cmd}`);
