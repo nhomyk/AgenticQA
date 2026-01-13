@@ -390,12 +390,27 @@ async function redeployAndTest(iteration) {
   
   const run = await getLatestWorkflowRun();
   
+  // Validate that we have a valid workflow run
+  if (!run) {
+    console.warn('⚠️ No workflow run found. This may indicate running locally without GitHub Actions.');
+    console.warn('⚠️ Skipping test polling. Please ensure tests pass before committing.');
+    return { success: false, run: null, skipped: true };
+  }
+  
   // Poll for completion (max 15 minutes - tests can take time)
   let attempts = 0;
   const maxAttempts = 60;  // 60 attempts * 15 seconds = 15 minutes
+  const pollStartTime = Date.now();
+  const maxPollDuration = 15 * 60 * 1000; // 15 minutes absolute timeout
   
   while (attempts < maxAttempts) {
     const currentRun = await getLatestWorkflowRun();
+    
+    // Safety check: if we can't get a valid run, exit early
+    if (!currentRun) {
+      console.error('❌ Lost connection to workflow run. Tests may be stuck.');
+      return { success: false, run: null };
+    }
     
     if (currentRun.status === 'completed') {
       console.log(`Test run completed with conclusion: ${currentRun.conclusion}`);
@@ -406,8 +421,16 @@ async function redeployAndTest(iteration) {
     }
     
     attempts++;
+    const elapsedMs = Date.now() - pollStartTime;
+    
     if (attempts % 4 === 0) {
-      console.log(`Waiting for tests to complete... (attempt ${attempts}/${maxAttempts}, elapsed: ${Math.round(attempts * 15 / 60)}min)`);
+      console.log(`Waiting for tests to complete... (attempt ${attempts}/${maxAttempts}, elapsed: ${Math.round(elapsedMs / 60000)}min)`);
+    }
+    
+    // Check for absolute timeout exceeded
+    if (elapsedMs > maxPollDuration) {
+      console.error(`❌ Test polling timeout after ${Math.round(maxPollDuration / 60000)} minutes. Tests appear stuck.`);
+      return { success: false, run: currentRun };
     }
     
     if (attempts >= maxAttempts) {
@@ -446,6 +469,16 @@ async function agenticSRELoop() {
   await new Promise(r => setTimeout(r, 40000)); // Wait 40 seconds for CI to start (usually faster)
   timeoutCheck();
   
+  // Check if we can access GitHub Actions
+  const initialRun = await getLatestWorkflowRun();
+  if (!initialRun) {
+    console.warn('⚠️ Cannot access GitHub Actions workflow runs.');
+    console.warn('⚠️ This typically means you are running locally without GitHub Actions.');
+    console.warn('⚠️ Please ensure tests pass locally before committing.');
+    console.warn('⚠️ Exiting SRE agent.');
+    return;
+  }
+  
   // 3-6. Iterative testing and fixing loop
   while (iteration < MAX_ITERATIONS && !success) {
     timeoutCheck();
@@ -453,6 +486,11 @@ async function agenticSRELoop() {
     console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===`);
     
     const run = await getLatestWorkflowRun();
+    
+    if (!run) {
+      console.error('❌ Lost connection to workflow run.');
+      break;
+    }
     
     if (run.conclusion === 'success') {
       console.log('✅ All tests passed!');
@@ -498,6 +536,12 @@ async function agenticSRELoop() {
         // Re-test with new changes or system state
         console.log(`Triggering re-test to check if issues are resolved...`);
         const testResult = await redeployAndTest(iteration + 1);
+        
+        if (testResult.skipped) {
+          console.warn('⚠️ Test execution was skipped (running locally without GitHub Actions).');
+          console.warn('⚠️ Exiting SRE agent. Please verify tests pass before committing.');
+          break;
+        }
         
         if (testResult.success) {
           console.log('✅ Tests passed after fixes!');
