@@ -867,6 +867,10 @@ async function agenticSRELoop() {
   let iteration = 0;
   let success = false;
   
+  console.log('🚀 SRE Agent Starting...');
+  console.log(`Current Run ID: ${process.env.GITHUB_RUN_ID || 'local'}`);
+  console.log(`GITHUB_TOKEN available: ${!!GITHUB_TOKEN}`);
+  
   // Get the FAILED workflow run that triggered this SRE job
   const failedRun = await getLatestWorkflowRun();
   
@@ -877,16 +881,22 @@ async function agenticSRELoop() {
     return;
   }
 
-  console.log(`Analyzing failed workflow run #${failedRun.id}...`);
+  console.log(`Analyzing workflow run #${failedRun.id}...`);
 
   // Step 1: Analyze test failures from the run that triggered this SRE job
   const jobs = await getWorkflowJobResults(failedRun.id);
+  console.log(`Found ${jobs.length} total jobs in this run`);
+  
   const failureAnalysis = [];
   
   for (const job of jobs) {
+    console.log(`  - Job: ${job.name} [${job.conclusion}]`);
     if (job.conclusion === 'failure') {
+      console.log(`    ⚠️ FAILURE DETECTED: ${job.name}`);
       const logs = await getJobLogs(failedRun.id, job.name);
+      console.log(`    Fetched logs: ${logs ? logs.substring(0, 50) + '...' : 'null'}`);
       const testFailures = await parseTestFailures(job.name, logs);
+      console.log(`    Found ${testFailures.length} test failures in logs`);
       failureAnalysis.push({
         jobName: job.name,
         status: job.conclusion,
@@ -900,8 +910,8 @@ async function agenticSRELoop() {
     return;
   }
 
-  console.log(`\nFound ${failureAnalysis.length} failed job(s):`);
-  failureAnalysis.forEach(f => console.log(`  - ${f.jobName}`));
+  console.log(`\n✅ Found ${failureAnalysis.length} failed job(s) to analyze:`);
+  failureAnalysis.forEach(f => console.log(`  - ${f.jobName}: ${f.failures.length} test failures`));
 
   // Step 2: Bump version
   const newVersion = await bumpVersion();
