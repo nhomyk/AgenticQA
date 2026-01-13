@@ -139,14 +139,34 @@ function renderTestCaseScripts(testCases, url) {
       const script = framework.generator(testCase, url, index + 1);
       const scriptDiv = document.createElement("div");
       scriptDiv.className = "test-case-script";
-      scriptDiv.innerHTML = `
-        <h4>Test Case ${index + 1}: ${testCase.substring(0, 50)}${testCase.length > 50 ? "..." : ""}</h4>
-        <textarea readonly>${script}</textarea>
-        <div class="test-case-buttons">
-          <button onclick="downloadScript('${framework.name}-test-${index + 1}.js', this.previousElementSibling.value)">Download</button>
-          <button onclick="copyToClipboard(this.previousElementSibling.previousElementSibling.value)">Copy</button>
-        </div>
-      `;
+      
+      const h4 = document.createElement("h4");
+      h4.textContent = `Test Case ${index + 1}: ${testCase.substring(0, 50)}${testCase.length > 50 ? "..." : ""}`;
+      scriptDiv.appendChild(h4);
+      
+      const textarea = document.createElement("textarea");
+      textarea.readOnly = true;
+      textarea.value = script;
+      scriptDiv.appendChild(textarea);
+      
+      const buttonDiv = document.createElement("div");
+      buttonDiv.className = "test-case-buttons";
+      
+      const downloadBtn = document.createElement("button");
+      downloadBtn.textContent = "Download";
+      downloadBtn.addEventListener("click", () => {
+        downloadScript(`${framework.name}-test-${index + 1}.js`, textarea.value);
+      });
+      buttonDiv.appendChild(downloadBtn);
+      
+      const copyBtn = document.createElement("button");
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", () => {
+        copyToClipboard(textarea.value);
+      });
+      buttonDiv.appendChild(copyBtn);
+      
+      scriptDiv.appendChild(buttonDiv);
       container.appendChild(scriptDiv);
     });
   });
