@@ -6,6 +6,54 @@ const fs = require("fs");
 const nodemailer = require("nodemailer");
 const path = require("path");
 
+// === PLATFORM KNOWLEDGE ===
+const PLATFORM_KNOWLEDGE = {
+  platform: {
+    name: 'AgenticQA - Self-Healing AI-Powered Quality Assurance',
+    description: 'Autonomous testing platform with circular development architecture',
+    architecture: 'Agents test agents - fullstack-agent and SRE agent work together to fix and validate code',
+    useCases: [
+      {
+        name: 'Codebase Knowledge',
+        description: 'Agents understand entire codebase structure, dependencies, patterns. Maintain institutional knowledge.'
+      },
+      {
+        name: 'Code Generation',
+        description: 'Auto-generate boilerplate code, test fixtures, utility functions based on project patterns.'
+      },
+      {
+        name: 'Code Review',
+        description: 'AI-powered review catches bugs, suggests improvements, verifies best practices.'
+      },
+      {
+        name: 'Code Deployment',
+        description: 'Automatically validate deployments, run smoke tests, verify application works.'
+      },
+      {
+        name: 'Testing All Aspects of Code',
+        description: 'Comprehensive coverage: unit, integration, end-to-end, performance tests.'
+      },
+      {
+        name: 'UI Functionality Testing',
+        description: 'Automated visual and functional testing. Test flows, forms, navigation, responsiveness.'
+      }
+    ],
+    ui: {
+      primaryFile: 'public/index.html',
+      dashboardFile: 'public/dashboard.html',
+      tabs: ['Overview', 'Features', 'Use Cases', 'Technical', 'Pricing'],
+      description: 'Professional SaaS dashboard with responsive design',
+      knownChanges: [
+        'Scanner tab replaced with Use Cases tab in UI',
+        'Tab switching via onclick="switchTab(id)" function',
+        'Content sections marked with class="content active"'
+      ]
+    },
+    workflows: ['lint', 'unit-test', 'test-playwright', 'test-vitest', 'test-cypress', 'sdet-agent', 'fullstack-agent', 'sre-agent'],
+    circulardevelopment: 'Agents test agents creating self-validating system. Fullstack agent fixes bugs/generates tests, SRE agent analyzes failures and fixes code, pipeline re-runs automatically.'
+  }
+};
+
 // === CONFIGURATION ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Set in your environment
 const GH_PAT = process.env.GH_PAT; // Alternative token source
@@ -964,9 +1012,17 @@ async function agenticSRELoop() {
   let iteration = 0;
   let success = false;
   
-  console.log('🚀 SRE Agent Starting...');
-  console.log(`Current Run ID: ${process.env.GITHUB_RUN_ID || 'local'}`);
-  console.log(`GITHUB_TOKEN available: ${!!GITHUB_TOKEN}`);
+  console.log('\n🚀 === SRE AGENT v1.0 STARTING ===');
+  console.log(`Platform: ${PLATFORM_KNOWLEDGE.platform.name}`);
+  console.log(`Mode: ${PLATFORM_KNOWLEDGE.platform.architecture}`);
+  console.log(`Run ID: ${process.env.GITHUB_RUN_ID || 'local'}`);
+  console.log(`GITHUB_TOKEN available: ${!!GITHUB_TOKEN}\n`);
+  
+  console.log('📚 Platform Knowledge Loaded:');
+  console.log(`   • Use Cases: ${PLATFORM_KNOWLEDGE.platform.useCases.map(u => u.name).join(', ')}`);
+  console.log(`   • UI Tabs: ${PLATFORM_KNOWLEDGE.platform.ui.tabs.join(', ')}`);
+  console.log(`   • Workflows: ${PLATFORM_KNOWLEDGE.platform.workflows.join(' → ')}`);
+  console.log(`   • Circular Development: Enabled\n`);
   
   // Get the FAILED workflow run that triggered this SRE job
   const failedRun = await getLatestWorkflowRun();

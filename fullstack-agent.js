@@ -14,6 +14,43 @@ const REPO_NAME = 'AgenticQA';
 
 // Pipeline tool expertise
 const PIPELINE_KNOWLEDGE = {
+  platform: {
+    name: 'AgenticQA - Self-Healing AI-Powered Quality Assurance',
+    description: 'Autonomous testing platform with circular development architecture',
+    architecture: 'Agents test agents - fullstack-agent and SRE agent work together to fix and validate code',
+    useCases: [
+      {
+        name: 'Codebase Knowledge',
+        description: 'Agents understand entire codebase structure, dependencies, patterns. Maintain institutional knowledge for faster onboarding.'
+      },
+      {
+        name: 'Code Generation',
+        description: 'Auto-generate boilerplate code, test fixtures, utility functions based on project patterns and conventions.'
+      },
+      {
+        name: 'Code Review',
+        description: 'AI-powered review catches bugs, suggests improvements, verifies best practices before human review.'
+      },
+      {
+        name: 'Code Deployment',
+        description: 'Automatically validate deployments, run smoke tests, verify application works post-deployment.'
+      },
+      {
+        name: 'Testing All Aspects of Code',
+        description: 'Comprehensive coverage: unit tests, integration tests, end-to-end tests, performance tests across test pyramid.'
+      },
+      {
+        name: 'UI Functionality Testing',
+        description: 'Automated visual and functional testing. Interact like real users - test flows, forms, navigation, responsiveness.'
+      }
+    ],
+    ui: {
+      primaryFile: 'public/index.html',
+      dashboardFile: 'public/dashboard.html',
+      tabs: ['Overview', 'Features', 'Use Cases', 'Technical', 'Pricing'],
+      description: 'Professional SaaS dashboard with responsive design'
+    }
+  },
   testFrameworks: {
     jest: { 
       files: 'unit-tests/*.test.js',
@@ -28,7 +65,24 @@ const PIPELINE_KNOWLEDGE = {
     cypress: { 
       files: 'cypress/e2e/*.cy.js',
       syntax: 'it(\'description\', () => { cy.visit(...) })',
-      setup: 'describe(\'suite\', () => { ... })'
+      setup: 'describe(\'suite\', () => { ... })',
+      uiKnowledge: {
+        tabs: ['Overview', 'Features', 'Use Cases', 'Technical', 'Pricing'],
+        selectors: {
+          'tab-btn': '.tab-btn',
+          'overview': '#overview',
+          'features': '#features',
+          'use-cases': '#use-cases',
+          'technical': '#technical',
+          'pricing': '#pricing',
+          'use-case-card': '.use-case-card'
+        },
+        commonIssues: [
+          'Scanner tab replaced with Use Cases tab - update selectors if tests reference old UI',
+          'Tab switching via onclick="switchTab(id)" function',
+          'Content sections have class="content active" when visible'
+        ]
+      }
     },
     vitest: { 
       files: 'vitest-tests/*.test.mjs',
@@ -40,7 +94,8 @@ const PIPELINE_KNOWLEDGE = {
     frontend: {
       files: ['public/app.js', 'public/index.html'],
       testFile: 'unit-tests/app.test.js',
-      key_functions: ['renderResults', 'downloadScript', 'copyToClipboard', 'generatePlaywrightExample', 'generateCypressExample']
+      key_functions: ['renderResults', 'downloadScript', 'copyToClipboard', 'generatePlaywrightExample', 'generateCypressExample'],
+      uiTabs: ['Overview', 'Features', 'Use Cases', 'Technical', 'Pricing']
     },
     backend: {
       files: ['server.js'],
@@ -51,7 +106,8 @@ const PIPELINE_KNOWLEDGE = {
   workflow: {
     jobs: ['lint', 'unit-test', 'test-playwright', 'test-vitest', 'test-cypress', 'sdet-agent', 'fullstack-agent', 'sre-agent'],
     triggers: ['push', 'pull_request'],
-    success_criteria: ['all tests passing', 'linting clean', 'agent success']
+    success_criteria: ['all tests passing', 'linting clean', 'agent success'],
+    circulardevelopment: 'Agents test agents creating self-validating system. Fullstack agent fixes bugs/generates tests, SRE agent analyzes failures and fixes code, pipeline re-runs automatically.'
   }
 };
 
@@ -347,7 +403,20 @@ function applyGeneratedTests(generatedTests) {
 function generatePipelineReport() {
   log('\n📚 === PIPELINE EXPERT KNOWLEDGE ===\n');
   
-  log('Test Frameworks:');
+  log(`Platform: ${PIPELINE_KNOWLEDGE.platform.name}`);
+  log(`Architecture: ${PIPELINE_KNOWLEDGE.platform.architecture}\n`);
+  
+  log('Use Cases:');
+  PIPELINE_KNOWLEDGE.platform.useCases.forEach(uc => {
+    log(`  • ${uc.name}: ${uc.description}`);
+  });
+  
+  log('\nUI Structure:');
+  log(`  Primary: ${PIPELINE_KNOWLEDGE.platform.ui.primaryFile}`);
+  log(`  Tabs: ${PIPELINE_KNOWLEDGE.platform.ui.tabs.join(', ')}`);
+  log(`  Layout: ${PIPELINE_KNOWLEDGE.platform.ui.description}`);
+  
+  log('\nTest Frameworks:');
   Object.entries(PIPELINE_KNOWLEDGE.testFrameworks).forEach(([name, info]) => {
     log(`  • ${name}`);
     log(`    Location: ${info.files}`);
@@ -359,8 +428,10 @@ function generatePipelineReport() {
     log(`  • ${area}`);
     log(`    Files: ${info.files.join(', ')}`);
     log(`    Tests: ${info.testFile}`);
-    log(`    Key functions: ${info.key_functions.join(', ')}`);
   });
+  
+  log('\nCircular Development:');
+  log(`  ${PIPELINE_KNOWLEDGE.workflow.circulardevelopment}`);
   
   log('\nWorkflow Jobs:');
   log(`  ${PIPELINE_KNOWLEDGE.workflow.jobs.join(' → ')}`);
