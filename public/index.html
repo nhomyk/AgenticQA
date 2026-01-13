@@ -10,12 +10,12 @@
       button { padding: 8px 12px; }
       textarea { width: 100%; height: 360px; margin-top: 12px; font-family: monospace; }
       .small { font-size: 0.9em; color: #555 }
-      .tabs { display: flex; gap: 4px; margin-top: 12px; border-bottom: 2px solid #ddd; }
+      .tabs { display: flex; gap: 4px; margin-top: 12px; margin-bottom: 12px; border-bottom: 2px solid #ddd; }
       .tab-button { background: #f0f0f0; border: none; border-bottom: 3px solid transparent; padding: 10px 16px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
       .tab-button:hover { background: #e0e0e0; }
       .tab-button.active { background: #fff; border-bottom-color: #0066cc; color: #0066cc; font-weight: bold; }
-      .tab-content { position: relative; }
-      .tab-pane { display: none; }
+      .tab-content { position: relative; width: 100%; min-height: 100px; }
+      .tab-pane { display: none; width: 100%; min-height: 100px; }
       .tab-pane.active { display: block; }
       .test-case-script { margin: 16px 0; padding: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 4px; }
       .test-case-script h4 { margin: 0 0 8px 0; }
