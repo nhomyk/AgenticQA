@@ -1004,11 +1004,7 @@ async function agenticSRELoop() {
 
   if (failureAnalysis.length === 0) {
     console.log('✅ No failures found to analyze');
-    console.log('\n🔄 Triggering workflow re-run to verify all tests pass...');
-    const reRunResult = await reRunCurrentWorkflow();
-    if (reRunResult.success) {
-      console.log('✅ Pipeline will re-run to confirm all tests pass');
-    }
+    console.log('ℹ️ No re-run needed - all tests are passing');
     return;
   }
 
@@ -1020,6 +1016,8 @@ async function agenticSRELoop() {
   console.log(`Version bumped to ${newVersion}`);
 
   // Step 3: Make code changes (iteratively if needed)
+  let codeChangesApplied = false;
+  
   while (iteration < MAX_ITERATIONS && !success) {
     iteration++;
     console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===`);
@@ -1047,6 +1045,7 @@ async function agenticSRELoop() {
         try {
           await git.push(['origin', 'main']);
           console.log('✅ Changes pushed to main');
+          codeChangesApplied = true;
           
           // Trigger re-run of failed jobs to verify fixes
           const triggerResult = await reRunCurrentWorkflow();
@@ -1092,9 +1091,14 @@ async function agenticSRELoop() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`SRE AGENT SUMMARY`);
   console.log(`${'='.repeat(60)}`);
-  console.log(`✅ WORKFLOW MONITORING: COMPLETE`);
-  console.log(`✅ AUTOMATIC RE-RUN: TRIGGERED`);
-  console.log(`📊 Check the latest workflow run to see pipeline re-run results`);
+  if (codeChangesApplied) {
+    console.log(`✅ CODE CHANGES DETECTED`);
+    console.log(`✅ WORKFLOW RE-RUN: TRIGGERED`);
+    console.log(`📊 Check the latest workflow run to see pipeline re-run results`);
+  } else {
+    console.log(`ℹ️ NO CODE CHANGES MADE`);
+    console.log(`ℹ️ NO RE-RUN TRIGGERED`);
+  }
   console.log(`${'='.repeat(60)}\n`);
 }
 

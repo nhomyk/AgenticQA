@@ -457,8 +457,16 @@ async function main() {
       // Ignore error
     }
     
-    if (!statusOutput.trim()) {
+    const hasChanges = statusOutput.trim().length > 0;
+    
+    if (!hasChanges) {
       log('✅ No changes to commit\n');
+      log('\n✅ === FULLSTACK AGENT v3.0 COMPLETE ===');
+      log('   ✓ Scanned source files & code quality verified');
+      log('   ✓ Analyzed code coverage');
+      log('   ✓ No fixes needed\n');
+      log('   ℹ️  NO CODE CHANGES MADE');
+      log('   ℹ️  NO PIPELINE RE-RUN TRIGGERED\n');
       process.exit(0);
     }
     
@@ -471,8 +479,8 @@ async function main() {
     execSilent('git push origin main');
     log('✅ Changes pushed\n');
     
-    // STEP 3: Trigger new pipeline (optional, fail gracefully)
-    log('🔄 Attempting to trigger new pipeline...\n');
+    // STEP 3: Trigger new pipeline (only if changes were made)
+    log('🔄 Code changes detected - triggering new pipeline...\n');
     try {
       await triggerNewPipeline();
     } catch (err) {
@@ -485,7 +493,7 @@ async function main() {
     log('   ✓ Generated missing tests');
     log('   ✓ Committed all changes');
     log('   ✓ Pushed to main');
-    log('   ✓ Triggered new pipeline\n');
+    log('   ✓ PIPELINE RE-RUN TRIGGERED\n');
     log('   Pipeline Expertise:');
     log('   • Jest, Playwright, Cypress, Vitest');
     log('   • Frontend & Backend testing');
