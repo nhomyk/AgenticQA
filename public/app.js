@@ -243,8 +243,8 @@ function initTabSwitching() {
 }
 
 // Initialize tab switching when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initTabSwitching);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initTabSwitching);
 } else {
   initTabSwitching();
 }
