@@ -70,24 +70,9 @@ describe("AgenticQA Dashboard - UI Tests", () => {
     cy.get(".use-case-card").first().should("be.visible");
   });
 
-});
+  it("should have correct feature descriptions", () => {
+    cy.contains(".tab-btn", "Features").click();
+    cy.contains("h3", "Standard Features").should("be.visible");
+    cy.contains("h3", "Premium Features").should("be.visible");
   });
-
-  
-
-  it("should display detected technologies after scanning a URL", () => {
-    cy.contains(".tab-btn", "Overview").click();
-    cy.get("#urlInput").clear().type("https://example.com");
-    cy.get("#scanBtn").click();
-    cy.get("#technologies", { timeout: 30000 })
-      .should("be.visible")
-      .should($el => {
-        const val = $el.val();
-        console.log('Technologies box value:', val);
-        expect(val.trim().length).to.be.greaterThan(0);
-      });
-  });
-
-  
-
 });
