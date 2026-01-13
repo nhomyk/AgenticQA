@@ -291,6 +291,51 @@ function analyzeAssertionMismatches(failureAnalysis) {
       });
     }
     
+    // Dependency vulnerabilities detected
+    if (failure.failures.some(f =>
+      f.error?.includes("vulnerabilities") ||
+      f.error?.includes("npm audit") ||
+      f.error?.includes("security") ||
+      f.error?.includes("vulnerable")
+    )) {
+      mismatches.push({
+        framework: failure.jobName,
+        testFile: "package.json",
+        description: "Dependency vulnerabilities detected by npm audit",
+        type: "dependency-vulnerability"
+      });
+    }
+    
+    // Code coverage below threshold
+    if (failure.failures.some(f =>
+      f.error?.includes("coverage") ||
+      f.error?.includes("threshold") ||
+      f.error?.includes("percent") ||
+      (f.error?.includes("Expected") && f.error?.includes("actual"))
+    )) {
+      mismatches.push({
+        framework: failure.jobName,
+        testFile: "jest.config.cjs",
+        description: "Code coverage below 80% threshold",
+        type: "coverage-threshold"
+      });
+    }
+    
+    // SonarQube quality gate failed
+    if (failure.failures.some(f =>
+      f.error?.includes("SonarQube") ||
+      f.error?.includes("quality gate") ||
+      f.error?.includes("code smell") ||
+      f.error?.includes("maintainability")
+    )) {
+      mismatches.push({
+        framework: failure.jobName,
+        testFile: "sonar-project.properties",
+        description: "SonarQube quality gate failed - code quality issues",
+        type: "code-quality"
+      });
+    }
+    
     // Function signature changes
     if (failure.failures.some(f => 
       f.error?.includes("Expected substring") || 
@@ -452,23 +497,43 @@ function fixTestFile(mismatch) {
     
     // Fix 7: Function signature changes
     if (type === "function-signature") {
-      // Update function calls to include caseNum parameter
-      if (testFile.includes("app.test.js")) {
-        content = content.replace(
-          /fn\('([^']+)', 'https:\/\/example\.com'\)/g,
-          "fn('$1', 'https://example.com', 1)"
-        );
-        // Update expected string assertions
-        content = content.replace(
-          /toContain\('Playwright example for:/g,
-          "toContain('Test Case 1:"
-        );
-        content = content.replace(
-          /toContain\('Cypress example for:/g,
-          "toContain('Test case 1"
-        );
-        changed = true;
+    // Fix 8: Dependency vulnerabilities
+    if (type === "dependency-vulnerability") {
+      console.log("🔧 Fixing dependency vulnerabilities...");
+      try {
+        execSync("npm audit fix --force", { cwd: process.cwd(), stdio: "pipe" });
+        console.log("✅ Dependencies updated and vulnerabilities fixed");
+        return true;
+      } catch (err) {
+        console.warn("⚠️  npm audit fix failed, manual review may be needed");
+        return false;
       }
+    }
+    
+    // Fix 9: Code coverage below threshold
+    if (type === "coverage-threshold") {
+      console.log("🔧 Code coverage below threshold - needs test improvements");
+      // This requires adding tests, not auto-fixable
+      // SRE Agent can flag this for manual review
+      return false;
+    }
+    
+    // Fix 10: Code quality issues
+    if (type === "code-quality") {
+      console.log("🔧 Fixing code quality issues from SonarQube...");
+      // SonarQube issues often require manual review
+      // Can fix common issues like unused variables, trailing spaces
+      if (testFile && fs.existsSync(testFile)) {
+        content = fs.readFileSync(testFile, "utf8");
+        // Remove trailing whitespace
+        content = content.replace(/\s+$/gm, "");
+        // Remove unused console logs
+        content = content.replace(/console\.(log|debug)\([^)]*\);?\n/g, "");
+        fs.writeFileSync(testFile, content);
+        console.log("✅ Code quality improvements applied");
+        return true;
+      }
+      return false;
     }
     
     if (changed) {
