@@ -307,7 +307,7 @@ jobs:
             });
             console.log('✅ New CI pipeline triggered after SRE Agent fixes')
 
-
+  sre-agent:
     runs-on: ubuntu-latest
     needs: [sdet-agent]
     if: ${{ always() }}
