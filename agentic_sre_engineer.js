@@ -262,6 +262,21 @@ function analyzeAssertionMismatches(failureAnalysis) {
       });
     }
     
+    // Performance metrics all zero (not being collected)
+    if (failure.failures.some(f => 
+      f.error?.includes("Total Requests: 0") ||
+      f.error?.includes("Performance Results") ||
+      f.error?.includes("avgResponseTimeMs") ||
+      f.error?.includes("loadTimeMs")
+    )) {
+      mismatches.push({
+        framework: failure.jobName,
+        testFile: identifyTestFile(failure.jobName),
+        description: "Performance metrics all zero - performance collection not working",
+        type: "performance-metrics-empty"
+      });
+    }
+    
     // Test assertion on attributes that no longer exist
     if (failure.failures.some(f => 
       f.error?.includes("toHaveAttribute") || 
@@ -427,7 +442,15 @@ function fixTestFile(mismatch) {
       return false;  // This is handled by server updates, not test fixes
     }
     
-    // Fix 6: Function signature changes
+    // Fix 6: Performance metrics empty - server not collecting metrics
+    if (type === "performance-metrics-empty") {
+      // This is also a server-side issue
+      // The fix is in server.js - it needs to collect performance.getEntriesByType() data
+      console.log("ℹ️  Performance metrics empty issue detected - needs server.js fix (already applied)");
+      return false;  // This is handled by server updates, not test fixes
+    }
+    
+    // Fix 7: Function signature changes
     if (type === "function-signature") {
       // Update function calls to include caseNum parameter
       if (testFile.includes("app.test.js")) {

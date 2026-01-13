@@ -531,23 +531,74 @@ app.post("/scan", async (req, res) => {
     // Deduplicate and limit
     const uniqueApis = [...new Set(apis)].filter(a => a && a.length > 0 && !a.startsWith("blob:")).slice(0, 10);
     
+    // Collect real performance metrics from the page
+    const performanceData = await page.evaluate(() => {
+      const perfTiming = performance.timing || {};
+      const perfNavTiming = performance.getEntriesByType("navigation")[0];
+      const resourceEntries = performance.getEntriesByType("resource");
+      
+      // Calculate page load time
+      let loadTimeMs = 0;
+      if (perfTiming.loadEventEnd && perfTiming.navigationStart) {
+        loadTimeMs = perfTiming.loadEventEnd - perfTiming.navigationStart;
+      } else if (perfNavTiming) {
+        loadTimeMs = perfNavTiming.loadEventEnd - perfNavTiming.fetchStart;
+      }
+      
+      // Calculate average response time and get top resources
+      let totalResponseTime = 0;
+      let responseCount = 0;
+      const topResources = [];
+      
+      for (const resource of resourceEntries) {
+        if (resource.duration > 0) {
+          totalResponseTime += resource.duration;
+          responseCount++;
+        }
+        
+        // Collect top 5 slowest resources
+        if (topResources.length < 5) {
+          topResources.push({
+            name: resource.name.split("/").pop().substring(0, 40),
+            timeMs: Math.round(resource.duration),
+            type: resource.initiatorType || "unknown"
+          });
+        }
+      }
+      
+      // Sort by duration descending
+      topResources.sort((a, b) => b.timeMs - a.timeMs);
+      
+      const avgResponseTime = responseCount > 0 ? totalResponseTime / responseCount : 0;
+      const throughput = loadTimeMs > 0 ? (resourceEntries.length * 1000) / loadTimeMs : 0;
+      
+      return {
+        totalRequests: resourceEntries.length,
+        avgResponseTimeMs: Math.round(avgResponseTime),
+        loadTimeMs: Math.round(loadTimeMs),
+        throughputReqPerSec: Math.round(throughput * 10) / 10,
+        topResources: topResources.slice(0, 5)
+      };
+    });
+    
     // Example test cases and recommendations
     const testCases = [
       "Verify page loads without errors",
       "Check accessibility compliance",
       `Validate that ${results.length} identified issues are addressed`,
       "Test all API endpoints for proper error handling",
-      "Verify responsive design on mobile devices"
+      "Verify responsive design on mobile devices",
+      `Optimize page load time (currently ${performanceData.loadTimeMs}ms)`
     ];
     
     const performanceResults = {
-      totalRequests: requestsIntercepted.length,
+      totalRequests: performanceData.totalRequests,
       failedRequests: 0,
-      resourceCount: 0,
-      avgResponseTimeMs: 0,
-      loadTimeMs: 0,
-      throughputReqPerSec: 0,
-      topResources: []
+      resourceCount: performanceData.totalRequests,
+      avgResponseTimeMs: performanceData.avgResponseTimeMs,
+      loadTimeMs: performanceData.loadTimeMs,
+      throughputReqPerSec: performanceData.throughputReqPerSec,
+      topResources: performanceData.topResources
     };
     
     const recommendations = [
