@@ -205,25 +205,49 @@ function generateVitestExample(testCase, url, caseNum) {
 }
 
 // Tab switching functionality
-document.querySelectorAll(".tab-button").forEach(button => {
-  button.addEventListener("click", () => {
-    const tabName = button.getAttribute("data-tab");
-    
-    // Hide all tab panes
-    document.querySelectorAll(".tab-pane").forEach(pane => {
-      pane.classList.remove("active");
+function initTabSwitching() {
+  const buttons = document.querySelectorAll(".tab-button");
+  if (buttons.length === 0) {
+    console.warn("No tab-button elements found, tab switching not available");
+    return;
+  }
+  
+  buttons.forEach(button => {
+    button.addEventListener("click", () => {
+      const tabName = button.getAttribute("data-tab");
+      if (!tabName) {
+        console.warn("Tab button missing data-tab attribute");
+        return;
+      }
+      
+      // Hide all tab panes
+      document.querySelectorAll(".tab-pane").forEach(pane => {
+        pane.classList.remove("active");
+      });
+      
+      // Remove active class from all buttons
+      document.querySelectorAll(".tab-button").forEach(btn => {
+        btn.classList.remove("active");
+      });
+      
+      // Show selected tab pane and mark button as active
+      const tabPane = document.getElementById(tabName);
+      if (tabPane) {
+        tabPane.classList.add("active");
+      } else {
+        console.warn(`Tab pane with id="${tabName}" not found`);
+      }
+      button.classList.add("active");
     });
-    
-    // Remove active class from all buttons
-    document.querySelectorAll(".tab-button").forEach(btn => {
-      btn.classList.remove("active");
-    });
-    
-    // Show selected tab pane and mark button as active
-    document.getElementById(tabName).classList.add("active");
-    button.classList.add("active");
   });
-});
+}
+
+// Initialize tab switching when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initTabSwitching);
+} else {
+  initTabSwitching();
+}
 
 scanBtn.addEventListener("click", async () => {
   const url = urlInput.value.trim();

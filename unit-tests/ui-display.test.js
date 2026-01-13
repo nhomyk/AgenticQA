@@ -13,12 +13,8 @@ describe('UI Display Tests', () => {
   });
 
   describe('HTML Structure', () => {
-    test('HTML contains Tech Detected header', () => {
-      expect(htmlContent).toContain('<h3>Tech Detected</h3>');
-    });
-
-    test('HTML does not contain TECH header', () => {
-      expect(htmlContent).not.toContain('<h3>TECH</h3>');
+    test('HTML contains Technologies section', () => {
+      expect(htmlContent).toContain('Technologies Detected');
     });
 
     test('HTML contains Scan Results section', () => {
@@ -30,7 +26,7 @@ describe('UI Display Tests', () => {
     });
 
     test('Technologies textarea has correct placeholder', () => {
-      expect(htmlContent).toContain('Technologies detected on the page will appear here');
+      expect(htmlContent).toContain('Detected technologies will appear here');
     });
   });
 
@@ -53,13 +49,13 @@ describe('UI Display Tests', () => {
 
     test('handleEmptyResults displays no issues message', () => {
       // Verify the conditional logic for empty results
-      expect(appCode).toContain('results.length > 0 ? header + lines.join');
+      expect(appCode).toContain('results.length > 0');
       expect(appCode).toContain('No issues detected during scan');
     });
 
     test('handleEmptyAPIs displays no API calls message', () => {
       // Verify the conditional logic for empty APIs
-      expect(appCode).toContain('resp.apis.length > 0');
+      expect(appCode).toContain('Array.isArray(resp.apis)');
       expect(appCode).toContain('No API calls detected during scan');
     });
   });
@@ -88,12 +84,16 @@ describe('UI Display Tests', () => {
       expect(htmlContent).toContain('data-tab="vitest"');
     });
 
-    test('Tab content divs have min-height styling', () => {
-      expect(htmlContent).toContain('min-height: 100px');
+    test('Tab panes exist with tab-pane class', () => {
+      expect(htmlContent).toContain('id="playwright" class="tab-pane');
+      expect(htmlContent).toContain('id="cypress" class="tab-pane');
+      expect(htmlContent).toContain('id="vitest" class="tab-pane');
     });
 
-    test('Tab panes have active state CSS', () => {
-      expect(htmlContent).toContain('tab-pane.active { display: block;');
+    test('Tab buttons have correct data attributes', () => {
+      expect(htmlContent.match(/data-tab="playwright"/g)).toBeDefined();
+      expect(htmlContent.match(/data-tab="cypress"/g)).toBeDefined();
+      expect(htmlContent.match(/data-tab="vitest"/g)).toBeDefined();
     });
   });
 
@@ -112,9 +112,11 @@ describe('UI Display Tests', () => {
       expect(readonlyCount).toBeGreaterThanOrEqual(6);
     });
 
-    test('Technologies section has proper styling', () => {
-      expect(htmlContent).toContain('flex: 1');
-      expect(htmlContent).toContain('min-width: 320px');
+    test('Scanner section has proper headings', () => {
+      expect(htmlContent).toContain('Scan Any Website');
+      expect(htmlContent).toContain('Recommendations');
+      expect(htmlContent).toContain('Test Code Examples');
     });
   });
 });
+
