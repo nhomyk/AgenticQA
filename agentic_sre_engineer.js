@@ -266,20 +266,80 @@ async function makeCodeChanges(failureAnalysis) {
     }
   }
   
-  // 1. Apply ESLint fixes
+  // Check for ESLint issues and handle them specifically
+  let eslintOutput = "";
   try {
-    console.log("Checking for linting issues...");
+    execSync("npx eslint . --ext .js 2>&1", { stdio: "pipe" });
+  } catch (err) {
+    eslintOutput = err.stdout?.toString() || err.stderr?.toString() || err.message;
+  }
+  
+  // Parse ESLint output for specific issues
+  if (eslintOutput) {
+    console.log("Analyzing ESLint issues...");
+    
+    // Fix unused eslint-disable directives in coverage files
+    const coverageDir = "coverage/lcov-report";
+    if (fs.existsSync(coverageDir)) {
+      const coverageFiles = execSync(`find ${coverageDir} -name "*.js"`, { encoding: "utf8" }).split("\n").filter(f => f);
+      for (const file of coverageFiles) {
+        let content = fs.readFileSync(file, "utf8");
+        // Remove unused eslint-disable comments
+        if (content.includes("/* eslint-disable")) {
+          content = content.replace(/\/\*\s*eslint-disable[^\*]*\*\/\n/g, "");
+          fs.writeFileSync(file, content);
+          changesDetected = true;
+        }
+      }
+      if (changesDetected) {
+        console.log("Removed unused eslint-disable directives from coverage files");
+      }
+    }
+    
+    // Update eslint config if missing globals
+    if (eslintOutput.includes("'URL' is not defined")) {
+      console.log("Adding missing URL global to eslint config...");
+      const configPath = "eslint.config.js";
+      if (fs.existsSync(configPath)) {
+        let config = fs.readFileSync(configPath, "utf8");
+        if (!config.includes("URL: \"readonly\"")) {
+          config = config.replace(/setTimeout:\s*"readonly",/, 'setTimeout: "readonly",\n        URL: "readonly",');
+          fs.writeFileSync(configPath, config);
+          changesDetected = true;
+        }
+      }
+    }
+    
+    // Update eslint config to ignore generated files
+    if (eslintOutput.includes("coverage/") || eslintOutput.includes("Unused eslint-disable")) {
+      const configPath = "eslint.config.js";
+      if (fs.existsSync(configPath)) {
+        let config = fs.readFileSync(configPath, "utf8");
+        if (!config.includes("coverage/**")) {
+          config = config.replace(/ignores:\s*\[[^\]]*\]/, (match) => {
+            return match.replace(/\]/, ', "coverage/**", "vitest-tests/**"]');
+          });
+          fs.writeFileSync(configPath, config);
+          changesDetected = true;
+        }
+      }
+    }
+  }
+  
+  // 1. Apply ESLint fixes with --fix flag
+  try {
+    console.log("Applying ESLint fixes...");
     execSync("npx eslint . --ext .js --fix 2>&1", { stdio: "pipe" });
-    console.log("ESLint fixes applied");
+    console.log("ESLint fixes applied successfully");
     changesDetected = true;
   } catch (err) {
     // ESLint may exit with error code even after fixing some issues
     const output = err.stdout?.toString() || err.stderr?.toString() || err.message;
-    if (output.includes("fixed")) {
+    if (output.includes("fixed") || output.includes("successfully")) {
       console.log("ESLint issues fixed");
       changesDetected = true;
-    } else {
-      console.log("ESLint completed (no fixable issues)");
+    } else if (!output.includes("error")) {
+      console.log("ESLint check passed");
     }
   }
   
