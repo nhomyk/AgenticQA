@@ -18,7 +18,7 @@ const technologiesBox = document.getElementById("technologies");
 
 function renderResults(resp) {
   // Always show the header for technologies, even on error
-  const headerT = "TECH\n\n";
+  const headerT = "Tech Detected\n\n";
   let techNames = [];
   if (resp && Array.isArray(resp.technologies)) {
     techNames = resp.technologies.slice();
@@ -63,7 +63,7 @@ function renderResults(resp) {
   const results = Array.isArray(resp.results) ? resp.results : [];
   const header = `Scan: ${resp.url}\nFound: ${resp.totalFound || results.length} (showing ${results.length})\n---\n`;
   const lines = results.map((r, i) => `${i+1}. [${r.type}] ${r.message}\n   Fix: ${r.recommendation}`);
-  resultsBox.value = header + lines.join("\n\n");
+  resultsBox.value = results.length > 0 ? header + lines.join("\n\n") : "No issues detected during scan.";
 
   // render test cases if present
   if (resp.testCases && Array.isArray(resp.testCases)) {
@@ -100,7 +100,7 @@ function renderResults(resp) {
     const apiLines = resp.apis.map((a, i) => `${i+1}. ${a}`);
     apisBox.value = headerA + apiLines.join("\n");
   } else {
-    apisBox.value = "";
+    apisBox.value = "No API calls detected during scan.";
   }
 
   // Render first 5 test cases with Playwright, Cypress, and Vitest examples

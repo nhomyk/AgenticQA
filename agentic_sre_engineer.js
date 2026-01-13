@@ -231,6 +231,22 @@ function analyzeAssertionMismatches(failureAnalysis) {
       });
     }
     
+    // UI header text changes (TECH -> Tech Detected, etc.)
+    if (failure.failures.some(f => 
+      f.error?.includes("TECH") || 
+      f.error?.includes("Tech Detected") ||
+      f.error?.includes("No issues") ||
+      f.error?.includes("No API calls") ||
+      (f.error?.includes("toContain") && f.error?.includes("detected"))
+    )) {
+      mismatches.push({
+        framework: failure.jobName,
+        testFile: identifyTestFile(failure.jobName),
+        description: "UI header or message text mismatch",
+        type: "ui-text-mismatch"
+      });
+    }
+    
     // Test assertion on attributes that no longer exist
     if (failure.failures.some(f => 
       f.error?.includes("toHaveAttribute") || 
@@ -366,7 +382,28 @@ function fixTestFile(mismatch) {
       changed = true;
     }
     
-    // Fix 4: Function signature changes
+    // Fix 4: UI text/header mismatches (TECH -> Tech Detected, etc.)
+    if (type === "ui-text-mismatch") {
+      // Fix TECH header references in tests to Tech Detected
+      content = content.replace(/toContain\(['"]TECH['"]\)/g, 'toContain(\'Tech Detected\')');
+      content = content.replace(/\bTECH\b/g, 'Tech Detected');
+      
+      // Fix test expectations for "No issues" messages
+      content = content.replace(
+        /toContain\(['"]No issues['"]\)/g,
+        'toContain(\'No issues detected during scan\')'
+      );
+      
+      // Fix test expectations for "No API calls" messages
+      content = content.replace(
+        /toContain\(['"]No API['"]\)/g,
+        'toContain(\'No API calls detected during scan\')'
+      );
+      
+      changed = true;
+    }
+    
+    // Fix 5: Function signature changes
     if (type === "function-signature") {
       // Update function calls to include caseNum parameter
       if (testFile.includes("app.test.js")) {

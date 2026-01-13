@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1768314146518" clover="3.2.0">
-  <project timestamp="1768314146518" name="All files">
-    <metrics statements="396" coveredstatements="40" conditionals="203" coveredconditionals="16" methods="80" coveredmethods="4" elements="679" coveredelements="60" complexity="0" loc="396" ncloc="396" packages="2" files="3" classes="3"/>
+<coverage generated="1768316339623" clover="3.2.0">
+  <project timestamp="1768316339623" name="All files">
+    <metrics statements="396" coveredstatements="40" conditionals="205" coveredconditionals="16" methods="80" coveredmethods="4" elements="681" coveredelements="60" complexity="0" loc="396" ncloc="396" packages="2" files="3" classes="3"/>
     <package name="AgenticQA">
       <metrics statements="272" coveredstatements="40" conditionals="154" coveredconditionals="16" methods="56" coveredmethods="4"/>
       <file name="debug_scan.js" path="/Users/nicholashomyk/mono/AgenticQA/debug_scan.js">
@@ -284,9 +284,9 @@
       </file>
     </package>
     <package name="AgenticQA.public">
-      <metrics statements="124" coveredstatements="0" conditionals="49" coveredconditionals="0" methods="24" coveredmethods="0"/>
+      <metrics statements="124" coveredstatements="0" conditionals="51" coveredconditionals="0" methods="24" coveredmethods="0"/>
       <file name="app.js" path="/Users/nicholashomyk/mono/AgenticQA/public/app.js">
-        <metrics statements="124" coveredstatements="0" conditionals="49" coveredconditionals="0" methods="24" coveredmethods="0"/>
+        <metrics statements="124" coveredstatements="0" conditionals="51" coveredconditionals="0" methods="24" coveredmethods="0"/>
         <line num="3" count="0" type="stmt"/>
         <line num="4" count="0" type="stmt"/>
         <line num="6" count="0" type="stmt"/>
@@ -327,7 +327,7 @@
         <line num="63" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="64" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="65" count="0" type="stmt"/>
-        <line num="66" count="0" type="stmt"/>
+        <line num="66" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="69" count="0" type="cond" truecount="0" falsecount="4"/>
         <line num="70" count="0" type="stmt"/>
         <line num="71" count="0" type="stmt"/>
