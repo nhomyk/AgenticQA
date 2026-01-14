@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run Jest unit tests
-        run: npx jest --coverage 2>&1 | tee jest-output.log || true
+        run: npx jest --coverage 2>&1 | tee jest-output.log
       - name: Save Jest failures
         if: failure()
         run: |
@@ -70,7 +70,7 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Run Playwright tests
-        run: npx playwright test 2>&1 | tee playwright-output.log || true
+        run: npx playwright test 2>&1 | tee playwright-output.log
       - name: Save Playwright failures
         if: failure()
         run: |
@@ -100,7 +100,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run Vitest
-        run: npm run test:vitest -- --run --coverage 2>&1 | tee vitest-output.log || true
+        run: npm run test:vitest -- --run --coverage 2>&1 | tee vitest-output.log
       - name: Save Vitest failures
         if: failure()
         run: |
@@ -148,7 +148,7 @@ jobs:
           cat /tmp/server.log
           exit 1
       - name: Run Cypress tests
-        run: npx cypress run 2>&1 | tee cypress-output.log || true
+        run: npx cypress run 2>&1 | tee cypress-output.log
         timeout-minutes: 2
       - name: Save Cypress failures
         if: failure()
