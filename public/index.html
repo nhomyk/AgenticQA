@@ -718,11 +718,11 @@
             <p class="section-description">Deep dive into what makes AgenticQA enterprise-ready</p>
         </div>
 
-        <div class="tab-buttons" role="button" aria-label="button" role="button" aria-label="button">
-            <button class="tab-button active" onclick="switchTab(event, 'overview')">Overview</button>
-            <button class="tab-button" onclick="switchTab(event, 'architecture')">Architecture</button>
-            <button class="tab-button" onclick="switchTab(event, 'compliance')">Compliance</button>
-            <button class="tab-button" onclick="switchTab(event, 'testing')">Testing</button>
+        <div class="tab-buttons" role="tablist" aria-label="documentation-tabs">
+            <button class="tab-button active" onclick="switchTab(this, 'overview')" role="tab" aria-selected="true" aria-controls="overview">Overview</button>
+            <button class="tab-button" onclick="switchTab(this, 'architecture')" role="tab" aria-selected="false" aria-controls="architecture">Architecture</button>
+            <button class="tab-button" onclick="switchTab(this, 'compliance')" role="tab" aria-selected="false" aria-controls="compliance">Compliance</button>
+            <button class="tab-button" onclick="switchTab(this, 'testing')" role="tab" aria-selected="false" aria-controls="testing">Testing</button>
         </div>
 
         <div id="overview" class="tab-content active">

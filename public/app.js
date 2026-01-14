@@ -236,26 +236,39 @@ function generateVitestExample(testCase, url, caseNum) {
 }
 
 // Tab switching functionality
-function switchTab(tabName, buttonElement) {
-  // Hide all content sections
-  document.querySelectorAll(".content").forEach(section => {
+function switchTab(eventOrTabName, tabName) {
+  let actualTabName = tabName;
+  let clickedButton = null;
+  
+  // Handle both old and new calling conventions
+  if (eventOrTabName && typeof eventOrTabName === 'object' && eventOrTabName.target) {
+    // Called with event object: switchTab(event, 'tabname')
+    clickedButton = eventOrTabName.target;
+    actualTabName = tabName;
+  } else if (typeof eventOrTabName === 'string') {
+    // Called with tab name string: switchTab('tabname')
+    actualTabName = eventOrTabName;
+  }
+  
+  // Hide all tab content sections
+  document.querySelectorAll(".tab-content").forEach(section => {
     section.classList.remove("active");
   });
   
   // Remove active class from all tab buttons
-  document.querySelectorAll(".tab-btn").forEach(btn => {
+  document.querySelectorAll(".tab-button").forEach(btn => {
     btn.classList.remove("active");
   });
   
   // Show selected tab content
-  const tabContent = document.getElementById(tabName);
+  const tabContent = document.getElementById(actualTabName);
   if (tabContent) {
     tabContent.classList.add("active");
   }
   
   // Mark the clicked button as active
-  if (buttonElement) {
-    buttonElement.classList.add("active");
+  if (clickedButton) {
+    clickedButton.classList.add("active");
   }
 }
 

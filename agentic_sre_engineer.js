@@ -137,7 +137,10 @@ const SRE_EXPERTISE = {
       'No critical errors in logs',
       'Performance within thresholds',
       'Dependencies up-to-date',
-      'Test coverage maintained'
+      'Test coverage maintained',
+      'Compliance checks passing',
+      'Security vulnerabilities resolved',
+      'Accessibility standards met'
     ],
     failureRecovery: [
       'Detect failure type (lint/test/agent)',
@@ -153,6 +156,148 @@ const SRE_EXPERTISE = {
       'Level 3: Analyze logs & suggest manual fix',
       'Level 4: Send alert email to team',
       'Level 5: Create GitHub issue for human review'
+    ]
+  },
+  testingFrameworks: {
+    description: 'Complete testing stack integrated into CI/CD pipeline',
+    frameworks: [
+      {
+        name: 'ESLint',
+        type: 'Linting',
+        purpose: 'Code quality & style enforcement',
+        reports: 'lint-report.json',
+        failureTypes: ['syntax-errors', 'formatting', 'best-practices']
+      },
+      {
+        name: 'Jest',
+        type: 'Unit Testing',
+        purpose: 'Component & function testing with coverage',
+        reports: 'coverage/lcov.info, jest-output.log',
+        failureTypes: ['test-failures', 'assertions', 'coverage-gaps']
+      },
+      {
+        name: 'Playwright',
+        type: 'E2E Testing',
+        purpose: 'Cross-browser end-to-end testing',
+        reports: 'playwright-output.log, test-results/',
+        failureTypes: ['navigation-failures', 'element-not-found', 'timeout']
+      },
+      {
+        name: 'Vitest',
+        type: 'Modern Unit Testing',
+        purpose: 'Fast unit testing with ESM support',
+        reports: 'vitest-output.log',
+        failureTypes: ['test-failures', 'import-errors', 'timeout']
+      },
+      {
+        name: 'Cypress',
+        type: 'Interactive E2E Testing',
+        purpose: 'Interactive UI testing with visual debugging',
+        reports: 'cypress-output.log, cypress/videos, cypress/screenshots',
+        failureTypes: ['element-interaction', 'assertion-failures', 'navigation']
+      },
+      {
+        name: 'Pa11y',
+        type: 'Accessibility Testing',
+        purpose: 'WCAG 2.1 Level AA compliance scanning',
+        reports: 'pa11y-output.log, pa11y-report.json',
+        failureTypes: ['wcag-violations', 'color-contrast', 'aria-issues']
+      }
+    ]
+  },
+  complianceAndReports: {
+    description: 'Automated compliance checking and comprehensive reporting',
+    checks: [
+      {
+        name: 'Legal Compliance',
+        tools: ['GDPR Checker', 'CCPA Validator', 'License Audit'],
+        artifacts: ['compliance-audit-report.md', 'license-report.json']
+      },
+      {
+        name: 'Security Scanning',
+        tools: ['npm audit', 'CVE Scanner', 'OWASP Validator'],
+        artifacts: ['audit-report.json', 'security-audit-errors.txt']
+      },
+      {
+        name: 'Accessibility Compliance',
+        tools: ['Pa11y WCAG 2.1 AA', 'Color Contrast Checker', 'ARIA Validator'],
+        artifacts: ['pa11y-report.json', 'accessibility-report.md']
+      },
+      {
+        name: 'Code Coverage',
+        tools: ['Jest Coverage', 'Vitest Coverage', 'LCOV Reports'],
+        artifacts: ['coverage/lcov.info', 'coverage/coverage-final.json']
+      }
+    ],
+    reportLocations: [
+      'test-failures/ - Aggregated test failure information',
+      'coverage/ - Code coverage reports (Jest & Vitest)',
+      'compliance-audit-report.md - Legal/regulatory compliance',
+      'audit-report.json - Security vulnerability report',
+      'pa11y-report.json - Accessibility scan results',
+      'test-results/ - Playwright test results',
+      'cypress/screenshots - Visual test failures',
+      'cypress/videos - Cypress test recordings'
+    ]
+  },
+  agentCapabilities: {
+    description: 'Autonomous agents working in parallel and serial stages',
+    agents: [
+      {
+        name: 'Lint Agent',
+        purpose: 'ESLint code quality checks',
+        outputs: 'lint-report, formatting issues'
+      },
+      {
+        name: 'Unit Test Agent',
+        purpose: 'Jest unit testing & coverage',
+        outputs: 'test results, coverage metrics'
+      },
+      {
+        name: 'Playwright Agent',
+        purpose: 'E2E cross-browser testing',
+        outputs: 'test results, screenshots on failure'
+      },
+      {
+        name: 'Vitest Agent',
+        purpose: 'Modern unit testing',
+        outputs: 'test results, performance metrics'
+      },
+      {
+        name: 'Cypress Agent',
+        purpose: 'Interactive UI testing',
+        outputs: 'test results, videos on failure'
+      },
+      {
+        name: 'Pa11y Agent',
+        purpose: 'Accessibility compliance',
+        outputs: 'WCAG violations, remediation suggestions'
+      },
+      {
+        name: 'Security Audit Agent',
+        purpose: 'npm audit & CVE scanning',
+        outputs: 'vulnerability list, severity levels'
+      },
+      {
+        name: 'SDET Agent',
+        purpose: 'Manual QA + codebase analysis',
+        outputs: 'test cases, edge case discoveries'
+      },
+      {
+        name: 'Compliance Agent',
+        purpose: '175+ compliance checks (GDPR, CCPA, WCAG, OWASP)',
+        outputs: 'compliance-audit-report.md, critical issues list'
+      },
+      {
+        name: 'Fullstack Agent',
+        purpose: 'Auto-fix code & generate tests',
+        outputs: 'fixed code, new test cases, git commits'
+      },
+      {
+        name: 'SRE Agent',
+        purpose: 'Monitoring, orchestration, reliability',
+        outputs: 'health reports, version bumps, escalations'
+      }
     ]
   },
   gitWorkflow: {
@@ -221,6 +366,136 @@ const SRE_EXPERTISE = {
       'Encrypt sensitive environment variables',
       'Limit scope of automation permissions',
       'Track who/what made changes'
+    ]
+  },
+  toolsAndTechnologies: {
+    description: 'Comprehensive DevOps & QA technology stack',
+    cicd: {
+      platform: 'GitHub Actions',
+      trigger: 'schedule: Daily 2 AM UTC, push to main, manual dispatch',
+      concurrency: 'Smart run chaining with run_chain_id for parallel execution'
+    },
+    versionControl: {
+      system: 'Git',
+      hosting: 'GitHub',
+      conventions: 'Semantic versioning (major.minor.patch)',
+      automation: 'Auto-bump on each workflow completion'
+    },
+    testingTools: {
+      linting: 'ESLint - Code quality, formatting, best practices',
+      unitTesting: 'Jest + Vitest - Fast unit test execution',
+      e2eTesting: 'Playwright + Cypress - Cross-browser E2E testing',
+      accessibilityTesting: 'Pa11y - WCAG 2.1 Level AA compliance',
+      securityScanning: 'npm audit - CVE vulnerability detection',
+      codeAnalysis: 'LangGraph agents - AI-powered code review',
+      coverageTracking: 'LCOV - Code coverage metrics',
+      performanceTesting: 'Built-in performance metrics in test frameworks'
+    },
+    monitoringTools: {
+      workflowMonitoring: 'GitHub Actions API for real-time job tracking',
+      logAggregation: 'Artifact uploads to GitHub for analysis',
+      emailAlerts: 'Nodemailer SMTP integration for notifications',
+      metricsCollection: 'Custom metrics logging in agent outputs',
+      failureAnalysis: 'Pattern matching on logs & error messages'
+    },
+    reportGeneration: {
+      formats: ['JSON', 'Markdown', 'HTML', 'Text'],
+      types: [
+        'Compliance audit reports',
+        'Test failure summaries',
+        'Coverage metrics',
+        'Security vulnerability lists',
+        'Performance benchmark reports',
+        'Agent execution logs'
+      ],
+      distribution: [
+        'GitHub artifact storage',
+        'Email summaries',
+        'Workflow step summaries',
+        'PR comments for feedback'
+      ]
+    },
+    aiPoweredFeatures: {
+      languageModel: 'Claude (via LangGraph agents)',
+      capabilities: [
+        'Root cause analysis of failures',
+        'Auto-generating code fixes',
+        'Creating test cases',
+        'Compliance checking',
+        'Security vulnerability remediation',
+        'Accessibility compliance suggestions'
+      ],
+      agents: [
+        'Fullstack Agent - Code generation & fixes',
+        'Compliance Agent - Regulatory checking',
+        'SRE Agent - Infrastructure monitoring',
+        'SDET Agent - QA + codebase analysis',
+        'QA Agent - Manual UI testing'
+      ]
+    },
+    notificationChannels: {
+      email: 'SMTP (Gmail, custom providers)',
+      gitHub: 'Issues, PR comments, actions',
+      webhooks: 'Support for custom integrations',
+      logs: 'GitHub Actions workflow logs'
+    }
+  },
+  pipelineMetrics: {
+    description: 'Key performance indicators for pipeline health',
+    realTimeMetrics: [
+      'Current workflow status (queued/in-progress/completed)',
+      'Job success/failure count',
+      'Pipeline duration',
+      'Individual job execution times'
+    ],
+    cumulativeMetrics: [
+      'Total failures in last 24 hours',
+      'Success rate percentage',
+      'Average recovery time',
+      'Code coverage trend',
+      'Security vulnerability trend'
+    ],
+    reportingSchedule: [
+      'Real-time alerts on failures',
+      'Hourly summary (if failures detected)',
+      'Daily comprehensive report (7 AM UTC)',
+      'Weekly trend analysis',
+      'Monthly compliance report'
+    ]
+  },
+  knownIssuesAndSolutions: {
+    description: 'Common failure patterns and automated remediation',
+    patterns: [
+      {
+        issue: 'Missing dependencies',
+        symptom: 'Module not found errors',
+        solution: 'Run npm ci && npm install for missing packages'
+      },
+      {
+        issue: 'Linting errors',
+        symptom: 'ESLint violations',
+        solution: 'Auto-fix available violations with eslint --fix'
+      },
+      {
+        issue: 'Server startup timeout',
+        symptom: 'Connection refused to localhost:3000',
+        solution: 'Increase wait timeout, ensure port availability'
+      },
+      {
+        issue: 'Git push failures',
+        symptom: 'Updates were rejected by remote',
+        solution: 'Pull with rebase, resolve conflicts, retry push'
+      },
+      {
+        issue: 'Compliance check failures',
+        symptom: 'Critical compliance issues detected',
+        solution: 'Run compliance-agent with detailed analysis'
+      },
+      {
+        issue: 'Test flakiness',
+        symptom: 'Intermittent test failures',
+        solution: 'Increase timeout values, retry failed tests'
+      }
     ]
   }
 };
