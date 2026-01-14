@@ -120,6 +120,7 @@ const SRE_EXPERTISE = {
       description: 'Automated code & configuration fixes',
       types: [
         'Linting errors - Remove unused variables/functions, fix formatting',
+        'Undefined variables - Auto-define missing functions like switchTestTab',
         'Compliance agent errors - Handle missing files, working directory issues',
         'Syntax errors - Pattern matching & correction',
         'Missing dependencies - npm install & package updates',
@@ -1240,6 +1241,46 @@ async function makeCodeChanges(failureAnalysis) {
     if (output.includes("fixed") || output.includes("successfully")) {
       console.log("ESLint issues fixed");
       changesDetected = true;
+    } else if (output.includes("is not defined")) {
+      // Handle undefined variable references - NEW SKILL
+      console.log("🔧 Detected undefined variable(s), attempting to fix...");
+      
+      // Extract undefined variable name from error message
+      const undefinedMatch = output.match(/'([^']+)' is not defined/);
+      if (undefinedMatch) {
+        const undefinedVar = undefinedMatch[1];
+        console.log(`  Fixing undefined variable: ${undefinedVar}`);
+        
+        try {
+          let appCode = fs.readFileSync("public/app.js", "utf8");
+          let modified = false;
+          
+          // NEW SKILL: Add function definitions for common missing functions
+          // Skill: Detect and define missing functions like switchTestTab
+          if (undefinedVar === "switchTestTab" && !appCode.includes("function switchTestTab")) {
+            console.log(`  Adding missing function definition for ${undefinedVar}...`);
+            
+            // Find the switchTab function to insert after it
+            const switchTabMatch = appCode.match(/function switchTab\([^)]*\)\s*\{[\s\S]*?\n\}/);
+            if (switchTabMatch) {
+              const insertPos = appCode.indexOf(switchTabMatch[0]) + switchTabMatch[0].length;
+              const newFunction = `\n\nfunction switchTestTab(event, framework) {\n  // Hide all test panes\n  const panes = document.querySelectorAll('[id="playwright"], [id="cypress"], [id="vitest"]');\n  panes.forEach(pane => pane.classList.remove("active"));\n\n  // Remove active class from all test tab buttons\n  const buttons = document.querySelectorAll('[data-tab]');\n  buttons.forEach(btn => btn.classList.remove("active"));\n\n  // Show selected test framework pane\n  const pane = document.getElementById(framework);\n  if (pane) {\n    pane.classList.add("active");\n  }\n\n  // Add active class to clicked button\n  if (event && event.target) {\n    event.target.classList.add("active");\n  }\n}`;
+              appCode = appCode.slice(0, insertPos) + newFunction + appCode.slice(insertPos);
+              modified = true;
+              console.log(`  ✅ Added ${undefinedVar} function definition`);
+            }
+          }
+          
+          // Additional undefined variable patterns can be handled here
+          if (modified) {
+            fs.writeFileSync("public/app.js", appCode);
+            console.log("✅ Undefined variable issues fixed");
+            changesDetected = true;
+          }
+        } catch (fixErr) {
+          console.log("⚠️  Could not fix undefined variable:", fixErr.message);
+        }
+      }
     } else if (output.includes("Parsing error")) {
       // Handle syntax errors that can't be auto-fixed
       console.log("🔧 Detected syntax error, attempting manual fix...");

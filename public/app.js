@@ -259,6 +259,27 @@ function switchTab(tabName, buttonElement) {
   }
 }
 
+function switchTestTab(event, framework) {
+  // Hide all test panes
+  const panes = document.querySelectorAll('[id="playwright"], [id="cypress"], [id="vitest"]');
+  panes.forEach(pane => pane.classList.remove("active"));
+
+  // Remove active class from all test tab buttons
+  const buttons = document.querySelectorAll('[data-tab]');
+  buttons.forEach(btn => btn.classList.remove("active"));
+
+  // Show selected test framework pane
+  const pane = document.getElementById(framework);
+  if (pane) {
+    pane.classList.add("active");
+  }
+
+  // Add active class to clicked button
+  if (event && event.target) {
+    event.target.classList.add("active");
+  }
+}
+
 function initTabSwitching() {
   const buttons = document.querySelectorAll(".tab-button");
   if (buttons.length === 0) {
