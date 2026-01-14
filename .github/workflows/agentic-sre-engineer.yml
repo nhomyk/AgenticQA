@@ -61,36 +61,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🔄 Initiating CI workflow retest for SRE changes..."
-          
-          # Check if there are any changes to commit
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          if git diff --cached --quiet; then
-            echo "✅ No uncommitted changes, creating trigger commit..."
-          fi
-          
-          # Method 1: Try using gh workflow run with repository specified
-          echo "📋 Attempting direct workflow trigger..."
-          if gh workflow run ci.yml --repo ${{ github.repository }} --ref main -v 2>&1; then
-            echo "✅ CI workflow triggered successfully via gh command"
-          else
-            echo "⚠️ Direct trigger failed, using fallback: git push trigger"
-            
-            # Method 2: Force push a trigger commit (this will definitely trigger CI)
-            # Create a unique commit to ensure it's not skipped by caching
-            TIMESTAMP=$(date +%s)
-            git commit --allow-empty -m "ci: trigger retest after SRE fixes ($TIMESTAMP)" || true
-            
-            # Push the trigger commit - this will definitely run CI
-            if git push origin main; then
-              echo "✅ Trigger commit pushed, CI should run now"
-            else
-              echo "❌ Failed to push trigger commit"
-              exit 1
-            fi
-          }
+          echo "✅ Skipping automatic CI retest trigger"
+          echo "ℹ️ Changes have been committed and pushed to main"
+          echo "ℹ️ CI workflow will run automatically from the push event"
 
       - name: Notify by email
         env:
