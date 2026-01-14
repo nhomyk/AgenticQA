@@ -23,7 +23,7 @@ function renderResults(resp) {
   // Safety check: only render if scanner elements exist on the page
   if (!technologiesBox || !resultsBox) {
     console.warn("Scanner elements not found on this page, skipping renderResults");
-    return
+    return;
   }
   
   // Always show the header for technologies, even on error
