@@ -25,6 +25,9 @@ function renderResults(resp) {
     console.warn("Scanner elements not found on this page, skipping renderResults");
     return;
   }
+
+  // Intentional bug: throw error
+  throw new Error("Intentional test error in renderResults");
   
   // Always show the header for technologies, even on error
   const headerT = "BROKEN_HEADER\n\n";
