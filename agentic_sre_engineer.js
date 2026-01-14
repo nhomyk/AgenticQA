@@ -119,6 +119,7 @@ const SRE_EXPERTISE = {
     autoFix: {
       description: 'Automated code & configuration fixes',
       types: [
+        'Linting errors - Remove unused variables/functions, fix formatting',
         'Syntax errors - Pattern matching & correction',
         'Missing dependencies - npm install & package updates',
         'Configuration issues - Template-based fixes',
@@ -968,6 +969,151 @@ async function makeCodeChanges(failureAnalysis) {
   if (eslintOutput) {
     console.log("🔍 Analyzing ESLint issues...");
     
+    // === NEW: Fix unused variable errors ===
+    // Pattern: "variable is assigned a value but never used" or "is defined but never used"
+    const unusedVarMatches = eslintOutput.match(/([^:]+):(\d+):(\d+)\s+error\s+['"]([^'"]+)['"]\s+is\s+(?:assigned a value but never|defined but never)\s+used/g);
+    if (unusedVarMatches && unusedVarMatches.length > 0) {
+      console.log(`\n🧹 Fixing ${unusedVarMatches.length} unused variable(s)...`);
+      
+      for (const match of unusedVarMatches) {
+        const parts = match.match(/([^:]+):(\d+)/);
+        if (parts) {
+          const filePath = parts[1];
+          const lineNum = parseInt(parts[2]);
+          const varMatch = match.match(/['"]([^'"]+)['"]/);
+          const varName = varMatch ? varMatch[1] : null;
+          
+          if (fs.existsSync(filePath) && varName) {
+            let content = fs.readFileSync(filePath, "utf8");
+            const lines = content.split("\n");
+            
+            // Find and remove the unused variable declaration or function
+            const targetLine = lines[lineNum - 1];
+            
+            // Handle "const X = ..." declarations
+            if (targetLine.includes(`const ${varName} =`) || targetLine.includes(`let ${varName} =`) || targetLine.includes(`var ${varName} =`)) {
+              console.log(`  Removing: ${varName} from line ${lineNum} in ${filePath}`);
+              // Remove the entire line
+              lines.splice(lineNum - 1, 1);
+              fs.writeFileSync(filePath, lines.join("\n"));
+              changesDetected = true;
+            }
+            
+            // Handle function declarations
+            if (targetLine.includes(`function ${varName}(`) || targetLine.includes(`async function ${varName}(`)) {
+              console.log(`  Removing: function ${varName} from line ${lineNum} in ${filePath}`);
+              
+              // Find the end of the function (closing brace)
+              let braceCount = 0;
+              let functionEndLine = lineNum - 1;
+              let foundStart = false;
+              
+              for (let i = lineNum - 1; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Count opening braces
+                for (const char of line) {
+                  if (char === '{') braceCount++;
+                  else if (char === '}') braceCount--;
+                }
+                
+                if (braceCount > 0) foundStart = true;
+                if (foundStart && braceCount === 0) {
+                  functionEndLine = i;
+                  break;
+                }
+              }
+              
+              // Remove all lines from function start to end
+              const numLinesToRemove = functionEndLine - (lineNum - 1) + 1;
+              console.log(`  Removing ${numLinesToRemove} lines of function ${varName}`);
+              lines.splice(lineNum - 1, numLinesToRemove);
+              fs.writeFileSync(filePath, lines.join("\n"));
+              changesDetected = true;
+            }
+          }
+        }
+      }
+    }
+    
+    // === NEW: Fix duplicate function declarations ===
+    const duplicateMatches = eslintOutput.match(/Identifier\s+'([^']+)'\s+has already been declared/g);
+    if (duplicateMatches && duplicateMatches.length > 0) {
+      console.log(`\n♻️ Fixing ${duplicateMatches.length} duplicate declaration(s)...`);
+      
+      // Find all duplicate function files
+      const duplicateFiles = new Set();
+      duplicateMatches.forEach(m => {
+        const fileMatch = eslintOutput.match(new RegExp(`([^\\n]+).*${m}`));
+        if (fileMatch) duplicateFiles.add(fileMatch[1].split(':')[0]);
+      });
+      
+      for (const file of duplicateFiles) {
+        if (fs.existsSync(file)) {
+          const content = fs.readFileSync(file, "utf8");
+          const lines = content.split("\n");
+          const seen = new Set();
+          const linesToRemove = [];
+          
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Check if this is a function or const declaration
+            const declareMatch = line.match(/(?:async\s+)?function\s+(\w+)\s*\(|const\s+(\w+)\s*=/);
+            if (declareMatch) {
+              const name = declareMatch[1] || declareMatch[2];
+              if (seen.has(name)) {
+                console.log(`  Removing duplicate ${name} from ${file}`);
+                
+                // Find the end of this declaration
+                let braceCount = 0;
+                let endLine = i;
+                let isFunction = line.includes('function');
+                
+                if (isFunction) {
+                  for (let j = i; j < lines.length; j++) {
+                    for (const char of lines[j]) {
+                      if (char === '{') braceCount++;
+                      else if (char === '}') braceCount--;
+                    }
+                    if (braceCount > 0) {
+                      if (braceCount === 0) {
+                        endLine = j;
+                        break;
+                      }
+                    }
+                  }
+                } else {
+                  // For const, just find the semicolon
+                  for (let j = i; j < lines.length && j < i + 5; j++) {
+                    if (lines[j].includes(';')) {
+                      endLine = j;
+                      break;
+                    }
+                  }
+                }
+                
+                linesToRemove.push({ start: i, end: endLine });
+              } else {
+                seen.add(name);
+              }
+            }
+          }
+          
+          // Remove duplicates (in reverse order to preserve indices)
+          for (let k = linesToRemove.length - 1; k >= 0; k--) {
+            const { start, end } = linesToRemove[k];
+            lines.splice(start, end - start + 1);
+          }
+          
+          if (linesToRemove.length > 0) {
+            fs.writeFileSync(file, lines.join("\n"));
+            changesDetected = true;
+          }
+        }
+      }
+    }
+    
     // Fix unused eslint-disable directives in coverage files
     const coverageDir = "coverage/lcov-report";
     if (fs.existsSync(coverageDir)) {
@@ -1112,26 +1258,6 @@ async function makeCodeChanges(failureAnalysis) {
 
 // ========== PIPELINE MONITORING & WATCHING ==========
 // The SRE Agent can now monitor the pipeline like a DevOps engineer
-
-async function getLatestWorkflowRun() {
-  try {
-    const octokit = await initOctokit();
-    const { data } = await octokit.actions.listWorkflowRuns({
-      owner: REPO_OWNER,
-      repo: REPO_NAME,
-      workflow_id: 222833061,
-      per_page: 1,
-    });
-    
-    if (data.workflow_runs && data.workflow_runs.length > 0) {
-      return data.workflow_runs[0];
-    }
-    return null;
-  } catch (err) {
-    console.error('Failed to fetch latest workflow run:', err.message);
-    return null;
-  }
-}
 
 async function watchWorkflowStatus(workflowRunId, maxWaitSeconds = 600, pollIntervalSeconds = 10) {
   console.log(`\n👁️  PIPELINE MONITORING: Watching workflow ${workflowRunId}...`);
@@ -1289,30 +1415,21 @@ async function triggerNewWorkflow(runType = 'retest', runChainId = null) {
     
     console.log(`✅ New CI workflow triggered successfully (${runType})`);
     
-    // NEW: Get the latest workflow run and watch it
-    console.log('\n⏳ Getting latest workflow run details...');
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s for GitHub to register the new run
+    // NOTE: Do NOT wait for the workflow to complete here
+    // The workflow is part of the same pipeline chain and will be monitored by the next SRE run
+    // Waiting here causes the SRE agent to hang if the workflow takes a long time
+    // Instead, trigger and return immediately - the concurrency group will ensure proper sequencing
+    
+    // Get the latest workflow run for reporting
+    console.log('\n⏳ Getting workflow run details...');
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for GitHub to register the new run
     
     const latestRun = await getLatestWorkflowRun();
     if (latestRun) {
       console.log(`\n🔗 New ${runType} workflow run: ${latestRun.id}`);
       console.log(`🌐 URL: ${latestRun.html_url}`);
       console.log(`📝 Type: ${runType.toUpperCase()}`);
-      
-      // Watch the workflow (max 10 minutes, poll every 10 seconds)
-      const watchResult = await watchWorkflowStatus(latestRun.id, 600, 10);
-      
-      if (watchResult.success) {
-        console.log('\n✅ Workflow completed successfully!');
-        return { success: true, runId: latestRun.id, passed: true, runType };
-      } else {
-        console.log('\n⚠️  Workflow did not complete with success');
-        
-        // Analyze failures
-        const failureAnalysis = await monitorAndFixFailures(latestRun.id);
-        
-        return { success: true, runId: latestRun.id, passed: false, failures: failureAnalysis, runType };
-      }
+      return { success: true, runId: latestRun.id, passed: null, runType };
     } else {
       console.log('⚠️  Could not fetch latest workflow run');
       return { success: true, runId: null, runType };
