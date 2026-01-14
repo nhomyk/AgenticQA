@@ -9,6 +9,25 @@ on:
         description: 'Reason for manual trigger'
         required: false
         default: 'Manual workflow trigger'
+      run_type:
+        description: 'Type of run (initial, retest, retry, manual)'
+        required: false
+        default: 'manual'
+        type: choice
+        options:
+          - initial
+          - retest
+          - retry
+          - manual
+          - diagnostic
+
+# Prevent multiple simultaneous runs - cancel previous runs on new push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUN_TYPE: ${{ github.event.inputs.run_type || 'initial' }}
 
 jobs:
   lint:

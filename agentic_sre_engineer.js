@@ -1264,19 +1264,24 @@ async function monitorAndFixFailures(workflowRunId) {
   }
 }
 
-async function triggerNewWorkflow() {
+async function triggerNewWorkflow(runType = 'retest') {
   try {
     const octokit = await initOctokit();
-    console.log('🚀 Triggering new CI workflow...');
+    console.log(`🚀 Triggering new CI workflow (type: ${runType})...`);
     
+    // Trigger with workflow_dispatch inputs to specify run type
     await octokit.actions.createWorkflowDispatch({
       owner: REPO_OWNER,
       repo: REPO_NAME,
       workflow_id: 222833061,
       ref: 'main',
+      inputs: {
+        run_type: runType,
+        reason: `${runType} triggered by SRE Agent`
+      }
     });
     
-    console.log('✅ New CI workflow triggered successfully');
+    console.log(`✅ New CI workflow triggered successfully (${runType})`);
     
     // NEW: Get the latest workflow run and watch it
     console.log('\n⏳ Getting latest workflow run details...');
@@ -1284,26 +1289,27 @@ async function triggerNewWorkflow() {
     
     const latestRun = await getLatestWorkflowRun();
     if (latestRun) {
-      console.log(`\n🔗 New workflow run: ${latestRun.id}`);
+      console.log(`\n🔗 New ${runType} workflow run: ${latestRun.id}`);
       console.log(`🌐 URL: ${latestRun.html_url}`);
+      console.log(`📝 Type: ${runType.toUpperCase()}`);
       
       // Watch the workflow (max 10 minutes, poll every 10 seconds)
       const watchResult = await watchWorkflowStatus(latestRun.id, 600, 10);
       
       if (watchResult.success) {
         console.log('\n✅ Workflow completed successfully!');
-        return { success: true, runId: latestRun.id, passed: true };
+        return { success: true, runId: latestRun.id, passed: true, runType };
       } else {
         console.log('\n⚠️  Workflow did not complete with success');
         
         // Analyze failures
         const failureAnalysis = await monitorAndFixFailures(latestRun.id);
         
-        return { success: true, runId: latestRun.id, passed: false, failures: failureAnalysis };
+        return { success: true, runId: latestRun.id, passed: false, failures: failureAnalysis, runType };
       }
     } else {
       console.log('⚠️  Could not fetch latest workflow run');
-      return { success: true, runId: null };
+      return { success: true, runId: null, runType };
     }
   } catch (err) {
     console.error('❌ Failed to trigger new workflow:', err.message);
@@ -1393,7 +1399,7 @@ async function reRunCurrentWorkflow() {
           
           // Attempt 4: Fallback to new workflow dispatch
           console.log(`\n📍 Attempt #4: Creating new workflow dispatch...`);
-          return await triggerNewWorkflow();
+          return await triggerNewWorkflow('retry');
         }
       }
     }
@@ -1544,14 +1550,14 @@ async function agenticSRELoop() {
           
           // Trigger a NEW CI workflow via workflow_dispatch to verify fixes
           console.log('\n🚀 Triggering new CI workflow to verify fixes...');
-          const triggerResult = await triggerNewWorkflow();
+          const triggerResult = await triggerNewWorkflow('retest');
           
           if (triggerResult.success) {
             success = true;
             try {
               await sendEmail(
                 `SRE Agent Fixed Code - AgenticQA v${newVersion}`,
-                `Changes applied in iteration ${iteration}.\nNew CI workflow triggered to verify fixes.\nPlease monitor https://github.com/${REPO_OWNER}/${REPO_NAME}/actions for results.`
+                `Changes applied in iteration ${iteration}.\nNew ${triggerResult.runType} workflow triggered to verify fixes.\nPlease monitor https://github.com/${REPO_OWNER}/${REPO_NAME}/actions for results.`
               );
             } catch (err) {
               console.error('Failed to send email (non-critical):', err.message);
@@ -1585,7 +1591,7 @@ async function agenticSRELoop() {
     // CRITICAL: If failures were detected but not fixed, force workflow trigger anyway
     console.log(`\n🔄 Failures detected but not fixed - forcing new workflow trigger...`);
     try {
-      const triggerResult = await triggerNewWorkflow();
+      const triggerResult = await triggerNewWorkflow('diagnostic');
       if (triggerResult.success) {
         console.log(`✅ New workflow triggered even without code changes`);
         console.log(`   This will help diagnose why fixes couldn't be applied`);
