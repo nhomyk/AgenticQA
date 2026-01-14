@@ -6,8 +6,6 @@ window.copyToClipboard = copyToClipboard;
 window.switchTab = switchTab;
 
 // Get scanner elements (may not exist on dashboard page)
-const scanBtn = document.getElementById("scanBtn");
-const urlInput = document.getElementById("urlInput");
 const resultsBox = document.getElementById("results");
 const testcasesBox = document.getElementById("testcases");
 const performanceBox = document.getElementById("performance");
@@ -27,8 +25,7 @@ function renderResults(resp) {
   }
 
   // Always show the header for technologies, even on error
-  throw new Error("Intentional test error in renderResults");
-  const headerT = "BROKEN_HEADER\n\n";
+  const headerT = "Technologies Detected\n\n";
   let techNames = [];
   if (resp && Array.isArray(resp.technologies)) {
     techNames = resp.technologies.slice();
@@ -175,56 +172,7 @@ function renderResults(resp) {
     recommendationsBox.value = "";
   }
 
-}
 
-function renderTestCaseScripts(testCases, url) {
-  const frameworks = [
-    { id: "playwright", name: "Playwright", generator: generatePlaywrightExample },
-    { id: "cypress", name: "Cypress", generator: generateCypressExample },
-    { id: "vitest", name: "Vitest", generator: generateVitestExample }
-  ];
-
-  frameworks.forEach(framework => {
-    const container = document.getElementById(framework.id);
-    if (!container) return; // Skip if element doesn't exist on this page
-    
-    container.innerHTML = "";
-    
-    testCases.forEach((testCase, index) => {
-      const script = framework.generator(testCase, url, index + 1);
-      const scriptDiv = document.createElement("div");
-      scriptDiv.className = "test-case-script";
-      
-      const h4 = document.createElement("h4");
-      h4.textContent = `Test Case ${index + 1}: ${testCase.substring(0, 50)}${testCase.length > 50 ? "..." : ""}`;
-      scriptDiv.appendChild(h4);
-      
-      const textarea = document.createElement("textarea");
-      textarea.readOnly = true;
-      textarea.value = script;
-      scriptDiv.appendChild(textarea);
-      
-      const buttonDiv = document.createElement("div");
-      buttonDiv.className = "test-case-buttons";
-      
-      const downloadBtn = document.createElement("button");
-      downloadBtn.textContent = "Download";
-      downloadBtn.addEventListener("click", () => {
-        downloadScript(`${framework.name}-test-${index + 1}.js`, textarea.value);
-      });
-      buttonDiv.appendChild(downloadBtn);
-      
-      const copyBtn = document.createElement("button");
-      copyBtn.textContent = "Copy";
-      copyBtn.addEventListener("click", () => {
-        copyToClipboard(textarea.value);
-      });
-      buttonDiv.appendChild(copyBtn);
-      
-      scriptDiv.appendChild(buttonDiv);
-      container.appendChild(scriptDiv);
-    });
-  });
 }
 
 function downloadScript(filename, content) {
