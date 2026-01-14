@@ -1826,47 +1826,15 @@ async function monitorAndFixFailures(workflowRunId) {
 async function triggerNewWorkflow(runType = 'retest', runChainId = null) {
   try {
     const octokit = await initOctokit();
-    console.log(`🚀 Triggering new CI workflow (type: ${runType})...`);
+    console.log(`🚀 Skipping workflow trigger (${runType}) - will be triggered automatically by push event`);
     
-    // Use provided chain ID or generate a new one
-    // Chain ID groups initial run + all its reruns together
-    // Different chains can run in parallel
-    const chainId = runChainId || `chain-${Date.now()}`;
+    // Disabled: Automatic workflow_dispatch to prevent duplicate runs
+    // The push event from SRE agent's code commit will automatically trigger CI
+    // This prevents duplicate workflow runs
     
-    // Trigger with workflow_dispatch inputs to specify run type & chain
-    await octokit.actions.createWorkflowDispatch({
-      owner: REPO_OWNER,
-      repo: REPO_NAME,
-      workflow_id: 222833061,
-      ref: 'main',
-      inputs: {
-        run_type: runType,
-        run_chain_id: chainId,
-        reason: `${runType} triggered by SRE Agent`
-      }
-    });
+    console.log(`✅ Changes will be tested by CI workflow triggered from push event`);
     
-    console.log(`✅ New CI workflow triggered successfully (${runType})`);
-    
-    // NOTE: Do NOT wait for the workflow to complete here
-    // The workflow is part of the same pipeline chain and will be monitored by the next SRE run
-    // Waiting here causes the SRE agent to hang if the workflow takes a long time
-    // Instead, trigger and return immediately - the concurrency group will ensure proper sequencing
-    
-    // Get the latest workflow run for reporting
-    console.log('\n⏳ Getting workflow run details...');
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for GitHub to register the new run
-    
-    const latestRun = await getLatestWorkflowRun();
-    if (latestRun) {
-      console.log(`\n🔗 New ${runType} workflow run: ${latestRun.id}`);
-      console.log(`🌐 URL: ${latestRun.html_url}`);
-      console.log(`📝 Type: ${runType.toUpperCase()}`);
-      return { success: true, runId: latestRun.id, passed: null, runType };
-    } else {
-      console.log('⚠️  Could not fetch latest workflow run');
-      return { success: true, runId: null, runType };
-    }
+    return { success: true, runId: null, passed: null, runType };
   } catch (err) {
     console.error('❌ Failed to trigger new workflow:', err.message);
     return { success: false };
