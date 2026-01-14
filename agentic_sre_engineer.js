@@ -892,6 +892,17 @@ async function makeCodeChanges(failureAnalysis) {
           modified = true;
         }
         
+        // Fix: Missing closing paren in if/while/for statements
+        // Pattern: if (condition { should be if (condition) {
+        if (appCode.match(/\b(if|while|for|switch)\s*\([^)]*\{\s/)) {
+          console.log("  Detected: Missing closing paren in control statement");
+          appCode = appCode.replace(
+            /(\b(?:if|while|for|switch)\s*\([^)]*)\s*(\{)/g,
+            '$1) $2'
+          );
+          modified = true;
+        }
+        
         if (modified) {
           fs.writeFileSync("public/app.js", appCode);
           console.log("✅ Syntax errors fixed");
