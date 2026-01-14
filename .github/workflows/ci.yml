@@ -194,8 +194,88 @@ jobs:
           path: test-failures/
           retention-days: 1
 
+  test-pa11y:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    name: Pa11y Accessibility Tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Start server
+        run: npm start > /tmp/server.log 2>&1 &
+      - name: Wait for server
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null; then
+              echo "✅ Server started"
+              exit 0
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 1
+          done
+          echo "❌ Server did not start in time"
+          cat /tmp/server.log
+          exit 1
+      - name: Run Pa11y accessibility tests
+        run: npm run test:pa11y 2>&1 | tee pa11y-output.log
+      - name: Save Pa11y failures
+        if: failure()
+        run: |
+          mkdir -p test-failures
+          if [ -f pa11y-output.log ]; then
+            echo "PA11Y_FAILED=true" >> test-failures/summary.txt
+            grep -i "error\|fail\|wcag" pa11y-output.log >> test-failures/pa11y-errors.txt || true
+          fi
+      - name: Upload test failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-failures/
+          retention-days: 1
+
+  test-security-audit:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    name: Security & Dependency Audit
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run npm audit (dependencies)
+        run: npm audit --audit-level=moderate 2>&1 | tee audit-output.log || true
+      - name: Check audit results
+        run: |
+          if grep -q "high\|critical" audit-output.log; then
+            echo "⚠️ Security vulnerabilities detected"
+            cat audit-output.log
+            exit 1
+          fi
+          echo "✅ No critical vulnerabilities found"
+      - name: Save audit failures
+        if: failure()
+        run: |
+          mkdir -p test-failures
+          cp audit-output.log test-failures/security-audit-errors.txt || true
+      - name: Upload test failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-failures/
+          retention-days: 1
+
   sdet-agent:
-    needs: [unit-test, test-playwright, test-vitest, test-cypress]
+    needs: [unit-test, test-playwright, test-vitest, test-cypress, test-pa11y, test-security-audit]
     if: always()
     runs-on: ubuntu-latest
     name: SDET Agent (Manual UI Testing)

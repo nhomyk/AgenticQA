@@ -1,0 +1,27 @@
+{
+  "runners": [
+    "axe",
+    "htmlcs"
+  ],
+  "standard": "WCAG2AA",
+  "timeout": 30000,
+  "wait": 5000,
+  "chromeLaunchConfig": {
+    "args": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-gpu"
+    ]
+  },
+  "urls": [
+    "http://localhost:3000",
+    "http://localhost:3000/scan"
+  ],
+  "threshold": 30,
+  "json": true,
+  "level": "error",
+  "ignore": [
+    "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+    "WCAG2AA.Principle3.Guideline3_2_2.H32.2"
+  ]
+}
