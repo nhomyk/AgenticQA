@@ -744,6 +744,123 @@
             margin-right: auto;
         }
 
+        /* Consulting Section */
+        .consulting-container {
+            padding: 0;
+        }
+
+        .consulting-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+
+        .consulting-hero h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .consulting-hero p {
+            font-size: 1.2rem;
+            color: #cbd5e1;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .consulting-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .consulting-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 2.5rem 2rem;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .consulting-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .consulting-card-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .consulting-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1rem;
+        }
+
+        .consulting-card p {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+            flex-grow: 1;
+            line-height: 1.8;
+        }
+
+        .consulting-features {
+            list-style: none;
+            color: #6b7280;
+        }
+
+        .consulting-features li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .consulting-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .consulting-cta {
+            margin-top: 3rem;
+            text-align: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .consulting-cta h3 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .consulting-cta p {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
         @media (max-width: 768px) {
             .who-we-are-grid {
                 grid-template-columns: 1fr;
@@ -890,6 +1007,7 @@
         <div class="tab-buttons" role="tablist" aria-label="documentation-tabs">
             <button class="tab-button active" onclick="switchTab(this, 'overview')" role="tab" aria-selected="true" aria-controls="overview">Overview</button>
             <button class="tab-button" onclick="switchTab(this, 'who-we-are')" role="tab" aria-selected="false" aria-controls="who-we-are">Who We Are</button>
+            <button class="tab-button" onclick="switchTab(this, 'consulting')" role="tab" aria-selected="false" aria-controls="consulting">Consulting Services</button>
             <button class="tab-button" onclick="switchTab(this, 'architecture')" role="tab" aria-selected="false" aria-controls="architecture">Architecture</button>
             <button class="tab-button" onclick="switchTab(this, 'compliance')" role="tab" aria-selected="false" aria-controls="compliance">Compliance</button>
             <button class="tab-button" onclick="switchTab(this, 'testing')" role="tab" aria-selected="false" aria-controls="testing">Testing</button>
@@ -1052,6 +1170,113 @@
                     <h3>Ready to Build Intelligent Systems Together?</h3>
                     <p>Let's create technology that matters. Contact our team to discuss how we can architect high-tech solutions for your organization.</p>
                     <button class="btn-primary" onclick="document.location.href='#contact'">Start a Conversation</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="consulting" class="tab-content">
+            <div class="consulting-container">
+                <!-- Hero Section -->
+                <div class="consulting-hero">
+                    <h2>Consulting Services</h2>
+                    <p>Leverage our 15+ years of tech architecture expertise. We deliver strategic consulting across a wide range of high-impact projects—from AI transformations to system modernization to custom development.</p>
+                </div>
+
+                <!-- Services Grid -->
+                <div class="consulting-grid">
+                    <!-- AI Transformations -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">🤖</div>
+                        <h3>AI Transformations</h3>
+                        <p>Reimagine your development, operations, and compliance processes with autonomous AI agents. We design and implement intelligent systems that reduce manual work and improve quality.</p>
+                        <ul class="consulting-features">
+                            <li>Agent architecture design and implementation</li>
+                            <li>Custom domain training for your business</li>
+                            <li>End-to-end AI transformation roadmap</li>
+                            <li>Integration with existing tools and workflows</li>
+                            <li>Ongoing optimization and scaling</li>
+                        </ul>
+                    </div>
+
+                    <!-- Custom Education & Upskilling -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">📚</div>
+                        <h3>Custom Education & Upskilling</h3>
+                        <p>Build technical expertise across your organization with tailored training programs. We deliver live sessions and on-demand video content on any technology your team needs to master.</p>
+                        <ul class="consulting-features">
+                            <li>Custom curriculum design for your team</li>
+                            <li>Advanced topics: vector databases, agents, automation</li>
+                            <li>Live workshop sessions with hands-on labs</li>
+                            <li>Video content library for ongoing reference</li>
+                            <li>Certification and skill validation</li>
+                        </ul>
+                    </div>
+
+                    <!-- Custom Automated Builds -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">⚙️</div>
+                        <h3>Custom Automated Builds</h3>
+                        <p>Streamline your development workflow with intelligent build automation. We design systems that compile, test, and deploy your code with zero manual intervention.</p>
+                        <ul class="consulting-features">
+                            <li>Build pipeline architecture and optimization</li>
+                            <li>Multi-framework and multi-language support</li>
+                            <li>Parallel execution for 3x faster builds</li>
+                            <li>Integration with your existing tools</li>
+                            <li>Continuous performance monitoring</li>
+                        </ul>
+                    </div>
+
+                    <!-- CI/CD Pipeline Design -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">🚀</div>
+                        <h3>Custom CI/CD Pipelines</h3>
+                        <p>Design and implement enterprise-grade CI/CD systems that scale with your organization. From simple deployments to complex multi-stage pipelines, we build what you need.</p>
+                        <ul class="consulting-features">
+                            <li>End-to-end pipeline architecture</li>
+                            <li>Multi-environment deployment strategies</li>
+                            <li>Blue-green, canary, and rolling deployments</li>
+                            <li>Automated rollback and recovery</li>
+                            <li>Integration with GitHub Actions, Jenkins, ArgoCD, and more</li>
+                        </ul>
+                    </div>
+
+                    <!-- Architecture Modernization -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">🏗️</div>
+                        <h3>Architecture Modernization</h3>
+                        <p>Transform legacy systems into modern, scalable architectures. We design and execute strategic system migrations—from monoliths to microservices, on-premise to cloud, and everything in between.</p>
+                        <ul class="consulting-features">
+                            <li>System assessment and roadmap planning</li>
+                            <li>Monolith-to-microservices migration</li>
+                            <li>On-premise to cloud transitions</li>
+                            <li>Database evolution and optimization</li>
+                            <li>Zero-downtime deployment strategies</li>
+                        </ul>
+                    </div>
+
+                    <!-- Custom Development Projects -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">💻</div>
+                        <h3>Strategic Development Projects</h3>
+                        <p>When you need more than consulting—when you need execution. Our architects lead implementation of complex projects, from proof-of-concepts to full-scale production systems.</p>
+                        <ul class="consulting-features">
+                            <li>Full-stack application development</li>
+                            <li>Performance optimization and scaling</li>
+                            <li>Security hardening and compliance implementation</li>
+                            <li>Integration with third-party systems</li>
+                            <li>Dedicated project leadership and delivery</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- CTA Section -->
+                <div class="consulting-cta">
+                    <h3>Ready to Transform Your Organization?</h3>
+                    <p>Let's discuss how our consulting services can address your specific challenges and accelerate your technical roadmap.</p>
+                    <div class="cta-buttons">
+                        <button class="btn-primary">Schedule Consultation</button>
+                        <button class="btn-secondary">View Case Studies</button>
+                    </div>
                 </div>
             </div>
         </div>
