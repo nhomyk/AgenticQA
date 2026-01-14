@@ -55,6 +55,172 @@ const PLATFORM_KNOWLEDGE = {
   }
 };
 
+// ========== SRE AGENT EXPERT KNOWLEDGE DATABASE ==========
+// Comprehensive DevOps/SRE expertise for infrastructure & reliability
+
+const SRE_EXPERTISE = {
+  platform: {
+    name: 'AgenticQA SRE Agent',
+    description: 'Site Reliability Engineering for AI-powered QA platform',
+    role: 'SRE Engineer - Ensures reliability, performance, monitoring, and self-healing infrastructure',
+    expertise: [
+      'Pipeline Orchestration - CI/CD automation & workflow management',
+      'Failure Detection & Recovery - Real-time monitoring & automated fixes',
+      'Version Management - Semantic versioning & release automation',
+      'Infrastructure as Code - Deployment automation & configuration',
+      'Performance Monitoring - Metrics collection & alerting',
+      'Incident Response - Automated diagnostics & mitigation'
+    ]
+  },
+  pipelineArchitecture: {
+    description: 'AgenticQA self-healing CI/CD system',
+    jobs: [
+      'lint - Code quality & formatting checks',
+      'unit-test - Jest unit tests',
+      'test-playwright - Playwright E2E tests',
+      'test-vitest - Vitest modern unit tests',
+      'test-cypress - Cypress interactive testing',
+      'sdet-agent - Manual QA & codebase analysis',
+      'compliance-agent - Legal/regulatory compliance',
+      'fullstack-agent - Auto-fix & test generation',
+      'sre-agent - Monitoring & orchestration'
+    ],
+    stages: [
+      { stage: 'Lint & Build', jobs: ['lint'] },
+      { stage: 'Test Suite', jobs: ['unit-test', 'test-playwright', 'test-vitest', 'test-cypress'] },
+      { stage: 'Agents (Parallel)', jobs: ['sdet-agent', 'compliance-agent'] },
+      { stage: 'Fixing & Validation', jobs: ['fullstack-agent'] },
+      { stage: 'Orchestration & Monitoring', jobs: ['sre-agent'] }
+    ],
+    circulardevelopment: 'Agents test agents creating self-validating system'
+  },
+  monitoringCapabilities: {
+    realTimeWatching: {
+      description: 'Active workflow status monitoring',
+      features: [
+        'Poll interval: 10 seconds (configurable)',
+        'Max wait: 600 seconds / 10 minutes',
+        'Job-level status tracking',
+        'Elapsed time display',
+        'Automatic failure detection',
+        'Result summary on completion'
+      ]
+    },
+    failureAnalysis: {
+      description: 'Automatic failure identification & categorization',
+      analyzes: [
+        'Failed job names',
+        'Failure reasons (when available)',
+        'Job duration & timing',
+        'Dependency chain impact',
+        'Failure pattern detection'
+      ]
+    },
+    autoFix: {
+      description: 'Automated code & configuration fixes',
+      types: [
+        'Syntax errors - Pattern matching & correction',
+        'Missing dependencies - npm install & package updates',
+        'Configuration issues - Template-based fixes',
+        'Test failures - Coverage gap analysis',
+        'Compliance violations - Auto-remediation'
+      ]
+    }
+  },
+  reliabilityPatterns: {
+    healthChecks: [
+      'All jobs passing (success criterion)',
+      'No critical errors in logs',
+      'Performance within thresholds',
+      'Dependencies up-to-date',
+      'Test coverage maintained'
+    ],
+    failureRecovery: [
+      'Detect failure type (lint/test/agent)',
+      'Analyze root cause from logs',
+      'Apply appropriate fix',
+      'Commit changes with clear message',
+      'Trigger new workflow (retest)',
+      'Monitor new workflow for success'
+    ],
+    escalationPaths: [
+      'Level 1: Automatic retry (5 min delay)',
+      'Level 2: Apply known fixes (15 min timeout)',
+      'Level 3: Analyze logs & suggest manual fix',
+      'Level 4: Send alert email to team',
+      'Level 5: Create GitHub issue for human review'
+    ]
+  },
+  gitWorkflow: {
+    commitConventions: {
+      format: 'type(scope): description',
+      types: [
+        'fix - Bug fixes',
+        'feat - New features',
+        'chore - Maintenance tasks',
+        'perf - Performance improvements',
+        'test - Test updates',
+        'ci - CI/CD changes'
+      ]
+    },
+    branchStrategy: [
+      'main - Production-ready code',
+      'develop - Integration branch (optional)',
+      'feature/* - Feature branches',
+      'bugfix/* - Bug fix branches'
+    ],
+    automatedTasks: [
+      'Version bumping (semantic versioning)',
+      'Changelog generation',
+      'Auto-commit & push',
+      'Workflow triggers',
+      'PR automation (future)'
+    ]
+  },
+  performanceMetrics: {
+    tracking: [
+      'Pipeline duration (target: < 10 min)',
+      'Job success rate (target: > 99%)',
+      'Mean time to recovery (target: < 5 min)',
+      'Test execution time (track trends)',
+      'Artifact size (optimize storage)'
+    ],
+    optimization: [
+      'Parallel job execution (reduce total time)',
+      'Caching strategies (npm, node_modules)',
+      'Container layer optimization',
+      'Network request optimization',
+      'Resource allocation tuning'
+    ]
+  },
+  bestPractices: {
+    operations: [
+      'Monitor before fixing (data-driven decisions)',
+      'Test fixes in staging first',
+      'Provide rollback capability',
+      'Document all auto-fixes',
+      'Alert on unusual patterns',
+      'Schedule maintenance windows'
+    ],
+    reliability: [
+      'Assume failures will happen',
+      'Design for graceful degradation',
+      'Implement circuit breakers',
+      'Use exponential backoff for retries',
+      'Log extensively for debugging',
+      'Correlate logs across services'
+    ],
+    security: [
+      'Rotate credentials regularly',
+      'Use token-based authentication',
+      'Audit all automated actions',
+      'Encrypt sensitive environment variables',
+      'Limit scope of automation permissions',
+      'Track who/what made changes'
+    ]
+  }
+};
+
 // === CONFIGURATION ===
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Set in your environment
 const GH_PAT = process.env.GH_PAT; // Alternative token source
@@ -1237,7 +1403,47 @@ async function reRunCurrentWorkflow() {
   }
 }
 
+async function displaySREExpertise() {
+  console.log('╔════════════════════════════════════════╗');
+  console.log('║      🎯 SRE AGENT - EXPERT KNOWLEDGE  ║');
+  console.log('╚════════════════════════════════════════╝\n');
+  
+  console.log(`📚 Role: ${SRE_EXPERTISE.platform.role}\n`);
+  
+  console.log('🎯 Core Expertise:');
+  SRE_EXPERTISE.platform.expertise.forEach(exp => {
+    console.log(`  • ${exp}`);
+  });
+  
+  console.log('\n🏗️ Pipeline Architecture Stages:');
+  SRE_EXPERTISE.pipelineArchitecture.stages.forEach(stage => {
+    console.log(`  ${stage.stage}: ${stage.jobs.join(', ')}`);
+  });
+  
+  console.log('\n👁️ Monitoring Capabilities:');
+  console.log(`  Real-time Watching: ${SRE_EXPERTISE.monitoringCapabilities.realTimeWatching.features[0]}`);
+  console.log(`  Failure Analysis: ${SRE_EXPERTISE.monitoringCapabilities.failureAnalysis.analyzes.length} analysis types`);
+  console.log(`  Auto-Fix: ${SRE_EXPERTISE.monitoringCapabilities.autoFix.types.length} fix types supported`);
+  
+  console.log('\n🔄 Failure Recovery Stages:');
+  SRE_EXPERTISE.reliabilityPatterns.failureRecovery.forEach((stage, i) => {
+    console.log(`  ${i + 1}. ${stage}`);
+  });
+  
+  console.log('\n📊 Performance Metrics Tracked:');
+  SRE_EXPERTISE.reliabilityPatterns.healthChecks.forEach(check => {
+    console.log(`  • ${check}`);
+  });
+  
+  console.log('\n✨ Best Practices Applied:');
+  console.log(`  Operations: ${SRE_EXPERTISE.bestPractices.operations.length} practices`);
+  console.log(`  Reliability: ${SRE_EXPERTISE.bestPractices.reliability.length} practices`);
+  console.log(`  Security: ${SRE_EXPERTISE.bestPractices.security.length} practices\n`);
+}
+
 async function agenticSRELoop() {
+  await displaySREExpertise();
+  
   const MAX_ITERATIONS = 3;
   let iteration = 0;
   let success = false;

@@ -190,23 +190,42 @@ jobs:
           node << 'SDET_SCRIPT'
           const fs = require('fs');
           
-          console.log('\n🤖 SDET Agent: Manual UI Testing & Codebase Analysis\n');
-          console.log('═══════════════════════════════════════════════════════\n');
+          console.log('\n╔════════════════════════════════════════╗');
+          console.log('║   🎯 SDET AGENT - EXPERT KNOWLEDGE    ║');
+          console.log('╚════════════════════════════════════════╝\n');
           
-          // Codebase Knowledge
-          console.log('📋 Codebase Knowledge Assessment:\n');
+          // Display SDET Expertise
+          console.log('📚 Role: SDET Engineer - Software Development Engineer in Test');
+          console.log('         Manual UI testing + Codebase analysis + Test automation design\n');
+          
+          console.log('🎯 Core Expertise:');
+          const expertise = [
+            'Manual UI Testing - Real user workflow simulation',
+            'Codebase Architecture Understanding - Know the system inside-out',
+            'Test Automation Design - Design patterns for maintainable tests',
+            'Cross-browser Compatibility - Verify consistent behavior',
+            'Accessibility Testing - WCAG 2.1 compliance verification',
+            'Performance Analysis - Response times and resource usage',
+            'Error Discovery - Find edge cases and breaking scenarios'
+          ];
+          expertise.forEach(exp => console.log(`  • ${exp}`));
+          
+          console.log('\n🏗️ Codebase Knowledge:\n');
           console.log('  ✓ UI Framework: Node.js + Express');
           console.log('  ✓ Frontend: Vanilla JavaScript (app.js)');
           console.log('  ✓ Test Frameworks: Jest, Playwright, Cypress, Vitest');
-          console.log('  ✓ Architecture: MVC with Puppeteer backend\n');
+          console.log('  ✓ Architecture: MVC with Puppeteer backend');
+          console.log('  ✓ UI Tabs: Overview, Features, Use Cases, Technical, Pricing\n');
           
           // Verify files
-          console.log('📂 Critical Codebase Files:\n');
+          console.log('📂 Critical Codebase Files Validation:\n');
           const requiredFiles = ['public/app.js', 'public/index.html', 'server.js', 'qa-agent.js'];
-          requiredFiles.forEach(file => {
+          const fileStatus = requiredFiles.map(file => {
             const exists = fs.existsSync(file);
             console.log(`  ${exists ? '✅' : '❌'} ${file}`);
+            return { file, exists };
           });
+          const allFilesExist = fileStatus.every(f => f.exists);
           
           // UI Features
           console.log('\n🔍 UI Functionality Verification:\n');
@@ -218,11 +237,23 @@ jobs:
             ['Scan Functionality', appCode.includes('scanBtn.addEventListener')],
             ['Empty State Handling', appCode.includes('No issues detected')]
           ];
+          const passedFeatures = features.filter(f => f[1]).length;
           features.forEach(([name, exists]) => {
             console.log(`  ${exists ? '✅' : '❌'} ${name}`);
           });
           
-          console.log('\n✅ SDET Agent Assessment Complete\n');
+          console.log('\n📊 Testing Strategy:');
+          console.log('  • Manual paths: Verify UI responsiveness and user experience');
+          console.log('  • Automated paths: Edge cases, error handling, data validation');
+          console.log('  • Integration: Cross-component workflows and API interactions');
+          console.log('  • Accessibility: Keyboard navigation, screen reader compatibility\n');
+          
+          console.log('\n📈 Assessment Summary:');
+          console.log(`  Files Present: ${fileStatus.filter(f => f.exists).length}/${requiredFiles.length}`);
+          console.log(`  Features Verified: ${passedFeatures}/${features.length}`);
+          console.log(`  Status: ${allFilesExist && passedFeatures === features.length ? '✅ READY' : '⚠️ NEEDS ATTENTION'}\n`);
+          
+          console.log('✅ SDET Agent Assessment Complete\n');
           SDET_SCRIPT
 
   fullstack-agent:

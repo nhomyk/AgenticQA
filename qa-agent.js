@@ -29,6 +29,165 @@ const QA_TESTS = {
   INTEGRATION: 'integration'
 };
 
+// ========== QA AGENT EXPERT KNOWLEDGE DATABASE ==========
+// Comprehensive QA testing expertise for AgenticQA platform
+
+const QA_EXPERTISE = {
+  platform: {
+    name: 'AgenticQA - Automated QA Testing Platform',
+    description: 'Manual QA expertise with automated testing & issue discovery',
+    role: 'QA Engineer - Ensures product quality, user experience, and reliability',
+    expertise: [
+      'Manual UI Testing - Real user workflow simulation',
+      'Accessibility Auditing - WCAG 2.1 & ADA compliance',
+      'Cross-browser Testing - Chrome, Firefox, Safari compatibility',
+      'Performance Testing - Load times, resource usage analysis',
+      'Error Detection - Console errors, uncaught exceptions, API failures',
+      'User Journey Testing - Critical paths, edge cases, error states'
+    ]
+  },
+  testingStrategy: {
+    manual: {
+      description: 'Human-like interaction testing',
+      techniques: [
+        'Click navigation elements and verify responses',
+        'Type in forms and validate input handling',
+        'Check visual consistency across states',
+        'Verify error messages are helpful & accurate',
+        'Test accessibility with keyboard navigation',
+        'Validate mobile responsiveness'
+      ]
+    },
+    automated: {
+      description: 'Systematic test coverage via Puppeteer',
+      techniques: [
+        'Page load verification',
+        'Element presence validation',
+        'Event listener attachment checks',
+        'Console message capture & analysis',
+        'Function existence verification',
+        'API response validation'
+      ]
+    },
+    accessibility: {
+      standards: ['WCAG 2.1 Level AA', 'ADA Compliance'],
+      checks: [
+        'Semantic HTML structure',
+        'ARIA labels & roles',
+        'Keyboard navigation support',
+        'Color contrast ratios (4.5:1 minimum)',
+        'Alt text for all images',
+        'Focus indicators visible'
+      ]
+    }
+  },
+  issueCategories: {
+    structure: {
+      description: 'DOM/HTML problems',
+      examples: ['Missing elements', 'Broken hierarchy', 'Invalid semantics']
+    },
+    styling: {
+      description: 'CSS/visual issues',
+      examples: ['Wrong colors', 'Broken layout', 'Typography problems', 'Responsiveness']
+    },
+    javascript: {
+      description: 'JS logic problems',
+      examples: ['Missing functions', 'Event listener failures', 'Logic errors']
+    },
+    buttons: {
+      description: 'Button/interaction issues',
+      examples: ['Disabled buttons', 'Missing event handlers', 'Wrong actions']
+    },
+    forms: {
+      description: 'Form validation problems',
+      examples: ['Missing inputs', 'Bad validation', 'Unclear labels']
+    },
+    tabs: {
+      description: 'Tab switching issues',
+      examples: ['Won\'t switch', 'Content not updating', 'Active state broken']
+    },
+    errorHandling: {
+      description: 'Error recovery problems',
+      examples: ['No error messages', 'Unhandled exceptions', 'Bad retry logic']
+    },
+    emptyStates: {
+      description: 'Empty/initial state issues',
+      examples: ['No placeholder', 'Confusing UI', 'No guidance']
+    },
+    integration: {
+      description: 'System-wide issues',
+      examples: ['API failures', 'Data flow broken', 'Cross-component problems']
+    }
+  },
+  uiKnowledge: {
+    tabs: ['Overview', 'Features', 'Use Cases', 'Technical', 'Pricing'],
+    selectors: {
+      'url-input': '#urlInput',
+      'scan-button': '#scanBtn',
+      'results-container': '#resultsContainer',
+      'test-cases-section': '#testCasesSection',
+      'download-button': 'button:contains("Download")',
+      'copy-button': 'button:contains("Copy")',
+      'tab-buttons': '.tab-button',
+      'tab-content': '.tab-pane',
+      'textarea': 'textarea'
+    },
+    criticalElements: [
+      'URL input field (required)',
+      'Scan button (CTA)',
+      'Results display area',
+      'Test script generation',
+      'Download/Copy actions',
+      'Tab navigation',
+      'Error messages'
+    ]
+  },
+  severityLevels: {
+    critical: {
+      description: 'Blocks core functionality',
+      examples: ['App won\'t load', 'Buttons don\'t work', 'Data lost']
+    },
+    high: {
+      description: 'Significantly impacts UX',
+      examples: ['Tab switching broken', 'Forms won\'t submit', 'Missing features']
+    },
+    medium: {
+      description: 'Noticeable quality issue',
+      examples: ['Styling inconsistent', 'Error message unclear', 'Performance slow']
+    },
+    low: {
+      description: 'Minor UX issue',
+      examples: ['Typo', 'Color slight off', 'Alignment pixel off']
+    }
+  },
+  bestPractices: {
+    testing: [
+      'Test happy path first (successful flow)',
+      'Then test edge cases (empty, null, invalid)',
+      'Verify error handling (graceful failures)',
+      'Check accessibility (keyboard, screen reader)',
+      'Validate performance (no memory leaks)',
+      'Ensure consistency (visual & functional)'
+    ],
+    reporting: [
+      'Describe exact steps to reproduce',
+      'Include expected vs actual behavior',
+      'Note severity & impact on users',
+      'Provide screenshots/videos if possible',
+      'Suggest fixes or workarounds',
+      'Prioritize by business impact'
+    ],
+    fixValidation: [
+      'Run full QA test suite after fix',
+      'Check no regressions introduced',
+      'Verify fix on multiple browsers',
+      'Test on mobile & tablet',
+      'Performance check after fix',
+      'User feedback validation'
+    ]
+  }
+};
+
 class QAAgent {
   constructor() {
     this.browser = null;
@@ -42,7 +201,50 @@ class QAAgent {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  displayExpertise() {
+    console.log('╔════════════════════════════════════════╗');
+    console.log('║     🎯 QA AGENT - EXPERT KNOWLEDGE    ║');
+    console.log('╚════════════════════════════════════════╝\n');
+    
+    console.log(`📚 Role: ${QA_EXPERTISE.platform.role}\n`);
+    
+    console.log('🎯 Core Expertise:');
+    QA_EXPERTISE.platform.expertise.forEach(exp => {
+      console.log(`  • ${exp}`);
+    });
+    
+    console.log('\n🧪 Testing Strategy:');
+    console.log(`  Manual: ${QA_EXPERTISE.testingStrategy.manual.description}`);
+    console.log(`  Automated: ${QA_EXPERTISE.testingStrategy.automated.description}`);
+    
+    console.log('\n✅ Accessibility Standards:');
+    QA_EXPERTISE.testingStrategy.accessibility.standards.forEach(std => {
+      console.log(`  • ${std}`);
+    });
+    
+    console.log('\n🎨 Issue Categories Being Tested:');
+    Object.entries(QA_EXPERTISE.issueCategories).forEach(([key, cat]) => {
+      console.log(`  • ${key}: ${cat.description}`);
+    });
+    
+    console.log('\n📋 Critical UI Elements:');
+    QA_EXPERTISE.uiKnowledge.criticalElements.forEach(elem => {
+      console.log(`  • ${elem}`);
+    });
+    
+    console.log('\n🔍 Severity Levels:');
+    Object.entries(QA_EXPERTISE.severityLevels).forEach(([level, def]) => {
+      console.log(`  • ${level.toUpperCase()}: ${def.description}`);
+    });
+    
+    console.log('\n✨ Best Practices Applied:');
+    console.log(`  Testing: ${QA_EXPERTISE.bestPractices.testing.length} techniques`);
+    console.log(`  Reporting: ${QA_EXPERTISE.bestPractices.reporting.length} standards`);
+    console.log(`  Validation: ${QA_EXPERTISE.bestPractices.fixValidation.length} checks\n`);
+  }
+
   async init() {
+    this.displayExpertise();
     console.log('🤖 QA Agent Starting...\n');
     this.browser = await puppeteer.launch({
       headless: true,

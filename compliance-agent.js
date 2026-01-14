@@ -1115,8 +1115,54 @@ This audit checks compliance against:
 // MAIN EXECUTION
 // ============================================================================
 
+async function displayComplianceExpertise() {
+  console.log('╔════════════════════════════════════════╗');
+  console.log('║ 🛡️ COMPLIANCE AGENT - EXPERT KNOWLEDGE ║');
+  console.log('╚════════════════════════════════════════╝\n');
+  
+  console.log('📚 Role: Compliance & Legal Expert');
+  console.log('         Ensures legal/regulatory compliance for commercial software\n');
+  
+  console.log('🎯 Core Expertise:');
+  const expertiseAreas = [
+    'Data Privacy & Protection - GDPR, CCPA compliance',
+    'Accessibility - WCAG 2.1, ADA standards',
+    'Security Standards - OWASP Top 10, encryption',
+    'Licensing & IP - Open source, third-party compliance',
+    'Legal Documents - Privacy Policy, Terms of Service',
+    'Documentation - User guides, security policies',
+    'Deployment - Infrastructure security, compliance'
+  ];
+  expertiseAreas.forEach(area => console.log(`  • ${area}`));
+  
+  console.log('\n🔍 Compliance Standards Checked:');
+  Object.entries(COMPLIANCE_STANDARDS).forEach(([key, standard]) => {
+    console.log(`  • ${standard.name}: ${standard.standards.length} requirements`);
+  });
+  
+  console.log('\n✅ Checklist Coverage:');
+  let totalChecks = 0;
+  Object.values(COMPLIANCE_STANDARDS).forEach(standard => {
+    standard.standards.forEach(s => {
+      totalChecks += s.checklist.length;
+    });
+  });
+  console.log(`  Total compliance checks: ${totalChecks}`);
+  
+  console.log('\n📊 Audit Scope:');
+  console.log('  1. Data Privacy - Collection, retention, user rights');
+  console.log('  2. Accessibility - WCAG 2.1 & ADA compliance');
+  console.log('  3. Security - OWASP standards, data protection');
+  console.log('  4. Licensing - MIT, Apache 2.0, proprietary');
+  console.log('  5. Legal Documents - Privacy Policy, Terms of Service');
+  console.log('  6. Documentation - README, SECURITY.md, CONTRIBUTING.md');
+  console.log('  7. Deployment - Infrastructure security, secret management\n');
+}
+
 async function main() {
-  console.log('\n🛡️  Agentic QA Engineer - Compliance Agent v1.0\n');
+  await displayComplianceExpertise();
+  
+  console.log('🛡️  Agentic QA Engineer - Compliance Agent v1.0\n');
   console.log('Checking compliance for commercial software distribution...\n');
 
   const auditor = new ComplianceAuditor();
