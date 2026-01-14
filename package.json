@@ -26,6 +26,7 @@
     "agent": "node run-agent.js",
     "fullstack-agent": "node fullstack-agent.js",
     "qa:agent": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true && npm run start > /tmp/server.log 2>&1 & sleep 3 && node qa-agent.js",
+    "compliance-agent": "node compliance-agent.js",
     "docker:build": "docker build -t agentic-qa:latest .",
     "docker:run": "docker-compose up -d",
     "docker:stop": "docker-compose down"
