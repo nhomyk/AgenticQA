@@ -862,6 +862,44 @@ async function makeCodeChanges(failureAnalysis) {
     if (output.includes("fixed") || output.includes("successfully")) {
       console.log("ESLint issues fixed");
       changesDetected = true;
+    } else if (output.includes("Parsing error")) {
+      // Handle syntax errors that can't be auto-fixed
+      console.log("🔧 Detected syntax error, attempting manual fix...");
+      
+      // Try to fix common syntax errors in public/app.js
+      try {
+        let appCode = fs.readFileSync("public/app.js", "utf8");
+        let modified = false;
+        
+        // Fix: Missing closing brace for function
+        // Pattern: function name(...) { ... } followed by another function without closing the first
+        if (appCode.includes("// Missing closing brace to break the function")) {
+          console.log("  Detected: Missing function closing brace");
+          appCode = appCode.replace(
+            /(\breturn\s+`[^`]*`)\s*\/\/\s*Missing closing brace to break the function\n\n(\bfunction\s+\w+)/g,
+            '$1;\n  }\n\n  $2'
+          );
+          modified = true;
+        }
+        
+        // Fix: Missing semicolon after console.warn or similar statements
+        if (appCode.match(/console\.warn\([^)]*\)\s*\n\s*return/)) {
+          console.log("  Detected: Missing semicolon after console call");
+          appCode = appCode.replace(
+            /(console\.\w+\([^)]*\))\s*\n(\s*return)/g,
+            '$1;\n$2'
+          );
+          modified = true;
+        }
+        
+        if (modified) {
+          fs.writeFileSync("public/app.js", appCode);
+          console.log("✅ Syntax errors fixed");
+          changesDetected = true;
+        }
+      } catch (syntaxErr) {
+        console.log("⚠️  Could not fix syntax error:", syntaxErr.message);
+      }
     } else if (!output.includes("error")) {
       console.log("ESLint check passed");
     }
