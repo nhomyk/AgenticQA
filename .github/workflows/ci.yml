@@ -226,10 +226,10 @@ jobs:
           SDET_SCRIPT
 
   fullstack-agent:
-    needs: [sdet-agent]
+    needs: [sdet-agent, compliance-agent]
     if: always()
     runs-on: ubuntu-latest
-    name: Fullstack Agent (Code Fixes)
+    name: Fullstack Agent (Code & Compliance Fixes)
     permissions:
       contents: write
       actions: read
@@ -244,6 +244,12 @@ jobs:
           name: test-failures
           path: ./test-failures
         continue-on-error: true
+      - name: Download compliance audit report
+        uses: actions/download-artifact@v4
+        with:
+          name: compliance-audit-report
+          path: ./compliance-artifacts
+        continue-on-error: true
       - name: Display downloaded artifacts
         run: |
           if [ -d test-failures ]; then
@@ -254,6 +260,11 @@ jobs:
             find test-failures -type f -exec echo "--- {} ---" \; -exec head -5 {} \;
           else
             echo "No test failure artifacts found (tests may have passed)"
+          fi
+          if [ -d compliance-artifacts ]; then
+            echo ""
+            echo "🛡️  Compliance audit artifacts:"
+            ls -la compliance-artifacts/
           fi
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -266,10 +277,11 @@ jobs:
           git config --global user.name "fullstack-agent[bot]"
           git config --global user.email "fullstack-agent[bot]@users.noreply.github.com"
           git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-      - name: Run Fullstack Agent
+      - name: Run Fullstack Agent (with compliance knowledge)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          COMPLIANCE_MODE: "enabled"
         run: node fullstack-agent.js
 
   sre-agent:
@@ -299,7 +311,7 @@ jobs:
         run: node agentic_sre_engineer.js
 
   compliance-agent:
-    needs: [unit-test, test-playwright, test-vitest, test-cypress, sdet-agent]
+    needs: [unit-test, test-playwright, test-vitest, test-cypress]
     if: always()
     runs-on: ubuntu-latest
     name: Compliance Agent (Legal & Regulatory)
