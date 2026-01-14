@@ -941,7 +941,7 @@ async function triggerNewWorkflow() {
     await octokit.actions.createWorkflowDispatch({
       owner: REPO_OWNER,
       repo: REPO_NAME,
-      workflow_id: 'ci.yml',
+      workflow_id: 222833061,
       ref: 'main',
     });
     
