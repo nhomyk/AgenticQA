@@ -420,7 +420,7 @@
                 <div class="results-section">
                     <div class="result-box">
                         <h3><span class="icon">📚</span>Technologies Detected</h3>
-                        <textarea id="technologies" readonly></textarea>
+                        <textarea id="technologies" readonly placeholder="Detected technologies will appear here after scanning"></textarea>
                         <div class="button-group">
                             <button onclick="downloadFromElement('technologies', 'technologies.txt')">📥 Download Script</button>
                             <button onclick="copyToClipboard('technologies')">📋 Copy</button>
@@ -437,7 +437,7 @@
                             </div>
                             
                             <div id="playwright-tab" class="tab-pane active">
-                                <textarea id="playwright" readonly></textarea>
+                                <textarea id="playwright" readonly placeholder="Playwright test cases will appear here"></textarea>
                                 <div class="button-group">
                                     <button onclick="downloadFromElement('playwright', 'playwright-tests.js')">📥 Download</button>
                                     <button onclick="copyToClipboard('playwright')">📋 Copy</button>
@@ -445,7 +445,7 @@
                             </div>
 
                             <div id="cypress-tab" class="tab-pane">
-                                <textarea id="cypress" readonly></textarea>
+                                <textarea id="cypress" readonly placeholder="Cypress test cases will appear here"></textarea>
                                 <div class="button-group">
                                     <button onclick="downloadFromElement('cypress', 'cypress-tests.js')">📥 Download</button>
                                     <button onclick="copyToClipboard('cypress')">📋 Copy</button>
@@ -453,7 +453,7 @@
                             </div>
 
                             <div id="vitest-tab" class="tab-pane">
-                                <textarea id="vitest" readonly></textarea>
+                                <textarea id="vitest" readonly placeholder="Vitest test cases will appear here"></textarea>
                                 <div class="button-group">
                                     <button onclick="downloadFromElement('vitest', 'vitest-tests.js')">📥 Download</button>
                                     <button onclick="copyToClipboard('vitest')">📋 Copy</button>
@@ -464,7 +464,7 @@
 
                     <div class="result-box">
                         <h3><span class="icon">✅</span>Test Cases</h3>
-                        <textarea id="testcases" readonly></textarea>
+                        <textarea id="testcases" readonly placeholder="Generated test cases will appear here"></textarea>
                         <div class="button-group">
                             <button onclick="downloadFromElement('testcases', 'test-cases.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('testcases')">📋 Copy</button>
@@ -473,7 +473,7 @@
 
                     <div class="result-box">
                         <h3><span class="icon">⚙️</span>Scan Results</h3>
-                        <textarea id="results" readonly></textarea>
+                        <textarea id="results" readonly placeholder="Scan results will appear here after analyzing the website"></textarea>
                         <div class="button-group">
                             <button onclick="downloadFromElement('results', 'scan-results.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('results')">📋 Copy</button>
@@ -482,7 +482,7 @@
 
                     <div class="result-box">
                         <h3><span class="icon">📊</span>Performance Metrics</h3>
-                        <textarea id="performance" readonly></textarea>
+                        <textarea id="performance" readonly placeholder="Performance metrics will appear here"></textarea>
                         <div class="button-group">
                             <button onclick="downloadFromElement('performance', 'performance-metrics.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('performance')">📋 Copy</button>
@@ -491,7 +491,7 @@
 
                     <div class="result-box">
                         <h3><span class="icon">🔗</span>APIs Used</h3>
-                        <textarea id="apis" readonly></textarea>
+                        <textarea id="apis" readonly placeholder="APIs and external services detected will appear here"></textarea>
                         <div class="button-group">
                             <button onclick="downloadFromElement('apis', 'apis-used.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('apis')">📋 Copy</button>
@@ -500,7 +500,7 @@
 
                     <div class="result-box">
                         <h3><span class="icon">💡</span>Recommendations</h3>
-                        <textarea id="recommendations" readonly></textarea>
+                        <textarea id="recommendations" readonly placeholder="Recommendations for improvements will appear here"></textarea>
                         <div class="button-group">
                             <button onclick="downloadFromElement('recommendations', 'recommendations.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('recommendations')">📋 Copy</button>
