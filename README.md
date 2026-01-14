@@ -1,8 +1,8 @@
-# 🤖 AgenticQA - Enterprise-Grade Autonomous QA & Compliance Platform
+# 🤖 circleQA.ai - Enterprise-Grade Autonomous QA & Compliance Platform
 
 **Built by Architects with 15+ Years in Tech | Advanced AI-Powered QA System with Built-In Compliance & Security**
 
-AgenticQA is an enterprise-grade Node.js platform that demonstrates what's possible when deep tech architecture expertise meets autonomous AI. We combine multi-agent collaboration, comprehensive testing infrastructure, **production-ready WCAG 2.1 AA compliance**, **automated security vulnerability scanning**, real-time compliance monitoring, and self-healing CI/CD pipelines. This is battle-tested software built by a team that's architected high-tech systems for Fortune 500 companies, multinational enterprises, and fast-scaling startups. It handles everything from code scanning to legal compliance with **zero manual intervention**.
+circleQA.ai is an enterprise-grade Node.js platform that demonstrates what's possible when deep tech architecture expertise meets autonomous AI. We combine multi-agent collaboration, comprehensive testing infrastructure, **production-ready WCAG 2.1 AA compliance**, **automated security vulnerability scanning**, real-time compliance monitoring, and self-healing CI/CD pipelines. This is battle-tested software built by a team that's architected high-tech systems for Fortune 500 companies, multinational enterprises, and fast-scaling startups. It handles everything from code scanning to legal compliance with **zero manual intervention**.
 
 > ✅ **Built by Expert Architects** • 🔐 **Enterprise Security** • ♿ **Accessibility First** • 🚀 **Self-Healing Pipelines** • 📊 **Compliance Certified**
 
@@ -19,7 +19,7 @@ We've spent over 15 years:
 - **Training AI Agents Beyond Public Data** - Our autonomous agents are taught by experienced architects to become true domain experts
 - **Solving Complex Compliance & Security** challenges that traditional approaches can't handle
 
-AgenticQA is an example of the sophisticated, intelligent systems our team builds. It's not just a tool—it's proof of how 15+ years in architecture, combined with AI expertise, creates systems that rival senior engineers in capability.
+circleQA.ai is an example of the sophisticated, intelligent systems our team builds. It's not just a tool—it's proof of how 15+ years in architecture, combined with AI expertise, creates systems that rival senior engineers in capability.
 
 ---
 
@@ -39,14 +39,14 @@ We've architected systems for:
 - **Consulting Partnerships**: Strategic technology initiatives with top-tier firms
 - **Mission-Critical Systems**: 99.9%+ uptime requirements, zero-trust security models
 
-### That Expertise is Now Embedded in AgenticQA
+### That Expertise is Now Embedded in circleQA.ai
 Every feature, every compliance check, every recovery pattern comes from real-world experience, not generic training data.
 
 ---
 
 ## 🎯 What We Can Build Together
 
-If AgenticQA excites you, imagine what we could build for your organization:
+If circleQA.ai excites you, imagine what we could build for your organization:
 
 - **Custom Autonomous Systems** tailored to your specific challenges
 - **Enterprise Architecture** that scales with your growth
@@ -356,7 +356,7 @@ console.log(state.analysis);            // AI recommendations
   - APIs: 5 identified
   - Performance: Good (< 3s load time)
 
-💡 AgenticQA Engineer's Recommendations:
+💡 circleQA.ai Engineer's Recommendations:
 
   1. 🎯 Critical: Fix 9 accessibility issues including missing alt text 
      and ARIA labels. This blocks ~15% of users and hurts SEO ranking.
