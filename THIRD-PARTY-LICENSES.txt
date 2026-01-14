@@ -1,0 +1,38 @@
+# Third-Party Licenses
+
+This file documents the licenses of all dependencies used in Agentic QA Engineer.
+
+## Production Dependencies
+
+- @langchain/core: See node_modules/@langchain/core/LICENSE
+- @langchain/langgraph: See node_modules/@langchain/langgraph/LICENSE
+- @octokit/rest: See node_modules/@octokit/rest/LICENSE
+- body-parser: See node_modules/body-parser/LICENSE
+- dotenv: See node_modules/dotenv/LICENSE
+- express: See node_modules/express/LICENSE
+- express-rate-limit: See node_modules/express-rate-limit/LICENSE
+- langchain: See node_modules/langchain/LICENSE
+- nodemailer: See node_modules/nodemailer/LICENSE
+- puppeteer: See node_modules/puppeteer/LICENSE
+- simple-git: See node_modules/simple-git/LICENSE
+
+## Development Dependencies
+
+- @playwright/test: See node_modules/@playwright/test/LICENSE
+- @vitest/coverage-v8: See node_modules/@vitest/coverage-v8/LICENSE
+- @vitest/ui: See node_modules/@vitest/ui/LICENSE
+- cypress: See node_modules/cypress/LICENSE
+- eslint: See node_modules/eslint/LICENSE
+- jest: See node_modules/jest/LICENSE
+- start-server-and-test: See node_modules/start-server-and-test/LICENSE
+- vitest: See node_modules/vitest/LICENSE
+
+## License Summary
+
+All dependencies are licensed under permissive open source licenses including:
+- MIT License
+- Apache 2.0 License
+- ISC License
+- BSD License
+
+No GPL or copyleft licenses are used in production dependencies.
