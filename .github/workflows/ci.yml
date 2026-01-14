@@ -129,12 +129,9 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
-      - name: Start server
-        run: npm start &
-      - name: Wait for server
-        run: sleep 2
       - name: Run Cypress tests
         run: npm run test:cypress 2>&1 | tee cypress-output.log || true
+        timeout-minutes: 5
       - name: Save Cypress failures
         if: failure()
         run: |

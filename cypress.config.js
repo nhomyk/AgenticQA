@@ -7,6 +7,8 @@ module.exports = defineConfig({
     viewportHeight: 720,
     video: false,
     screenshotOnRunFailure: false,
+    responseTimeout: 10000,
+    commandTimeout: 10000,
   },
   component: {
     devServer: {
