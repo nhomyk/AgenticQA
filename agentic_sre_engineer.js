@@ -944,6 +944,160 @@ async function makeCodeChanges(failureAnalysis) {
   }
 }
 
+// ========== PIPELINE MONITORING & WATCHING ==========
+// The SRE Agent can now monitor the pipeline like a DevOps engineer
+
+async function getLatestWorkflowRun() {
+  try {
+    const octokit = await initOctokit();
+    const { data } = await octokit.actions.listWorkflowRuns({
+      owner: REPO_OWNER,
+      repo: REPO_NAME,
+      workflow_id: 222833061,
+      per_page: 1,
+    });
+    
+    if (data.workflow_runs && data.workflow_runs.length > 0) {
+      return data.workflow_runs[0];
+    }
+    return null;
+  } catch (err) {
+    console.error('Failed to fetch latest workflow run:', err.message);
+    return null;
+  }
+}
+
+async function watchWorkflowStatus(workflowRunId, maxWaitSeconds = 600, pollIntervalSeconds = 10) {
+  console.log(`\n👁️  PIPELINE MONITORING: Watching workflow ${workflowRunId}...`);
+  console.log(`   Max wait: ${maxWaitSeconds}s, Poll interval: ${pollIntervalSeconds}s\n`);
+  
+  const startTime = Date.now();
+  let lastStatus = null;
+  
+  while ((Date.now() - startTime) / 1000 < maxWaitSeconds) {
+    try {
+      const octokit = await initOctokit();
+      const { data: run } = await octokit.actions.getWorkflowRun({
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        run_id: workflowRunId,
+      });
+      
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      
+      if (run.status !== lastStatus) {
+        console.log(`[${elapsed}s] Status: ${run.status.toUpperCase()} | Conclusion: ${run.conclusion || 'RUNNING'}`);
+        lastStatus = run.status;
+      }
+      
+      // If completed, show job summary
+      if (run.status === 'completed') {
+        console.log(`\n✅ Workflow completed with conclusion: ${run.conclusion}`);
+        
+        // Get job details
+        const jobSummary = await getWorkflowJobSummary(workflowRunId);
+        if (jobSummary) {
+          console.log('\n📊 Job Summary:');
+          jobSummary.forEach(job => {
+            const icon = job.conclusion === 'success' ? '✅' : job.conclusion === 'failure' ? '❌' : '⏸️';
+            console.log(`  ${icon} ${job.name}: ${job.conclusion || job.status}`);
+          });
+        }
+        
+        return { success: run.conclusion === 'success', run };
+      }
+      
+      // Show progress every 30 seconds
+      if (elapsed % 30 === 0 && elapsed > 0) {
+        console.log(`[${elapsed}s] Still running... (${Math.round(elapsed / 10)} polls)`);
+      }
+      
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, pollIntervalSeconds * 1000));
+      
+    } catch (err) {
+      console.error(`Poll error: ${err.message}`);
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s on error
+    }
+  }
+  
+  console.log(`⏱️  Timeout reached (${maxWaitSeconds}s). Workflow may still be running.`);
+  return { success: false, timeout: true };
+}
+
+async function getWorkflowJobSummary(workflowRunId) {
+  try {
+    const octokit = await initOctokit();
+    const { data } = await octokit.actions.listJobsForWorkflowRun({
+      owner: REPO_OWNER,
+      repo: REPO_NAME,
+      run_id: workflowRunId,
+    });
+    
+    return data.jobs.map(job => ({
+      name: job.name,
+      status: job.status,
+      conclusion: job.conclusion,
+      startedAt: job.started_at,
+      completedAt: job.completed_at,
+    }));
+  } catch (err) {
+    console.error('Failed to fetch job summary:', err.message);
+    return null;
+  }
+}
+
+async function monitorAndFixFailures(workflowRunId) {
+  console.log(`\n🔍 FAILURE MONITORING: Analyzing workflow ${workflowRunId}...\n`);
+  
+  try {
+    const jobs = await getWorkflowJobSummary(workflowRunId);
+    if (!jobs) return null;
+    
+    const failedJobs = jobs.filter(j => j.conclusion === 'failure');
+    
+    if (failedJobs.length === 0) {
+      console.log('✅ No failures detected - pipeline is healthy');
+      return { failures: [], failedJobs: [] };
+    }
+    
+    console.log(`⚠️  ${failedJobs.length} job(s) failed:\n`);
+    
+    const failureDetails = [];
+    for (const failedJob of failedJobs) {
+      console.log(`  ❌ ${failedJob.name}`);
+      
+      // Get logs for this job
+      try {
+        const octokit = await initOctokit();
+        const { data: jobData } = await octokit.actions.getJob({
+          owner: REPO_OWNER,
+          repo: REPO_NAME,
+          job_id: failedJob.id,
+        });
+        
+        // Extract error info from job (logs would need separate API call)
+        failureDetails.push({
+          jobName: failedJob.name,
+          status: failedJob.conclusion,
+          htmlUrl: jobData.html_url,
+        });
+      } catch (err) {
+        failureDetails.push({
+          jobName: failedJob.name,
+          status: failedJob.conclusion,
+          error: err.message,
+        });
+      }
+    }
+    
+    return { failures: failedJobs, failureDetails };
+  } catch (err) {
+    console.error('Error analyzing failures:', err.message);
+    return null;
+  }
+}
+
 async function triggerNewWorkflow() {
   try {
     const octokit = await initOctokit();
@@ -957,8 +1111,34 @@ async function triggerNewWorkflow() {
     });
     
     console.log('✅ New CI workflow triggered successfully');
-    console.log('📊 SRE Agent will not wait for results. New workflow will run independently.');
-    return { success: true };
+    
+    // NEW: Get the latest workflow run and watch it
+    console.log('\n⏳ Getting latest workflow run details...');
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s for GitHub to register the new run
+    
+    const latestRun = await getLatestWorkflowRun();
+    if (latestRun) {
+      console.log(`\n🔗 New workflow run: ${latestRun.id}`);
+      console.log(`🌐 URL: ${latestRun.html_url}`);
+      
+      // Watch the workflow (max 10 minutes, poll every 10 seconds)
+      const watchResult = await watchWorkflowStatus(latestRun.id, 600, 10);
+      
+      if (watchResult.success) {
+        console.log('\n✅ Workflow completed successfully!');
+        return { success: true, runId: latestRun.id, passed: true };
+      } else {
+        console.log('\n⚠️  Workflow did not complete with success');
+        
+        // Analyze failures
+        const failureAnalysis = await monitorAndFixFailures(latestRun.id);
+        
+        return { success: true, runId: latestRun.id, passed: false, failures: failureAnalysis };
+      }
+    } else {
+      console.log('⚠️  Could not fetch latest workflow run');
+      return { success: true, runId: null };
+    }
   } catch (err) {
     console.error('❌ Failed to trigger new workflow:', err.message);
     return { success: false };
