@@ -120,6 +120,7 @@ const SRE_EXPERTISE = {
       description: 'Automated code & configuration fixes',
       types: [
         'Linting errors - Remove unused variables/functions, fix formatting',
+        'Compliance agent errors - Handle missing files, working directory issues',
         'Syntax errors - Pattern matching & correction',
         'Missing dependencies - npm install & package updates',
         'Configuration issues - Template-based fixes',
@@ -863,6 +864,71 @@ async function makeCodeChanges(failureAnalysis) {
         
         // Mark as detected so we know to commit and retry
         console.log("Server needs request timeout fixes - will be applied on next iteration");
+      }
+    }
+  }
+  
+  // === NEW: Check for Compliance Agent errors ===
+  const hasComplianceError = failureAnalysis?.some(f =>
+    f.jobName?.includes('Compliance') &&
+    (f.failures?.some(fail => 
+      fail.error?.includes('ENOENT') || 
+      fail.error?.includes('no such file or directory') ||
+      fail.error?.includes('package.json') ||
+      fail.error?.includes('compliance-audit-report')
+    ) || f.error?.includes('ENOENT'))
+  );
+  
+  if (hasComplianceError) {
+    console.log("🛡️ Detected Compliance Agent file path error - fixing working directory issues...");
+    
+    const complianceAgentPath = "compliance-agent.js";
+    if (fs.existsSync(complianceAgentPath)) {
+      let complianceCode = fs.readFileSync(complianceAgentPath, "utf8");
+      
+      // Fix: Ensure working directory context at the start of the script
+      if (!complianceCode.includes("process.chdir(__dirname)")) {
+        console.log("  Adding process.chdir(__dirname) to compliance-agent.js...");
+        
+        // Add working directory context after imports
+        const importEnd = complianceCode.indexOf("const COMPLIANCE_STANDARDS");
+        if (importEnd > -1) {
+          complianceCode = complianceCode.slice(0, importEnd) + 
+            "// Ensure working directory context\nif (process.cwd() !== __dirname) { process.chdir(__dirname); }\n\n" +
+            complianceCode.slice(importEnd);
+          
+          fs.writeFileSync(complianceAgentPath, complianceCode);
+          changesDetected = true;
+          console.log("  ✅ Fixed compliance agent working directory context");
+        }
+      }
+      
+      // Fix: Use path.resolve for all file operations
+      if (!complianceCode.includes("path.resolve")) {
+        console.log("  Adding path.resolve() for file operations...");
+        
+        // Add path import if missing
+        if (!complianceCode.includes("const path = require('path')")) {
+          const firstRequire = complianceCode.indexOf("const fs = require");
+          if (firstRequire > -1) {
+            const lineEnd = complianceCode.indexOf("\n", firstRequire);
+            complianceCode = complianceCode.slice(0, lineEnd + 1) +
+              "const path = require('path');\n" +
+              complianceCode.slice(lineEnd + 1);
+          }
+        }
+        
+        // Replace file paths with path.resolve
+        complianceCode = complianceCode.replace(/fs\.readFileSync\(['"]([^'"]+)['"]/g, 
+          (match, filepath) => `fs.readFileSync(path.resolve(__dirname, '${filepath}')`);
+        complianceCode = complianceCode.replace(/fs\.writeFileSync\(['"]([^'"]+)['"]/g,
+          (match, filepath) => `fs.writeFileSync(path.resolve(__dirname, '${filepath}')`);
+        complianceCode = complianceCode.replace(/fs\.existsSync\(['"]([^'"]+)['"]/g,
+          (match, filepath) => `fs.existsSync(path.resolve(__dirname, '${filepath}')`);
+        
+        fs.writeFileSync(complianceAgentPath, complianceCode);
+        changesDetected = true;
+        console.log("  ✅ Fixed file path resolution in compliance agent");
       }
     }
   }

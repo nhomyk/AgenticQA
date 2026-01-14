@@ -12,7 +12,12 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const REPO_ROOT = '/Users/nicholashomyk/mono/AgenticQA';
+// Ensure working directory context is set correctly
+const REPO_ROOT = path.resolve(__dirname);
+if (process.cwd() !== REPO_ROOT) {
+  process.chdir(REPO_ROOT);
+}
+
 const COMPLIANCE_REPORT_FILE = path.join(REPO_ROOT, 'compliance-audit-report.md');
 
 // ============================================================================
