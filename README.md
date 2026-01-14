@@ -58,6 +58,68 @@ Our team doesn't just build software—we architect strategic technology advanta
 
 ---
 
+## 💼 Consulting Services
+
+Beyond circleQA.ai, we offer strategic consulting across a comprehensive range of high-impact projects. Our 15+ years of tech architecture expertise enables us to deliver solutions that drive real business value.
+
+### AI Transformations
+Reimagine your entire SDLC with autonomous AI agents. We design and implement intelligent systems that reduce manual work, improve quality, and accelerate delivery. From compliance automation to intelligent testing, we transform how your organization builds software.
+
+- Agent architecture design and implementation
+- Custom domain training for your business context
+- End-to-end AI transformation roadmap
+- Integration with existing tools and workflows
+- Ongoing optimization and scaling
+
+### Custom Education & Upskilling Programs
+Build deep technical expertise across your organization with tailored training. We deliver both live workshops and on-demand video content on any technology your team needs to master.
+
+- **Custom Curriculum Design** - Tailored to your team's needs and learning pace
+- **Advanced Topics** - Automation frameworks, vector databases, AI agents, modern architectures
+- **Live Workshop Sessions** - Interactive training with hands-on labs and real-world scenarios
+- **Video Content Library** - Professional, on-demand training materials for ongoing reference
+- **Certification & Skill Validation** - Measure progress and validate competency
+
+### Custom Automated Builds
+Streamline your development workflow with intelligent build automation. We design systems that compile, test, and deploy your code with zero manual intervention and maximum efficiency.
+
+- Build pipeline architecture and optimization
+- Multi-framework and multi-language support
+- Parallel execution for 3x faster builds
+- Integration with your existing tool ecosystem
+- Continuous performance monitoring and optimization
+
+### Enterprise CI/CD Pipelines
+Design and implement world-class deployment automation that scales with your organization. From simple applications to complex microservices, we build pipelines that match your exact requirements.
+
+- End-to-end pipeline architecture and strategy
+- Multi-environment deployment patterns
+- Blue-green, canary, and rolling deployment strategies
+- Automated rollback and disaster recovery
+- Integration with GitHub Actions, Jenkins, ArgoCD, and more
+
+### Architecture Modernization
+Transform legacy systems into modern, scalable architectures. We design and execute strategic system migrations that reduce technical debt, improve performance, and enable rapid innovation.
+
+- Comprehensive system assessment and roadmap
+- Monolith-to-microservices migration strategies
+- On-premise to cloud transitions with zero downtime
+- Database evolution, optimization, and migration
+- Team training and change management
+
+### Strategic Development & Implementation
+When you need more than consulting—when you need execution. Our architects lead full-scale implementation of complex projects, combining strategic design with hands-on delivery.
+
+- Full-stack application development
+- Performance optimization and system scaling
+- Security hardening and compliance implementation
+- Third-party system integration
+- Dedicated project leadership and delivery
+
+**Every consulting engagement leverages our deep expertise in architecture, AI, compliance, and enterprise systems—the same knowledge embedded in circleQA.ai.**
+
+---
+
 ## 🎯 Core Features
 
 ### 1. **Multi-Agent Autonomous Architecture** 
@@ -116,7 +178,7 @@ Five specialized AI agents that collaborate to ensure perfect code quality and c
 
 ### 4. **Comprehensive Testing Infrastructure**
 
-**59+ Automated Tests** across 5 frameworks (ESLint, Jest, Vitest, Playwright, Cypress) with continuous validation and accessibility testing.
+**Auto-Updating Tests** across any testing framework - automatically generating unlimited tests for complete codebase coverage. ESLint, Jest, Vitest, Playwright, Cypress, and Pa11y with continuous expansion.
 
 ### 5. **Real-Time Pipeline Monitoring**
 
