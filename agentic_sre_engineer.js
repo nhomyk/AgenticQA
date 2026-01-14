@@ -1142,15 +1142,19 @@ async function agenticSRELoop() {
           console.log('✅ Changes pushed to main');
           codeChangesApplied = true;
           
-          // Trigger re-run of failed jobs to verify fixes
-          const triggerResult = await reRunCurrentWorkflow();
+          // Wait a moment for git to sync
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Trigger a NEW CI workflow via workflow_dispatch to verify fixes
+          console.log('\n🚀 Triggering new CI workflow to verify fixes...');
+          const triggerResult = await triggerNewWorkflow();
           
           if (triggerResult.success) {
             success = true;
             try {
               await sendEmail(
                 `SRE Agent Fixed Code - AgenticQA v${newVersion}`,
-                `Changes applied in iteration ${iteration}.\nPipeline jobs have been triggered to verify fixes.\nPlease monitor the workflow for test results.`
+                `Changes applied in iteration ${iteration}.\nNew CI workflow triggered to verify fixes.\nPlease monitor https://github.com/${REPO_OWNER}/${REPO_NAME}/actions for results.`
               );
             } catch (err) {
               console.error('Failed to send email (non-critical):', err.message);
@@ -1181,18 +1185,18 @@ async function agenticSRELoop() {
       console.error('Failed to send email (non-critical):', err.message);
     }
     
-    // CRITICAL: If failures were detected but not fixed, force re-run anyway
-    console.log(`\n🔄 Failures detected but not fixed - forcing re-run attempt...`);
+    // CRITICAL: If failures were detected but not fixed, force workflow trigger anyway
+    console.log(`\n🔄 Failures detected but not fixed - forcing new workflow trigger...`);
     try {
-      const triggerResult = await reRunCurrentWorkflow();
+      const triggerResult = await triggerNewWorkflow();
       if (triggerResult.success) {
-        console.log(`✅ Re-run triggered even without code changes`);
-        console.log(`   Next run may succeed or provide more diagnostic data`);
+        console.log(`✅ New workflow triggered even without code changes`);
+        console.log(`   This will help diagnose why fixes couldn't be applied`);
       } else {
-        console.log(`⚠️  Re-run trigger failed`);
+        console.log(`⚠️  Workflow trigger failed`);
       }
     } catch (err) {
-      console.log(`⚠️  Re-run error: ${err.message}`);
+      console.log(`⚠️  Trigger error: ${err.message}`);
     }
   }
 
