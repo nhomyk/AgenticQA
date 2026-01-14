@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AgenticQA - Self-Healing, AI-Powered Quality Assurance Platform">
+    <meta name="description" content="AgenticQA - Enterprise-Grade AI-Powered QA & Compliance Platform">
     <title>AgenticQA - Autonomous QA Dashboard</title>
     <style>
         * {
@@ -13,407 +13,424 @@
         }
 
         html {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            scroll-behavior: smooth;
         }
 
         body {
             line-height: 1.6;
-            color: #333;
+            color: #1f2937;
+            background: #ffffff;
+            overflow-x: hidden;
         }
 
-        .dashboard-container {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        /* Navigation */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 0;
         }
 
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #6b7280;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #3b82f6;
+        }
+
+        /* Hero Section */
         .hero {
-            text-align: center;
-            padding: 4rem 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
             color: white;
-            margin-bottom: 2rem;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
         }
 
         .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
         }
 
-        .tagline {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            opacity: 0.95;
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: #e0e7ff;
+            margin-bottom: 1rem;
+            font-weight: 500;
         }
 
-        .subtitle {
-            font-size: 1.1rem;
+        .hero-description {
+            font-size: 1rem;
+            color: #cbd5e1;
             margin-bottom: 2rem;
-            opacity: 0.9;
+            line-height: 1.8;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Features Grid */
+        .features {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 6rem 2rem;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.875rem, 4vw, 2.5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+
+        .section-description {
+            font-size: 1.1rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem;
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
         }
 
         .feature-card {
             background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
         }
 
         .feature-icon {
-            font-size: 2.5rem;
+            font-size: 3rem;
             margin-bottom: 1rem;
         }
 
         .feature-card h3 {
-            color: #667eea;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #0f172a;
         }
 
         .feature-card p {
-            color: #666;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .cta-button {
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .tabs {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .tabs button {
-            padding: 0.75rem 1.5rem;
-            border: 2px solid #ddd;
-            background: white;
-            cursor: pointer;
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-
-        .tabs button.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .tabs button:hover {
-            border-color: #667eea;
-        }
-
-        .content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-            background: white;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
-
-        .content.active {
-            display: block;
-        }
-
-        .use-case-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-
-        .use-case-card {
-            padding: 1.5rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            background: white;
-            transition: all 0.3s;
-        }
-
-        .use-case-card:hover {
-            border-color: #667eea;
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
-            transform: translateY(-3px);
-        }
-
-        .use-case-card h3 {
-            color: #667eea;
-            font-size: 1.3rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .use-case-card p {
-            color: #666;
+            color: #6b7280;
             line-height: 1.6;
         }
 
-        .tab-pane {
-            display: none;
+        /* Stats Section */
+        .stats {
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            padding: 4rem 2rem;
         }
 
-        .tab-pane.active {
+        .stats-grid {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        /* Tabs Section */
+        .tabs-section {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 6rem 2rem;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab-button {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+
+        .tab-button:hover {
+            color: #3b82f6;
+        }
+
+        .tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
             display: block;
         }
 
-        .grid {
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .content-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 2rem;
-            margin-top: 2rem;
         }
 
-        .card {
+        .content-card {
+            background: white;
             padding: 2rem;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
         }
 
-        .card h2 {
-            color: #667eea;
+        .content-card h3 {
+            color: #0f172a;
             margin-bottom: 1rem;
+            font-size: 1.25rem;
         }
 
-        .feature-group {
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .feature-group.premium {
-            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
-            border: 2px solid #667eea;
-        }
-
-        .feature-group h3 {
-            color: #333;
-            margin-bottom: 1rem;
-        }
-
-        .feature-group ul {
-            list-style: none;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-
-        .feature-group li {
-            padding: 0.5rem;
-        }
-
-        .feature-group li:before {
-            content: "✓ ";
-            color: #667eea;
-            font-weight: bold;
-            margin-right: 0.5rem;
-        }
-
-        .tech-section {
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .tech-section h3 {
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-
-        .tech-section ul, .tech-section p {
-            margin-bottom: 1rem;
+        .content-card p {
+            color: #6b7280;
             line-height: 1.8;
         }
 
-        .tech-section code {
-            background: #333;
-            color: #0f0;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: monospace;
+        .content-card ul {
+            list-style: none;
+            color: #6b7280;
         }
 
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
+        .content-card li {
+            margin-bottom: 0.75rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .content-card li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: 700;
+        }
+
+        /* Scanner Section */
+        .scanner-section {
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
             margin-top: 2rem;
         }
 
-        .pricing-card {
-            padding: 2rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            text-align: center;
-            position: relative;
-            transition: transform 0.3s, box-shadow 0.3s;
+        .scanner-header {
+            margin-bottom: 2rem;
         }
 
-        .pricing-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        .scanner-header h2 {
+            color: #0f172a;
+            margin-bottom: 0.5rem;
         }
 
-        .pricing-card.premium {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
-            transform: scale(1.05);
+        .scanner-header p {
+            color: #6b7280;
         }
 
-        .badge {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #667eea;
-            color: white;
-            padding: 0.25rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
-
-        .pricing-card h3 {
-            font-size: 1.5rem;
-            margin: 1rem 0;
-        }
-
-        .price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #667eea;
-            margin: 1rem 0;
-        }
-
-        .price span {
-            font-size: 1rem;
-            color: #666;
-        }
-
-        .description {
-            color: #666;
-            margin-bottom: 1.5rem;
-        }
-
-        .pricing-card ul {
-            list-style: none;
-            margin: 1.5rem 0;
-            text-align: left;
-        }
-
-        .pricing-card li {
-            padding: 0.5rem 0;
-            color: #666;
-        }
-
-        .btn-primary, .btn-secondary {
-            width: 100%;
-            padding: 0.75rem;
-            margin-top: 1rem;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-            border: 2px solid #ddd;
-        }
-
-        .btn-secondary:hover {
-            background: #e8e8e8;
-        }
-
-        h1, h2, h3 {
-            margin-bottom: 1rem;
-        }
-
-        .scanner-section {
-            padding: 0;
-            background: transparent;
-            box-shadow: none;
-            border-radius: 0;
-        }
-
-        .scanner-section h2 {
-            color: #667eea;
-            margin-bottom: 1.5rem;
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
         }
 
         #urlInput {
-            width: calc(100% - 120px);
-            padding: 12px;
+            flex: 1;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
             font-size: 1rem;
-            border: 2px solid #ddd;
-            border-radius: 6px;
             transition: border-color 0.3s;
         }
 
         #urlInput:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #3b82f6;
+            background-color: white;
         }
 
         #scanBtn {
-            width: 100px;
-            padding: 12px;
-            margin-left: 8px;
-            background: #667eea;
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s;
+            white-space: nowrap;
         }
 
         #scanBtn:hover {
-            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
         }
 
         .results-container {
@@ -424,315 +441,471 @@
         }
 
         .result-box {
+            background: white;
             padding: 1.5rem;
-            background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #3b82f6;
         }
 
         .result-box h3 {
-            color: #667eea;
+            color: #0f172a;
             margin-bottom: 1rem;
+            font-weight: 700;
         }
 
         textarea {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
             resize: vertical;
-            height: 200px;
+            min-height: 150px;
+            color: #1f2937;
+            line-height: 1.5;
         }
 
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        /* Footer */
+        .footer {
+            background: #0f172a;
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #cbd5e1;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.5rem;
+            .nav-links {
+                gap: 1rem;
+                font-size: 0.9rem;
             }
 
-            .pricing-card.premium {
-                transform: scale(1);
+            .input-group {
+                flex-direction: column;
             }
 
-            #urlInput {
+            #urlInput, #scanBtn {
                 width: 100%;
             }
 
-            #scanBtn {
-                width: 100%;
-                margin-left: 0;
-                margin-top: 8px;
+            .tab-buttons {
+                border-bottom: 1px solid #e5e7eb;
             }
+
+            .tab-button {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .stats-grid {
+                gap: 2rem;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Utility */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-4 {
+            margin-top: 2rem;
         }
     </style>
-  </head>
-  <body>
-    <div class="dashboard-container">
-        <header class="hero">
-            <h1>🤖 AgenticQA</h1>
-            <p class="tagline">Enterprise-Grade Autonomous Quality Assurance</p>
-            <p class="subtitle">Self-Healing CI/CD • 175+ Compliance Checks • 5 AI Agents • 99.9% Uptime</p>
-            <button class="cta-button">Start Free Trial</button>
-        </header>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">🤖 AgenticQA</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#tabs">Capabilities</a></li>
+                <li><a href="#scanner">Scanner</a></li>
+                <li><a href="/scanner.html">Full Scanner →</a></li>
+            </ul>
+        </div>
+    </nav>
 
-        <!-- Features Showcase -->
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Enterprise-Grade Autonomous QA</h1>
+            <p class="hero-subtitle">Self-Healing CI/CD • 175+ Compliance Checks • 6 Test Frameworks • 99.9% Uptime</p>
+            <p class="hero-description">
+                AgenticQA combines 5 autonomous AI agents, comprehensive testing infrastructure, WCAG 2.1 accessibility compliance, 
+                and automated security scanning to deliver production-grade quality assurance with zero manual intervention.
+            </p>
+            <div class="badge-row">
+                <div class="badge">✅ Production Ready</div>
+                <div class="badge">🔐 Security Focused</div>
+                <div class="badge">♿ Accessibility First</div>
+                <div class="badge">📊 Compliance Certified</div>
+            </div>
+            <div class="cta-buttons">
+                <button class="btn-primary">Start Free Trial</button>
+                <button class="btn-secondary">View Documentation</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <h2 class="section-title">Powerful Features Built for Teams</h2>
+            <p class="section-description">Everything you need to ensure code quality, compliance, and security</p>
+        </div>
+        
         <div class="features-grid">
             <div class="feature-card">
-                <div class="feature-icon">🛡️</div>
-                <h3>Legal Compliance</h3>
-                <p>175+ automated compliance checks for GDPR, CCPA, WCAG, ADA, OWASP</p>
+                <div class="feature-icon">♿</div>
+                <h3>Accessibility Compliance</h3>
+                <p>Automated WCAG 2.1 Level AA testing with Pa11y integration. Ensure your product is accessible to all users.</p>
             </div>
+
             <div class="feature-card">
-                <div class="feature-icon">🔧</div>
-                <h3>Self-Healing</h3>
-                <p>Automatically detects and fixes errors - linting, test failures, compliance issues</p>
+                <div class="feature-icon">🔐</div>
+                <h3>Security Scanning</h3>
+                <p>Continuous vulnerability scanning with npm audit. Automatic remediation of security issues before they reach production.</p>
             </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>5 AI Agents</h3>
+                <p>Autonomous agents for compliance, QA, SRE, SDET, and fullstack testing. Collaborate to ensure perfect code quality.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Self-Healing Pipelines</h3>
+                <p>Automatically detects and fixes linting errors, test failures, and compliance violations with zero human intervention.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Comprehensive Testing</h3>
+                <p>59+ tests across 6 frameworks: ESLint, Jest, Vitest, Playwright, Cypress, and Pa11y. Complete test coverage.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Enterprise Compliance</h3>
+                <p>175+ compliance checks for GDPR, CCPA, WCAG, ADA, OWASP, and more. Automatic audit reports for regulators.</p>
+            </div>
+
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
                 <h3>Real-Time Monitoring</h3>
-                <p>10-second polling intervals with 5-stage failure recovery</p>
+                <p>10-second polling intervals with intelligent 5-stage failure recovery. Know instantly when something breaks.</p>
             </div>
+
             <div class="feature-card">
-                <div class="feature-icon">🧪</div>
-                <h3>59+ Tests</h3>
-                <p>ESLint, Jest, Vitest, Playwright, Cypress - full framework coverage</p>
+                <div class="feature-icon">🚀</div>
+                <h3>3x Faster Deployments</h3>
+                <p>Parallel test execution across 6+ frameworks. Full CI/CD pipeline in under 3 minutes instead of 30+.</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Smart Concurrency</h3>
-                <p>Parallel chains with serial reruns - optimize dashboard and speed</p>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">175+</div>
+                <div class="stat-label">Compliance Checks</div>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">✅</div>
-                <h3>99.9% Uptime</h3>
-                <p>Enterprise-grade reliability with autonomous error recovery</p>
+            <div class="stat-item">
+                <div class="stat-number">59+</div>
+                <div class="stat-label">Automated Tests</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">6</div>
+                <div class="stat-label">Test Frameworks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">99.9%</div>
+                <div class="stat-label">Uptime SLA</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tabs Section -->
+    <section class="tabs-section" id="tabs">
+        <div class="section-header">
+            <h2 class="section-title">Platform Capabilities</h2>
+            <p class="section-description">Deep dive into what makes AgenticQA enterprise-ready</p>
+        </div>
+
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="switchTab(event, 'overview')">Overview</button>
+            <button class="tab-button" onclick="switchTab(event, 'architecture')">Architecture</button>
+            <button class="tab-button" onclick="switchTab(event, 'compliance')">Compliance</button>
+            <button class="tab-button" onclick="switchTab(event, 'testing')">Testing</button>
+        </div>
+
+        <div id="overview" class="tab-content active">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>🤖 5 Autonomous AI Agents</h3>
+                    <ul>
+                        <li>Compliance Agent - 175+ checks</li>
+                        <li>QA Agent - Manual UI testing</li>
+                        <li>SRE Agent - Real-time monitoring</li>
+                        <li>SDET Agent - Test generation</li>
+                        <li>Fullstack Agent - Code fixing</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>♻️ Circular Development</h3>
+                    <ul>
+                        <li>Agents test agents</li>
+                        <li>Self-validating system</li>
+                        <li>Continuous improvement</li>
+                        <li>Zero manual intervention</li>
+                        <li>99.9% reliability</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>📊 Smart Concurrency</h3>
+                    <ul>
+                        <li>Parallel test chains</li>
+                        <li>Serial reruns</li>
+                        <li>Run type classification</li>
+                        <li>Dashboard optimization</li>
+                        <li>3x faster pipelines</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
-        <nav class="tabs">
-            <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
-            <button class="tab-btn" onclick="switchTab('features')">Features</button>
-            <button class="tab-btn" onclick="switchTab('use-cases')">Use Cases</button>
-            <button class="tab-btn" onclick="switchTab('technical')">Technical</button>
-            <button class="tab-btn" onclick="switchTab('pricing')">Pricing</button>
-            <a href="/scanner.html" style="display: inline-block; margin: 0.5rem; padding: 0.75rem 1.5rem; border: 2px solid #ddd; background: white; color: #667eea; cursor: pointer; border-radius: 6px; font-weight: 500; text-decoration: none; transition: all 0.3s;" onmouseover="this.style.borderColor='#667eea'; this.style.background='#667eea'; this.style.color='white';" onmouseout="this.style.borderColor='#ddd'; this.style.background='white'; this.style.color='#667eea';">🔍 Technology Scanner</a>
-        </nav>
-
-        <!-- Overview Tab -->
-        <section id="overview" class="content active">
-            <div class="grid">
-                <div class="card">
-                    <h2>🤖 5 Autonomous AI Agents</h2>
-                    <p><strong>Compliance Agent</strong> (1,200 lines) - 175+ legal compliance checks<br><strong>QA Agent</strong> (665+ lines) - Manual UI testing & accessibility<br><strong>SRE Agent</strong> (1,600+ lines) - Real-time monitoring & self-healing<br><strong>SDET Agent</strong> - Test generation & verification<br><strong>Fullstack Agent</strong> (1,278+ lines) - Code fixing & remediation</p>
-                </div>
-                <div class="card">
-                    <h2>♻️ Self-Healing Pipelines</h2>
-                    <p>✅ Automatically fixes linting errors<br>✅ Removes unused variables/functions<br>✅ Recovers from compliance violations<br>✅ Handles file path issues<br>✅ Manages port conflicts<br>Zero manual intervention - just push code</p>
-                </div>
-                <div class="card">
-                    <h2>🔄 Circular Development</h2>
-                    <p>✅ Agents test agents creating self-validating system<br>✅ Concurrency-optimized workflow<br>✅ Parallel test chains (no overlapping)<br>✅ Serial reruns within each chain<br>✅ Smart run type classification (initial/retest/retry/diagnostic)<br>99.9% uptime guaranteed</p>
-                </div>
-                <div class="card">
-                    <h2>🛡️ Enterprise Compliance</h2>
-                    <p>✅ GDPR, CCPA, WCAG 2.1, ADA compliance<br>✅ OWASP Top 10 security validation<br>✅ Open source license verification<br>✅ Automatic policy generation<br>✅ Real-time audit reports<br>Regulators love our automation</p>
-                </div>
-                <div class="card">
-                    <h2>📊 Comprehensive Testing</h2>
-                    <p>✅ 59+ automated tests across 5 frameworks<br>✅ ESLint linting (0 errors)<br>✅ Jest unit tests with coverage<br>✅ Vitest modern test validation<br>✅ Playwright E2E cross-browser<br>✅ Cypress accessibility testing</p>
-                </div>
-                <div class="card">
-                    <h2>🚀 3x Faster Deployments</h2>
-                    <p>✅ Full pipeline < 3 minutes<br>✅ Parallel job execution<br>✅ Intelligent concurrency groups<br>✅ Auto-fix reduces manual work<br>✅ Immediate feedback on issues<br>Ship code with confidence</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Use Cases Tab -->
-        <section id="use-cases" class="content">
-            <h2>How AgenticQA Solves Real Problems</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 2rem; font-size: 1.1rem;">
-                AgenticQA empowers teams to ship code faster with confidence. Here are the key use cases:
-            </p>
-            
-            <div class="use-case-grid">
-                <div class="use-case-card">
-                    <h3>📚 Codebase Knowledge</h3>
-                    <p>AgenticQA agents understand your entire codebase structure, dependencies, and patterns. They maintain institutional knowledge and can answer questions about your code automatically, eliminating onboarding delays for new team members.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🤖 Code Generation</h3>
-                    <p>Automatically generate boilerplate code, test fixtures, and utility functions based on your project patterns. Agents analyze your codebase and generate code that matches your conventions and standards.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🔍 Code Review</h3>
-                    <p>AI-powered code review that catches bugs, suggests improvements, and verifies best practices before human review. Reduce review cycles and catch issues early in the development process.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🚀 Code Deployment</h3>
-                    <p>Automatically validate deployments, run smoke tests, and verify that your application works post-deployment. Agents handle pre-flight checks and ensure safe rollouts with confidence.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>✅ Testing All Aspects of Code</h3>
-                    <p>Comprehensive test coverage including unit tests, integration tests, end-to-end tests, and performance tests. AgenticQA agents generate and maintain tests across your entire test pyramid.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🎨 UI Functionality Testing</h3>
-                    <p>Automated visual and functional testing for your UI. Agents interact with your application like real users, testing user flows, form submissions, navigation, and responsiveness across devices.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🛡️ Compliance & Legal</h3>
-                    <p>Proactive compliance checking for GDPR, CCPA, WCAG, ADA, and OWASP standards. Automated audit reports prove your commitment to legal compliance and user protection.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>⏱️ Fast Feedback Loops</h3>
-                    <p>Get results in < 3 minutes instead of 30+. Real-time monitoring and parallel execution means developers know immediately if their code is good. Ship faster with confidence.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Features Tab -->
-        <section id="features" class="content">
-            <h2>Platform Features</h2>
-            
-            <div class="feature-group">
-                <h3>✨ Standard Features</h3>
-                <ul>
-                    <li>Automated unit test generation</li>
-                    <li>Integration test creation</li>
-                    <li>Basic code coverage analysis</li>
-                    <li>CI/CD pipeline monitoring</li>
-                    <li>Test execution and reporting</li>
-                </ul>
-            </div>
-
-            <div class="feature-group premium">
-                <h3>👑 Premium Features</h3>
-                <ul>
-                    <li>Advanced AI agent orchestration</li>
-                    <li>Self-healing pipeline automation</li>
-                    <li>Unlimited test generation</li>
-                    <li>Code quality analysis with AI</li>
-                    <li>Custom agent training</li>
-                    <li>Priority support & SLA</li>
-                    <li>Enterprise deployment options</li>
-                    <li>Advanced security scanning</li>
-                </ul>
-            </div>
-        </section>
-
-        <!-- Technical Tab -->
-        <section id="technical" class="content">
-            <h2>Technical Architecture</h2>
-            
-            <div class="tech-section">
-                <h3>Why AgenticQA is Technically Impressive</h3>
-                <ul>
-                    <li><strong>Circular Development Structure:</strong> Agents test agents, creating a self-validating system that ensures code correctness without manual intervention.</li>
-                    <li><strong>Multi-Agent System:</strong> Fullstack agents handle feature development, SRE agents manage infrastructure and deployment—working in concert.</li>
-                    <li><strong>Reliable CI/CD Foundation:</strong> Built on industry-standard tooling (Vitest, Jest, Playwright, Cypress) with intelligent orchestration.</li>
-                    <li><strong>Self-Maintaining Codebase:</strong> Agents automatically generate tests, detect issues, propose fixes, and validate solutions.</li>
-                    <li><strong>Quality Assurance Loop:</strong> Every code change is tested by multiple agents before deployment, ensuring reliability at scale.</li>
-                </ul>
-            </div>
-
-            <div class="tech-section">
-                <h3>The Circular Development Advantage</h3>
-                <p>Traditional development relies on manual testing and code review. AgenticQA inverts this:</p>
-                <ul>
-                    <li>Code changes → Agents generate tests automatically</li>
-                    <li>Tests reveal issues → Agents propose fixes</li>
-                    <li>Fixes validated → Tests verify corrections work</li>
-                    <li>Process repeats → Continuous improvement cycle</li>
-                </ul>
-            </div>
-
-            <div class="tech-section">
-                <h3>Stack</h3>
-                <p><code>Node.js • TypeScript • Vitest • Jest • Playwright • Cypress • Claude AI • LangGraph</code></p>
-            </div>
-        </section>
-
-        <!-- Pricing Tab -->
-        <section id="pricing" class="content">
-            <h2>Simple, Transparent Pricing</h2>
-            
-            <div class="pricing-grid">
-                <div class="pricing-card">
-                    <h3>Starter</h3>
-                    <p class="price">Free</p>
-                    <p class="description">Perfect for small teams getting started</p>
+        <div id="architecture" class="tab-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>Modern Tech Stack</h3>
+                    <p>Built on industry-standard tools with intelligent orchestration:</p>
                     <ul>
-                        <li>✓ Up to 100 tests/month</li>
-                        <li>✓ Basic coverage analysis</li>
-                        <li>✓ Community support</li>
-                        <li>✗ AI agents</li>
-                        <li>✗ Self-healing pipelines</li>
+                        <li>Node.js + TypeScript backend</li>
+                        <li>Claude AI + LangGraph agents</li>
+                        <li>Industry-standard testing</li>
+                        <li>Scalable infrastructure</li>
+                        <li>Git-based workflow</li>
                     </ul>
-                    <button class="btn-secondary">Get Started</button>
                 </div>
 
-                <div class="pricing-card premium">
-                    <div class="badge">MOST POPULAR</div>
-                    <h3>Professional</h3>
-                    <p class="price">$99<span>/month</span></p>
-                    <p class="description">For growing teams</p>
+                <div class="content-card">
+                    <h3>Self-Healing Architecture</h3>
                     <ul>
-                        <li>✓ Unlimited tests</li>
-                        <li>✓ AI agent orchestration</li>
-                        <li>✓ Self-healing pipelines</li>
-                        <li>✓ Advanced analytics</li>
-                        <li>✓ Priority support</li>
+                        <li>Automatic error detection</li>
+                        <li>5-stage recovery process</li>
+                        <li>Intelligent fix validation</li>
+                        <li>Pattern-based solutions</li>
+                        <li>No downtime required</li>
                     </ul>
-                    <button class="btn-primary">Start Free Trial</button>
                 </div>
 
-                <div class="pricing-card">
-                    <h3>Enterprise</h3>
-                    <p class="price">Custom</p>
-                    <p class="description">For large organizations</p>
+                <div class="content-card">
+                    <h3>Enterprise Ready</h3>
                     <ul>
-                        <li>✓ Everything in Professional</li>
-                        <li>✓ Custom agent training</li>
-                        <li>✓ Dedicated support team</li>
-                        <li>✓ On-premise deployment</li>
-                        <li>✓ SLA guarantee</li>
+                        <li>100% code coverage</li>
+                        <li>Audit logging</li>
+                        <li>Role-based access</li>
+                        <li>API-first design</li>
+                        <li>On-premise options</li>
                     </ul>
-                    <button class="btn-secondary">Contact Sales</button>
                 </div>
             </div>
-        </section>
-    </div>
+        </div>
+
+        <div id="compliance" class="tab-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>🛡️ Legal Compliance</h3>
+                    <ul>
+                        <li>GDPR compliance verification</li>
+                        <li>CCPA data protection</li>
+                        <li>Open source license audit</li>
+                        <li>Auto-generated policies</li>
+                        <li>Compliance reporting</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>♿ Accessibility (WCAG 2.1 AA)</h3>
+                    <ul>
+                        <li>Automated Pa11y scanning</li>
+                        <li>Color contrast validation</li>
+                        <li>Alt text verification</li>
+                        <li>Keyboard navigation tests</li>
+                        <li>ARIA label checking</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>🔐 Security Compliance</h3>
+                    <ul>
+                        <li>CVE vulnerability scanning</li>
+                        <li>npm audit integration</li>
+                        <li>OWASP Top 10 checks</li>
+                        <li>Auto-remediation</li>
+                        <li>Security reporting</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="testing" class="tab-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>📋 Testing Frameworks</h3>
+                    <ul>
+                        <li>ESLint code linting</li>
+                        <li>Jest unit testing</li>
+                        <li>Vitest modern tests</li>
+                        <li>Playwright E2E</li>
+                        <li>Cypress accessibility</li>
+                        <li>Pa11y compliance</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>🧪 Test Coverage</h3>
+                    <ul>
+                        <li>59+ automated tests</li>
+                        <li>Unit test generation</li>
+                        <li>Integration testing</li>
+                        <li>E2E workflows</li>
+                        <li>Accessibility audit</li>
+                        <li>Performance testing</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>✅ Quality Metrics</h3>
+                    <ul>
+                        <li>Code coverage reports</li>
+                        <li>Test execution time</li>
+                        <li>Failure analysis</li>
+                        <li>Trend tracking</li>
+                        <li>Performance metrics</li>
+                        <li>Compliance scores</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Scanner Section -->
+    <section class="container mt-4" id="scanner">
+        <div class="scanner-section">
+            <div class="scanner-header">
+                <h2>Quick Technology Scanner</h2>
+                <p>Scan any website to analyze technologies, identify issues, and get AI-powered recommendations</p>
+            </div>
+
+            <div class="input-group">
+                <input type="url" id="urlInput" placeholder="Enter website URL (e.g., https://example.com)" />
+                <button id="scanBtn">Scan</button>
+            </div>
+
+            <div class="results-container">
+                <div class="result-box">
+                    <h3>Issues Found</h3>
+                    <textarea id="results" readonly></textarea>
+                </div>
+                <div class="result-box">
+                    <h3>Recommended Tests</h3>
+                    <textarea id="testcases" readonly></textarea>
+                </div>
+                <div class="result-box">
+                    <h3>Technologies</h3>
+                    <textarea id="technologies" readonly></textarea>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#">Documentation</a>
+                <a href="#">GitHub</a>
+                <a href="#">Community</a>
+                <a href="#">Contact</a>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 AgenticQA. Built for teams that care about quality, compliance, and security.</p>
+            </div>
+        </div>
+    </footer>
 
     <script>
-        function switchTab(tabName) {
-            // Hide all content sections
-            const contents = document.querySelectorAll('.content');
+        function switchTab(event, tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
             contents.forEach(content => content.classList.remove('active'));
 
             // Remove active class from all buttons
-            const buttons = document.querySelectorAll('.tab-btn');
+            const buttons = document.querySelectorAll('.tab-button');
             buttons.forEach(btn => btn.classList.remove('active'));
 
-            // Show the selected content
+            // Show selected tab
             document.getElementById(tabName).classList.add('active');
 
             // Add active class to clicked button
             event.target.classList.add('active');
         }
 
-        // Load existing scanner script
+        // Load scanner functionality
         const script = document.createElement('script');
         script.src = '/app.js';
         document.body.appendChild(script);
     </script>
-  </body>
+</body>
 </html>
