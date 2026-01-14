@@ -274,7 +274,7 @@ function copyToClipboard(textOrElementId) {
 }
 
 function generatePlaywrightExample(testCase, url, caseNum) {
-  return `// Playwright Test Case ${caseNum}: ${testCase}\nconst { test, expect } = require('@playwright/test');\n\ntest('Test case ${caseNum}: ${testCase}', async ({ page }) => {\n  await page.goto('${url}');\n  // TODO: Implement: ${testCase}\n  expect(true).toBe(true);\n});`;
+  return `// Playwright Test ${caseNum}: ${testCase}\nconst { test, expect } = require('@playwright/test');\n\ntest('Test ${caseNum}: ${testCase}', async ({ page }) => {\n  await page.goto('${url}');\n  // TODO: Implement: ${testCase}\n  expect(true).toBe(true);\n});`;
   }
 
   function generateCypressExample(testCase, url, caseNum) {
