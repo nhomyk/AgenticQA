@@ -593,6 +593,174 @@
         .mt-4 {
             margin-top: 2rem;
         }
+
+        /* Who We Are Section */
+        .who-we-are-container {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .who-we-are-hero {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 1rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border-radius: 12px;
+        }
+
+        .who-we-are-hero h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .who-we-are-tagline {
+            font-size: 1.25rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .who-we-are-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .who-we-are-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .who-we-are-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+            transform: translateY(-6px);
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .who-we-are-card h3 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .who-we-are-card p {
+            color: #6b7280;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+
+        .expertise-list {
+            list-style: none;
+        }
+
+        .expertise-list li {
+            color: #6b7280;
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .expertise-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .expertise-list strong {
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        .who-we-are-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 3rem;
+        }
+
+        .who-we-are-stats .stat {
+            text-align: center;
+        }
+
+        .who-we-are-stats .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .who-we-are-stats .stat-title {
+            font-size: 1rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .who-we-are-cta {
+            text-align: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .who-we-are-cta h3 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .who-we-are-cta p {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (max-width: 768px) {
+            .who-we-are-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .who-we-are-hero h2 {
+                font-size: 2rem;
+            }
+
+            .who-we-are-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .who-we-are-cta h3 {
+                font-size: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -612,11 +780,12 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <h1>Enterprise-Grade Autonomous QA</h1>
-            <p class="hero-subtitle">Self-Healing CI/CD • 175+ Compliance Checks • 6 Test Frameworks • 99.9% Uptime</p>
+            <h1>High-Tech Autonomous QA Built by Expert Architects</h1>
+            <p class="hero-subtitle">Enterprise-Grade Self-Healing CI/CD • 175+ Compliance Checks • 6 Test Frameworks • 99.9% Uptime</p>
             <p class="hero-description">
-                AgenticQA combines 5 autonomous AI agents, comprehensive testing infrastructure, WCAG 2.1 accessibility compliance, 
-                and automated security scanning to deliver production-grade quality assurance with zero manual intervention.
+                Built by a team with 15+ years in tech architecture, AgenticQA demonstrates what's possible when you combine 5 autonomous AI agents, 
+                comprehensive testing infrastructure, WCAG 2.1 accessibility compliance, and automated security scanning. 
+                This is how the world's most demanding organizations ensure code quality.
             </p>
             <div class="badge-row">
                 <div class="badge">✅ Production Ready</div>
@@ -634,8 +803,8 @@
     <!-- Features Section -->
     <section class="features" id="features">
         <div class="section-header">
-            <h2 class="section-title">Powerful Features Built for Teams</h2>
-            <p class="section-description">Everything you need to ensure code quality, compliance, and security</p>
+            <h2 class="section-title">High-Tech Capabilities Our Team Built</h2>
+            <p class="section-description">The sophisticated systems we create demonstrate what's possible with 15+ years of tech expertise</p>
         </div>
         
         <div class="features-grid">
@@ -720,6 +889,7 @@
 
         <div class="tab-buttons" role="tablist" aria-label="documentation-tabs">
             <button class="tab-button active" onclick="switchTab(this, 'overview')" role="tab" aria-selected="true" aria-controls="overview">Overview</button>
+            <button class="tab-button" onclick="switchTab(this, 'who-we-are')" role="tab" aria-selected="false" aria-controls="who-we-are">Who We Are</button>
             <button class="tab-button" onclick="switchTab(this, 'architecture')" role="tab" aria-selected="false" aria-controls="architecture">Architecture</button>
             <button class="tab-button" onclick="switchTab(this, 'compliance')" role="tab" aria-selected="false" aria-controls="compliance">Compliance</button>
             <button class="tab-button" onclick="switchTab(this, 'testing')" role="tab" aria-selected="false" aria-controls="testing">Testing</button>
@@ -758,6 +928,126 @@
                         <li>Dashboard optimization</li>
                         <li>3x faster pipelines</li>
                     </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="who-we-are" class="tab-content">
+            <div class="who-we-are-container">
+                <!-- Hero Section -->
+                <div class="who-we-are-hero">
+                    <h2>Who We Are</h2>
+                    <p class="who-we-are-tagline">Architects of Intelligent Systems • Builders of Enterprise Innovation</p>
+                </div>
+
+                <!-- Main Grid -->
+                <div class="who-we-are-grid">
+                    <!-- Our Expertise -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🏗️</div>
+                        <h3>15+ Years of Tech Architecture</h3>
+                        <p>Our team has spent over 15 years architecting high-tech systems for Fortune 500 companies, multinational enterprises, and fast-scaling startups. We've designed infrastructure that powers millions of users, managed complex deployments across global teams, and built products from zero to billions in value.</p>
+                        <ul class="expertise-list">
+                            <li><strong>Enterprise Architecture:</strong> Large-scale distributed systems, microservices, cloud infrastructure</li>
+                            <li><strong>Team Leadership:</strong> Multi-national teams across EMEA, Asia-Pacific, North America</li>
+                            <li><strong>Startup Scaling:</strong> 0-1 and 1-100 growth stages, product-market fit, rapid iteration</li>
+                        </ul>
+                    </div>
+
+                    <!-- Agentic AI Expertise -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🤖</div>
+                        <h3>AI Agents Beyond Public Data</h3>
+                        <p>We don't use commodity AI. Our deep expertise in tech architecture allows us to train and teach agentic systems that become true experts—not just pattern matchers on public training data.</p>
+                        <ul class="expertise-list">
+                            <li><strong>Domain-Specific Training:</strong> Agents trained on 15+ years of real-world architecture patterns</li>
+                            <li><strong>Expert-Level Reasoning:</strong> Our agents understand not just what works, but why</li>
+                            <li><strong>Self-Healing Intelligence:</strong> Autonomous agents that learn from every pipeline failure, every compliance issue, every security vulnerability</li>
+                            <li><strong>Human-Level Expertise:</strong> Agents that fix code like senior engineers, audit compliance like legal consultants, and secure systems like ethical hackers</li>
+                        </ul>
+                    </div>
+
+                    <!-- Tech Stack -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">⚙️</div>
+                        <h3>Cutting-Edge Technology</h3>
+                        <p>We combine the most powerful tools in the industry with intelligent orchestration:</p>
+                        <ul class="expertise-list">
+                            <li><strong>AI & Automation:</strong> OpenAI, Anthropic, autonomous agent frameworks</li>
+                            <li><strong>Frontend & Mobile:</strong> React, Next.js, React Native, Tailwind CSS</li>
+                            <li><strong>Backend & Cloud:</strong> Node.js, Python, PostgreSQL, AWS, GCP, Docker, Kubernetes</li>
+                            <li><strong>Testing & QA:</strong> Playwright, Cypress, Vitest, Jest, Puppeteer, Selenium</li>
+                            <li><strong>DevOps & CI/CD:</strong> GitHub Actions, Jenkins, ArgoCD, monitoring & observability</li>
+                            <li><strong>Security & Compliance:</strong> WCAG 2.1, GDPR, CCPA, OWASP, SOC 2, ISO 27001</li>
+                        </ul>
+                    </div>
+
+                    <!-- Global Experience -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🌍</div>
+                        <h3>Global & Enterprise Experience</h3>
+                        <p>We've built systems trusted by the world's most demanding organizations:</p>
+                        <ul class="expertise-list">
+                            <li><strong>Fortune 500:</strong> Multi-year engagements delivering enterprise-scale solutions</li>
+                            <li><strong>Multinational Teams:</strong> Led distributed teams across timezones, cultures, and regulatory frameworks</li>
+                            <li><strong>Consulting Groups:</strong> Worked with top-tier consulting firms on strategic technology initiatives</li>
+                            <li><strong>High-Growth Startups:</strong> 0-1 experience founding and scaling technology products</li>
+                        </ul>
+                    </div>
+
+                    <!-- What We Build -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🚀</div>
+                        <h3>High-Tech Systems</h3>
+                        <p>AgenticQA is an example of the sophisticated, intelligent systems our team builds:</p>
+                        <ul class="expertise-list">
+                            <li><strong>Multi-Agent Orchestration:</strong> Autonomous agents collaborating across compliance, QA, security, and DevOps</li>
+                            <li><strong>Self-Healing Pipelines:</strong> Systems that detect, diagnose, and fix their own failures</li>
+                            <li><strong>Enterprise Compliance:</strong> 175+ compliance checks across GDPR, CCPA, WCAG, ADA, OWASP standards</li>
+                            <li><strong>AI-Powered Insights:</strong> Real-time recommendations, security scanning, accessibility verification</li>
+                        </ul>
+                    </div>
+
+                    <!-- Why Choose Us -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">✨</div>
+                        <h3>Why Work With Us</h3>
+                        <p>We don't just build software—we build strategic technology advantages for organizations that matter:</p>
+                        <ul class="expertise-list">
+                            <li><strong>Proven Excellence:</strong> Track record with F500 companies, scale-ups, and enterprise teams</li>
+                            <li><strong>Deep Expertise:</strong> 15+ years in architecture means we see patterns others miss</li>
+                            <li><strong>Future-Ready:</strong> AI agents that improve over time, not outdated systems that degrade</li>
+                            <li><strong>Custom Solutions:</strong> Every system we build is tailored to your specific domain and challenges</li>
+                            <li><strong>Trusted Partner:</strong> We share your commitment to quality, security, and compliance</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="who-we-are-stats">
+                    <div class="stat">
+                        <div class="stat-value">15+</div>
+                        <div class="stat-title">Years in Tech</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">50+</div>
+                        <div class="stat-title">Fortune 500 Projects</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">100+</div>
+                        <div class="stat-title">Global Team Members</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">∞</div>
+                        <div class="stat-title">AI Agent Expertise</div>
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="who-we-are-cta">
+                    <h3>Ready to Build Intelligent Systems Together?</h3>
+                    <p>Let's create technology that matters. Contact our team to discuss how we can architect high-tech solutions for your organization.</p>
+                    <button class="btn-primary" onclick="document.location.href='#contact'">Start a Conversation</button>
                 </div>
             </div>
         </div>
