@@ -261,11 +261,11 @@ function switchTab(tabName, buttonElement) {
 
 function switchTestTab(event, framework) {
   // Hide all test panes
-  const panes = document.querySelectorAll('[id="playwright"], [id="cypress"], [id="vitest"]');
+  const panes = document.querySelectorAll("[id=\"playwright\"], [id=\"cypress\"], [id=\"vitest\"]");
   panes.forEach(pane => pane.classList.remove("active"));
 
   // Remove active class from all test tab buttons
-  const buttons = document.querySelectorAll('[data-tab]');
+  const buttons = document.querySelectorAll("[data-tab]");
   buttons.forEach(btn => btn.classList.remove("active"));
 
   // Show selected test framework pane

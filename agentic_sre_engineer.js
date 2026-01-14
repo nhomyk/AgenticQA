@@ -120,6 +120,7 @@ const SRE_EXPERTISE = {
       description: 'Automated code & configuration fixes',
       types: [
         'Linting errors - Remove unused variables/functions, fix formatting',
+        'Quote style errors - Convert single quotes to double quotes',
         'Undefined variables - Auto-define missing functions like switchTestTab',
         'Compliance agent errors - Handle missing files, working directory issues',
         'Syntax errors - Pattern matching & correction',
@@ -1241,8 +1242,50 @@ async function makeCodeChanges(failureAnalysis) {
     if (output.includes("fixed") || output.includes("successfully")) {
       console.log("ESLint issues fixed");
       changesDetected = true;
+    } else if (output.includes("Strings must use doublequote")) {
+      // Handle quote style errors - NEW SKILL
+      console.log("🔧 Detected quote style errors, fixing...");
+      
+      try {
+        let appCode = fs.readFileSync("public/app.js", "utf8");
+        let modified = false;
+        
+        // NEW SKILL: Fix single quotes to double quotes in switchTestTab
+        if (appCode.includes("document.querySelectorAll('[id=")) {
+          console.log("  Fixing quote style in querySelectorAll...");
+          
+          // Replace single quotes with double quotes in querySelector patterns
+          appCode = appCode.replace(
+            /document\.querySelectorAll\(\['id="[^"]*"\][^)]*\]/g,
+            (match) => match.replace(/'/g, "\"")
+          );
+          
+          // More specific fix for the switchTestTab function
+          appCode = appCode.replace(
+            /document\.querySelectorAll\('\[id="playwright"\], \[id="cypress"\], \[id="vitest"\]'\)/,
+            'document.querySelectorAll("[id=\\"playwright\\"], [id=\\"cypress\\"], [id=\\"vitest\\"]")'
+          );
+          
+          // Also fix data-tab queries
+          appCode = appCode.replace(
+            /document\.querySelectorAll\('\[data-tab\]'\)/g,
+            'document.querySelectorAll("[data-tab]")'
+          );
+          
+          modified = true;
+          console.log("  ✅ Fixed quote style errors");
+        }
+        
+        if (modified) {
+          fs.writeFileSync("public/app.js", appCode);
+          console.log("✅ Quote style issues fixed");
+          changesDetected = true;
+        }
+      } catch (quoteErr) {
+        console.log("⚠️  Could not fix quote style:", quoteErr.message);
+      }
     } else if (output.includes("is not defined")) {
-      // Handle undefined variable references - NEW SKILL
+      // Handle undefined variable references - EXISTING SKILL
       console.log("🔧 Detected undefined variable(s), attempting to fix...");
       
       // Extract undefined variable name from error message
@@ -1264,7 +1307,7 @@ async function makeCodeChanges(failureAnalysis) {
             const switchTabMatch = appCode.match(/function switchTab\([^)]*\)\s*\{[\s\S]*?\n\}/);
             if (switchTabMatch) {
               const insertPos = appCode.indexOf(switchTabMatch[0]) + switchTabMatch[0].length;
-              const newFunction = `\n\nfunction switchTestTab(event, framework) {\n  // Hide all test panes\n  const panes = document.querySelectorAll('[id="playwright"], [id="cypress"], [id="vitest"]');\n  panes.forEach(pane => pane.classList.remove("active"));\n\n  // Remove active class from all test tab buttons\n  const buttons = document.querySelectorAll('[data-tab]');\n  buttons.forEach(btn => btn.classList.remove("active"));\n\n  // Show selected test framework pane\n  const pane = document.getElementById(framework);\n  if (pane) {\n    pane.classList.add("active");\n  }\n\n  // Add active class to clicked button\n  if (event && event.target) {\n    event.target.classList.add("active");\n  }\n}`;
+              const newFunction = `\n\nfunction switchTestTab(event, framework) {\n  // Hide all test panes\n  const panes = document.querySelectorAll("[id=\\"playwright\\"], [id=\\"cypress\\"], [id=\\"vitest\\"]");\n  panes.forEach(pane => pane.classList.remove("active"));\n\n  // Remove active class from all test tab buttons\n  const buttons = document.querySelectorAll("[data-tab]");\n  buttons.forEach(btn => btn.classList.remove("active"));\n\n  // Show selected test framework pane\n  const pane = document.getElementById(framework);\n  if (pane) {\n    pane.classList.add("active");\n  }\n\n  // Add active class to clicked button\n  if (event && event.target) {\n    event.target.classList.add("active");\n  }\n}`;
               appCode = appCode.slice(0, insertPos) + newFunction + appCode.slice(insertPos);
               modified = true;
               console.log(`  ✅ Added ${undefinedVar} function definition`);
