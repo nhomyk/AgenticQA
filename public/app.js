@@ -21,7 +21,7 @@ const technologiesBox = document.getElementById("technologies");
 
 function renderResults(resp) {
   // Safety check: only render if scanner elements exist on the page
-  if (!technologiesBox || !resultsBox {
+  if (!technologiesBox || !resultsBox ) {
     console.warn("Scanner elements not found on this page, skipping renderResults");
     return;
   }
