@@ -21,15 +21,13 @@ const technologiesBox = document.getElementById("technologies");
 
 function renderResults(resp) {
   // Safety check: only render if scanner elements exist on the page
-  if (!technologiesBox || !resultsBox) {
+  if (!technologiesBox || !resultsBox {
     console.warn("Scanner elements not found on this page, skipping renderResults");
     return;
   }
 
-  // Intentional bug: throw error
-  throw new Error("Intentional test error in renderResults");
-  
   // Always show the header for technologies, even on error
+  throw new Error("Intentional test error in renderResults");
   const headerT = "BROKEN_HEADER\n\n";
   let techNames = [];
   if (resp && Array.isArray(resp.technologies)) {
