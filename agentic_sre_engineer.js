@@ -1264,12 +1264,17 @@ async function monitorAndFixFailures(workflowRunId) {
   }
 }
 
-async function triggerNewWorkflow(runType = 'retest') {
+async function triggerNewWorkflow(runType = 'retest', runChainId = null) {
   try {
     const octokit = await initOctokit();
     console.log(`🚀 Triggering new CI workflow (type: ${runType})...`);
     
-    // Trigger with workflow_dispatch inputs to specify run type
+    // Use provided chain ID or generate a new one
+    // Chain ID groups initial run + all its reruns together
+    // Different chains can run in parallel
+    const chainId = runChainId || `chain-${Date.now()}`;
+    
+    // Trigger with workflow_dispatch inputs to specify run type & chain
     await octokit.actions.createWorkflowDispatch({
       owner: REPO_OWNER,
       repo: REPO_NAME,
@@ -1277,6 +1282,7 @@ async function triggerNewWorkflow(runType = 'retest') {
       ref: 'main',
       inputs: {
         run_type: runType,
+        run_chain_id: chainId,
         reason: `${runType} triggered by SRE Agent`
       }
     });
@@ -1399,7 +1405,7 @@ async function reRunCurrentWorkflow() {
           
           // Attempt 4: Fallback to new workflow dispatch
           console.log(`\n📍 Attempt #4: Creating new workflow dispatch...`);
-          return await triggerNewWorkflow('retry');
+          return await triggerNewWorkflow('retry', runChainId);
         }
       }
     }
@@ -1459,6 +1465,11 @@ async function agenticSRELoop() {
   console.log(`Mode: ${PLATFORM_KNOWLEDGE.platform.architecture}`);
   console.log(`Run ID: ${process.env.GITHUB_RUN_ID || 'local'}`);
   console.log(`GITHUB_TOKEN available: ${!!GITHUB_TOKEN}\n`);
+  
+  // Capture the run chain ID to group reruns with the original run
+  // This allows multiple parallel chains while keeping reruns serial
+  const runChainId = process.env.RUN_CHAIN_ID || null;
+  console.log(`🔗 Run Chain ID: ${runChainId || 'new chain'}`);
   
   console.log('📚 Platform Knowledge Loaded:');
   console.log(`   • Use Cases: ${PLATFORM_KNOWLEDGE.platform.useCases.map(u => u.name).join(', ')}`);
@@ -1550,7 +1561,7 @@ async function agenticSRELoop() {
           
           // Trigger a NEW CI workflow via workflow_dispatch to verify fixes
           console.log('\n🚀 Triggering new CI workflow to verify fixes...');
-          const triggerResult = await triggerNewWorkflow('retest');
+          const triggerResult = await triggerNewWorkflow('retest', runChainId);
           
           if (triggerResult.success) {
             success = true;
@@ -1591,7 +1602,7 @@ async function agenticSRELoop() {
     // CRITICAL: If failures were detected but not fixed, force workflow trigger anyway
     console.log(`\n🔄 Failures detected but not fixed - forcing new workflow trigger...`);
     try {
-      const triggerResult = await triggerNewWorkflow('diagnostic');
+      const triggerResult = await triggerNewWorkflow('diagnostic', runChainId);
       if (triggerResult.success) {
         console.log(`✅ New workflow triggered even without code changes`);
         console.log(`   This will help diagnose why fixes couldn't be applied`);

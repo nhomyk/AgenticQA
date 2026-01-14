@@ -20,14 +20,23 @@ on:
           - retry
           - manual
           - diagnostic
+      run_chain_id:
+        description: 'Run chain ID (for grouping reruns with their initial run)'
+        required: false
+        default: ''
 
-# Prevent multiple simultaneous runs - cancel previous runs on new push
+# Concurrency strategy: Group by run_chain_id to allow parallel chains
+# - Each initial run gets unique chain (run_id)
+# - All reruns reference same chain_id
+# - Different chains can run in parallel
+# - Reruns within same chain are serial (cancel previous rerun)
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.run_chain_id || github.run_id }}
   cancel-in-progress: true
 
 env:
   RUN_TYPE: ${{ github.event.inputs.run_type || 'initial' }}
+  RUN_CHAIN_ID: ${{ github.event.inputs.run_chain_id || github.run_id }}
 
 jobs:
   lint:
