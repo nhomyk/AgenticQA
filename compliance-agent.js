@@ -346,16 +346,26 @@ class ComplianceAuditor {
 
     // Check for HTTPS enforcement in code
     const serverPath = path.join(REPO_ROOT, 'server.js');
-    const serverCode = fs.readFileSync(serverPath, 'utf8');
-    if (serverCode.includes('https') || serverCode.includes('ssl') || serverCode.includes('cert')) {
-      this.issues.passed.push('✓ HTTPS/TLS security infrastructure present');
+    if (fs.existsSync(serverPath)) {
+      const serverCode = fs.readFileSync(serverPath, 'utf8');
+      if (serverCode.includes('https') || serverCode.includes('ssl') || serverCode.includes('cert')) {
+        this.issues.passed.push('✓ HTTPS/TLS security infrastructure present');
+      } else {
+        this.issues.high.push({
+          check: 'Data Privacy: HTTPS Encryption',
+          status: 'WARNING',
+          severity: 'HIGH',
+          message: 'No HTTPS/TLS configuration detected in server code',
+          recommendation: 'Ensure production deployment uses HTTPS/TLS encryption'
+        });
+      }
     } else {
-      this.issues.high.push({
-        check: 'Data Privacy: HTTPS Encryption',
-        status: 'WARNING',
-        severity: 'HIGH',
-        message: 'No HTTPS/TLS configuration detected in server code',
-        recommendation: 'Ensure production deployment uses HTTPS/TLS encryption'
+      this.issues.medium.push({
+        check: 'Data Privacy: HTTPS Configuration',
+        status: 'UNABLE_TO_CHECK',
+        severity: 'MEDIUM',
+        message: 'server.js not found - unable to verify HTTPS configuration',
+        recommendation: 'Ensure server.js uses HTTPS/TLS in production'
       });
     }
   }
@@ -440,6 +450,17 @@ class ComplianceAuditor {
     const serverPath = path.join(REPO_ROOT, 'server.js');
     const packagePath = path.join(REPO_ROOT, 'package.json');
     const eslintPath = path.join(REPO_ROOT, 'eslint.config.js');
+
+    if (!fs.existsSync(serverPath)) {
+      this.issues.medium.push({
+        check: 'Security: Server Configuration',
+        status: 'UNABLE_TO_CHECK',
+        severity: 'MEDIUM',
+        message: 'server.js not found - unable to verify security headers',
+        recommendation: 'Ensure server.js implements security headers and rate limiting'
+      });
+      return;
+    }
 
     const serverCode = fs.readFileSync(serverPath, 'utf8');
     const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
