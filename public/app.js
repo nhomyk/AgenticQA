@@ -4,15 +4,16 @@ window.downloadScript = downloadScript;
 window.downloadFromElement = downloadFromElement;
 window.copyToClipboard = copyToClipboard;
 window.switchTab = switchTab;
+window.switchTestTab = switchTestTab;
 
 // Get scanner elements (may not exist on dashboard page)
 const resultsBox = document.getElementById("results");
 const testcasesBox = document.getElementById("testcases");
 const performanceBox = document.getElementById("performance");
 const apisBox = document.getElementById("apis");
-const playwrightBox = document.getElementById("playwright");
-const cypressBox = document.getElementById("cypress");
-const vitestBox = document.getElementById("vitest");
+const playwrightBox = document.getElementById("playwright-content");
+const cypressBox = document.getElementById("cypress-content");
+const vitestBox = document.getElementById("vitest-content");
 const recommendationsBox = document.getElementById("recommendations");
 const technologiesBox = document.getElementById("technologies");
 

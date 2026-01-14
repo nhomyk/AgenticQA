@@ -471,6 +471,44 @@
             border-color: #3b82f6;
         }
 
+        /* Scanner Tabs */
+        .scanner-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .tab-button:hover {
+            color: #3b82f6;
+        }
+
+        .tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
         /* Footer */
         .footer {
             background: #0f172a;
@@ -844,27 +882,65 @@
     <section class="container mt-4" id="scanner">
         <div class="scanner-section">
             <div class="scanner-header">
-                <h2>Quick Technology Scanner</h2>
-                <p>Scan any website to analyze technologies, identify issues, and get AI-powered recommendations</p>
+                <h2>🔍 Advanced Technology Scanner</h2>
+                <p>Analyze any website for technologies, issues, performance, APIs, and get AI-generated test cases across multiple frameworks</p>
             </div>
 
             <div class="input-group">
                 <input type="url" id="urlInput" placeholder="Enter website URL (e.g., https://example.com)" />
-                <button id="scanBtn">Scan</button>
+                <button id="scanBtn">Scan Website</button>
             </div>
 
             <div class="results-container">
+                <!-- Issues Found -->
                 <div class="result-box">
-                    <h3>Issues Found</h3>
-                    <textarea id="results" readonly></textarea>
+                    <h3>🔴 Issues Found</h3>
+                    <textarea id="results" readonly placeholder="Scan results will appear here"></textarea>
                 </div>
+
+                <!-- Technologies Detected -->
                 <div class="result-box">
-                    <h3>Recommended Tests</h3>
-                    <textarea id="testcases" readonly></textarea>
+                    <h3>🛠️ Technologies Detected</h3>
+                    <textarea id="technologies" readonly placeholder="Technologies will appear here"></textarea>
                 </div>
+
+                <!-- Performance Results -->
                 <div class="result-box">
-                    <h3>Technologies</h3>
-                    <textarea id="technologies" readonly></textarea>
+                    <h3>⚡ Performance Metrics</h3>
+                    <textarea id="performance" readonly placeholder="Performance data will appear here"></textarea>
+                </div>
+            </div>
+
+            <!-- Test Case Generation with Tabs -->
+            <div class="result-box" style="margin-top: 2rem;">
+                <h3>🧪 Generated Test Cases</h3>
+                <div class="scanner-tabs">
+                    <button class="tab-button active" data-tab="playwright" onclick="switchTestTab(event, 'playwright')">▶ Playwright</button>
+                    <button class="tab-button" data-tab="cypress" onclick="switchTestTab(event, 'cypress')">🌳 Cypress</button>
+                    <button class="tab-button" data-tab="vitest" onclick="switchTestTab(event, 'vitest')">⚡ Vitest</button>
+                </div>
+                <div id="playwright" class="tab-pane active">
+                    <textarea id="playwright-content" readonly placeholder="Playwright test cases will appear here"></textarea>
+                </div>
+                <div id="cypress" class="tab-pane">
+                    <textarea id="cypress-content" readonly placeholder="Cypress test cases will appear here"></textarea>
+                </div>
+                <div id="vitest" class="tab-pane">
+                    <textarea id="vitest-content" readonly placeholder="Vitest test cases will appear here"></textarea>
+                </div>
+            </div>
+
+            <div class="results-container">
+                <!-- APIs Used -->
+                <div class="result-box">
+                    <h3>🔌 APIs Detected</h3>
+                    <textarea id="apis" readonly placeholder="API calls will appear here"></textarea>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="result-box">
+                    <h3>💡 AI-Powered Recommendations</h3>
+                    <textarea id="recommendations" readonly placeholder="Recommendations will appear here"></textarea>
                 </div>
             </div>
         </div>
@@ -886,17 +962,35 @@
     </footer>
 
     <script>
+        // Tab switching for main content
         function switchTab(event, tabName) {
             // Hide all tab contents
             const contents = document.querySelectorAll('.tab-content');
             contents.forEach(content => content.classList.remove('active'));
 
             // Remove active class from all buttons
-            const buttons = document.querySelectorAll('.tab-button');
+            const buttons = document.querySelectorAll('.tab-button:not([data-tab])');
             buttons.forEach(btn => btn.classList.remove('active'));
 
             // Show selected tab
             document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // Tab switching for test framework tabs in scanner
+        function switchTestTab(event, framework) {
+            // Hide all test panes
+            const panes = document.querySelectorAll('[id="playwright"], [id="cypress"], [id="vitest"]');
+            panes.forEach(pane => pane.classList.remove('active'));
+
+            // Remove active class from all test tab buttons
+            const buttons = document.querySelectorAll('[data-tab]');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            // Show selected test framework pane
+            document.getElementById(framework).classList.add('active');
 
             // Add active class to clicked button
             event.target.classList.add('active');
