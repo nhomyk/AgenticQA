@@ -129,9 +129,27 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
+      - name: Install Cypress Browsers
+        run: npx cypress install
+      - name: Start server
+        run: npm start > /tmp/server.log 2>&1 &
+        timeout-minutes: 1
+      - name: Wait for server to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null; then
+              echo "✅ Server is ready!"
+              exit 0
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 1
+          done
+          echo "❌ Server did not start in time"
+          cat /tmp/server.log
+          exit 1
       - name: Run Cypress tests
-        run: npm run test:cypress 2>&1 | tee cypress-output.log || true
-        timeout-minutes: 3
+        run: npx cypress run 2>&1 | tee cypress-output.log || true
+        timeout-minutes: 2
       - name: Save Cypress failures
         if: failure()
         run: |
