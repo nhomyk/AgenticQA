@@ -249,6 +249,148 @@
             background: #667eea;
             color: white;
         }
+
+        .test-case-script {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            page-break-inside: avoid;
+        }
+
+        .test-case-script h4 {
+            color: #333;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .test-case-script textarea {
+            width: 100%;
+            height: 150px;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+            background: #f9f9f9;
+            margin-bottom: 0.75rem;
+        }
+
+        .test-case-script textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+
+        .test-case-buttons {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .test-case-buttons button {
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .test-case-buttons button:hover {
+            background: #764ba2;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .test-case-buttons button:active {
+            transform: translateY(0);
+        }
+
+        .tab-container {
+            width: 100%;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #ddd;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            background: #f5f5f5;
+            color: #666;
+            border: none;
+            border-bottom: 3px solid transparent;
+            border-radius: 4px 4px 0 0;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover {
+            background: #eee;
+            color: #333;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .tab-pane textarea {
+            width: 100%;
+            height: 250px;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            background: white;
+            margin-bottom: 1rem;
+        }
+
+        .tab-pane textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -280,35 +422,43 @@
                         <h3><span class="icon">📚</span>Technologies Detected</h3>
                         <textarea id="technologies" readonly></textarea>
                         <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download Script</button>
+                            <button onclick="downloadFromElement('technologies', 'technologies.txt')">📥 Download Script</button>
                             <button onclick="copyToClipboard('technologies')">📋 Copy</button>
                         </div>
                     </div>
 
-                    <div class="result-box">
-                        <h3><span class="icon">🧪</span>Playwright Test Cases</h3>
-                        <textarea id="playwright" readonly></textarea>
-                        <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
-                            <button onclick="copyToClipboard('playwright')">📋 Copy</button>
-                        </div>
-                    </div>
+                    <div class="result-box" style="grid-column: 1 / -1;">
+                        <h3 style="margin-bottom: 0;"><span class="icon">🧪</span>Test Frameworks</h3>
+                        <div class="tab-container">
+                            <div class="tab-buttons">
+                                <button class="tab-btn active" data-tab="playwright-tab"><span class="icon">🧪</span>Playwright</button>
+                                <button class="tab-btn" data-tab="cypress-tab"><span class="icon">🌿</span>Cypress</button>
+                                <button class="tab-btn" data-tab="vitest-tab"><span class="icon">⚡</span>Vitest</button>
+                            </div>
+                            
+                            <div id="playwright-tab" class="tab-pane active">
+                                <textarea id="playwright" readonly></textarea>
+                                <div class="button-group">
+                                    <button onclick="downloadFromElement('playwright', 'playwright-tests.js')">📥 Download</button>
+                                    <button onclick="copyToClipboard('playwright')">📋 Copy</button>
+                                </div>
+                            </div>
 
-                    <div class="result-box">
-                        <h3><span class="icon">🌿</span>Cypress Test Cases</h3>
-                        <textarea id="cypress" readonly></textarea>
-                        <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
-                            <button onclick="copyToClipboard('cypress')">📋 Copy</button>
-                        </div>
-                    </div>
+                            <div id="cypress-tab" class="tab-pane">
+                                <textarea id="cypress" readonly></textarea>
+                                <div class="button-group">
+                                    <button onclick="downloadFromElement('cypress', 'cypress-tests.js')">📥 Download</button>
+                                    <button onclick="copyToClipboard('cypress')">📋 Copy</button>
+                                </div>
+                            </div>
 
-                    <div class="result-box">
-                        <h3><span class="icon">⚡</span>Vitest Test Cases</h3>
-                        <textarea id="vitest" readonly></textarea>
-                        <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
-                            <button onclick="copyToClipboard('vitest')">📋 Copy</button>
+                            <div id="vitest-tab" class="tab-pane">
+                                <textarea id="vitest" readonly></textarea>
+                                <div class="button-group">
+                                    <button onclick="downloadFromElement('vitest', 'vitest-tests.js')">📥 Download</button>
+                                    <button onclick="copyToClipboard('vitest')">📋 Copy</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -316,7 +466,7 @@
                         <h3><span class="icon">✅</span>Test Cases</h3>
                         <textarea id="testcases" readonly></textarea>
                         <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="downloadFromElement('testcases', 'test-cases.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('testcases')">📋 Copy</button>
                         </div>
                     </div>
@@ -325,7 +475,7 @@
                         <h3><span class="icon">⚙️</span>Scan Results</h3>
                         <textarea id="results" readonly></textarea>
                         <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="downloadFromElement('results', 'scan-results.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('results')">📋 Copy</button>
                         </div>
                     </div>
@@ -334,7 +484,7 @@
                         <h3><span class="icon">📊</span>Performance Metrics</h3>
                         <textarea id="performance" readonly></textarea>
                         <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="downloadFromElement('performance', 'performance-metrics.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('performance')">📋 Copy</button>
                         </div>
                     </div>
@@ -343,7 +493,7 @@
                         <h3><span class="icon">🔗</span>APIs Used</h3>
                         <textarea id="apis" readonly></textarea>
                         <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="downloadFromElement('apis', 'apis-used.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('apis')">📋 Copy</button>
                         </div>
                     </div>
@@ -352,7 +502,7 @@
                         <h3><span class="icon">💡</span>Recommendations</h3>
                         <textarea id="recommendations" readonly></textarea>
                         <div class="button-group">
-                            <button onclick="downloadScript()">📥 Download</button>
+                            <button onclick="downloadFromElement('recommendations', 'recommendations.txt')">📥 Download</button>
                             <button onclick="copyToClipboard('recommendations')">📋 Copy</button>
                         </div>
                     </div>
@@ -367,24 +517,95 @@
 
     <script src="/app.js"></script>
     <script>
-        // Override to show/hide results containers
-        const originalRenderResults = window.renderResults;
-        window.renderResults = function(resp) {
-            originalRenderResults(resp);
-            document.getElementById('results-container').style.display = 'grid';
-            document.getElementById('empty-state').style.display = 'none';
-        };
-
-        // Show loading state
-        const originalScan = scanBtn.onclick;
-        if (scanBtn) {
-            scanBtn.addEventListener('click', function() {
-                if (urlInput.value.trim()) {
-                    document.getElementById('empty-state').innerHTML = '<div class="loading"><div class="spinner"></div>Scanning website...</div>';
-                    document.getElementById('results-container').style.display = 'none';
-                }
+        // Ensure initial elements are visible immediately
+        document.addEventListener('DOMContentLoaded', function() {
+            const emptyState = document.getElementById('empty-state');
+            const resultsContainer = document.getElementById('results-container');
+            if (emptyState) {
+                emptyState.style.display = 'block';
+            }
+            if (resultsContainer) {
+                resultsContainer.style.display = 'none';
+            }
+        });
+        
+        // Setup scanner-specific UI logic after app.js loads
+        window.addEventListener('load', function() {
+            const resultsContainer = document.getElementById('results-container');
+            const emptyState = document.getElementById('empty-state');
+            const scanBtn = document.getElementById('scanBtn');
+            const urlInput = document.getElementById('urlInput');
+            
+            console.log('[Scanner] Page loaded - elements found:', { 
+                resultsContainer: !!resultsContainer,
+                emptyState: !!emptyState,
+                scanBtn: !!scanBtn,
+                urlInput: !!urlInput
             });
-        }
+            
+            // Store the original renderResults if it exists
+            const originalRenderResults = window.renderResults ? window.renderResults.bind(window) : null;
+            
+            // Override renderResults to show/hide scanner UI elements
+            window.renderResults = function(resp) {
+                console.log('[Scanner] renderResults called');
+                // Call original to populate all the textareas
+                if (originalRenderResults) {
+                    originalRenderResults(resp);
+                }
+                
+                // Show results, hide empty state
+                if (resultsContainer) {
+                    resultsContainer.style.display = 'grid';
+                }
+                if (emptyState) {
+                    emptyState.style.display = 'none';
+                }
+            };
+            
+            // Add custom loading UI on scan button click
+            if (scanBtn) {
+                scanBtn.addEventListener('click', function(e) {
+                    console.log('[Scanner] Scan button clicked');
+                    if (urlInput && urlInput.value.trim()) {
+                        if (emptyState) {
+                            emptyState.innerHTML = '<div class="loading"><div class="spinner"></div>Scanning website...</div>';
+                            emptyState.style.display = 'block';
+                        }
+                        if (resultsContainer) {
+                            resultsContainer.style.display = 'none';
+                        }
+                    }
+                }, true); // Use capture phase to run before other handlers
+            }
+            
+            // Tab switching functionality
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    // Hide all tab panes
+                    document.querySelectorAll('.tab-pane').forEach(pane => {
+                        pane.classList.remove('active');
+                    });
+                    
+                    // Remove active class from all buttons
+                    tabBtns.forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    
+                    // Show selected pane and mark button as active
+                    const tabPane = document.getElementById(tabName);
+                    if (tabPane) {
+                        tabPane.classList.add('active');
+                    }
+                    this.classList.add('active');
+                    
+                    console.log('[Scanner] Switched to tab:', tabName);
+                });
+            });
+        });
     </script>
 </body>
 </html>

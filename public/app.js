@@ -1,6 +1,7 @@
 /* global document, fetch, window, navigator, Blob */
 // Make functions globally available for onclick handlers
 window.downloadScript = downloadScript;
+window.downloadFromElement = downloadFromElement;
 window.copyToClipboard = copyToClipboard;
 window.switchTab = switchTab;
 
@@ -130,11 +131,38 @@ function renderResults(resp) {
   // Render first 5 test cases with Playwright, Cypress, and Vitest examples
   if (resp.testCases && Array.isArray(resp.testCases)) {
     const numCases = Math.min(5, resp.testCases.length);
-    renderTestCaseScripts(resp.testCases.slice(0, numCases), resp.url);
+    const testCasesList = resp.testCases.slice(0, numCases);
+    
+    // Generate Playwright scripts
+    if (playwrightBox) {
+      const headerPW = "Playwright Test Cases (First 5)\n\n";
+      const pwScripts = testCasesList.map((testCase, index) => 
+        generatePlaywrightExample(testCase, resp.url, index + 1)
+      );
+      playwrightBox.value = headerPW + pwScripts.join("\n\n" + "=".repeat(60) + "\n\n");
+    }
+    
+    // Generate Cypress scripts
+    if (cypressBox) {
+      const headerCY = "Cypress Test Cases (First 5)\n\n";
+      const cyScripts = testCasesList.map((testCase, index) => 
+        generateCypressExample(testCase, resp.url, index + 1)
+      );
+      cypressBox.value = headerCY + cyScripts.join("\n\n" + "=".repeat(60) + "\n\n");
+    }
+    
+    // Generate Vitest scripts
+    if (vitestBox) {
+      const headerVT = "Vitest Test Cases (First 5)\n\n";
+      const vtScripts = testCasesList.map((testCase, index) => 
+        generateVitestExample(testCase, resp.url, index + 1)
+      );
+      vitestBox.value = headerVT + vtScripts.join("\n\n" + "=".repeat(60) + "\n\n");
+    }
   } else if (playwrightBox && cypressBox && vitestBox) {
-    playwrightBox.innerHTML = "";
-    cypressBox.innerHTML = "";
-    vitestBox.innerHTML = "";
+    playwrightBox.value = "";
+    cypressBox.value = "";
+    vitestBox.value = "";
   }
 
   // render recommendations if present
@@ -210,8 +238,35 @@ function downloadScript(filename, content) {
   window.URL.revokeObjectURL(url);
 }
 
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
+function downloadFromElement(elementId, filename) {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    alert(`Element with id "${elementId}" not found`);
+    return;
+  }
+  
+  const content = element.value || element.textContent || "";
+  if (!content) {
+    alert("No content to download");
+    return;
+  }
+  
+  downloadScript(filename, content);
+}
+
+function copyToClipboard(textOrElementId) {
+  let textToCopy = textOrElementId;
+  
+  // If it's an element ID (string), get the text from that element
+  if (typeof textOrElementId === "string" && textOrElementId.length > 0) {
+    const element = document.getElementById(textOrElementId);
+    if (element) {
+      // For textareas and inputs, use .value; for other elements, use .textContent
+      textToCopy = element.value || element.textContent || textOrElementId;
+    }
+  }
+  
+  navigator.clipboard.writeText(textToCopy).then(() => {
     alert("Script copied to clipboard!");
   }).catch(err => {
     console.error("Failed to copy:", err);
@@ -231,7 +286,7 @@ function generateVitestExample(testCase, url, caseNum) {
 }
 
 // Tab switching functionality
-function switchTab(tabName) {
+function switchTab(tabName, buttonElement) {
   // Hide all content sections
   document.querySelectorAll(".content").forEach(section => {
     section.classList.remove("active");
@@ -249,7 +304,9 @@ function switchTab(tabName) {
   }
   
   // Mark the clicked button as active
-  event.target.classList.add("active");
+  if (buttonElement) {
+    buttonElement.classList.add("active");
+  }
 }
 
 function initTabSwitching() {
@@ -296,22 +353,43 @@ if (document.readyState === "loading") {
   initTabSwitching();
 }
 
-// Only attach scanner event listeners if scanner elements exist on the page
-if (scanBtn && urlInput && resultsBox) {
-  scanBtn.addEventListener("click", async () => {
-    const url = urlInput.value.trim();
-    if (!url) return alert("Please enter a URL to scan");
-    resultsBox.value = "Scanning " + url + " ...";
-    try {
-      console.log("[UI] Fetch initiated for:", url);
-      const resp = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
-      console.log("[UI] Fetch response status:", resp.status);
-      const data = await resp.json();
-    console.log("[UI] Fetch complete. Data:", data);
-    renderResults(data);
-  } catch (e) {
-    console.error("[UI] Error during fetch:", e);
-    resultsBox.value = "Error scanning: " + e;
+// Function to attach scanner event listener when elements are ready
+function attachScannerListener() {
+  const btn = document.getElementById("scanBtn");
+  const input = document.getElementById("urlInput");
+  const rbox = document.getElementById("results");
+  
+  // Only attach scanner event listeners if scanner elements exist on the page
+  if (btn && input && rbox) {
+    btn.addEventListener("click", async () => {
+      const url = input.value.trim();
+      if (!url) return alert("Please enter a URL to scan");
+      rbox.value = "Scanning " + url + " ...";
+      try {
+        console.log("[UI] Fetch initiated for:", url);
+        const resp = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+        console.log("[UI] Fetch response status:", resp.status);
+        const data = await resp.json();
+        console.log("[UI] Fetch complete. Data:", data);
+        renderResults(data);
+      } catch (e) {
+        console.error("[UI] Error during fetch:", e);
+        rbox.value = "Error scanning: " + e;
+      }
+    });
+    console.log("[Scanner] Event listener attached successfully");
+  } else {
+    console.log("[Scanner] Scanner elements not ready yet. scanBtn:", !!btn, "urlInput:", !!input, "results:", !!rbox);
   }
-  });
+}
+
+// Try to attach immediately if elements are ready
+attachScannerListener();
+
+// Also try when DOM is fully loaded
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", attachScannerListener);
+} else {
+  // DOM is already loaded
+  setTimeout(attachScannerListener, 100);
 }
