@@ -1518,37 +1518,45 @@ async function makeCodeChanges(failureAnalysis) {
       console.log("ESLint issues fixed");
       changesDetected = true;
     } else if (output.includes("Strings must use doublequote")) {
-      // Handle quote style errors - NEW SKILL
+      // Handle quote style errors - ENHANCED SKILL
       console.log("🔧 Detected quote style errors, fixing...");
       
       try {
         let appCode = fs.readFileSync("public/app.js", "utf8");
         let modified = false;
         
-        // NEW SKILL: Fix single quotes to double quotes in switchTestTab
-        if (appCode.includes("document.querySelectorAll('[id=")) {
-          console.log("  Fixing quote style in querySelectorAll...");
-          
-          // Replace single quotes with double quotes in querySelector patterns
+        // ENHANCED: Fix all single quotes to double quotes in string literals and type checks
+        // This regex finds single-quoted strings and replaces them with double quotes
+        const lines = appCode.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          // Skip if line is a comment only
+          if (line.trim().startsWith("//")) {
+            // Fix quotes in comments that contain code examples
+            if (line.includes("'") && (line.includes("switchTab") || line.includes("tabname") || line.includes("event"))) {
+              lines[i] = line.replace(/'/g, "\"");
+              console.log(`  Line ${i + 1}: Fixed quote style in comment`);
+              modified = true;
+            }
+          } else if (!line.trim().startsWith("*") && line.includes("typeof") && line.includes("'")) {
+            // Fix quotes in typeof checks: typeof x === 'string' -> typeof x === "string"
+            lines[i] = line.replace(/typeof\s+\w+\s*===\s*'([^']*)'/g, 'typeof $1 === "$1"');
+            if (lines[i] !== line) {
+              console.log(`  Line ${i + 1}: Fixed quote style in typeof check`);
+              modified = true;
+            }
+          }
+        }
+        
+        // Also handle querySelectorAll patterns from previous logic
+        appCode = lines.join("\n");
+        if (appCode.includes("document.querySelectorAll('[id=\"")) {
+          console.log("  Fixing quote style in querySelectorAll patterns...");
           appCode = appCode.replace(
             /document\.querySelectorAll\(\['id="[^"]*"\][^)]*\]/g,
             (match) => match.replace(/'/g, "\"")
           );
-          
-          // More specific fix for the switchTestTab function
-          appCode = appCode.replace(
-            /document\.querySelectorAll\('\[id="playwright"\], \[id="cypress"\], \[id="vitest"\]'\)/,
-            'document.querySelectorAll("[id=\\"playwright\\"], [id=\\"cypress\\"], [id=\\"vitest\\"]")'
-          );
-          
-          // Also fix data-tab queries
-          appCode = appCode.replace(
-            /document\.querySelectorAll\('\[data-tab\]'\)/g,
-            'document.querySelectorAll("[data-tab]")'
-          );
-          
           modified = true;
-          console.log("  ✅ Fixed quote style errors");
         }
         
         if (modified) {

@@ -241,12 +241,12 @@ function switchTab(eventOrTabName, tabName) {
   let clickedButton = null;
   
   // Handle both old and new calling conventions
-  if (eventOrTabName && typeof eventOrTabName === 'object' && eventOrTabName.target) {
-    // Called with event object: switchTab(event, 'tabname')
+  if (eventOrTabName && typeof eventOrTabName === "object" && eventOrTabName.target) {
+    // Called with event object: switchTab(event, "tabname")
     clickedButton = eventOrTabName.target;
     actualTabName = tabName;
-  } else if (typeof eventOrTabName === 'string') {
-    // Called with tab name string: switchTab('tabname')
+  } else if (typeof eventOrTabName === "string") {
+    // Called with tab name string: switchTab("tabname")
     actualTabName = eventOrTabName;
   }
   
