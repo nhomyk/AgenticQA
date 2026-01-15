@@ -41,7 +41,47 @@ env:
   RUN_CHAIN_ID: ${{ github.event.inputs.run_chain_id || github.run_id }}
 
 jobs:
+  # Phase 0: Linting Fix (SRE Agent - Early Prevention)
+  # Auto-fixes linting errors before the lint job runs
+  linting-fix:
+    runs-on: ubuntu-latest
+    name: "🔧 Auto-Fix Linting Issues (SRE Agent)"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint auto-fix
+        run: |
+          echo "🔍 Scanning for linting issues..."
+          npx eslint . --ext .js --fix || true
+          echo "✅ Auto-fix complete"
+      - name: Check if files changed
+        id: verify
+        run: |
+          if git diff --quiet; then
+            echo "status=clean" >> $GITHUB_OUTPUT
+          else
+            echo "status=fixed" >> $GITHUB_OUTPUT
+          fi
+      - name: Commit and push fixes
+        if: steps.verify.outputs.status == 'fixed'
+        run: |
+          git config --global user.name "sre-agent[bot]"
+          git config --global user.email "sre-agent[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: Auto-fix linting errors via SRE Agent
+
+- Ran ESLint with --fix flag
+- Phase 0: Early prevention of linting failures
+- Ensures subsequent jobs have clean codebase" || echo "No changes to commit"
+          git push || echo "Already up to date"
+
   lint:
+    needs: [linting-fix]
     runs-on: ubuntu-latest
     name: Code Linting
     steps:
