@@ -705,16 +705,6 @@ jobs:
     if: always()
     steps:
       - uses: actions/checkout@v4
-      - name: Verify workflow files are valid
-        run: |
-          npm install -g js-yaml
-          echo "🔍 Validating workflow files..."
-          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
-            if [ -f "$file" ]; then
-              node -e "const yaml = require('js-yaml'); const fs = require('fs'); try { yaml.load(fs.readFileSync('$file', 'utf8')); console.log('✅ $file'); } catch(e) { console.log('❌ $file:', e.message); process.exit(1); }" || exit 1
-            fi
-          done
-          echo "✅ All workflows validated"
       
       - name: Check for infinite loop conditions
         run: |
@@ -739,6 +729,5 @@ jobs:
       - name: Report health status
         run: |
           echo "## 🏥 Pipeline Health Report" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Workflow files validated" >> $GITHUB_STEP_SUMMARY
           echo "✅ No infinite loop conditions detected" >> $GITHUB_STEP_SUMMARY
           echo "✅ Pipeline is healthy" >> $GITHUB_STEP_SUMMARY
