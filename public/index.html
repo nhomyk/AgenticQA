@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="circleQA.ai - Enterprise-Grade AI-Powered QA & Compliance Platform">
-    <title>circleQA.ai - Autonomous QA Dashboard</title>
+    <meta name="description" content="spiralQA.ai - Enterprise-Grade AI-Powered QA & Compliance Platform">
+    <title>spiralQA.ai - Autonomous QA Dashboard</title>
     <style>
         * {
             margin: 0;
@@ -67,6 +67,59 @@
         }
 
         .nav-links a:hover {
+            color: #3b82f6;
+        }
+
+        /* Dropdown Menu */
+        .dropdown {
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        .dropdown-btn {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 1rem;
+            transition: color 0.3s;
+        }
+
+        .dropdown-btn:hover {
+            color: #3b82f6;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            min-width: 200px;
+            margin-top: 0;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+        }
+
+        .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+
+        .dropdown-menu a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #6b7280;
+            text-decoration: none;
+            transition: all 0.3s;
+            border-radius: 8px;
+            margin: 0.25rem;
+        }
+
+        .dropdown-menu a:hover {
+            background: #f3f4f6;
             color: #3b82f6;
         }
 
@@ -884,10 +937,16 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">🤖 circleQA.ai</div>
+            <div class="logo">🤖 orbitQA.ai</div>
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#tabs">Capabilities</a></li>
+                <li class="dropdown">
+                    <button class="dropdown-btn">Products ▼</button>
+                    <div class="dropdown-menu">
+                        <a href="/product-orbitqa.html">orbitQA</a>
+                    </div>
+                </li>
                 <li><a href="#scanner">Scanner</a></li>
                 <li><a href="/scanner.html">Full Scanner →</a></li>
                 <li><a href="/dashboard.html" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 600;">📊 Dashboard</a></li>
@@ -901,7 +960,7 @@
             <h1>High-Tech Autonomous QA Built by Expert Architects</h1>
             <p class="hero-subtitle">Enterprise-Grade Self-Healing CI/CD • 175+ Compliance Checks • Any Test Framework • 99.9% Uptime</p>
             <p class="hero-description">
-                Built by a team with 15+ years in tech architecture, circleQA.ai demonstrates what's possible with unlimited autonomous AI agents, 
+                Built by a team with decades of experience in tech architecture, spiralQA.ai demonstrates what's possible with unlimited autonomous AI agents, 
                 comprehensive testing infrastructure, WCAG 2.1 accessibility compliance, and automated security scanning. 
                 This is how the world's most demanding organizations ensure code quality.
             </p>
@@ -922,7 +981,7 @@
     <section class="features" id="features">
         <div class="section-header">
             <h2 class="section-title">High-Tech Capabilities Our Team Built</h2>
-            <p class="section-description">The sophisticated systems we create demonstrate what's possible with 15+ years of tech expertise</p>
+            <p class="section-description">The sophisticated systems we create demonstrate decades of expertise in tech architecture and innovation</p>
         </div>
         
         <div class="features-grid">
@@ -1002,7 +1061,7 @@
     <section class="tabs-section" id="tabs">
         <div class="section-header">
             <h2 class="section-title">Platform Capabilities</h2>
-            <p class="section-description">Deep dive into what makes circleQA.ai enterprise-ready</p>
+            <p class="section-description">Deep dive into what makes spiralQA.ai enterprise-ready</p>
         </div>
 
         <div class="tab-buttons" role="tablist" aria-label="documentation-tabs">
@@ -1064,8 +1123,8 @@
                     <!-- Our Expertise -->
                     <div class="who-we-are-card">
                         <div class="card-icon">🏗️</div>
-                        <h3>15+ Years of Tech Architecture</h3>
-                        <p>Our team has spent over 15 years architecting high-tech systems for Fortune 500 companies, multinational enterprises, and fast-scaling startups. We've designed infrastructure that powers millions of users, managed complex deployments across global teams, and built products from zero to billions in value.</p>
+                        <h3>Decades of Tech Architecture Excellence</h3>
+                        <p>Our team has spent decades architecting high-tech systems for Fortune 500 companies, multinational enterprises, and fast-scaling startups. We've designed infrastructure that powers millions of users, managed complex deployments across global teams, and built products from zero to billions in value.</p>
                         <ul class="expertise-list">
                             <li><strong>Enterprise Architecture:</strong> Large-scale distributed systems, microservices, cloud infrastructure</li>
                             <li><strong>Team Leadership:</strong> Multi-national teams across EMEA, Asia-Pacific, North America</li>
@@ -1079,7 +1138,7 @@
                         <h3>AI Agents Beyond Public Data</h3>
                         <p>We don't use commodity AI. Our deep expertise in tech architecture allows us to train and teach agentic systems that become true experts—not just pattern matchers on public training data.</p>
                         <ul class="expertise-list">
-                            <li><strong>Domain-Specific Training:</strong> Agents trained on 15+ years of real-world architecture patterns</li>
+                            <li><strong>Domain-Specific Training:</strong> Agents trained on decades of real-world architecture patterns and engineering expertise</li>
                             <li><strong>Expert-Level Reasoning:</strong> Our agents understand not just what works, but why</li>
                             <li><strong>Self-Healing Intelligence:</strong> Autonomous agents that learn from every pipeline failure, every compliance issue, every security vulnerability</li>
                             <li><strong>Human-Level Expertise:</strong> Agents that fix code like senior engineers, audit compliance like legal consultants, and secure systems like ethical hackers</li>
@@ -1122,7 +1181,7 @@
                     <div class="who-we-are-card">
                         <div class="card-icon">🚀</div>
                         <h3>High-Tech Systems</h3>
-                        <p>circleQA.ai is an example of the sophisticated, intelligent systems our team builds:</p>
+                        <p>spiralQA.ai is an example of the sophisticated, intelligent systems our team builds:</p>
                         <ul class="expertise-list">
                             <li><strong>Multi-Agent Orchestration:</strong> Autonomous agents collaborating across compliance, QA, security, and DevOps</li>
                             <li><strong>Self-Healing Pipelines:</strong> Systems that detect, diagnose, and fix their own failures</li>
@@ -1138,7 +1197,7 @@
                         <p>We don't just build software—we build strategic technology advantages for organizations that matter:</p>
                         <ul class="expertise-list">
                             <li><strong>Proven Excellence:</strong> Track record with F500 companies, scale-ups, and enterprise teams</li>
-                            <li><strong>Deep Expertise:</strong> 15+ years in architecture means we see patterns others miss</li>
+                            <li><strong>Deep Expertise:</strong> Decades of architecture expertise means we see patterns others miss</li>
                             <li><strong>Future-Ready:</strong> AI agents that improve over time, not outdated systems that degrade</li>
                             <li><strong>Custom Solutions:</strong> Every system we build is tailored to your specific domain and challenges</li>
                             <li><strong>Trusted Partner:</strong> We share your commitment to quality, security, and compliance</li>
@@ -1180,7 +1239,7 @@
                 <!-- Hero Section -->
                 <div class="consulting-hero">
                     <h2>Consulting Services</h2>
-                    <p>Leverage our 15+ years of tech architecture expertise. We deliver strategic consulting across a wide range of high-impact projects—from AI transformations to system modernization to custom development.</p>
+                    <p>Leverage our decades of tech architecture expertise. We deliver strategic consulting across a wide range of high-impact projects—from AI transformations to system modernization to custom development.</p>
                     <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 8px; border-left: 4px solid #3b82f6;">
                         <p style="margin: 0; font-size: 1rem; line-height: 1.8;"><strong>Why Work With Us?</strong> We don't operate like traditional consulting groups. Our team has deep startup experience scaling from 0-1, working with teams of all sizes—from scrappy 3-person teams to multinational enterprises. We execute alongside your team, maintain codebases, implement processes, and ensure your organization succeeds long after we're done. We work <em>with</em> you, not just for you.</p>
                     </div>
@@ -1426,7 +1485,15 @@
             </div>
 
             <div class="input-group">
-                <input type="url" id="urlInput" placeholder="Enter website URL (e.g., https://example.com)" />
+                <label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<label for="urlInput">urlInput</label>
+<input type="url" id="urlInput" placeholder="Enter website URL (e.g., https://example.com)" />
                 <button id="scanBtn" aria-label="scanBtn" aria-label="scanBtn">Scan</button>
             </div>
 
@@ -1434,19 +1501,43 @@
                 <!-- Issues Found -->
                 <div class="result-box">
                     <h3>🔴 Issues Found</h3>
-                    <textarea id="results" readonly placeholder="Scan results will appear here"></textarea>
+                    <label for="results">results</label>
+<label for="results">results</label>
+<label for="results">results</label>
+<label for="results">results</label>
+<label for="results">results</label>
+<label for="results">results</label>
+<label for="results">results</label>
+<label for="results">results</label>
+<textarea id="results" readonly placeholder="Scan results will appear here"></textarea>
                 </div>
 
                 <!-- Technologies Detected -->
                 <div class="result-box">
                     <h3>🛠️ Technologies Detected</h3>
-                    <textarea id="technologies" readonly placeholder="Technologies will appear here"></textarea>
+                    <label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<label for="technologies">technologies</label>
+<textarea id="technologies" readonly placeholder="Technologies will appear here"></textarea>
                 </div>
 
                 <!-- Performance Results -->
                 <div class="result-box">
                     <h3>⚡ Performance Metrics</h3>
-                    <textarea id="performance" readonly placeholder="Performance data will appear here"></textarea>
+                    <label for="performance">performance</label>
+<label for="performance">performance</label>
+<label for="performance">performance</label>
+<label for="performance">performance</label>
+<label for="performance">performance</label>
+<label for="performance">performance</label>
+<label for="performance">performance</label>
+<label for="performance">performance</label>
+<textarea id="performance" readonly placeholder="Performance data will appear here"></textarea>
                 </div>
             </div>
 
@@ -1459,13 +1550,37 @@
                     <button class="tab-button" data-tab="vitest" onclick="switchTestTab(event, 'vitest')">⚡ Vitest</button>
                 </div>
                 <div id="playwright" class="tab-pane active">
-                    <textarea id="playwright-content" readonly placeholder="Playwright test cases will appear here"></textarea>
+                    <label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<label for="playwright-content">playwright-content</label>
+<textarea id="playwright-content" readonly placeholder="Playwright test cases will appear here"></textarea>
                 </div>
                 <div id="cypress" class="tab-pane">
-                    <textarea id="cypress-content" readonly placeholder="Cypress test cases will appear here"></textarea>
+                    <label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<label for="cypress-content">cypress-content</label>
+<textarea id="cypress-content" readonly placeholder="Cypress test cases will appear here"></textarea>
                 </div>
                 <div id="vitest" class="tab-pane">
-                    <textarea id="vitest-content" readonly placeholder="Vitest test cases will appear here"></textarea>
+                    <label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<label for="vitest-content">vitest-content</label>
+<textarea id="vitest-content" readonly placeholder="Vitest test cases will appear here"></textarea>
                 </div>
             </div>
 
@@ -1473,13 +1588,29 @@
                 <!-- APIs Used -->
                 <div class="result-box">
                     <h3>🔌 APIs Detected</h3>
-                    <textarea id="apis" readonly placeholder="API calls will appear here"></textarea>
+                    <label for="apis">apis</label>
+<label for="apis">apis</label>
+<label for="apis">apis</label>
+<label for="apis">apis</label>
+<label for="apis">apis</label>
+<label for="apis">apis</label>
+<label for="apis">apis</label>
+<label for="apis">apis</label>
+<textarea id="apis" readonly placeholder="API calls will appear here"></textarea>
                 </div>
 
                 <!-- Recommendations -->
                 <div class="result-box">
                     <h3>💡 AI-Powered Recommendations</h3>
-                    <textarea id="recommendations" readonly placeholder="Recommendations will appear here"></textarea>
+                    <label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<label for="recommendations">recommendations</label>
+<textarea id="recommendations" readonly placeholder="Recommendations will appear here"></textarea>
                 </div>
             </div>
         </div>
@@ -1495,7 +1626,7 @@
                 <a href="#">Contact</a>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2024 circleQA.ai. Built for teams that care about quality, compliance, and security.</p>
+                <p>&copy; 2024 spiralQA.ai. Built for teams that care about quality, compliance, and security.</p>
             </div>
         </div>
     </footer>

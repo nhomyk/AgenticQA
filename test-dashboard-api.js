@@ -301,7 +301,7 @@ async function testLocalServer() {
       });
       
       assert(response.statusCode === 200, `Dashboard returned ${response.statusCode}`);
-      assert(response.body.includes('circleQA.ai Dashboard'), 'Dashboard page not found');
+      assert(response.body.includes('spiralQA.ai Dashboard'), 'Dashboard page not found');
     } catch (error) {
       // Server might not be running, skip this test
       throw new Error('Local server not running on localhost:3000 - skipping');

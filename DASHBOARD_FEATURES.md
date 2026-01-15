@@ -1,4 +1,4 @@
-# circleQA.ai Dashboard - Agent Control Center
+# spiralQA.ai Dashboard - Agent Control Center
 
 ## Overview
 
@@ -125,7 +125,7 @@ Live pipeline execution history displaying the most recent 20 runs:
 ### Navigation
 
 ```
-🤖 circleQA.ai [Logo] — Home | Features | 📊 Dashboard | Scanner
+🤖 spiralQA.ai [Logo] — Home | Features | 📊 Dashboard | Scanner
 ```
 
 - Dashboard link in header (active state styling)

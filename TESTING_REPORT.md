@@ -41,10 +41,10 @@ A complete testing suite has been implemented for the dashboard with **74 total 
 - Validates semantic markup structure
 
 ✅ **Page title is set**
-- Title: "circleQA.ai Dashboard - Agent Control & Pipeline Monitor"
+- Title: "spiralQA.ai Dashboard - Agent Control & Pipeline Monitor"
 
 ✅ **Navigation bar exists**
-- Logo: "🤖 circleQA.ai"
+- Logo: "🤖 spiralQA.ai"
 - Navigation links present
 - Dashboard link in navigation
 
@@ -342,7 +342,7 @@ A complete testing suite has been implemented for the dashboard with **74 total 
 ✅ **Dashboard page is served**
 - URL: `http://localhost:3000/dashboard.html`
 - HTTP status: 200 OK
-- Page content includes "circleQA.ai Dashboard"
+- Page content includes "spiralQA.ai Dashboard"
 
 ✅ **Dashboard has correct content type**
 - Content-Type header: `text/html`

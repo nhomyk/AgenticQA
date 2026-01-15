@@ -56,12 +56,12 @@ async function testDashboardHTML() {
   });
 
   await test('Page title is set', () => {
-    assert(html.includes('<title>circleQA.ai Dashboard'), 'Missing or incorrect title');
+    assert(html.includes('<title>spiralQA.ai Dashboard'), 'Missing or incorrect title');
   });
 
   await test('Navigation bar exists', () => {
     assert(html.includes('class="navbar"'), 'Missing navbar');
-    assert(html.includes('circleQA.ai'), 'Missing logo');
+    assert(html.includes('spiralQA.ai'), 'Missing logo');
     assert(html.includes('Dashboard'), 'Missing dashboard link');
   });
 

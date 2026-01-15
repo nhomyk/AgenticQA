@@ -851,30 +851,37 @@ if (require.main === module) {
   let server = null;
   
   const startServer = () => {
-    server = app.listen(PORT, "0.0.0.0", () => {  // Listen on all interfaces
-      log("info", "Server started", {
-        url: `http://127.0.0.1:${PORT}`,
-        environment: NODE_ENV,
-        maxResults: MAX_RESULTS,
-        scanTimeout: SCAN_TIMEOUT
-      });
-    });
-    
-    server.on("error", (err) => {
-      if (err.code === "EADDRINUSE") {
-        log("error", `Port ${PORT} is already in use`, {
-          port: PORT,
-          code: err.code
+    try {
+      server = app.listen(PORT, "127.0.0.1", () => {
+        log("info", "Server started", {
+          url: `http://127.0.0.1:${PORT}`,
+          environment: NODE_ENV,
+          maxResults: MAX_RESULTS,
+          scanTimeout: SCAN_TIMEOUT
         });
-        // Try to gracefully shutdown any existing process
-        console.error(`Port ${PORT} already in use. Exiting...`);
-        process.exit(1);
-      } else {
-        throw err;
-      }
-    });
-    
-    return server;
+      });
+      
+      server.on("error", (err) => {
+        if (err.code === "EADDRINUSE") {
+          log("error", `Port ${PORT} is already in use`, {
+            port: PORT,
+            code: err.code
+          });
+          console.error(`\n❌ Port ${PORT} is already in use.`);
+          console.error(`   Kill it with: lsof -ti:${PORT} | xargs kill -9`);
+          process.exit(1);
+        } else {
+          log("error", "Server error", { error: err.message });
+          throw err;
+        }
+      });
+      
+      return server;
+    } catch (err) {
+      log("error", "Failed to start server", { error: err.message });
+      console.error(`\n❌ Server startup failed: ${err.message}`);
+      process.exit(1);
+    }
   };
   
   startServer();

@@ -304,4 +304,4 @@ A complete, production-ready dashboard has been successfully delivered with:
 ---
 
 *Last Updated: 2024*  
-*Project: circleQA.ai Agent Control Center*
+*Project: spiralQA.ai Agent Control Center*

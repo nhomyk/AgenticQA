@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>circleQA.ai Dashboard - Agent Control & Pipeline Monitor</title>
+    <title>orbitQA.ai Dashboard - Agent Control & Pipeline Monitor</title>
     <style>
         * {
             margin: 0;
@@ -570,7 +570,7 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">🤖 circleQA.ai</div>
+            <div class="logo">🤖 orbitQA.ai</div>
             <ul class="nav-links">
                 <li><a href="/index.html">Home</a></li>
                 <li><a href="/index.html#features">Features</a></li>
@@ -638,7 +638,7 @@
                         <label for="pipelineBranch">Branch (optional)</label>
                         <input type="text" id="pipelineBranch" placeholder="main" value="main" tabindex="0" aria-label="Git branch name">
                     </div>
-                    <button class="btn btn-primary" onclick="kickoffPipeline()">
+                    <button class="btn btn-primary" onclick="showNotification('Launch Pipeline', 'A single click is all it takes to Kickoff a new pipeline!'); kickoffPipeline()">
                         🚀 Launch Pipeline
                     </button>
                 </div>
@@ -679,10 +679,18 @@
                         <label for="agentQuery">Ask Agent a Question</label>
                         <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.5rem;">
                             <textarea id="agentQuery" placeholder="e.g., 'What is our current test coverage?' or 'Run accessibility checks on the dashboard'" tabindex="0" aria-label="Enter your query for the agent"></textarea>
-                            <button class="btn btn-primary" onclick="queryAgent()" style="height: fit-content; padding: 0.75rem 1rem;">
+                            <button class="btn btn-primary" onclick="showNotification('Send', 'This is how you converse directly with an agent, ask questions on the system or pipeline, system health, etc.'); queryAgent()" style="height: fit-content; padding: 0.75rem 1rem;">
                                 📨 Send
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Upload Data Section -->
+                    <div class="query-input-group" style="margin-top: 1rem;">
+                        <label>Upload Data</label>
+                        <button class="btn btn-secondary" id="uploadDataBtn" style="width: 100%; padding: 0.75rem; border: 2px dashed rgba(102, 126, 234, 0.4); transition: all 0.3s ease;" onmouseover="this.style.borderColor='rgba(102, 126, 234, 0.8)'; this.style.backgroundColor='rgba(102, 126, 234, 0.1)'" onmouseout="this.style.borderColor='rgba(102, 126, 234, 0.4)'; this.style.backgroundColor='transparent'" onclick="showNotification('Upload Data', 'Upload any structured or unstructured data to make your agent smarter!')">
+                            📤 Upload Data
+                        </button>
                     </div>
 
                     <!-- Quick Actions -->
@@ -805,9 +813,36 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadRecentPipelines();
             updateAgentInfo();
+            setupUploadDragDrop();
             // Refresh pipelines every 30 seconds
             setInterval(loadRecentPipelines, 30000);
         });
+
+        // Setup drag/drop visual feedback for upload button (UI only)
+        function setupUploadDragDrop() {
+            const uploadBtn = document.getElementById('uploadDataBtn');
+            
+            uploadBtn.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadBtn.style.borderColor = 'rgba(102, 126, 234, 1)';
+                uploadBtn.style.backgroundColor = 'rgba(102, 126, 234, 0.2)';
+                uploadBtn.style.transform = 'scale(1.02)';
+            });
+            
+            uploadBtn.addEventListener('dragleave', () => {
+                uploadBtn.style.borderColor = 'rgba(102, 126, 234, 0.4)';
+                uploadBtn.style.backgroundColor = 'transparent';
+                uploadBtn.style.transform = 'scale(1)';
+            });
+            
+            uploadBtn.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadBtn.style.borderColor = 'rgba(102, 126, 234, 0.4)';
+                uploadBtn.style.backgroundColor = 'transparent';
+                uploadBtn.style.transform = 'scale(1)';
+                showNotification('Upload Data', 'Upload any structured or unstructured data to make your agent smarter!');
+            });
+        }
 
         // Load recent pipelines from GitHub API
         async function loadRecentPipelines() {
@@ -1010,6 +1045,81 @@
             setTimeout(() => {
                 alertEl.classList.remove('show');
             }, 3000);
+        }
+
+        // Show notification tooltip
+        function showNotification(title, message) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                max-width: 350px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                animation: slideIn 0.3s ease-out;
+            `;
+
+            const titleEl = document.createElement('div');
+            titleEl.style.cssText = `
+                font-weight: 700;
+                font-size: 0.95rem;
+                margin-bottom: 0.35rem;
+                letter-spacing: 0.3px;
+            `;
+            titleEl.textContent = title;
+
+            const messageEl = document.createElement('div');
+            messageEl.style.cssText = `
+                font-size: 0.85rem;
+                opacity: 0.95;
+                line-height: 1.4;
+            `;
+            messageEl.textContent = message;
+
+            notification.appendChild(titleEl);
+            notification.appendChild(messageEl);
+            document.body.appendChild(notification);
+
+            // Add animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Remove after 4 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 4000);
         }
     </script>
 </body>
