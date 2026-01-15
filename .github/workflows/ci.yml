@@ -553,50 +553,6 @@ describe('UI App (app.js)', () => {
           console.log('║   ✅ SDET AGENT EXECUTION COMPLETE  ║');
           console.log('╚════════════════════════════════════════╝\n');
           SDET_SCRIPT
-      - name: SDET Agent Phase 2: Verify Coverage Improvement  
-        run: |
-          node << 'VERIFY_SCRIPT'
-          const fs = require('fs');
-          
-          console.log('\n╔════════════════════════════════════════╗');
-          console.log('║   📊 COVERAGE VERIFICATION PHASE    ║');
-          console.log('╚════════════════════════════════════════╝\n');
-          
-          if (fs.existsSync('coverage/coverage-final.json')) {
-            const coverage = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
-            let totalCoverage = 0;
-            let fileCount = 0;
-            
-            Object.values(coverage).forEach(data => {
-              const statements = data.s ? Object.values(data.s).filter(v => v > 0).length : 0;
-              const totalStatements = data.s ? Object.keys(data.s).length : 0;
-              if (totalStatements > 0) {
-                totalCoverage += (statements / totalStatements) * 100;
-                fileCount++;
-              }
-            });
-            
-            const avgCoverage = fileCount > 0 ? (totalCoverage / fileCount).toFixed(2) : 0;
-            console.log(`✅ Current Coverage: ${avgCoverage}%`);
-            console.log(`   Files Analyzed: ${fileCount}\n`);
-            
-            if (avgCoverage >= 15) {
-              console.log('📈 Progress: Coverage trending upward!');
-            } else {
-              console.log('📊 Note: Continue generating tests to improve coverage');
-            }
-          }
-          VERIFY_SCRIPT
-      - name: Upload SDET Report & Generated Tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdet-report-and-tests
-          path: |
-            coverage/
-            unit-tests/
-          retention-days: 30
-        continue-on-error: true
-          SDET_SCRIPT
       - name: Upload SDET Report & Generated Tests
         uses: actions/upload-artifact@v4
         with:
