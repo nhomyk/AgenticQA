@@ -29,15 +29,20 @@ const rateLimiter = rateLimit({
 });
 
 // Middleware setup
-app.use(bodyParser.json({ limit: "1mb" }));
+app.use(bodyParser.json({ limit: "100kb" })); // Reduced from 1mb to prevent large payload attacks
 app.use(express.static(path.join(__dirname, "public")));
 
-// CORS configuration
+// CORS configuration - stricter settings
 if (process.env.ENABLE_CORS === "true") {
+  const allowedOrigins = (process.env.CORS_ORIGIN || "localhost:3000").split(",").map(o => o.trim());
   app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", process.env.CORS_ORIGIN || "*");
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+      res.header("Access-Control-Allow-Origin", origin || allowedOrigins[0]);
+    }
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Max-Age", "3600");
     next();
   });
 }
@@ -663,25 +668,29 @@ app.use((req, res) => {
     try {
       const { pipelineType = "manual", branch = "main" } = req.body;
       
-      // Validate inputs
-      if (!pipelineType || typeof pipelineType !== "string") {
+      // Validate pipeline type against whitelist (prevent injection)
+      const validPipelineTypes = ["full", "tests", "security", "accessibility", "compliance", "manual"];
+      if (!validPipelineTypes.includes(pipelineType)) {
+        log("warn", "Invalid pipeline type attempted", { pipelineType, ip: req.ip });
         return res.status(400).json({
-          error: "Invalid pipelineType. Must be a non-empty string.",
+          error: "Invalid pipeline type",
           status: "error"
         });
       }
       
-      if (!branch || typeof branch !== "string") {
+      // Validate branch name (alphanumeric, dash, underscore, slash only)
+      // Max 255 characters
+      if (!branch || typeof branch !== "string" || branch.length > 255) {
         return res.status(400).json({
-          error: "Invalid branch. Must be a non-empty string.",
+          error: "Invalid branch",
           status: "error"
         });
       }
       
-      // Validate branch name (alphanumeric, dash, underscore, slash)
       if (!/^[a-zA-Z0-9._\-/]+$/.test(branch)) {
+        log("warn", "Invalid branch name format attempted", { branch, ip: req.ip });
         return res.status(400).json({
-          error: "Invalid branch name format",
+          error: "Invalid branch format",
           status: "error"
         });
       }
@@ -691,9 +700,8 @@ app.use((req, res) => {
       if (!githubToken) {
         log("warn", "GITHUB_TOKEN not configured for workflow dispatch");
         return res.status(503).json({
-          error: "GitHub token not configured. Please set GITHUB_TOKEN environment variable.",
-          status: "error",
-          helpUrl: "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+          error: "Service temporarily unavailable",
+          status: "error"
         });
       }
       
