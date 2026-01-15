@@ -85,35 +85,7 @@ jobs:
       - name: Create emergency issue if unresolved
         if: failure() && steps.health.outputs.status == 'failed'
         run: |
-          gh issue create \
-            --title "🚨 CRITICAL: Pipeline Rescue Failed - Manual Intervention Required" \
-            --body "The Pipeline Rescue System detected a critical failure and could not auto-repair it.
-
-## Status
-- Pipeline Status: FAILED
-- Auto-Repair: FAILED
-- Manual Action: REQUIRED
-
-## What Happened
-The main CI/CD pipeline is in a failed state and the automated repair system could not fix it.
-
-## Required Actions
-1. Review the latest workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-2. Check the Rescue System logs for error details
-3. Manually fix the issue or reset to last known good state
-
-## Recommended Fixes
-- Check .github/workflows/ci.yml for syntax errors
-- Run: \`npm install -g js-yaml && js-yaml .github/workflows/ci.yml\`
-- Review recent commits to workflow files
-- Reset to previous commit if needed: \`git revert HEAD\`
-
-See repair-workflow.js for diagnostic info.
-
-CC: @${{ github.actor }}" \
-            --label "critical,pipeline,emergency" \
-            --assignee "${{ github.actor }}" \
-            || echo "Could not create issue"
+          gh issue create --title "🚨 CRITICAL: Pipeline Rescue Failed" --body "Pipeline is in a critical failed state. Manual intervention required. See: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
