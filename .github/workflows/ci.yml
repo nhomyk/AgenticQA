@@ -297,7 +297,7 @@ jobs:
         with:
           name: coverage-report
           path: ./coverage
-          continue-on-error: true
+        continue-on-error: true
       - name: Run SDET Agent
         run: node sdet-agent.js
       - uses: actions/upload-artifact@v4
@@ -305,13 +305,13 @@ jobs:
           name: sdet-coverage
           path: coverage/
           retention-days: 30
-          continue-on-error: true
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         with:
           name: sdet-tests
           path: unit-tests/
           retention-days: 30
-          continue-on-error: true
+        continue-on-error: true
 
   fullstack-agent:
     needs: [sdet-agent, compliance-agent]
@@ -331,13 +331,13 @@ jobs:
         with:
           name: test-failures
           path: ./test-failures
-          continue-on-error: true
+        continue-on-error: true
       - name: Download compliance audit report
         uses: actions/download-artifact@v4
         with:
           name: compliance-audit-report
           path: ./compliance-artifacts
-          continue-on-error: true
+        continue-on-error: true
       - name: Display downloaded artifacts
         run: |
           if [ -d test-failures ]; then
@@ -487,7 +487,7 @@ jobs:
           name: pa11y-report
           path: pa11y-report.json
           retention-days: 30
-          continue-on-error: true
+        continue-on-error: true
       
       - name: Upload Audit Report
         if: matrix.check == 'security' && always()
@@ -496,7 +496,7 @@ jobs:
           name: audit-report
           path: audit-report.json
           retention-days: 30
-          continue-on-error: true
+        continue-on-error: true
       
       - name: Comment on PR - Accessibility Results
         if: matrix.check == 'accessibility' && github.event_name == 'pull_request' && always()

@@ -7,6 +7,7 @@ const nodemailer = require("nodemailer");
 const path = require("path");
 const https = require("https");
 const WorkflowValidationSkill = require("./workflow-validation-skill");
+const WorkflowActionParameterValidation = require("./workflow-action-parameter-validation-skill");
 
 // === PLATFORM KNOWLEDGE ===
 const PLATFORM_KNOWLEDGE = {
@@ -1998,8 +1999,32 @@ async function agenticSRELoop() {
       if (validationResult.fixed) {
         console.log(`\n✅ WORKFLOW AUTO-FIXED: Applied ${validationResult.fixCount} fix(es)`);
         console.log('📝 File changes need to be committed and pushed');
+      }
+
+      // Validate and fix action parameters
+      console.log('\n🔍 Checking for GitHub Actions parameter errors...\n');
+      const workflowContent = fs.readFileSync(workflowPath, 'utf8');
+      const paramErrors = WorkflowActionParameterValidation.detectErrors(workflowContent);
+      
+      if (paramErrors.length > 0) {
+        console.log('⚠️ Found ' + paramErrors.length + ' action parameter error(s):');
+        paramErrors.forEach(err => {
+          console.log(`   Line ${err.line}: ${err.error}`);
+          console.log(`   Fix: ${err.fix}`);
+        });
         
-        // Auto-commit and push the fixes
+        // Auto-fix the errors
+        const fixResult = WorkflowActionParameterValidation.fixErrors(workflowContent);
+        if (fixResult.modified) {
+          fs.writeFileSync(workflowPath, fixResult.fixed);
+          console.log(`\n✅ Action parameter errors fixed: ${fixResult.fixed !== workflowContent ? 'applied' : 'none needed'}`);
+        }
+      } else {
+        console.log('✅ No GitHub Actions parameter errors found');
+      }
+      
+      if (validationResult.fixed || (paramErrors.length > 0)) {
+        console.log('\n📝 File changes need to be committed and pushed');
         try {
           const git = simpleGit();
           await git.add('.github/workflows/ci.yml');
