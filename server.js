@@ -4,6 +4,7 @@ const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
+const https = require("https");
 
 // Load environment variables
 require("dotenv").config();
@@ -705,71 +706,97 @@ app.use((req, res) => {
         }
       };
       
-      // Call GitHub API with authentication
-      const githubResponse = await fetch(
-        "https://api.github.com/repos/nhomyk/AgenticQA/actions/workflows/ci.yml/dispatches",
-        {
+      // Call GitHub API with authentication using https
+      return new Promise((resolve) => {
+        const payloadString = JSON.stringify(payload);
+        const options = {
+          hostname: "api.github.com",
+          port: 443,
+          path: "/repos/nhomyk/AgenticQA/actions/workflows/ci.yml/dispatches",
           method: "POST",
           headers: {
             "Accept": "application/vnd.github.v3+json",
             "Authorization": `token ${githubToken}`,
             "Content-Type": "application/json",
-            "User-Agent": "AgenticQA-Dashboard"
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-      
-      // Handle GitHub API response
-      if (githubResponse.status === 204) {
-        log("info", "Workflow dispatch successful", {
-          pipelineType,
-          branch,
-          timestamp: new Date().toISOString()
+            "User-Agent": "AgenticQA-Dashboard",
+            "Content-Length": Buffer.byteLength(payloadString)
+          }
+        };
+        
+        const githubReq = https.request(options, (githubRes) => {
+          let responseBody = "";
+          
+          githubRes.on("data", (chunk) => {
+            responseBody += chunk;
+          });
+          
+          githubRes.on("end", () => {
+            if (githubRes.statusCode === 204) {
+              log("info", "Workflow dispatch successful", {
+                pipelineType,
+                branch,
+                timestamp: new Date().toISOString()
+              });
+              
+              resolve(res.status(200).json({
+                status: "success",
+                message: `Pipeline '${pipelineType}' triggered successfully on branch '${branch}'`,
+                workflow: "ci.yml",
+                branch: branch,
+                pipelineType: pipelineType,
+                timestamp: new Date().toISOString()
+              }));
+            } else if (githubRes.statusCode === 401 || githubRes.statusCode === 403) {
+              log("warn", "GitHub token authentication failed", {
+                status: githubRes.statusCode,
+                branch
+              });
+              
+              resolve(res.status(403).json({
+                error: "GitHub token authentication failed. Verify token has 'actions' and 'contents' scopes.",
+                status: "error",
+                helpUrl: "https://github.com/settings/tokens"
+              }));
+            } else if (githubRes.statusCode === 404) {
+              log("warn", "GitHub workflow not found", {
+                repository: "nhomyk/AgenticQA",
+                workflow: "ci.yml"
+              });
+              
+              resolve(res.status(404).json({
+                error: "GitHub workflow 'ci.yml' not found in repository 'nhomyk/AgenticQA'",
+                status: "error"
+              }));
+            } else {
+              log("error", "GitHub API returned unexpected status", {
+                status: githubRes.statusCode,
+                body: responseBody
+              });
+              
+              resolve(res.status(502).json({
+                error: `GitHub API error: HTTP ${githubRes.statusCode}`,
+                status: "error",
+                details: responseBody
+              }));
+            }
+          });
         });
         
-        return res.status(200).json({
-          status: "success",
-          message: `Pipeline '${pipelineType}' triggered successfully on branch '${branch}'`,
-          workflow: "ci.yml",
-          branch: branch,
-          pipelineType: pipelineType,
-          timestamp: new Date().toISOString()
-        });
-      } else if (githubResponse.status === 401 || githubResponse.status === 403) {
-        log("warn", "GitHub token authentication failed", {
-          status: githubResponse.status,
-          branch
+        githubReq.on("error", (error) => {
+          log("error", "GitHub API request failed", {
+            error: error.message
+          });
+          
+          resolve(res.status(502).json({
+            error: "Failed to communicate with GitHub API",
+            status: "error",
+            details: error.message
+          }));
         });
         
-        return res.status(403).json({
-          error: "GitHub token authentication failed. Verify token has 'actions' and 'contents' scopes.",
-          status: "error",
-          helpUrl: "https://github.com/settings/tokens"
-        });
-      } else if (githubResponse.status === 404) {
-        log("warn", "GitHub workflow not found", {
-          repository: "nhomyk/AgenticQA",
-          workflow: "ci.yml"
-        });
-        
-        return res.status(404).json({
-          error: "GitHub workflow 'ci.yml' not found in repository 'nhomyk/AgenticQA'",
-          status: "error"
-        });
-      } else {
-        const errorBody = await githubResponse.text();
-        log("error", "GitHub API returned unexpected status", {
-          status: githubResponse.status,
-          body: errorBody
-        });
-        
-        return res.status(502).json({
-          error: `GitHub API error: HTTP ${githubResponse.status}`,
-          status: "error",
-          details: errorBody
-        });
-      }
+        githubReq.write(payloadString);
+        githubReq.end();
+      });
     } catch (error) {
       log("error", "Workflow dispatch failed", {
         error: error.message,
