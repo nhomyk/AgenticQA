@@ -277,40 +277,39 @@ jobs:
           retention-days: 1
 
   sdet-agent:
-    needs: [unit-test, test-playwright, test-vitest, test-cypress, test-pa11y, test-security-audit]
+    needs:
+      - unit-test
+      - test-playwright
+      - test-vitest
+      - test-cypress
+      - test-pa11y
+      - test-security-audit
     if: always()
     runs-on: ubuntu-latest
-    name: SDET Agent (Test Coverage & Automation)
+    name: SDET Agent
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install dependencies
-        run: npm ci
-      - name: Download coverage artifacts
-        uses: actions/download-artifact@v4
+      - run: npm ci
+      - uses: actions/download-artifact@v4
         with:
           name: coverage-report
           path: ./coverage
         continue-on-error: true
-      - name: SDET Agent Phase 1: Scan Initial Coverage & Generate Tests
+      - name: Run SDET Agent
         run: node sdet-agent.js
-      - name: Upload SDET Report & Generated Tests
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: sdet-report-and-tests
-          path: |
-            coverage/
-            unit-tests/
+          name: sdet-coverage
+          path: coverage/
           retention-days: 30
         continue-on-error: true
-      - name: Upload SDET Analysis Report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: sdet-analysis-report
-          path: ./coverage
+          name: sdet-tests
+          path: unit-tests/
           retention-days: 30
         continue-on-error: true
 
