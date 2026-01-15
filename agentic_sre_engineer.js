@@ -6,6 +6,7 @@ const fs = require("fs");
 const nodemailer = require("nodemailer");
 const path = require("path");
 const https = require("https");
+const WorkflowValidationSkill = require("./workflow-validation-skill");
 
 // === PLATFORM KNOWLEDGE ===
 const PLATFORM_KNOWLEDGE = {
@@ -1977,6 +1978,60 @@ async function agenticSRELoop() {
   const MAX_ITERATIONS = 3;
   let iteration = 0;
   let success = false;
+
+  // NEW: Workflow Validation & Auto-Fix Skill
+  console.log('\n╔════════════════════════════════════════╗');
+  console.log('║  🔍 CHECKING WORKFLOW STATUS          ║');
+  console.log('╚════════════════════════════════════════╝\n');
+
+  const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+  const REPO_OWNER = process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[0] : 'nhomyk';
+  const REPO_NAME = process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : 'AgenticQA';
+  
+  if (GITHUB_TOKEN) {
+    try {
+      const validator = new WorkflowValidationSkill(GITHUB_TOKEN, REPO_OWNER, REPO_NAME);
+      const workflowPath = '.github/workflows/ci.yml';
+      
+      const validationResult = await validator.validateAndFix(workflowPath);
+      
+      if (validationResult.fixed) {
+        console.log(`\n✅ WORKFLOW AUTO-FIXED: Applied ${validationResult.fixCount} fix(es)`);
+        console.log('📝 File changes need to be committed and pushed');
+        
+        // Auto-commit and push the fixes
+        try {
+          const git = simpleGit();
+          await git.add('.github/workflows/ci.yml');
+          const status = await git.status();
+          
+          if (status.files.length > 0) {
+            await git.raw(['config', '--global', 'user.name', 'github-actions[bot]']);
+            await git.raw(['config', '--global', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
+            
+            if (GITHUB_TOKEN) {
+              await git.raw(['config', '--global', `url.https://x-access-token:${GITHUB_TOKEN}@github.com/.insteadOf`, 'https://github.com/']);
+            }
+            
+            await git.commit('fix: Auto-fix YAML workflow syntax errors via SRE Agent');
+            await git.push(['origin', 'main']);
+            console.log('✅ Workflow fixes committed and pushed');
+            console.log('🚀 Pipeline will re-run automatically\n');
+          }
+        } catch (err) {
+          console.log(`⚠️  Could not auto-commit fixes: ${err.message}\n`);
+        }
+        
+        return; // Exit SRE agent - fixes are in progress
+      } else if (validationResult.message) {
+        console.log(`\n✅ STATUS: ${validationResult.message}\n`);
+      }
+    } catch (err) {
+      console.log(`⚠️  Workflow validation error: ${err.message}\n`);
+    }
+  } else {
+    console.log('⚠️  GITHUB_TOKEN not available - skipping workflow validation\n');
+  }
   
   console.log('\n🚀 === SRE AGENT v1.0 STARTING ===');
   console.log(`Platform: ${PLATFORM_KNOWLEDGE.platform.name}`);
