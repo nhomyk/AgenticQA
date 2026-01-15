@@ -594,45 +594,16 @@
                 <span class="card-icon" aria-hidden="true">🏗️</span>
                 <h2 class="card-title">Autonomous Orchestration Pipeline</h2>
             </div>
-            <div style="padding: 1.5rem; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.85rem; line-height: 1.5; overflow-x: auto; color: #a5b4fc; background: rgba(15, 23, 42, 0.8); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.2);">
-                <pre style="margin: 0; color: #a5b4fc;">┌─────────────────────────────────────────────────────────────────────┐
-│  🚨 PHASE -1: PIPELINE RESCUE (Health Check)                       │
-│  Validates YAML • Detects & fixes broken configs • Circuit breaker  │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│  🔧 PHASE 0: LINTING FIX (SRE Agent - Early Prevention)            │
-│  Auto-fixes style • ESLint before tests • Quality gate              │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-     ┌──────────────────────────────────────────────────────────┐
-     │  🧪 PHASE 1: PARALLEL TESTING                           │
-     │  ├─ Jest • Vitest • Playwright • Cypress              │
-     │  └─ Pa11y • npm Audit (matrix)                       │
-     │  📊 AGENTS (Parallel)                                 │
-     │  ├─ SDET Agent (QA Analysis)                          │
-     │  └─ Compliance Agent (Audits)                         │
-     └──────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│  📊 PHASE 2: COMPLIANCE SUMMARY (Aggregates findings)              │
-│  Consolidates results • Prepares for fixes                          │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│  🔧 PHASE 2: FULLSTACK AGENT (Code Fixes)                          │
-│  Analyzes failures • Generates fixes • Auto-commits                 │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│  🚀 PHASE 3: SRE AGENT (Production Ready)                          │
-│  Deployment validation • Pipeline health • Scaling                  │
-└─────────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────────┐
-│  🏥 FINAL GATE: HEALTH VERIFICATION (Sanity Check)                 │
-│  Loop detection • Workflow validation • Final status                │
-└─────────────────────────────────────────────────────────────────────┘</pre>
+            <div style="padding: 1.5rem; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.8rem; line-height: 1.4; overflow-x: auto; color: #a5b4fc; background: rgba(15, 23, 42, 0.8); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                <pre style="margin: 0; color: #a5b4fc;">🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🏥 FINAL
+
+• Phase -1: YAML validation & circuit breaker (prevents infinite loops)
+• Phase 0: Auto-fixes linting issues (prevents cascading failures)  
+• Phase 1: Jest • Vitest • Playwright • Cypress • Pa11y • Security scans (parallel)
+• Phase 1→2: SDET & Compliance agents analyze results concurrently
+• Phase 2: Fullstack agent applies intelligent code fixes & updates
+• Phase 3: SRE agent validates production readiness & infrastructure health
+• Final: Health verification & loop detection</pre>
             </div>
             <div style="padding: 1rem; font-size: 0.9rem; color: #a5b4fc;">
                 <strong>✨ Key Features:</strong> Self-healing • Intelligent agents • Parallel execution • Zero manual intervention • Safe failures
@@ -971,7 +942,7 @@
         async function kickoffPipeline() {
             const pipelineType = document.getElementById('pipelineType').value;
             const branch = document.getElementById('pipelineBranch').value || 'main';
-            const launchBtn = event.target;
+            const launchBtn = document.querySelector('.kickoff-section .btn-primary');
 
             try {
                 // Disable button during request
@@ -997,26 +968,30 @@
 
                 const result = await response.json();
 
-                if (response.status === 200) {
+                if (response.ok && result.status === 'success') {
                     // Success response
                     showAlert(`✅ ${result.message}`, 'success');
                     
                     // Refresh pipelines after delay
                     await new Promise(resolve => setTimeout(resolve, 2000));
-                    loadRecentPipelines();
+                    if (typeof loadRecentPipelines === 'function') {
+                        loadRecentPipelines();
+                    }
                 } else if (response.status === 403) {
                     // Authentication issues
                     showAlert(`⚠️ ${result.error}`, 'error');
-                    loadRecentPipelines();
                 } else if (response.status === 404) {
                     // Workflow not found
                     showAlert(`❌ ${result.error}`, 'error');
                 } else if (response.status === 503) {
                     // Service unavailable (token not configured)
                     showAlert(`⚠️ ${result.error}. Check server logs for details.`, 'error');
+                } else if (response.status === 400) {
+                    // Validation error
+                    showAlert(`❌ ${result.error}`, 'error');
                 } else {
                     // Other errors
-                    throw new Error(result.error || `Request failed with status ${response.status}`);
+                    showAlert(`❌ Error: ${result.error || `Request failed with status ${response.status}`}`, 'error');
                 }
             } catch (error) {
                 launchBtn.disabled = false;
