@@ -73,11 +73,7 @@ jobs:
           git config --global user.name "sre-agent[bot]"
           git config --global user.email "sre-agent[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: Auto-fix linting errors via SRE Agent
-
-- Ran ESLint with --fix flag
-- Phase 0: Early prevention of linting failures
-- Ensures subsequent jobs have clean codebase" || echo "No changes to commit"
+          git commit -m "fix: Auto-fix linting errors via SRE Agent - Phase 0 early prevention" || echo "No changes to commit"
           git push || echo "Already up to date"
 
   lint:
@@ -633,3 +629,50 @@ jobs:
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Reports available in artifacts for review" >> $GITHUB_STEP_SUMMARY
+
+  # FINAL GATE: Pipeline health verification
+  # This ensures the pipeline doesn't get stuck in a failed state
+  pipeline-health-check:
+    needs: [compliance-summary]
+    runs-on: ubuntu-latest
+    name: 🏥 Pipeline Health Verification
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify workflow files are valid
+        run: |
+          npm install -g js-yaml
+          echo "🔍 Validating workflow files..."
+          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+            if [ -f "$file" ]; then
+              node -e "const yaml = require('js-yaml'); const fs = require('fs'); try { yaml.load(fs.readFileSync('$file', 'utf8')); console.log('✅ $file'); } catch(e) { console.log('❌ $file:', e.message); process.exit(1); }" || exit 1
+            fi
+          done
+          echo "✅ All workflows validated"
+      
+      - name: Check for infinite loop conditions
+        run: |
+          # Check if this is a repair commit
+          LAST_COMMIT=$(git log -1 --format=%s)
+          
+          if [[ "$LAST_COMMIT" == *"workflow repair"* ]] || [[ "$LAST_COMMIT" == *"auto-fix"* ]]; then
+            echo "ℹ️  This is a repair commit"
+            
+            # Check if we're in a repair loop (too many consecutive repairs)
+            REPAIR_COUNT=$(git log --oneline | grep -c "workflow repair\|auto-fix" | head -5)
+            
+            if [ "$REPAIR_COUNT" -gt 3 ]; then
+              echo "🚨 ALERT: Too many consecutive repairs detected"
+              echo "This may indicate an infinite loop."
+              echo ""
+              echo "⚠️  Manual intervention may be required"
+              exit 1
+            fi
+          fi
+      
+      - name: Report health status
+        run: |
+          echo "## 🏥 Pipeline Health Report" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Workflow files validated" >> $GITHUB_STEP_SUMMARY
+          echo "✅ No infinite loop conditions detected" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Pipeline is healthy" >> $GITHUB_STEP_SUMMARY

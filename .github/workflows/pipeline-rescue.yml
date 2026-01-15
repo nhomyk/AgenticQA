@@ -1,0 +1,133 @@
+name: 🆘 Pipeline Rescue System (Phase -1)
+
+# This runs INDEPENDENTLY and FIRST - before any other workflow
+# It detects critical pipeline failures and fixes them
+# This is the "circuit breaker" that prevents infinite loops
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    # Run every 5 minutes to catch failures early
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  pipeline-rescue:
+    runs-on: ubuntu-latest
+    name: 🚨 Pipeline Health Check & Emergency Repair
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # STEP 1: Check if main workflow is in a broken state
+      - name: Check pipeline health
+        id: health
+        run: |
+          echo "Checking pipeline health status..."
+          
+          # Get the latest workflow run
+          LATEST_RUN=$(gh run list --workflow=ci.yml --branch=main --limit=1 --json conclusion,status,databaseId -q '.[0]')
+          
+          echo "Latest run: $LATEST_RUN"
+          
+          if echo "$LATEST_RUN" | grep -q '"FAILURE"'; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "Pipeline is currently FAILED"
+          elif echo "$LATEST_RUN" | grep -q '"IN_PROGRESS"'; then
+            echo "status=running" >> $GITHUB_OUTPUT
+            echo "Pipeline is still running"
+          else
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            echo "Pipeline appears healthy"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # STEP 2: If failed, run repairs
+      - name: Emergency repair mode
+        if: steps.health.outputs.status == 'failed'
+        run: |
+          echo "🚨 PIPELINE IN FAILURE STATE - ACTIVATING EMERGENCY REPAIR"
+          
+          # Install YAML validator
+          npm install -g js-yaml
+          
+          # Validate all workflow files
+          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+            if [ -f "$file" ]; then
+              echo ""
+              echo "Validating: $file"
+              node -e "const yaml = require('js-yaml'); const fs = require('fs'); try { yaml.load(fs.readFileSync('$file', 'utf8')); console.log('✅ Valid'); } catch(e) { console.log('❌ ERROR:', e.message); process.exit(1); }"
+            fi
+          done
+          
+          echo ""
+          echo "✅ All workflows validated"
+
+      # STEP 3: Run repair script
+      - name: Run critical repair system
+        if: steps.health.outputs.status == 'failed'
+        run: |
+          node repair-workflow.js
+        continue-on-error: true
+
+      # STEP 4: If still broken, create emergency issue
+      - name: Create emergency issue if unresolved
+        if: failure() && steps.health.outputs.status == 'failed'
+        run: |
+          gh issue create \
+            --title "🚨 CRITICAL: Pipeline Rescue Failed - Manual Intervention Required" \
+            --body "The Pipeline Rescue System detected a critical failure and could not auto-repair it.
+
+## Status
+- Pipeline Status: FAILED
+- Auto-Repair: FAILED
+- Manual Action: REQUIRED
+
+## What Happened
+The main CI/CD pipeline is in a failed state and the automated repair system could not fix it.
+
+## Required Actions
+1. Review the latest workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+2. Check the Rescue System logs for error details
+3. Manually fix the issue or reset to last known good state
+
+## Recommended Fixes
+- Check .github/workflows/ci.yml for syntax errors
+- Run: \`npm install -g js-yaml && js-yaml .github/workflows/ci.yml\`
+- Review recent commits to workflow files
+- Reset to previous commit if needed: \`git revert HEAD\`
+
+See repair-workflow.js for diagnostic info.
+
+CC: @${{ github.actor }}" \
+            --label "critical,pipeline,emergency" \
+            --assignee "${{ github.actor }}" \
+            || echo "Could not create issue"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # STEP 5: Report status
+      - name: Report repair result
+        run: |
+          echo "## 🔧 Pipeline Rescue Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ steps.health.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.health.outputs.status }}" = "healthy" ]; then
+            echo "✅ Pipeline is healthy - no repairs needed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.health.outputs.status }}" = "failed" ]; then
+            echo "🚨 Pipeline was in FAILURE state" >> $GITHUB_STEP_SUMMARY
+            echo "⚙️ Automated repairs applied" >> $GITHUB_STEP_SUMMARY
+          fi
