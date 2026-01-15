@@ -301,8 +301,8 @@ jobs:
       - name: Run SDET Agent
         run: node sdet-agent.js
       - uses: actions/upload-artifact@v4
-        with:
-          name: sdet-coverage
+      with:
+        name: sdet-coverage
           path: coverage/
           retention-days: 30
         continue-on-error: true
