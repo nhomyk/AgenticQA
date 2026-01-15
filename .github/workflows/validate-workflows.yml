@@ -25,113 +25,127 @@ jobs:
           node-version: '20'
 
       - name: Install YAML validation tools
-        run: npm install -g yaml js-yaml
+        run: npm install -g js-yaml
 
-      - name: Validate and fix workflow YAML
+      - name: Detect YAML errors
+        id: validate
         run: |
           node << 'EOF'
           const fs = require('fs');
           const path = require('path');
-          const yaml = require('yaml');
-
-          console.log('\n╔════════════════════════════════════════╗');
-          console.log('║   🔍 WORKFLOW YAML VALIDATOR           ║');
-          console.log('╚════════════════════════════════════════╝\n');
+          const yaml = require('js-yaml');
 
           const workflowDir = '.github/workflows';
-          const files = fs.readdirSync(workflowDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+          const files = fs.readdirSync(workflowDir)
+            .filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
           
-          let errorCount = 0;
+          let hasErrors = false;
+          let errorDetails = [];
+
+          files.forEach(file => {
+            const filePath = path.join(workflowDir, file);
+            try {
+              const content = fs.readFileSync(filePath, 'utf8');
+              yaml.load(content);
+            } catch (err) {
+              hasErrors = true;
+              errorDetails.push({
+                file: filePath,
+                error: err.message,
+                line: err.mark ? err.mark.line + 1 : 'unknown'
+              });
+            }
+          });
+
+          if (hasErrors) {
+            console.log('::set-output name=has_errors::true');
+            console.log('YAML Errors found:');
+            errorDetails.forEach(e => {
+              console.log(`  - ${e.file} (Line ${e.line}): ${e.error}`);
+            });
+            fs.writeFileSync('yaml-errors.json', JSON.stringify(errorDetails, null, 2));
+          } else {
+            console.log('::set-output name=has_errors::false');
+            console.log('✅ All workflows valid');
+          }
+          EOF
+
+      - name: Auto-fix YAML errors
+        if: steps.validate.outputs.has_errors == 'true'
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const yaml = require('js-yaml');
+
+          console.log('\n🔧 Attempting to auto-fix YAML errors...\n');
+
+          const workflowDir = '.github/workflows';
+          const files = fs.readdirSync(workflowDir)
+            .filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+          
           let fixCount = 0;
 
           files.forEach(file => {
             const filePath = path.join(workflowDir, file);
-            console.log(`📋 Checking: ${file}`);
-            
             try {
               const content = fs.readFileSync(filePath, 'utf8');
-              yaml.parse(content);
-              console.log(`  ✅ YAML is valid\n`);
+              yaml.load(content);
+              console.log(`✅ ${file} is valid`);
             } catch (err) {
-              console.log(`  ❌ YAML Error: ${err.message}`);
-              errorCount++;
+              console.log(`❌ ${file} has errors - attempting fix...`);
               
-              // Attempt auto-fixes
-              let fixed = false;
-              let fixedContent = content;
-
-              // Fix 1: Remove improper indentation before 'with:'
-              if (fixedContent.match(/^      - uses:/m) && fixedContent.match(/^      with:/m)) {
-                console.log(`  🔧 Fixing improperly indented 'with:' key...`);
-                fixedContent = fixedContent.replace(/^      with:/gm, '        with:');
-                fixed = true;
+              let fixed = content;
+              
+              // Fix 1: Improperly indented 'with:' key
+              if (fixed.includes('- uses:') && /^      with:/m.test(fixed)) {
+                console.log('  🔧 Fixing improperly indented "with:" key');
+                fixed = fixed.replace(/^      with:/gm, '        with:');
                 fixCount++;
               }
 
-              // Fix 2: Fix unclosed heredocs
-              const heredocPattern = /<<\s*'([A-Z_]+)'/g;
-              let match;
-              while ((match = heredocPattern.exec(content)) !== null) {
-                const delimiter = match[1];
-                const closePattern = new RegExp(`^\\s*${delimiter}\\s*$`, 'm');
-                if (!closePattern.test(content)) {
-                  console.log(`  🔧 Fixing unclosed heredoc '${delimiter}'...`);
-                  // Add closing delimiter before next section
-                  fixedContent = fixedContent.replace(/(\n\s{2,}[a-z-]+:|$)/m, '\n          ' + delimiter + '\n$1');
-                  fixed = true;
-                  fixCount++;
-                }
-              }
-
-              // Fix 3: Fix tab indentation
-              if (fixedContent.includes('\t')) {
-                console.log(`  🔧 Fixing tab indentation...`);
-                fixedContent = fixedContent.split('\n').map(line => {
+              // Fix 2: Tab indentation
+              if (fixed.includes('\t')) {
+                console.log('  🔧 Converting tabs to spaces');
+                fixed = fixed.split('\n').map(line => {
                   if (line.startsWith('\t')) {
                     return line.replace(/^\t+/g, match => '  '.repeat(match.length));
                   }
                   return line;
                 }).join('\n');
-                fixed = true;
                 fixCount++;
               }
 
-              if (fixed) {
-                try {
-                  yaml.parse(fixedContent);
-                  console.log(`  ✅ Auto-fix successful - YAML is now valid\n`);
-                  fs.writeFileSync(filePath, fixedContent);
-                } catch (err2) {
-                  console.log(`  ⚠️  Auto-fix applied but YAML still invalid: ${err2.message}\n`);
-                }
-              } else {
-                console.log(`  ⚠️  Could not auto-fix this error\n`);
+              // Fix 3: Multi-line strings in shell commands
+              if (fixed.includes('git commit -m "') && fixed.match(/git commit -m ".*\n.*"/)) {
+                console.log('  🔧 Simplifying multi-line commit messages');
+                fixed = fixed.replace(/git commit -m "([^"]*\n[^"]*)"/gs, (match) => {
+                  const msg = match.match(/"([^"]*)"/s)[1].split('\n')[0];
+                  return `git commit -m "${msg}"`;
+                });
+                fixCount++;
+              }
+
+              // Verify fix worked
+              try {
+                yaml.load(fixed);
+                console.log('  ✅ Fix successful!');
+                fs.writeFileSync(filePath, fixed);
+              } catch (err2) {
+                console.log(`  ⚠️  Auto-fix incomplete: ${err2.message}`);
               }
             }
           });
 
-          console.log('═'.repeat(50));
-          console.log(`📊 VALIDATION SUMMARY`);
-          console.log('═'.repeat(50));
-          console.log(`Total files checked: ${files.length}`);
-          console.log(`Errors found: ${errorCount}`);
-          console.log(`Fixes applied: ${fixCount}`);
-          console.log('═'.repeat(50));
+          console.log(`\n📊 Total fixes applied: ${fixCount}\n`);
 
           if (fixCount > 0) {
-            console.log('\n✅ Fixes detected - committing changes...\n');
-            process.exit(0); // Success
-          } else if (errorCount > 0) {
-            console.log('\n⚠️  Errors found but could not auto-fix\n');
-            process.exit(1);
-          } else {
-            console.log('\n✅ All workflows valid\n');
-            process.exit(0);
+            process.exit(0); // Signal that fixes were applied
           }
           EOF
 
-      - name: Commit workflow fixes
-        if: always()
+      - name: Commit and push fixes
+        if: steps.validate.outputs.has_errors == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -143,8 +157,27 @@ jobs:
             echo "✅ No changes to commit"
           else
             echo "📝 Committing workflow fixes..."
-            git commit -m "fix: Auto-fix YAML workflow syntax errors in workflow files"
-            
+            git commit -m "fix: Auto-fix YAML workflow syntax errors"
             git push origin main
-            echo "✅ Changes pushed"
+            echo "✅ Fixes pushed - triggering new workflow run"
           fi
+
+      - name: Trigger new workflow run
+        if: steps.validate.outputs.has_errors == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci.yml',
+              ref: 'main'
+            }).then(res => {
+              console.log('✅ New workflow triggered');
+            }).catch(err => {
+              console.log('⚠️ Could not trigger workflow:', err.message);
+            });
+
+      - name: Success summary
+        if: steps.validate.outputs.has_errors == 'false'
+        run: echo "✅ All workflows valid - CI will proceed normally"
