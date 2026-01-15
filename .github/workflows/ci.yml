@@ -299,7 +299,9 @@ jobs:
           path: ./coverage
         continue-on-error: true
       - name: Run SDET Agent
-        run: node sdet-agent.js
+        run: |
+          echo "Testing with template literal: `date`"
+          node sdet-agent.js
       - uses: actions/upload-artifact@v4
         with:
           name: sdet-coverage
