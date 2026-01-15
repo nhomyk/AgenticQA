@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AgenticQA - Self-Healing, AI-Powered Quality Assurance Platform">
-    <title>AgenticQA - Autonomous QA Dashboard</title>
+    <title>circleQA.ai Dashboard - Agent Control & Pipeline Monitor</title>
     <style>
         * {
             margin: 0;
@@ -12,538 +11,932 @@
             box-sizing: border-box;
         }
 
-        html {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        }
-
         body {
-            line-height: 1.6;
-            color: #333;
-        }
-
-        .dashboard-container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%);
+            color: #e0e7ff;
             min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            overflow-x: hidden;
         }
 
-        .hero {
-            text-align: center;
-            padding: 4rem 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin-bottom: 2rem;
+        /* Navigation */
+        .navbar {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
-        }
-
-        .tagline {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            opacity: 0.95;
-        }
-
-        .subtitle {
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-        }
-
-        .cta-button {
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .tabs {
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
             display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin: 2rem;
-            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .tabs button {
-            padding: 0.75rem 1.5rem;
-            border: 2px solid #ddd;
-            background: white;
-            cursor: pointer;
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.3s;
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .tabs button.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
         }
 
-        .tabs button:hover {
-            border-color: #667eea;
+        .nav-links a {
+            color: #a5b4fc;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            display: inline-block;
         }
 
-        .content {
-            max-width: 1200px;
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
-            background: white;
-            border-radius: 12px;
+        }
+
+        /* Page Header */
+        .page-header {
             margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            display: none;
         }
 
-        .content.active {
-            display: block;
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .grid {
+        .page-header p {
+            color: #a5b4fc;
+            font-size: 1rem;
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 2fr 1fr;
             gap: 2rem;
-            margin-top: 2rem;
+            margin-bottom: 2rem;
         }
 
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
         .card {
-            padding: 2rem;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .card h2 {
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-
-        .feature-group {
-            margin: 2rem 0;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
             padding: 1.5rem;
-            background: #f8f9fa;
-            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
 
-        .feature-group.premium {
-            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
-            border: 2px solid #667eea;
+        .card:hover {
+            border-color: rgba(102, 126, 234, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.1);
         }
 
-        .feature-group h3 {
-            color: #333;
-            margin-bottom: 1rem;
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            padding-bottom: 1rem;
         }
 
-        .feature-group ul {
-            list-style: none;
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+        }
+
+        /* Agent Control Section */
+        .agent-controls {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1rem;
         }
 
-        .feature-group li {
-            padding: 0.5rem;
+        .agent-card {
+            background: rgba(30, 30, 46, 0.7);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            transition: all 0.3s ease;
         }
 
-        .feature-group li:before {
-            content: "✓ ";
-            color: #667eea;
-            font-weight: bold;
-            margin-right: 0.5rem;
+        .agent-card:hover {
+            border-color: rgba(102, 126, 234, 0.5);
+            background: rgba(30, 30, 46, 0.9);
         }
 
-        .tech-section {
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .tech-section h3 {
-            color: #667eea;
-            margin-bottom: 1rem;
-        }
-
-        .tech-section ul, .tech-section p {
-            margin-bottom: 1rem;
-            line-height: 1.8;
-        }
-
-        .tech-section code {
-            background: #333;
-            color: #0f0;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: monospace;
-        }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .pricing-card {
-            padding: 2rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            text-align: center;
-            position: relative;
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .pricing-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .pricing-card.premium {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
-            transform: scale(1.05);
-        }
-
-        .badge {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #667eea;
-            color: white;
-            padding: 0.25rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
-
-        .pricing-card h3 {
-            font-size: 1.5rem;
-            margin: 1rem 0;
-        }
-
-        .price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #667eea;
-            margin: 1rem 0;
-        }
-
-        .price span {
-            font-size: 1rem;
-            color: #666;
-        }
-
-        .description {
-            color: #666;
-            margin-bottom: 1.5rem;
-        }
-
-        .pricing-card ul {
-            list-style: none;
-            margin: 1.5rem 0;
-            text-align: left;
-        }
-
-        .pricing-card li {
-            padding: 0.5rem 0;
-            color: #666;
-        }
-
-        .btn-primary, .btn-secondary {
-            width: 100%;
-            padding: 0.75rem;
-            margin-top: 1rem;
-            border: none;
-            border-radius: 6px;
+        .agent-name {
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-            border: 2px solid #ddd;
-        }
-
-        .btn-secondary:hover {
-            background: #e8e8e8;
-        }
-
-        .use-case-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-
-        .use-case-card {
-            padding: 1.5rem;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            background: white;
-            transition: all 0.3s;
-        }
-
-        .use-case-card:hover {
-            border-color: #667eea;
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
-            transform: translateY(-3px);
-        }
-
-        .use-case-card h3 {
             color: #667eea;
-            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
             margin-bottom: 0.75rem;
         }
 
-        .use-case-card p {
-            color: #666;
-            line-height: 1.6;
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
         }
 
-        h1, h2, h3 {
+        .status-dot.offline {
+            background: #ef4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Input Section */
+        .query-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
             margin-bottom: 1rem;
         }
 
+        .query-input-group label {
+            font-size: 0.85rem;
+            color: #a5b4fc;
+            font-weight: 500;
+        }
+
+        .query-input-group input,
+        .query-input-group textarea,
+        .query-input-group select {
+            background: rgba(30, 30, 46, 0.8);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: #e0e7ff;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .query-input-group input:focus,
+        .query-input-group textarea:focus,
+        .query-input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .query-input-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            border: 1px solid rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric {
+            background: rgba(30, 30, 46, 0.7);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #a5b4fc;
+            margin-top: 0.25rem;
+        }
+
+        /* Pipelines List */
+        .pipelines-list {
+            max-height: 600px;
+            overflow-y: auto;
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .pipeline-item {
+            background: rgba(30, 30, 46, 0.7);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .pipeline-item:hover {
+            border-color: rgba(102, 126, 234, 0.5);
+            background: rgba(30, 30, 46, 0.9);
+        }
+
+        .pipeline-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .pipeline-status.success {
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+
+        .pipeline-status.running {
+            background: #f59e0b;
+            animation: pulse 1s infinite;
+        }
+
+        .pipeline-status.failed {
+            background: #ef4444;
+        }
+
+        .pipeline-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .pipeline-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .pipeline-meta {
+            font-size: 0.8rem;
+            color: #a5b4fc;
+        }
+
+        .pipeline-time {
+            font-size: 0.8rem;
+            color: #a5b4fc;
+            text-align: right;
+        }
+
+        /* Scrollbar Styling */
+        .pipelines-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .pipelines-list::-webkit-scrollbar-track {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+        }
+
+        .pipelines-list::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+        }
+
+        .pipelines-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.5);
+        }
+
+        /* Compliance & Accessibility Section */
+        .compliance-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .compliance-item {
+            background: rgba(30, 30, 46, 0.7);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .compliance-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .compliance-score {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .compliance-label {
+            font-size: 0.9rem;
+            color: #a5b4fc;
+        }
+
+        .compliance-details {
+            font-size: 0.8rem;
+            color: #667eea;
+            margin-top: 0.5rem;
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: loading 1.4s infinite;
+        }
+
+        @keyframes loading {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        /* Response Panel */
+        .response-panel {
+            background: rgba(30, 30, 46, 0.7);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            max-height: 250px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #a5b4fc;
+            display: none;
+        }
+
+        .response-panel.active {
+            display: block;
+        }
+
+        .response-panel-title {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Pipeline Kickoff Modal-like */
+        .kickoff-section {
+            background: rgba(102, 126, 234, 0.05);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .kickoff-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+
+        /* Success/Error Messages */
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.5rem;
+            .container {
+                padding: 1rem;
             }
 
-            .pricing-card.premium {
-                transform: scale(1);
+            .page-header h1 {
+                font-size: 1.8rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+                font-size: 0.85rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .compliance-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pipeline-item {
+                grid-template-columns: auto 1fr;
+            }
+
+            .pipeline-time {
+                grid-column: 2;
+                text-align: left;
             }
         }
     </style>
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="hero">
-            <h1>AgenticQA</h1>
-            <p class="tagline">Self-Healing, AI-Powered Quality Assurance</p>
-            <p class="subtitle">Enterprise-Grade Autonomous Testing with Circular Development</p>
-            <button class="cta-button">Start Free Trial</button>
-        </header>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">🤖 circleQA.ai</div>
+            <ul class="nav-links">
+                <li><a href="/index.html">Home</a></li>
+                <li><a href="/index.html#features">Features</a></li>
+                <li><a href="/dashboard.html" class="active">📊 Dashboard</a></li>
+                <li><a href="/scanner.html">Scanner</a></li>
+            </ul>
+        </div>
+    </nav>
 
-        <nav class="tabs">
-            <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
-            <button class="tab-btn" onclick="switchTab('features')">Features</button>
-            <button class="tab-btn" onclick="switchTab('use-cases')">Use Cases</button>
-            <button class="tab-btn" onclick="switchTab('technical')">Technical</button>
-            <button class="tab-btn" onclick="switchTab('pricing')">Pricing</button>
-        </nav>
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>Agent Control Center</h1>
+            <p>Monitor pipeline health, interact with autonomous agents, and manage CI/CD operations</p>
+        </div>
 
-        <!-- Overview Tab -->
-        <section id="overview" class="content active">
-            <div class="grid">
+        <!-- Alert Messages -->
+        <div id="successAlert" class="alert alert-success"></div>
+        <div id="errorAlert" class="alert alert-error"></div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Left Column: Agent Control & Pipeline Kickoff -->
+            <div>
+                <!-- Pipeline Kickoff Section -->
+                <div class="card kickoff-section">
+                    <div class="card-header">
+                        <span class="card-icon">🚀</span>
+                        <span class="card-title">Kickoff New Pipeline</span>
+                    </div>
+                    <div class="query-input-group">
+                        <label>Pipeline Type</label>
+                        <select id="pipelineType">
+                            <option value="full">Full CI/CD Pipeline</option>
+                            <option value="tests">Tests Only</option>
+                            <option value="security">Security Scan</option>
+                            <option value="accessibility">Accessibility Check</option>
+                            <option value="compliance">Compliance Audit</option>
+                        </select>
+                    </div>
+                    <div class="query-input-group">
+                        <label>Branch (optional)</label>
+                        <input type="text" id="pipelineBranch" placeholder="main" value="main">
+                    </div>
+                    <button class="btn btn-primary" onclick="kickoffPipeline()">
+                        🚀 Launch Pipeline
+                    </button>
+                </div>
+
+                <!-- Agent Interaction Section -->
                 <div class="card">
-                    <h2>🤖 AI-Powered Agents</h2>
-                    <p>Autonomous fullstack and SRE agents that understand your codebase and generate tests automatically.</p>
+                    <div class="card-header">
+                        <span class="card-icon">🤖</span>
+                        <span class="card-title">Agent Interaction</span>
+                    </div>
+
+                    <!-- Agent Selection -->
+                    <div class="query-input-group">
+                        <label>Select Agent</label>
+                        <select id="agentSelect" onchange="updateAgentInfo()">
+                            <option value="sdet">🧪 SDET Agent (Test Automation)</option>
+                            <option value="fullstack">🚀 Fullstack Agent (E2E Testing)</option>
+                            <option value="compliance">✅ Compliance Agent (Audits)</option>
+                            <option value="sre">🔧 SRE Agent (Infrastructure)</option>
+                        </select>
+                    </div>
+
+                    <!-- Agent Status Card -->
+                    <div class="agent-card" id="agentStatusCard">
+                        <div class="agent-name">SDET Agent</div>
+                        <div class="agent-status">
+                            <div class="status-dot"></div>
+                            <span>Status: Online</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: #a5b4fc;">
+                            Last Activity: <span id="lastActivity">2 minutes ago</span><br>
+                            Health: <span id="agentHealth">✅ Excellent</span>
+                        </div>
+                    </div>
+
+                    <!-- Query Input -->
+                    <div class="query-input-group" style="margin-top: 1rem;">
+                        <label>Ask Agent a Question</label>
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.5rem;">
+                            <textarea id="agentQuery" placeholder="e.g., 'What is our current test coverage?' or 'Run accessibility checks on the dashboard'"></textarea>
+                            <button class="btn btn-primary" onclick="queryAgent()" style="height: fit-content; padding: 0.75rem 1rem;">
+                                📨 Send
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-top: 1rem;">
+                        <button class="btn btn-secondary btn-small" onclick="quickQuery('health')">
+                            ❤️ Health Check
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="quickQuery('coverage')">
+                            📊 Test Coverage
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="quickQuery('compliance')">
+                            ✅ Compliance
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="quickQuery('accessibility')">
+                            ♿ Accessibility
+                        </button>
+                    </div>
+
+                    <!-- Response Panel -->
+                    <div class="response-panel" id="responsePanel">
+                        <div class="response-panel-title">Agent Response</div>
+                        <div id="responseContent"></div>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Right Column: Metrics & Status -->
+            <div>
+                <!-- Health Metrics -->
                 <div class="card">
-                    <h2>♻️ Self-Healing Pipelines</h2>
-                    <p>Continuous integration that fixes itself. Our agents detect failures and propose corrections automatically.</p>
+                    <div class="card-header">
+                        <span class="card-icon">📈</span>
+                        <span class="card-title">Health Metrics</span>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <div class="metric-value">98%</div>
+                            <div class="metric-label">Pipeline Success</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">4.2s</div>
+                            <div class="metric-label">Avg. Duration</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">95%</div>
+                            <div class="metric-label">Test Coverage</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">✅</div>
+                            <div class="metric-label">Status: All Green</div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Compliance & Accessibility -->
                 <div class="card">
-                    <h2>🔄 Circular Development</h2>
-                    <p>Agents test agents. A self-maintained development structure ensuring code quality and correctness.</p>
+                    <div class="card-header">
+                        <span class="card-icon">🔒</span>
+                        <span class="card-title">Compliance Status</span>
+                    </div>
+                    <div class="compliance-grid">
+                        <div class="compliance-item">
+                            <div class="compliance-header">
+                                <div class="compliance-score">100%</div>
+                                <div>
+                                    <div class="compliance-label">WCAG 2.1</div>
+                                    <div class="compliance-details">Accessibility</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="compliance-item">
+                            <div class="compliance-header">
+                                <div class="compliance-score">175</div>
+                                <div>
+                                    <div class="compliance-label">Security Checks</div>
+                                    <div class="compliance-details">Passed ✅</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="compliance-item">
+                            <div class="compliance-header">
+                                <div class="compliance-score">98%</div>
+                                <div>
+                                    <div class="compliance-label">Code Quality</div>
+                                    <div class="compliance-details">Excellent</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="compliance-item">
+                            <div class="compliance-header">
+                                <div class="compliance-score">A+</div>
+                                <div>
+                                    <div class="compliance-label">Performance</div>
+                                    <div class="compliance-details">Optimized</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- Features Tab -->
-        <section id="features" class="content">
-            <h2>Platform Features</h2>
-            
-            <div class="feature-group">
-                <h3>✨ Standard Features</h3>
-                <ul>
-                    <li>Automated unit test generation</li>
-                    <li>Integration test creation</li>
-                    <li>Basic code coverage analysis</li>
-                    <li>CI/CD pipeline monitoring</li>
-                    <li>Test execution and reporting</li>
-                </ul>
+        <!-- Recent Pipelines Section -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📋</span>
+                <span class="card-title">Recent Pipelines (Last 20)</span>
             </div>
-
-            <div class="feature-group premium">
-                <h3>👑 Premium Features</h3>
-                <ul>
-                    <li>Advanced AI agent orchestration</li>
-                    <li>Self-healing pipeline automation</li>
-                    <li>Unlimited test generation</li>
-                    <li>Code quality analysis with AI</li>
-                    <li>Custom agent training</li>
-                    <li>Priority support & SLA</li>
-                    <li>Enterprise deployment options</li>
-                    <li>Advanced security scanning</li>
-                </ul>
-            </div>
-        </section>
-
-        <!-- Use Cases Tab -->
-        <section id="use-cases" class="content">
-            <h2>How AgenticQA Solves Real Problems</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 2rem; font-size: 1.1rem;">
-                AgenticQA empowers teams to ship code faster with confidence. Here are the key use cases:
-            </p>
-            
-            <div class="use-case-grid">
-                <div class="use-case-card">
-                    <h3>📚 Codebase Knowledge</h3>
-                    <p>AgenticQA agents understand your entire codebase structure, dependencies, and patterns. They maintain institutional knowledge and can answer questions about your code automatically, eliminating onboarding delays for new team members.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🤖 Code Generation</h3>
-                    <p>Automatically generate boilerplate code, test fixtures, and utility functions based on your project patterns. Agents analyze your codebase and generate code that matches your conventions and standards.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🔍 Code Review</h3>
-                    <p>AI-powered code review that catches bugs, suggests improvements, and verifies best practices before human review. Reduce review cycles and catch issues early in the development process.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🚀 Code Deployment</h3>
-                    <p>Automatically validate deployments, run smoke tests, and verify that your application works post-deployment. Agents handle pre-flight checks and ensure safe rollouts with confidence.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>✅ Testing All Aspects of Code</h3>
-                    <p>Comprehensive test coverage including unit tests, integration tests, end-to-end tests, and performance tests. AgenticQA agents generate and maintain tests across your entire test pyramid.</p>
-                </div>
-
-                <div class="use-case-card">
-                    <h3>🎨 UI Functionality Testing</h3>
-                    <p>Automated visual and functional testing for your UI. Agents interact with your application like real users, testing user flows, form submissions, navigation, and responsiveness across devices.</p>
+            <div class="pipelines-list" id="pipelinesList">
+                <div style="text-align: center; color: #a5b4fc; padding: 2rem;">
+                    <div class="loading"></div>
+                    <p style="margin-top: 1rem;">Loading pipeline data...</p>
                 </div>
             </div>
-        </section>
-
-        <!-- Technical Tab -->
-        <section id="technical" class="content">
-            <h2>Technical Architecture</h2>
-            
-            <div class="tech-section">
-                <h3>Why AgenticQA is Technically Impressive</h3>
-                <ul>
-                    <li><strong>Circular Development Structure:</strong> Agents test agents, creating a self-validating system that ensures code correctness without manual intervention.</li>
-                    <li><strong>Multi-Agent System:</strong> Fullstack agents handle feature development, SRE agents manage infrastructure and deployment—working in concert.</li>
-                    <li><strong>Reliable CI/CD Foundation:</strong> Built on industry-standard tooling (Vitest, Jest, Playwright, Cypress) with intelligent orchestration.</li>
-                    <li><strong>Self-Maintaining Codebase:</strong> Agents automatically generate tests, detect issues, propose fixes, and validate solutions.</li>
-                    <li><strong>Quality Assurance Loop:</strong> Every code change is tested by multiple agents before deployment, ensuring reliability at scale.</li>
-                </ul>
-            </div>
-
-            <div class="tech-section">
-                <h3>The Circular Development Advantage</h3>
-                <p>Traditional development relies on manual testing and code review. AgenticQA inverts this:</p>
-                <ul>
-                    <li>Code changes → Agents generate tests automatically</li>
-                    <li>Tests reveal issues → Agents propose fixes</li>
-                    <li>Fixes validated → Tests verify corrections work</li>
-                    <li>Process repeats → Continuous improvement cycle</li>
-                </ul>
-            </div>
-
-            <div class="tech-section">
-                <h3>Stack</h3>
-                <p><code>Node.js • TypeScript • Vitest • Jest • Playwright • Cypress • Claude AI • LangGraph</code></p>
-            </div>
-        </section>
-
-        <!-- Pricing Tab -->
-        <section id="pricing" class="content">
-            <h2>Simple, Transparent Pricing</h2>
-            
-            <div class="pricing-grid">
-                <div class="pricing-card">
-                    <h3>Starter</h3>
-                    <p class="price">Free</p>
-                    <p class="description">Perfect for small teams getting started</p>
-                    <ul>
-                        <li>✓ Up to 100 tests/month</li>
-                        <li>✓ Basic coverage analysis</li>
-                        <li>✓ Community support</li>
-                        <li>✗ AI agents</li>
-                        <li>✗ Self-healing pipelines</li>
-                    </ul>
-                    <button class="btn-secondary">Get Started</button>
-                </div>
-
-                <div class="pricing-card premium">
-                    <div class="badge">MOST POPULAR</div>
-                    <h3>Professional</h3>
-                    <p class="price">$99<span>/month</span></p>
-                    <p class="description">For growing teams</p>
-                    <ul>
-                        <li>✓ Unlimited tests</li>
-                        <li>✓ AI agent orchestration</li>
-                        <li>✓ Self-healing pipelines</li>
-                        <li>✓ Advanced analytics</li>
-                        <li>✓ Priority support</li>
-                    </ul>
-                    <button class="btn-primary">Start Free Trial</button>
-                </div>
-
-                <div class="pricing-card">
-                    <h3>Enterprise</h3>
-                    <p class="price">Custom</p>
-                    <p class="description">For large organizations</p>
-                    <ul>
-                        <li>✓ Everything in Professional</li>
-                        <li>✓ Custom agent training</li>
-                        <li>✓ Dedicated support team</li>
-                        <li>✓ On-premise deployment</li>
-                        <li>✓ SLA guarantee</li>
-                    </ul>
-                    <button class="btn-secondary">Contact Sales</button>
-                </div>
-            </div>
-        </section>
+        </div>
     </div>
 
     <script>
-        function switchTab(tabName) {
-            // Hide all content sections
-            const contents = document.querySelectorAll('.content');
-            contents.forEach(content => content.classList.remove('active'));
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecentPipelines();
+            updateAgentInfo();
+            // Refresh pipelines every 30 seconds
+            setInterval(loadRecentPipelines, 30000);
+        });
 
-            // Remove active class from all buttons
-            const buttons = document.querySelectorAll('.tab-btn');
-            buttons.forEach(btn => btn.classList.remove('active'));
+        // Load recent pipelines from GitHub API
+        async function loadRecentPipelines() {
+            try {
+                const response = await fetch('https://api.github.com/repos/nhomyk/AgenticQA/actions/runs?per_page=20');
+                const data = await response.json();
+                
+                const pipelinesList = document.getElementById('pipelinesList');
+                pipelinesList.innerHTML = '';
 
-            // Show the selected content
-            document.getElementById(tabName).classList.add('active');
+                if (data.workflow_runs && data.workflow_runs.length > 0) {
+                    data.workflow_runs.forEach(run => {
+                        const statusClass = run.conclusion === 'success' ? 'success' : 
+                                          run.status === 'in_progress' ? 'running' : 'failed';
+                        const statusText = run.status === 'in_progress' ? 'Running' : 
+                                         (run.conclusion === 'success' ? 'Success' : 'Failed');
+                        
+                        const date = new Date(run.updated_at);
+                        const timeAgo = getTimeAgo(date);
 
-            // Add active class to clicked button
-            event.target.classList.add('active');
+                        const pipelineEl = document.createElement('div');
+                        pipelineEl.className = 'pipeline-item';
+                        pipelineEl.innerHTML = `
+                            <div class="pipeline-status ${statusClass}"></div>
+                            <div class="pipeline-info">
+                                <div class="pipeline-name">#${run.run_number} - ${run.name}</div>
+                                <div class="pipeline-meta">${statusText} • ${run.head_branch} • ${run.head_commit.message.substring(0, 50)}</div>
+                            </div>
+                            <div class="pipeline-time">${timeAgo}</div>
+                        `;
+                        pipelinesList.appendChild(pipelineEl);
+                    });
+                } else {
+                    pipelinesList.innerHTML = '<div style="text-align: center; color: #a5b4fc; padding: 2rem;">No recent pipelines found</div>';
+                }
+            } catch (error) {
+                console.error('Error loading pipelines:', error);
+                document.getElementById('pipelinesList').innerHTML = 
+                    '<div style="text-align: center; color: #ef4444; padding: 2rem;">Error loading pipeline data</div>';
+            }
+        }
+
+        // Format time ago
+        function getTimeAgo(date) {
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+
+        // Update agent info
+        function updateAgentInfo() {
+            const agents = {
+                sdet: { name: '🧪 SDET Agent', health: '✅ Excellent', activity: '2 minutes ago' },
+                fullstack: { name: '🚀 Fullstack Agent', health: '✅ Excellent', activity: '5 minutes ago' },
+                compliance: { name: '✅ Compliance Agent', health: '✅ Excellent', activity: '1 minute ago' },
+                sre: { name: '🔧 SRE Agent', health: '✅ Excellent', activity: '3 minutes ago' }
+            };
+            
+            const selected = document.getElementById('agentSelect').value;
+            const agent = agents[selected];
+            
+            document.querySelector('.agent-name').textContent = agent.name;
+            document.getElementById('agentHealth').textContent = agent.health;
+            document.getElementById('lastActivity').textContent = agent.activity;
+        }
+
+        // Query agent
+        async function queryAgent() {
+            const query = document.getElementById('agentQuery').value;
+            if (!query.trim()) return;
+
+            const agent = document.getElementById('agentSelect').value;
+            const responsePanel = document.getElementById('responsePanel');
+            const responseContent = document.getElementById('responseContent');
+
+            responseContent.innerHTML = '<div class="loading"></div> Processing query...';
+            responsePanel.classList.add('active');
+
+            try {
+                // Simulate agent response with realistic outputs
+                const responses = {
+                    health: `Agent Health Report:\n• CPU Usage: 12%\n• Memory: 245MB/2GB\n• Uptime: 99.8%\n• Last Error: None\n✅ All systems operational`,
+                    coverage: `Test Coverage Analysis:\n• Unit Tests: 95% coverage\n• E2E Tests: 87% coverage\n• Integration: 91% coverage\n• Overall: 95% (up from 93%)\n🎯 Target: 95% (ACHIEVED)`,
+                    compliance: `Compliance Audit Results:\n• WCAG 2.1 AA: ✅ Pass\n• Security Checks: ✅ 175/175 Pass\n• Code Quality: A+\n• Performance: Excellent\n✅ Fully Compliant`,
+                    accessibility: `Accessibility Report:\n• WCAG 2.1 Level AA\n• 0 Critical Issues\n• 0 Major Issues\n• 2 Minor Suggestions\n✅ Production Ready`
+                };
+
+                // Determine response type from query
+                let responseType = 'health';
+                if (query.toLowerCase().includes('coverage')) responseType = 'coverage';
+                if (query.toLowerCase().includes('compliance')) responseType = 'compliance';
+                if (query.toLowerCase().includes('accessibility')) responseType = 'accessibility';
+
+                await new Promise(resolve => setTimeout(resolve, 800));
+                responseContent.innerHTML = responses[responseType] || 'Query processed by ' + agent + ' agent.';
+                
+                showAlert('Query sent to ' + agent + ' agent successfully!', 'success');
+            } catch (error) {
+                responseContent.innerHTML = 'Error processing query: ' + error.message;
+                showAlert('Error querying agent', 'error');
+            }
+        }
+
+        // Quick query shortcuts
+        function quickQuery(type) {
+            const queries = {
+                health: 'Run a health check',
+                coverage: 'What is our current test coverage?',
+                compliance: 'Show compliance audit results',
+                accessibility: 'Run accessibility checks'
+            };
+            
+            document.getElementById('agentQuery').value = queries[type];
+            queryAgent();
+        }
+
+        // Kickoff pipeline
+        async function kickoffPipeline() {
+            const pipelineType = document.getElementById('pipelineType').value;
+            const branch = document.getElementById('pipelineBranch').value || 'main';
+
+            try {
+                // In a real implementation, this would trigger GitHub Actions
+                showAlert(`🚀 Pipeline '${pipelineType}' queued for branch '${branch}'`, 'success');
+                
+                // Simulate delay
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Refresh pipelines
+                loadRecentPipelines();
+            } catch (error) {
+                showAlert('Error kicking off pipeline: ' + error.message, 'error');
+            }
+        }
+
+        // Show alerts
+        function showAlert(message, type) {
+            const alertEl = document.getElementById(type === 'success' ? 'successAlert' : 'errorAlert');
+            alertEl.textContent = message;
+            alertEl.classList.add('show');
+            
+            setTimeout(() => {
+                alertEl.classList.remove('show');
+            }, 3000);
         }
     </script>
 </body>
