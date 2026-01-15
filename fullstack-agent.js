@@ -1024,14 +1024,14 @@ async function fixAccessibilityIssue(issue) {
   const original = content;
 
   // Fix: Color contrast issues
-  if (issue.check.includes('Color contrast') || issue.message.includes('contrast')) {
+  if (issue.check.toLowerCase().includes('contrast') || issue.message.toLowerCase().includes('contrast')) {
     // Find buttons and apply color fix
-    content = content.replace(/class="tab-button active"/g, 'class="tab-button active" style="color: #2b72e6"');
-    content = content.replace(/class="tab-button"/g, 'class="tab-button" style="color: #2b72e6"');
+    content = content.replace(/class="tab-button active"/g, 'class="tab-button active" style="background-color: #2b72e6; color: white"');
+    content = content.replace(/class="tab-button"(?!.*active)/g, 'class="tab-button" style="color: #2b72e6"');
   }
 
   // Fix: Form labels missing
-  if (issue.check.includes('Form Labels') || issue.message.includes('label')) {
+  if (issue.check.toLowerCase().includes('label') || issue.message.toLowerCase().includes('label')) {
     // Add labels to textarea elements
     content = content.replace(/<textarea\s+id="([^"]+)"([^>]*)>/g, 
       '<label for="$1">$1</label>\n<textarea id="$1"$2>');
@@ -1042,26 +1042,31 @@ async function fixAccessibilityIssue(issue) {
   }
 
   // Fix: Image alt text
-  if (issue.check.includes('Image alt') || issue.message.includes('alt text')) {
+  if (issue.check.toLowerCase().includes('alt') || issue.message.toLowerCase().includes('alt text')) {
+    // Add alt text to all images without it
     content = content.replace(/<img\s+([^>]*)(?<!alt\s*=\s*"[^"]*")>/g, 
-      '<img $1 alt="Image">');
+      '<img $1 alt="Project image">');
+    
+    // Also fix images that only have src attribute
+    content = content.replace(/<img\s+src="([^"]*)">/g,
+      '<img src="$1" alt="Project image">');
   }
 
   // Fix: ARIA labels
-  if (issue.check.includes('ARIA') || issue.message.includes('ARIA')) {
-    content = content.replace(/<button\s+([^>]*)id="([^"]*)"([^>]*)>/g, 
+  if (issue.check.toLowerCase().includes('aria') || issue.message.toLowerCase().includes('aria')) {
+    content = content.replace(/<button\s+([^>]*)id="([^"]*)"([^>]*)(?<!aria-label)>/g, 
       '<button $1id="$2" aria-label="$2"$3>');
     content = content.replace(/<input\s+([^>]*)id="([^"]*)"([^>]*)(?<!aria-label)>/g,
       '<input $1id="$2" aria-label="$2"$3>');
   }
 
   // Fix: Missing HTML lang attribute
-  if (issue.check.includes('lang attribute') || issue.message.includes('lang')) {
+  if (issue.check.toLowerCase().includes('lang') || issue.message.toLowerCase().includes('lang attribute')) {
     content = content.replace(/<html>/g, '<html lang="en">');
   }
 
   // Fix: Missing title tag
-  if (issue.check.includes('title') || issue.message.includes('title element')) {
+  if (issue.check.toLowerCase().includes('title') || issue.message.toLowerCase().includes('title element')) {
     if (!content.includes('<title>')) {
       content = content.replace(/<head>/g, '<head>\n    <title>Agentic QA - Compliance Dashboard</title>');
     }
@@ -1227,21 +1232,61 @@ Feel free to open an issue or contact the maintainers.
 
 async function fixComplianceIssue(issue) {
   const issueText = (issue.check + ' ' + issue.message).toLowerCase();
+  const checkName = issue.check.toLowerCase();
 
-  // Fix: Privacy policy issues
-  if (issueText.includes('privacy') && !issueText.includes('privacy policy complete')) {
+  // Fix: GDPR rights information
+  if ((checkName.includes('gdpr') && checkName.includes('right')) || issueText.includes('gdpr rights')) {
     const privPath = path.join(process.cwd(), 'PRIVACY_POLICY.md');
     if (fs.existsSync(privPath)) {
       let content = fs.readFileSync(privPath, 'utf8');
       const original = content;
 
-      // Add missing GDPR rights section
-      if (!content.includes('GDPR')) {
+      // Add missing GDPR rights section if not present
+      if (!content.includes('## GDPR')) {
+        content += `\n\n## GDPR Rights Information\n\nEU residents have the following rights under GDPR:\n- Right to access: You may request a copy of your personal data\n- Right to rectification: You may request correction of inaccurate data\n- Right to erasure: You may request deletion of your data\n- Right to restrict processing: You may limit how we use your data\n- Right to portability: You may request data in a portable format\n- Right to object: You may object to certain types of processing\n- Right to lodge complaints: You may file complaints with supervisory authorities\n\nTo exercise any of these rights, please contact privacy@example.com`;
+      }
+
+      if (content !== original) {
+        fs.writeFileSync(privPath, content, 'utf8');
+        log('  ✅ Enhanced PRIVACY_POLICY.md with GDPR rights');
+        return true;
+      }
+    }
+  }
+
+  // Fix: CCPA/California rights
+  if ((checkName.includes('ccpa') && checkName.includes('right')) || issueText.includes('ccpa') || issueText.includes('california right')) {
+    const privPath = path.join(process.cwd(), 'PRIVACY_POLICY.md');
+    if (fs.existsSync(privPath)) {
+      let content = fs.readFileSync(privPath, 'utf8');
+      const original = content;
+
+      // Add missing CCPA rights section if not present
+      if (!content.includes('## CCPA')) {
+        content += `\n\n## CCPA/California Rights\n\nCalifornia residents have rights under the California Consumer Privacy Act:\n- Right to know: You may request what personal data is collected\n- Right to delete: You may request deletion of personal data\n- Right to opt-out: You may opt out of the sale of personal data\n- Right to non-discrimination: We will not discriminate based on your rights requests\n\nTo exercise any of these rights, please contact privacy@example.com`;
+      }
+
+      if (content !== original) {
+        fs.writeFileSync(privPath, content, 'utf8');
+        log('  ✅ Enhanced PRIVACY_POLICY.md with CCPA rights');
+        return true;
+      }
+    }
+  }
+
+  // Fix: Privacy policy issues (general)
+  if ((checkName.includes('privacy') && checkName.includes('policy')) || (issueText.includes('privacy') && issueText.includes('missing'))) {
+    const privPath = path.join(process.cwd(), 'PRIVACY_POLICY.md');
+    if (fs.existsSync(privPath)) {
+      let content = fs.readFileSync(privPath, 'utf8');
+      const original = content;
+
+      // Add missing sections if not present
+      if (!content.includes('## GDPR')) {
         content += `\n\n## GDPR Rights Information\n\nEU residents have the following rights under GDPR:\n- Right to access\n- Right to rectification\n- Right to erasure\n- Right to restrict processing\n- Right to portability\n- Right to object\n`;
       }
 
-      // Add missing CCPA rights section
-      if (!content.includes('CCPA')) {
+      if (!content.includes('## CCPA')) {
         content += `\n\n## CCPA/California Rights\n\nCalifornia residents have rights under the California Consumer Privacy Act:\n- Right to know\n- Right to delete\n- Right to opt-out\n- Right to non-discrimination\n`;
       }
 
@@ -1254,14 +1299,15 @@ async function fixComplianceIssue(issue) {
   }
 
   // Fix: Missing licenses documentation
-  if (issueText.includes('license') && issueText.includes('third')) {
+  if ((checkName.includes('license') && checkName.includes('third')) || (issueText.includes('license') && issueText.includes('third'))) {
     const licensePath = path.join(process.cwd(), 'THIRD-PARTY-LICENSES.txt');
     if (!fs.existsSync(licensePath)) {
-      const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
-      const deps = Object.keys(packageJson.dependencies || {});
-      const devDeps = Object.keys(packageJson.devDependencies || {});
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+        const deps = Object.keys(packageJson.dependencies || {});
+        const devDeps = Object.keys(packageJson.devDependencies || {});
 
-      const licenseContent = `# Third-Party Licenses
+        const licenseContent = `# Third-Party Licenses
 
 ## Production Dependencies
 
@@ -1277,9 +1323,13 @@ All dependencies are licensed under permissive open source licenses (MIT, Apache
 No GPL or copyleft licenses in production dependencies.
 `;
 
-      fs.writeFileSync(licensePath, licenseContent, 'utf8');
-      log('  ✅ Created THIRD-PARTY-LICENSES.txt');
-      return true;
+        fs.writeFileSync(licensePath, licenseContent, 'utf8');
+        log('  ✅ Created THIRD-PARTY-LICENSES.txt');
+        return true;
+      } catch (err) {
+        log(`  ⚠️  Could not create licenses file: ${err.message}`);
+        return false;
+      }
     }
   }
 

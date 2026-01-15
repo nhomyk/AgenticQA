@@ -247,3 +247,25 @@ All third-party vendors undergo privacy and security assessments.
 ---
 
 **Thank you for trusting Agentic QA Engineer with your information.**
+
+
+## GDPR Rights Information
+
+EU residents have the following rights under GDPR:
+- Right to access: You may request a copy of your personal data
+- Right to rectification: You may request correction of inaccurate data
+- Right to erasure: You may request deletion of your data
+- Right to restrict processing: You may limit how we use your data
+- Right to portability: You may request data in a portable format
+- Right to object: You may object to certain types of processing
+- Right to lodge complaints: You may file complaints with supervisory authorities
+
+To exercise any of these rights, please contact privacy@example.com
+
+## CCPA/California Rights
+
+California residents have rights under the California Consumer Privacy Act:
+- Right to know
+- Right to delete
+- Right to opt-out
+- Right to non-discrimination
