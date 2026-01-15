@@ -8,7 +8,97 @@ circleQA.ai is an enterprise-grade Node.js platform that demonstrates what's pos
 
 ---
 
-## 👥 Who We Are
+## 🏗️ Autonomous Orchestration Pipeline
+
+The heart of circleQA.ai is an intelligent, self-healing CI/CD pipeline that orchestrates all agents in perfect symphony. Every push triggers a sophisticated multi-phase workflow where specialized agents collaborate to ensure code quality, compliance, security, and production readiness.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                     🚨 PHASE -1: PIPELINE RESCUE (Health Check)                    │
+│                                                                                     │
+│  Validates workflow YAML syntax • Detects & fixes broken configurations            │
+│  Circuit breaker prevents infinite loops • Auto-repairs critical issues            │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│              🔧 PHASE 0: LINTING FIX (SRE Agent - Early Prevention)                │
+│                                                                                     │
+│  Auto-fixes code style issues • ESLint running before tests                        │
+│  Prevents cascading failures • Ensures code quality gate                           │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        ↓
+          ┌─────────────────────────────────────────────────────────────┐
+          │                  🧪 PHASE 1: PARALLEL TESTING              │
+          │                                                             │
+          │  ├─ Consolidated Testing Job                              │
+          │  │   ├─ Jest Unit Tests (coverage analysis)               │
+          │  │   ├─ Vitest Integration Tests (modern tooling)         │
+          │  │   ├─ Playwright E2E Tests (browser automation)         │
+          │  │   └─ Cypress Component Tests (UI validation)           │
+          │  │                                                         │
+          │  └─ Compliance Scans (matrix: accessibility + security)   │
+          │      ├─ Pa11y Accessibility (WCAG 2.1 AA compliance)      │
+          │      └─ npm Audit (vulnerability scanning)                │
+          └─────────────────────────────────────────────────────────────┘
+                                        ↓
+          ┌──────────────────────────────────────────────────────────────┐
+          │         🤖 PHASE 1: INTELLIGENT ANALYSIS (Parallel)         │
+          │                                                              │
+          │  ├─ SDET Agent                 ├─ Compliance Agent          │
+          │  │  • Test Coverage Analysis   │  • Legal Framework Check   │
+          │  │  • QA Pattern Recognition   │  • Regulatory Compliance   │
+          │  │  • UI/UX Validation         │  • Security Policy Review  │
+          │  └─ (Generates findings)       └─ (Generates audit)        │
+          └──────────────────────────────────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│          📊 PHASE 1→2: COMPLIANCE SUMMARY (Aggregates all findings)                │
+│                                                                                     │
+│  Consolidates test results • Summarizes compliance status • Prepares for fixes     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│          🔧 PHASE 2: FULLSTACK AGENT (Intelligent Code Fixes)                      │
+│                                                                                     │
+│  Analyzes test failures • Generates code fixes • Updates compliance issues         │
+│  Auto-commits improvements • Applies multi-layered remediation                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│      🚀 PHASE 3: SRE AGENT (Production Readiness & Pipeline Health)               │
+│                                                                                     │
+│  Production deployment validation • Pipeline monitoring • Infrastructure checks    │
+│  Scaling recommendations • Performance optimization • Alert configuration          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│        🏥 FINAL GATE: PIPELINE HEALTH VERIFICATION (Sanity Check)                 │
+│                                                                                     │
+│  Detects infinite repair loops • Validates workflow health • Reports final status  │
+│  Fails safely if issues unresolvable • Escalates to human when needed             │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### How It Works
+Each phase runs **only when the previous phase succeeds**, creating a robust quality funnel:
+
+1. **Phase -1** catches critical issues before anything runs
+2. **Phase 0** fixes style issues early, preventing test failures
+3. **Phase 1** runs all tests and compliance checks in parallel
+4. **Parallel Agents** analyze results while preserving independence
+5. **Phase 2** intelligently fixes code based on findings
+6. **Phase 3** ensures production readiness
+7. **Final Gate** verifies everything worked
+
+### Key Features
+- ✅ **Self-Healing**: Automatically fixes broken configurations and code issues
+- ✅ **Intelligent**: Agents learn from failures and apply targeted fixes
+- ✅ **Parallel Execution**: Tests and agents run concurrently for speed
+- ✅ **Zero Manual Intervention**: Most issues fixed automatically
+- ✅ **Safe Failures**: Circuit breakers prevent infinite loops
+- ✅ **Production Focused**: SRE agent ensures deployment readiness
+
+---
 
 **Our team brings 15+ years of deep expertise in tech architecture, AI systems, and enterprise software.**
 
