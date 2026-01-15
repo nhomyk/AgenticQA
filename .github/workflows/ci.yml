@@ -276,6 +276,7 @@ jobs:
           path: test-failures/
           retention-days: 1
 
+  # Phase 1: SDET Agent (Manual QA & Codebase Analysis)
   sdet-agent:
     needs:
       - unit-test
@@ -286,7 +287,7 @@ jobs:
       - test-security-audit
     if: always()
     runs-on: ubuntu-latest
-    name: SDET Agent
+    name: "Phase 1️⃣ SDET Agent (Testing)"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -298,7 +299,7 @@ jobs:
           name: coverage-report
           path: ./coverage
         continue-on-error: true
-      - name: Run SDET Agent
+      - name: "🧪 Run SDET Agent - Test Phase"
         run: node sdet-agent.js
       - uses: actions/upload-artifact@v4
         with:
@@ -313,11 +314,49 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
+  # Phase 1: Compliance Agent (Legal & Regulatory Testing)
+  compliance-agent:
+    needs:
+      - unit-test
+      - test-playwright
+      - test-vitest
+      - test-cypress
+      - test-pa11y
+      - test-security-audit
+    if: always()
+    runs-on: ubuntu-latest
+    name: "Phase 1️⃣ Compliance Agent (Testing)"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: "🛡️  Run Compliance Agent - Test Phase"
+        run: npm run compliance-agent
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-audit-report
+          path: compliance-audit-report.md
+          retention-days: 90
+      - name: Check for compliance critical issues
+        run: |
+          if grep -q "🔴 Critical Issues.*must be resolved" compliance-audit-report.md; then
+            echo "⚠️  Compliance audit found critical issues"
+            exit 0
+          fi
+          echo "✅ Compliance audit passed"
+
+  # Phase 2: Fullstack Agent (Only runs after BOTH Phase 1 agents complete)
   fullstack-agent:
     needs: [sdet-agent, compliance-agent]
     if: always()
     runs-on: ubuntu-latest
-    name: Fullstack Agent (Code & Compliance Fixes)
+    name: "Phase 2️⃣ Fullstack Agent (Code & Compliance Fixes)"
     permissions:
       contents: write
       actions: read
@@ -326,6 +365,8 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "⏳ Waiting for Phase 1 testing to complete"
+        run: echo "🔄 SDET and Compliance agents have completed testing"
       - name: Download test failure artifacts
         uses: actions/download-artifact@v4
         with:
@@ -365,23 +406,27 @@ jobs:
           git config --global user.name "fullstack-agent[bot]"
           git config --global user.email "fullstack-agent[bot]@users.noreply.github.com"
           git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-      - name: Run Fullstack Agent (with compliance knowledge)
+      - name: "🔧 Run Fullstack Agent - Fix Phase"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           COMPLIANCE_MODE: "enabled"
+          PHASE: "fixes"
         run: node fullstack-agent.js
 
+  # Phase 3: SRE Agent (Only runs after Fullstack Agent completes)
   sre-agent:
     needs: [fullstack-agent]
     if: always()
     runs-on: ubuntu-latest
-    name: SRE Agent (Code & Pipeline Fixes)
+    name: "Phase 3️⃣ SRE Agent (Pipeline & Production Fixes)"
     permissions:
       contents: write
       actions: write
     steps:
       - uses: actions/checkout@v4
+      - name: "⏳ Waiting for Phase 2 fixes to complete"
+        run: echo "🔄 Fullstack agent has completed code fixes"
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -392,41 +437,12 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Run Agentic SRE Engineer
+      - name: "🚀 Run SRE Agent - Production Fixes Phase"
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PHASE: "production-fixes"
         run: node agentic_sre_engineer.js
-
-  compliance-agent:
-    needs: [unit-test, test-playwright, test-vitest, test-cypress]
-    if: always()
-    runs-on: ubuntu-latest
-    name: Compliance Agent (Legal & Regulatory)
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: npm ci
-      - name: Run Compliance Audit
-        run: npm run compliance-agent
-      - name: Upload compliance report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: compliance-audit-report
-          path: compliance-audit-report.md
-          retention-days: 90
-      - name: Check for compliance critical issues
-        run: |
-          if grep -q "🔴 Critical Issues.*must be resolved" compliance-audit-report.md; then
-            echo "⚠️  Compliance audit found critical issues"
-            exit 0
-          fi
-          echo "✅ Compliance audit passed"
 
   compliance-scan:
     runs-on: ubuntu-latest
