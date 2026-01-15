@@ -41,9 +41,75 @@ env:
   RUN_CHAIN_ID: ${{ github.event.inputs.run_chain_id || github.run_id }}
 
 jobs:
+  # Phase -1: Pipeline Rescue (Initial Health Check & Emergency Repair)
+  # Runs FIRST to detect and fix any critical issues
+  pipeline-rescue:
+    runs-on: ubuntu-latest
+    name: 🚨 Pipeline Health Check & Emergency Repair
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Check if workflows are syntactically valid
+      - name: Validate workflow YAML
+        id: validate
+        run: |
+          npm install -g js-yaml
+          echo "🔍 Validating all workflow files..."
+          
+          VALID=true
+          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+            if [ -f "$file" ]; then
+              echo ""
+              echo "Checking: $file"
+              if node -e "const yaml = require('js-yaml'); const fs = require('fs'); try { yaml.load(fs.readFileSync('$file', 'utf8')); console.log('✅ Valid'); } catch(e) { console.log('❌ ERROR:', e.message); process.exit(1); }" 2>&1; then
+                true
+              else
+                VALID=false
+              fi
+            fi
+          done
+          
+          if [ "$VALID" = true ]; then
+            echo "status=valid" >> $GITHUB_OUTPUT
+            echo "✅ All workflows validated successfully"
+          else
+            echo "status=invalid" >> $GITHUB_OUTPUT
+            echo "❌ Some workflows are invalid"
+          fi
+
+      # Run repair system if validation failed
+      - name: Run emergency repair system
+        if: steps.validate.outputs.status == 'invalid'
+        run: node repair-workflow.js
+        continue-on-error: true
+
+      # Report status
+      - name: Report rescue status
+        run: |
+          echo "## 🔧 Pipeline Rescue Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ steps.validate.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.validate.outputs.status }}" = "valid" ]; then
+            echo "✅ Pipeline is healthy - proceeding with workflow" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚙️ Repairs applied - workflow may re-trigger" >> $GITHUB_STEP_SUMMARY
+          fi
+
   # Phase 0: Linting Fix (SRE Agent - Early Prevention)
   # Auto-fixes linting errors before the lint job runs
   linting-fix:
+    needs: [pipeline-rescue]
     runs-on: ubuntu-latest
     name: "🔧 Auto-Fix Linting Issues (SRE Agent)"
     steps:

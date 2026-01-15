@@ -1,15 +1,10 @@
-name: 🆘 Pipeline Rescue System (Phase -1)
+name: 🔴 Pipeline Rescue System (Phase -1) - DEPRECATED
 
-# This runs INDEPENDENTLY and FIRST - before any other workflow
-# It detects critical pipeline failures and fixes them
-# This is the "circuit breaker" that prevents infinite loops
+# DEPRECATED: Pipeline rescue is now integrated into ci.yml as Phase -1
+# This workflow is kept for reference only and is disabled.
+# No triggers - workflow will not run
 
 on:
-  push:
-    branches: [ main ]
-  schedule:
-    # Run every 5 minutes to catch failures early
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
