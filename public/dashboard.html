@@ -927,47 +927,45 @@
                 launchBtn.disabled = true;
                 launchBtn.textContent = '⏳ Launching...';
 
-                // Prepare workflow dispatch payload
-                const payload = {
-                    ref: branch,
-                    inputs: {
-                        pipelineType: pipelineType
-                    }
-                };
-
-                // Trigger GitHub Actions workflow
-                const response = await fetch(
-                    'https://api.github.com/repos/nhomyk/AgenticQA/actions/workflows/ci.yml/dispatches',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/vnd.github.v3+json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    }
-                );
+                // Call our backend API endpoint instead of GitHub API directly
+                // This allows us to use authenticated requests securely
+                const response = await fetch('/api/trigger-workflow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        pipelineType: pipelineType,
+                        branch: branch
+                    })
+                });
 
                 // Re-enable button
                 launchBtn.disabled = false;
                 launchBtn.innerHTML = '🚀 Launch Pipeline';
 
-                if (response.status === 204) {
-                    // Success response (no content)
-                    showAlert(`✅ Pipeline '${pipelineType}' triggered successfully on branch '${branch}'!`, 'success');
+                const result = await response.json();
+
+                if (response.status === 200) {
+                    // Success response
+                    showAlert(`✅ ${result.message}`, 'success');
                     
                     // Refresh pipelines after delay
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     loadRecentPipelines();
-                } else if (response.status === 401 || response.status === 403) {
-                    // Authentication issues - suggest alternative
-                    showAlert(`⚠️ GitHub API requires authentication. You can manually trigger the pipeline via GitHub Actions or use an auth token.`, 'error');
-                    
-                    // Still refresh the pipeline list to show any recent runs
+                } else if (response.status === 403) {
+                    // Authentication issues
+                    showAlert(`⚠️ ${result.error}`, 'error');
                     loadRecentPipelines();
+                } else if (response.status === 404) {
+                    // Workflow not found
+                    showAlert(`❌ ${result.error}`, 'error');
+                } else if (response.status === 503) {
+                    // Service unavailable (token not configured)
+                    showAlert(`⚠️ ${result.error}. Check server logs for details.`, 'error');
                 } else {
-                    const errorData = await response.json();
-                    throw new Error(`API returned ${response.status}: ${errorData.message || 'Unknown error'}`);
+                    // Other errors
+                    throw new Error(result.error || `Request failed with status ${response.status}`);
                 }
             } catch (error) {
                 launchBtn.disabled = false;

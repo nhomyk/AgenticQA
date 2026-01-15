@@ -657,6 +657,132 @@ app.post("/scan", async (req, res) => {
 // 404 handler
 app.use((req, res) => {
   log("warn", "404 Not Found", { path: req.path, method: req.method });
+  // NEW: Workflow dispatch API endpoint
+  app.post("/api/trigger-workflow", async (req, res) => {
+    try {
+      const { pipelineType = "manual", branch = "main" } = req.body;
+      
+      // Validate inputs
+      if (!pipelineType || typeof pipelineType !== "string") {
+        return res.status(400).json({
+          error: "Invalid pipelineType. Must be a non-empty string.",
+          status: "error"
+        });
+      }
+      
+      if (!branch || typeof branch !== "string") {
+        return res.status(400).json({
+          error: "Invalid branch. Must be a non-empty string.",
+          status: "error"
+        });
+      }
+      
+      // Validate branch name (alphanumeric, dash, underscore, slash)
+      if (!/^[a-zA-Z0-9._\-/]+$/.test(branch)) {
+        return res.status(400).json({
+          error: "Invalid branch name format",
+          status: "error"
+        });
+      }
+      
+      // Get GitHub token from environment
+      const githubToken = process.env.GITHUB_TOKEN;
+      if (!githubToken) {
+        log("warn", "GITHUB_TOKEN not configured for workflow dispatch");
+        return res.status(503).json({
+          error: "GitHub token not configured. Please set GITHUB_TOKEN environment variable.",
+          status: "error",
+          helpUrl: "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+        });
+      }
+      
+      // Prepare workflow dispatch payload
+      const payload = {
+        ref: branch,
+        inputs: {
+          pipelineType: pipelineType,
+          reason: "Triggered via dashboard"
+        }
+      };
+      
+      // Call GitHub API with authentication
+      const githubResponse = await fetch(
+        "https://api.github.com/repos/nhomyk/AgenticQA/actions/workflows/ci.yml/dispatches",
+        {
+          method: "POST",
+          headers: {
+            "Accept": "application/vnd.github.v3+json",
+            "Authorization": `token ${githubToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "AgenticQA-Dashboard"
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+      
+      // Handle GitHub API response
+      if (githubResponse.status === 204) {
+        log("info", "Workflow dispatch successful", {
+          pipelineType,
+          branch,
+          timestamp: new Date().toISOString()
+        });
+        
+        return res.status(200).json({
+          status: "success",
+          message: `Pipeline '${pipelineType}' triggered successfully on branch '${branch}'`,
+          workflow: "ci.yml",
+          branch: branch,
+          pipelineType: pipelineType,
+          timestamp: new Date().toISOString()
+        });
+      } else if (githubResponse.status === 401 || githubResponse.status === 403) {
+        log("warn", "GitHub token authentication failed", {
+          status: githubResponse.status,
+          branch
+        });
+        
+        return res.status(403).json({
+          error: "GitHub token authentication failed. Verify token has 'actions' and 'contents' scopes.",
+          status: "error",
+          helpUrl: "https://github.com/settings/tokens"
+        });
+      } else if (githubResponse.status === 404) {
+        log("warn", "GitHub workflow not found", {
+          repository: "nhomyk/AgenticQA",
+          workflow: "ci.yml"
+        });
+        
+        return res.status(404).json({
+          error: "GitHub workflow 'ci.yml' not found in repository 'nhomyk/AgenticQA'",
+          status: "error"
+        });
+      } else {
+        const errorBody = await githubResponse.text();
+        log("error", "GitHub API returned unexpected status", {
+          status: githubResponse.status,
+          body: errorBody
+        });
+        
+        return res.status(502).json({
+          error: `GitHub API error: HTTP ${githubResponse.status}`,
+          status: "error",
+          details: errorBody
+        });
+      }
+    } catch (error) {
+      log("error", "Workflow dispatch failed", {
+        error: error.message,
+        stack: error.stack
+      });
+      
+      return res.status(500).json({
+        error: "Failed to trigger workflow: " + error.message,
+        status: "error"
+      });
+    }
+  });
+
   res.status(404).json({ error: "Endpoint not found" });
 });
 
