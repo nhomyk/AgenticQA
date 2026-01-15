@@ -85,62 +85,112 @@ jobs:
             .filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
           
           let fixCount = 0;
+          let errorFiles = [];
 
           files.forEach(file => {
             const filePath = path.join(workflowDir, file);
+            const originalContent = fs.readFileSync(filePath, 'utf8');
+            
             try {
-              const content = fs.readFileSync(filePath, 'utf8');
-              yaml.load(content);
+              yaml.load(originalContent);
               console.log(`✅ ${file} is valid`);
             } catch (err) {
-              console.log(`❌ ${file} has errors - attempting fix...`);
-              
-              let fixed = content;
-              
-              // Fix 1: Improperly indented 'with:' key
-              if (fixed.includes('- uses:') && /^      with:/m.test(fixed)) {
-                console.log('  🔧 Fixing improperly indented "with:" key');
-                fixed = fixed.replace(/^      with:/gm, '        with:');
-                fixCount++;
-              }
-
-              // Fix 2: Tab indentation
-              if (fixed.includes('\t')) {
-                console.log('  🔧 Converting tabs to spaces');
-                fixed = fixed.split('\n').map(line => {
-                  if (line.startsWith('\t')) {
-                    return line.replace(/^\t+/g, match => '  '.repeat(match.length));
-                  }
-                  return line;
-                }).join('\n');
-                fixCount++;
-              }
-
-              // Fix 3: Multi-line strings in shell commands
-              if (fixed.includes('git commit -m "') && fixed.match(/git commit -m ".*\n.*"/)) {
-                console.log('  🔧 Simplifying multi-line commit messages');
-                fixed = fixed.replace(/git commit -m "([^"]*\n[^"]*)"/gs, (match) => {
-                  const msg = match.match(/"([^"]*)"/s)[1].split('\n')[0];
-                  return `git commit -m "${msg}"`;
-                });
-                fixCount++;
-              }
-
-              // Verify fix worked
-              try {
-                yaml.load(fixed);
-                console.log('  ✅ Fix successful!');
-                fs.writeFileSync(filePath, fixed);
-              } catch (err2) {
-                console.log(`  ⚠️  Auto-fix incomplete: ${err2.message}`);
-              }
+              console.log(`❌ ${file} has errors at line ${err.mark ? err.mark.line + 1 : '?'}`);
+              console.log(`   Error: ${err.message}`);
+              errorFiles.push({file, content: originalContent, error: err});
             }
           });
 
-          console.log(`\n📊 Total fixes applied: ${fixCount}\n`);
+          // Apply fixes to each errored file
+          errorFiles.forEach(({file, content, error}) => {
+            console.log(`\n   Applying auto-fixes to ${file}...`);
+            
+            let fixed = content;
+            let fileFixCount = 0;
 
-          if (fixCount > 0) {
-            process.exit(0); // Signal that fixes were applied
+            // Fix 1: Improperly indented 'with:' key and nested properties
+            // Pattern: "      with:" (6 spaces) should be "        with:" (8 spaces)
+            // And nested properties need to align correctly
+            if (fixed.match(/\n      with:/)) {
+              console.log('   🔧 Fix 1: Re-indenting "with:" keys and nested properties');
+              
+              // Move "with:" from 6 to 8 spaces
+              fixed = fixed.replace(/\n      with:/g, '\n        with:');
+              
+              // Realign nested properties under "with:"
+              const lines = fixed.split('\n');
+              let inWithBlock = false;
+              let withIndent = 0;
+              
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.match(/^\s+with:\s*$/)) {
+                  inWithBlock = true;
+                  withIndent = line.search(/\S/);
+                  continue;
+                }
+                
+                if (inWithBlock) {
+                  // Check if we've left the with block
+                  if (line.match(/^\s*$/) || line.match(/^\s{0,7}\S/) || 
+                      line.match(/^\s{0,8}(- |if:|needs:|runs-on:|steps:|jobs:)/)) {
+                    inWithBlock = false;
+                    continue;
+                  }
+                  
+                  // Align properties under "with:"
+                  if (line.match(/^\s+(name|path|retention-days|continue-on-error|tag|ref|token|node-version|file|level|pattern|scan-options|report-options):/)) {
+                    const currentIndent = line.search(/\S/);
+                    const targetIndent = withIndent + 2;
+                    if (currentIndent !== targetIndent) {
+                      lines[i] = ' '.repeat(targetIndent) + line.trimLeft();
+                    }
+                  }
+                }
+              }
+              fixed = lines.join('\n');
+              fileFixCount++;
+            }
+
+            // Fix 2: Tab characters to spaces
+            if (fixed.includes('\t')) {
+              console.log('   🔧 Fix 2: Converting tabs to spaces');
+              fixed = fixed.replace(/\t/g, '  ');
+              fileFixCount++;
+            }
+
+            // Fix 3: Duplicate heredoc terminators
+            if (fixed.match(/(\w+)_(\w+)\n\1_\2/)) {
+              console.log('   🔧 Fix 3: Removing duplicate heredoc terminators');
+              fixed = fixed.replace(/(\w+)_(\w+)\n\1_\2/g, '$1_$2');
+              fileFixCount++;
+            }
+
+            // Fix 4: Missing spaces after colons
+            if (fixed.match(/^(\s+)(\w+):(?!\s)/m)) {
+              console.log('   🔧 Fix 4: Adding missing spaces after colons');
+              fixed = fixed.replace(/^(\s+)(\w+):(?!\s)/gm, '$1$2: ');
+              fileFixCount++;
+            }
+
+            // Verify fix worked
+            try {
+              yaml.load(fixed);
+              console.log(`   ✅ All fixes successful! Applied ${fileFixCount} fix(es)`);
+              fs.writeFileSync(path.join(workflowDir, file), fixed);
+              fixCount += fileFixCount;
+            } catch (err2) {
+              console.log(`   ❌ Auto-fix incomplete - remaining error: ${err2.message}`);
+              console.log(`      Line ${err2.mark ? err2.mark.line + 1 : '?'}`);
+            }
+          });
+
+          console.log(`\n📊 Total files with errors: ${errorFiles.length}`);
+          console.log(`📊 Total fixes applied: ${fixCount}\n`);
+
+          if (fixCount === 0 && errorFiles.length > 0) {
+            console.log('⚠️  Could not auto-fix all errors - manual intervention needed');
+            process.exit(1);
           }
           EOF
 
