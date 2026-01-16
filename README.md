@@ -57,14 +57,14 @@ We've architected systems for:
 - **Consulting Partnerships**: Strategic technology initiatives with top-tier firms
 - **Mission-Critical Systems**: 99.9%+ uptime requirements, zero-trust security models
 
-### That Expertise is Now Embedded in spiralQA.ai
+### That Expertise is Now Embedded in orbitQA.ai
 Every feature, every compliance check, every recovery pattern comes from real-world experience, not generic training data.
 
 ---
 
 ## 🎯 What We Can Build Together
 
-If spiralQA.ai excites you, imagine what we could build for your organization:
+If orbitQA.ai excites you, imagine what we could build for your organization:
 
 - **Custom Autonomous Systems** tailored to your specific challenges
 - **Enterprise Architecture** that scales with your growth
@@ -78,7 +78,7 @@ Our team doesn't just build software—we architect strategic technology advanta
 
 ## 💼 Consulting Services
 
-Beyond spiralQA.ai, we offer strategic consulting across a comprehensive range of high-impact projects. Our decades of tech architecture expertise enables us to deliver solutions that drive real business value.
+Beyond orbitQA.ai, we offer strategic consulting across a comprehensive range of high-impact projects. Our decades of tech architecture expertise enables us to deliver solutions that drive real business value.
 
 ### AI Transformations
 Reimagine your entire SDLC with autonomous AI agents. We design and implement intelligent systems that reduce manual work, improve quality, and accelerate delivery. From compliance automation to intelligent testing, we transform how your organization builds software.
@@ -134,7 +134,7 @@ When you need more than consulting—when you need execution. Our architects lea
 - Third-party system integration
 - Dedicated project leadership and delivery
 
-**Every consulting engagement leverages our deep expertise in architecture, AI, compliance, and enterprise systems—the same knowledge embedded in spiralQA.ai.**
+**Every consulting engagement leverages our deep expertise in architecture, AI, compliance, and enterprise systems—the same knowledge embedded in orbitQA.ai.**
 
 ---
 
@@ -471,7 +471,7 @@ console.log(state.analysis);            // AI recommendations
   - APIs: 5 identified
   - Performance: Good (< 3s load time)
 
-💡 spiralQA.ai Engineer's Recommendations:
+💡 orbitQA.ai Engineer's Recommendations:
 
   1. 🎯 Critical: Fix 9 accessibility issues including missing alt text 
      and ARIA labels. This blocks ~15% of users and hurts SEO ranking.
@@ -542,7 +542,7 @@ See [AGENT.md](./AGENT.md) for comprehensive technical documentation including s
 
 ### Comprehensive Test Coverage
 
-spiralQA.ai generates unlimited tests across any testing framework to ensure reliability, maintainability, and code quality. We can generate as many tests as your organization needs, with full coverage across your entire codebase.
+orbitQA.ai generates unlimited tests across any testing framework to ensure reliability, maintainability, and code quality. We can generate as many tests as your organization needs, with full coverage across your entire codebase.
 
 #### Test Suite Capabilities
 
