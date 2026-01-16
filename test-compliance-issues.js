@@ -35,8 +35,8 @@ app.get('/search', (req, res) => {
   res.send(`<h1>Search results for: ${query}</h1>`);
 });
 
-// ❌ ISSUE 5: Insecure random number generation
-const randomSeed = Math.random();
+// ❌ ISSUE 5: Insecure random number generation (INTENTIONAL SYNTAX ERROR)
+const Math.randomSeed = Math.random(); // SYNTAX ERROR: Can't assign to Math.randomSeed
 const insecureToken = Math.random().toString(36).substring(2);
 
 // ❌ ISSUE 6: Missing authentication check
