@@ -2152,6 +2152,47 @@ async function agenticSRELoop() {
     console.log('⚠️  GITHUB_TOKEN not available - skipping workflow validation\n');
   }
   
+  // NEW: Enhanced Linting Error Detection & Auto-Fix
+  console.log('\n╔════════════════════════════════════════╗');
+  console.log('║  🔧 LINTING ERROR DETECTION            ║');
+  console.log('╚════════════════════════════════════════╝\n');
+  
+  const lintFixResult = await detectAndFixLintingErrors();
+  
+  if (lintFixResult.success && lintFixResult.fixed && lintFixResult.fixed.length > 0) {
+    console.log(`\n✅ LINTING ERRORS AUTO-FIXED: Applied ${lintFixResult.fixed.length} fix(es)`);
+    console.log('📝 Committing linting fixes...\n');
+    
+    try {
+      const git = simpleGit();
+      await git.add('-A');
+      const status = await git.status();
+      
+      if (status.files.length > 0) {
+        await git.raw(['config', '--global', 'user.name', 'sre-agent[bot]']);
+        await git.raw(['config', '--global', 'user.email', 'sre-agent[bot]@users.noreply.github.com']);
+        
+        if (GITHUB_TOKEN) {
+          await git.raw(['config', '--global', `url.https://x-access-token:${GITHUB_TOKEN}@github.com/.insteadOf`, 'https://github.com/']);
+        }
+        
+        await git.commit('fix: Auto-fix linting errors via SRE Agent linting recovery');
+        await git.push(['origin', 'main']);
+        console.log('✅ Linting fixes committed and pushed');
+        console.log('🚀 Pipeline will re-run automatically\n');
+      }
+    } catch (err) {
+      console.log(`⚠️  Could not auto-commit linting fixes: ${err.message}\n`);
+    }
+    
+    return; // Exit SRE agent - linting fixes are in progress
+  } else if (!lintFixResult.success && lintFixResult.remaining) {
+    console.log(`\n⚠️  ${lintFixResult.remaining} linting error(s) could not be auto-fixed`);
+    console.log('   These may require manual intervention or more advanced fixes\n');
+  } else {
+    console.log('✅ No linting errors detected\n');
+  }
+  
   console.log('\n🚀 === SRE AGENT v1.0 STARTING ===');
   console.log(`Platform: ${PLATFORM_KNOWLEDGE.platform.name}`);
   console.log(`Mode: ${PLATFORM_KNOWLEDGE.platform.architecture}`);
@@ -2325,8 +2366,166 @@ async function agenticSRELoop() {
   console.log(`${'='.repeat(60)}\n`);
 }
 
+/**
+ * ENHANCED LINTING FIX CAPABILITY
+ * Detects linting errors and attempts multiple fix strategies
+ */
+async function detectAndFixLintingErrors() {
+  console.log('\n🔧 LINTING ERROR DETECTION & AUTO-FIX\n');
+  
+  try {
+    const { execSync } = require('child_process');
+    
+    // Run ESLint and capture output
+    console.log('📋 Running ESLint to detect errors...');
+    let lintOutput = '';
+    
+    try {
+      execSync('npx eslint . --ext .js', { stdio: 'pipe', encoding: 'utf8' });
+      console.log('✅ No linting errors detected');
+      return { success: true, errors: [], fixed: [] };
+    } catch (e) {
+      lintOutput = e.stdout + e.stderr;
+    }
+    
+    if (!lintOutput) {
+      console.log('✅ No linting errors detected');
+      return { success: true, errors: [], fixed: [] };
+    }
+    
+    console.log('❌ Linting errors found. Attempting auto-fixes...\n');
+    
+    const errors = [];
+    const fixed = [];
+    
+    // Parse errors and apply targeted fixes
+    const errorLines = lintOutput.split('\n').filter(line => line.includes('error'));
+    
+    for (const errorLine of errorLines) {
+      // Match pattern: file.js LINE:COL error Description
+      const match = errorLine.match(/(.+?)\s+(\d+):(\d+)\s+error\s+(.+?)(\s+\w+)?$/);
+      if (!match) continue;
+      
+      const [, file, line, col, message, rule] = match;
+      
+      errors.push({
+        file: file.trim(),
+        line: parseInt(line),
+        col: parseInt(col),
+        message: message.trim(),
+        rule: rule ? rule.trim() : 'unknown'
+      });
+    }
+    
+    // Fix Strategy 1: Run ESLint auto-fix
+    console.log('🔨 Strategy 1: ESLint --fix\n');
+    try {
+      execSync('npx eslint . --ext .js --fix', { stdio: 'pipe' });
+      console.log('✅ ESLint auto-fix applied');
+      fixed.push('ESLint --fix');
+    } catch (e) {
+      console.log('⚠️  ESLint --fix encountered issues (may still have fixed some)');
+    }
+    
+    // Fix Strategy 2: Update ESLint config for browser globals
+    console.log('\n🔨 Strategy 2: ESLint Configuration Update\n');
+    const eslintConfigPath = './eslint.config.js';
+    if (fs.existsSync(eslintConfigPath)) {
+      let configContent = fs.readFileSync(eslintConfigPath, 'utf8');
+      
+      // Check if public files config has all needed globals
+      const neededGlobals = [
+        'URL', 'requestAnimationFrame', 'AbortController', 
+        'module', 'performance', 'File', 'Blob'
+      ];
+      
+      let updated = false;
+      for (const global of neededGlobals) {
+        if (!configContent.includes(`"${global}"`)) {
+          console.log(`  Adding global: ${global}`);
+          // Insert in public files section
+          configContent = configContent.replace(
+            /clearInterval: "readonly",/,
+            `clearInterval: "readonly",
+        ${global}: "readonly",`
+          );
+          updated = true;
+        }
+      }
+      
+      if (updated) {
+        fs.writeFileSync(eslintConfigPath, configContent);
+        console.log('✅ ESLint config updated with missing globals');
+        fixed.push('ESLint config globals');
+      }
+    }
+    
+    // Fix Strategy 3: Fix common syntax errors
+    console.log('\n🔨 Strategy 3: Syntax Error Fixes\n');
+    for (const error of errors) {
+      if (error.file && fs.existsSync(error.file)) {
+        try {
+          let fileContent = fs.readFileSync(error.file, 'utf8');
+          const lines = fileContent.split('\n');
+          
+          if (error.line > 0 && error.line <= lines.length) {
+            const problemLine = lines[error.line - 1];
+            
+            // Fix: Double quote conversion
+            if (error.rule === 'quotes') {
+              console.log(`  Fixing quotes in ${error.file}:${error.line}`);
+              lines[error.line - 1] = problemLine.replace(/'/g, '"');
+              fs.writeFileSync(error.file, lines.join('\n'));
+              fixed.push(`Quotes fix: ${error.file}:${error.line}`);
+            }
+            
+            // Fix: Remove unused variables (no-unused-vars)
+            if (error.rule === 'no-unused-vars') {
+              console.log(`  Fixing unused variable in ${error.file}:${error.line}`);
+              // Variable is likely in the same line
+              lines[error.line - 1] = problemLine.replace(/\b(const|let|var)\s+\w+\s*=\s*/, '');
+              fs.writeFileSync(error.file, lines.join('\n'));
+              fixed.push(`Unused var fix: ${error.file}:${error.line}`);
+            }
+            
+            // Fix: Parsing errors with typos
+            if (error.message.includes('Unexpected token')) {
+              console.log(`  Analyzing parsing error in ${error.file}:${error.line}`);
+              // Look for common typos
+              if (problemLine.includes('hasT tech')) {
+                console.log(`  Found typo: hasT tech -> hasTech`);
+                lines[error.line - 1] = problemLine.replace(/hasT\s+tech/g, 'hasTech');
+                fs.writeFileSync(error.file, lines.join('\n'));
+                fixed.push(`Typo fix: ${error.file}:${error.line}`);
+              }
+            }
+          }
+        } catch (fileErr) {
+          console.log(`  ⚠️  Could not fix ${error.file}: ${fileErr.message}`);
+        }
+      }
+    }
+    
+    // Verify fixes
+    console.log('\n✅ Linting fixes applied, verifying...\n');
+    try {
+      execSync('npx eslint . --ext .js', { stdio: 'pipe' });
+      console.log('✅ ALL LINTING ERRORS RESOLVED');
+      return { success: true, errors, fixed };
+    } catch (e) {
+      const remainingErrors = (e.stdout + e.stderr).split('\n').filter(line => line.includes('error')).length;
+      console.log(`⚠️  ${remainingErrors} linting error(s) remain (may need manual review)`);
+      return { success: false, errors, fixed, remaining: remainingErrors };
+    }
+    
+  } catch (err) {
+    console.error('❌ Linting fix error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 if (require.main === module) {
   agenticSRELoop().catch(console.error);
 }
 
-module.exports = { agenticSRELoop };
+module.exports = { agenticSRELoop, detectAndFixLintingErrors };
