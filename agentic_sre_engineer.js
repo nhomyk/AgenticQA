@@ -8,6 +8,7 @@ const path = require("path");
 const https = require("https");
 const WorkflowValidationSkill = require("./workflow-validation-skill");
 const WorkflowActionParameterValidation = require("./workflow-action-parameter-validation-skill");
+const SyntaxErrorRecovery = require("./syntax-error-recovery");
 
 // === PLATFORM KNOWLEDGE ===
 const PLATFORM_KNOWLEDGE = {
@@ -2069,6 +2070,43 @@ async function displaySREExpertise() {
 
 async function agenticSRELoop() {
   await displaySREExpertise();
+  
+  // NEW: Syntax Error Recovery - First priority!
+  console.log('\n╔════════════════════════════════════════╗');
+  console.log('║  🔧 SYNTAX ERROR RECOVERY              ║');
+  console.log('╚════════════════════════════════════════╝\n');
+  
+  try {
+    const recovery = new SyntaxErrorRecovery();
+    const syntaxResult = await recovery.fixSyntaxErrors();
+    
+    if (syntaxResult.success && syntaxResult.fixed > 0) {
+      console.log(`\n✅ SRE successfully fixed ${syntaxResult.fixed} syntax error(s)\n`);
+      
+      // Commit fixes
+      try {
+        const git = simpleGit();
+        await git.raw(['config', '--global', 'user.name', 'OrbitQA SRE Agent']);
+        await git.raw(['config', '--global', 'user.email', 'sre@orbitqa.io']);
+        await git.add('-A');
+        const status = await git.status();
+        
+        if (status.files.length > 0) {
+          await git.commit('fix: SRE agent fixed syntax errors');
+          await git.push('origin', 'main');
+          console.log('📤 Pushed syntax fixes to GitHub\n');
+        }
+      } catch (gitError) {
+        console.log('⚠️ Could not commit fixes (might be running locally)');
+      }
+    } else if (syntaxResult.error) {
+      console.log(`⚠️ Syntax recovery encountered error: ${syntaxResult.error}\n`);
+    } else {
+      console.log('✅ No syntax errors detected\n');
+    }
+  } catch (error) {
+    console.log(`⚠️ Syntax error recovery skipped: ${error.message}\n`);
+  }
   
   const MAX_ITERATIONS = 3;
   let iteration = 0;
