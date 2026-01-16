@@ -1,12 +1,13 @@
 {
-  "name": "agentic-qa-engineer",
-  "version": "0.2.42",
-  "description": "Production-ready Agentic QA Engineer: scans webpages for console errors, DOM issues, and security vulnerabilities",
+  "name": "@orbitqa/platform",
+  "version": "0.9.0-beta",
+  "description": "Enterprise Autonomous QA & Compliance Platform - Proprietary Software",
   "main": "server.js",
-  "license": "MIT",
+  "private": true,
+  "license": "PROPRIETARY",
   "repository": {
-    "type": "git",
-    "url": "https://github.com/nhomyk/AgenticQA.git"
+    "type": "private",
+    "url": "https://github.com/orbitqa/orbitqa.git"
   },
   "scripts": {
     "start": "node server.js",
