@@ -49,7 +49,7 @@ function sanitizeInput(input) {
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
-    '"': "&quot;",
+    "\"": "&quot;",
     "'": "&#39;",
   };
   
@@ -416,7 +416,7 @@ function renderResults(response) {
   
   // Batch update multiple elements
   batchUpdateElements({
-    ".results-tech": formatted.hasT tech ? `${formatted.techCount} technologies detected` : "No technologies detected",
+    ".results-tech": formatted.hasTech ? `${formatted.techCount} technologies detected` : "No technologies detected",
     ".results-security": formatted.hasIssues ? `${formatted.issueCount} issues found` : "No issues detected",
     ".results-apis": formatApiList(response.apis),
     ".results-playwright": generateTestCaseExamples("playwright", response.testCases),
