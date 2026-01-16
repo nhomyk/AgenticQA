@@ -1520,55 +1520,149 @@ async function makeCodeChanges(failureAnalysis) {
       console.log("ESLint issues fixed");
       changesDetected = true;
     } else if (output.includes("Strings must use doublequote")) {
-      // Handle quote style errors - ENHANCED SKILL
-      console.log("🔧 Detected quote style errors, fixing...");
+      // Handle quote style errors - ENHANCED SKILL (supports all .js files)
+      console.log("🔧 Detected quote style errors, fixing across all files...");
       
-      try {
-        let appCode = fs.readFileSync("public/app.js", "utf8");
-        let modified = false;
-        
-        // ENHANCED: Fix all single quotes to double quotes in string literals and type checks
-        // This regex finds single-quoted strings and replaces them with double quotes
-        const lines = appCode.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          // Skip if line is a comment only
-          if (line.trim().startsWith("//")) {
-            // Fix quotes in comments that contain code examples
-            if (line.includes("'") && (line.includes("switchTab") || line.includes("tabname") || line.includes("event"))) {
-              lines[i] = line.replace(/'/g, "\"");
-              console.log(`  Line ${i + 1}: Fixed quote style in comment`);
-              modified = true;
-            }
-          } else if (!line.trim().startsWith("*") && line.includes("typeof") && line.includes("'")) {
-            // Fix quotes in typeof checks: typeof x === 'string' -> typeof x === "string"
-            lines[i] = line.replace(/typeof\s+\w+\s*===\s*'([^']*)'/g, 'typeof $1 === "$1"');
-            if (lines[i] !== line) {
-              console.log(`  Line ${i + 1}: Fixed quote style in typeof check`);
-              modified = true;
-            }
+      // NEW: Extract affected files from ESLint output
+      const affectedFilesMatches = output.match(/([^:\s]+\.(?:js|cjs)):\d+:\d+\s+error\s+Strings must use doublequote/g);
+      const affectedFiles = new Set();
+      
+      if (affectedFilesMatches) {
+        affectedFilesMatches.forEach(match => {
+          const fileMatch = match.match(/([^:\s]+\.(?:js|cjs))/);
+          if (fileMatch) {
+            affectedFiles.add(fileMatch[1]);
+          }
+        });
+      }
+      
+      // If no specific files found in output, try running ESLint with output format to get detailed errors
+      if (affectedFiles.size === 0) {
+        try {
+          execSync("npx eslint . --ext .js --format json 2>&1", { stdio: "pipe", encoding: "utf8" });
+        } catch (jsonErr) {
+          const jsonOutput = jsonErr.stdout?.toString() || jsonErr.stderr?.toString() || "";
+          try {
+            const jsonResults = JSON.parse(jsonOutput);
+            jsonResults.forEach(result => {
+              if (result.messages?.some(msg => msg.ruleId === 'quotes')) {
+                affectedFiles.add(result.filePath);
+              }
+            });
+          } catch (parseErr) {
+            // Fallback: check common config files
+            affectedFiles.add("jest.config.cjs");
+            affectedFiles.add("public/app.js");
+            affectedFiles.add("eslint.config.js");
           }
         }
-        
-        // Also handle querySelectorAll patterns from previous logic
-        appCode = lines.join("\n");
-        if (appCode.includes("document.querySelectorAll('[id=\"")) {
-          console.log("  Fixing quote style in querySelectorAll patterns...");
-          appCode = appCode.replace(
-            /document\.querySelectorAll\(\['id="[^"]*"\][^)]*\]/g,
-            (match) => match.replace(/'/g, "\"")
-          );
-          modified = true;
-        }
-        
-        if (modified) {
-          fs.writeFileSync("public/app.js", appCode);
-          console.log("✅ Quote style issues fixed");
-          changesDetected = true;
-        }
-      } catch (quoteErr) {
-        console.log("⚠️  Could not fix quote style:", quoteErr.message);
       }
+      
+      // NEW: If still no files, run one more explicit check
+      if (affectedFiles.size === 0) {
+        try {
+          const lintOutput = execSync("npx eslint . --ext .js 2>&1", { encoding: "utf8" });
+          // Extract filenames from error messages
+          const matches = lintOutput.match(/^([^\s:]+):(\d+):/gm);
+          if (matches) {
+            matches.forEach(m => {
+              const fileMatch = m.match(/^([^:]+):/);
+              if (fileMatch) affectedFiles.add(fileMatch[1]);
+            });
+          }
+        } catch (relintErr) {
+          // Just proceed with the error message
+        }
+      }
+      
+      console.log(`Found ${affectedFiles.size} file(s) with quote errors: ${Array.from(affectedFiles).join(", ")}`);
+      
+      // Fix quote errors in all affected files
+      let quotesFixed = 0;
+      for (const filePath of affectedFiles) {
+        if (!fs.existsSync(filePath)) {
+          console.log(`  ⏭️  Skipping non-existent file: ${filePath}`);
+          continue;
+        }
+        
+        try {
+          let content = fs.readFileSync(filePath, "utf8");
+          let modified = false;
+          
+          // Pattern 1: Simple single-quoted strings -> double-quoted strings
+          // But be careful not to replace strings within comments
+          const lines = content.split("\n");
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Skip full-line comments
+            if (line.trim().startsWith("//") || line.trim().startsWith("*")) {
+              continue;
+            }
+            
+            // Skip strings that are already double-quoted or are part of a comment
+            const beforeComment = line.split("//")[0];
+            
+            // Fix: Replace single quotes with double quotes in non-comment parts
+            // Pattern: setupFilesAfterEnv: ['<rootDir>/jest.setup.js'] -> ["<rootDir>/jest.setup.js"]
+            if (beforeComment.includes("'<rootDir>") || beforeComment.includes("'http") || beforeComment.includes("'npm")) {
+              lines[i] = line.replace(/'([^']*<rootDir>[^']*)'/g, '"$1"')
+                             .replace(/'(https?:[^']*)'/g, '"$1"')
+                             .replace(/'(npm[^']*)'/g, '"$1"')
+                             .replace(/'(function|async function)[^']*'/g, '"$&"');
+              modified = true;
+              if (lines[i] !== line) {
+                console.log(`  ✅ Fixed quotes on line ${i + 1} in ${filePath}`);
+              }
+            }
+            
+            // Pattern: Array literals with single quotes
+            if (beforeComment.includes("['") && beforeComment.includes("']")) {
+              lines[i] = line.replace(/\['([^']*)'\]/g, '["$1"]');
+              modified = true;
+              if (lines[i] !== line) {
+                console.log(`  ✅ Fixed array quotes on line ${i + 1} in ${filePath}`);
+              }
+            }
+            
+            // Pattern: typeof x === 'string'
+            if (beforeComment.includes("typeof") && beforeComment.includes("'")) {
+              lines[i] = line.replace(/typeof\s+(\w+)\s*===\s*'([^']*)'/g, 'typeof $1 === "$2"');
+              modified = true;
+              if (lines[i] !== line) {
+                console.log(`  ✅ Fixed typeof quotes on line ${i + 1} in ${filePath}`);
+              }
+            }
+            
+            // Pattern: General single-quoted strings (but preserve in comments)
+            if (beforeComment !== line) {
+              // There's a comment, only fix the part before the comment
+              const commentIndex = line.indexOf("//");
+              const codepart = line.substring(0, commentIndex);
+              const commentpart = line.substring(commentIndex);
+              
+              let fixedCodepart = codepart.replace(/'([^']*)'/g, '"$1"');
+              if (fixedCodepart !== codepart) {
+                lines[i] = fixedCodepart + commentpart;
+                modified = true;
+                console.log(`  ✅ Fixed quotes on line ${i + 1} in ${filePath}`);
+              }
+            }
+          }
+          
+          if (modified) {
+            const newContent = lines.join("\n");
+            fs.writeFileSync(filePath, newContent);
+            quotesFixed++;
+            changesDetected = true;
+          }
+        } catch (fileErr) {
+          console.log(`  ⚠️  Could not fix ${filePath}: ${fileErr.message}`);
+        }
+      }
+      
+      console.log(`✅ Fixed quotes in ${quotesFixed} file(s)`);
+      if (quotesFixed > 0) changesDetected = true;
     } else if (output.includes("is not defined")) {
       // Handle undefined variable references - EXISTING SKILL
       console.log("🔧 Detected undefined variable(s), attempting to fix...");

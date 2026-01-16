@@ -11,5 +11,5 @@ module.exports = {
   // Prevent "Cannot log after tests are done" errors
   maxWorkers: 1,
   // Mock browser-related operations
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
 };
