@@ -2,22 +2,43 @@
 
 ## Overview
 
-The Dashboard is a world-class Agent Control Center that provides real-time monitoring, health metrics, and interactive agent capabilities for autonomous QA management.
+The Dashboard is a world-class Agent Control Center that provides real-time monitoring, health metrics, and interactive agent capabilities for autonomous QA management. Features enterprise-grade safeguards for protecting autonomous agent changes.
 
 **Access:** `/dashboard.html` with login button in header navigation
 
 ## Features
+
+### 0. 🏗️ Autonomous Orchestration Pipeline Visualization
+
+Real-time visualization of the complete 10-phase orchestration pipeline:
+
+**Pipeline Phases:**
+```
+🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🛡️ 4: SAFEGUARDS → 🏥 FINAL
+```
+
+- Phase -1: Emergency rescues & infinite loop prevention
+- Phases 0-3: Testing, fixing, and SRE validation
+- **Phase 4: SAFEGUARDS - Enterprise protection layer (NEW!)**
+  - File protection and change validation
+  - Risk assessment and scoring (0-1.0 scale)
+  - Auto-rollback monitoring
+  - Immutable audit trails
+- Final: Health verification & cleanup
+
+**Key Features:** Self-healing • Intelligent agents • Parallel execution • Zero manual intervention • **Enterprise Agent Safeguards**
 
 ### 1. 🚀 Pipeline Kickoff
 
 Easily trigger new CI/CD pipeline runs with specific configurations:
 
 - **Pipeline Types:**
-  - Full CI/CD Pipeline (complete test suite + deployment checks)
+  - Full CI/CD Pipeline (10 phases with safeguards)
   - Tests Only (unit + integration + E2E tests)
   - Security Scan (vulnerability scanning + security analysis)
   - Accessibility Check (WCAG 2.1 compliance verification)
   - Compliance Audit (regulatory checks + audit log generation)
+  - **Safeguards Validation Only (protection layer validation)**
 
 - **Branch Selection:** Specify which branch to run the pipeline against (defaults to `main`)
 
@@ -52,17 +73,26 @@ Interactive query interface for direct communication with autonomous agents:
   - Infrastructure checks
   - Performance analysis
 
+- **🛡️ Safeguards Agent** - Protection & Governance (NEW!)
+  - Autonomous agent change validation
+  - File protection status monitoring
+  - Risk assessment and scoring
+  - Audit trail and compliance reporting
+  - Auto-rollback monitoring
+  - SOC2/GDPR/HIPAA audit readiness
+
 **Query Capabilities:**
 - Natural language questions about test coverage
 - Health and status checks
 - Compliance verification requests
 - Performance analysis queries
+- Safeguards and protection status checks
 
 **Quick Action Buttons:**
 - ❤️ **Health Check** - Agent system health report
 - 📊 **Test Coverage** - Current test coverage metrics
 - ✅ **Compliance** - Latest compliance audit results
-- ♿ **Accessibility** - WCAG 2.1 accessibility scan results
+- 🛡️ **Safeguards Status** - Change protection and risk metrics
 
 **Response Panel:**
 - Displays agent responses with syntax highlighting
@@ -77,7 +107,7 @@ Real-time dashboard metrics tracking system performance:
 - **Pipeline Success Rate** (98%) - Percentage of successful pipeline executions
 - **Average Duration** (4.2s) - Mean execution time for pipelines
 - **Test Coverage** (95%) - Code coverage percentage across all tests
-- **System Status** (All Green) - Overall system health indicator
+- **Safeguards Status** (Active) - Enterprise safeguards system status
 
 ### 4. 🔒 Compliance Status
 
@@ -85,8 +115,8 @@ Comprehensive compliance and security metrics:
 
 - **WCAG 2.1 Accessibility** (100%) - Web Content Accessibility Guideline compliance
 - **Security Checks** (175 passed) - Security vulnerability scanning
-- **Code Quality** (98%) - Code quality metrics and ratings
-- **Performance** (A+) - Performance optimization score
+- **Avg. Risk Score** (0.12) - Autonomous agent change risk assessment (Low Risk)
+- **SOC2/GDPR/HIPAA** (Audit Ready) - Enterprise compliance framework readiness
 
 ### 5. 📋 Recent Pipelines
 

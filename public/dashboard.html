@@ -595,7 +595,7 @@
                 <h2 class="card-title">Autonomous Orchestration Pipeline</h2>
             </div>
             <div style="padding: 1.5rem; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.8rem; line-height: 1.4; overflow-x: auto; color: #a5b4fc; background: rgba(15, 23, 42, 0.8); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.2);">
-                <pre style="margin: 0; color: #a5b4fc;">🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🏥 FINAL
+                <pre style="margin: 0; color: #a5b4fc;">🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🛡️ 4: SAFEGUARDS → 🏥 FINAL
 
 • Phase -1: YAML validation & circuit breaker (prevents infinite loops)
 • Phase 0: Auto-fixes linting issues (prevents cascading failures)  
@@ -603,10 +603,11 @@
 • Phase 1→2: SDET & Compliance agents analyze results concurrently
 • Phase 2: Fullstack agent applies intelligent code fixes & updates
 • Phase 3: SRE agent validates production readiness & infrastructure health
+• Phase 4: SAFEGUARDS - File protection, risk assessment, auto-rollback, audit trails (NEW! ✨)
 • Final: Health verification & loop detection</pre>
             </div>
             <div style="padding: 1rem; font-size: 0.9rem; color: #a5b4fc;">
-                <strong>✨ Key Features:</strong> Self-healing • Intelligent agents • Parallel execution • Zero manual intervention • Safe failures
+                <strong>✨ Key Features:</strong> Self-healing • Intelligent agents • Parallel execution • Zero manual intervention • Safe failures • <span style="color: #667eea; font-weight: 600;">Enterprise Agent Safeguards</span>
             </div>
         </div>
 
@@ -627,11 +628,12 @@
                     <div class="query-input-group">
                         <label for="pipelineType">Pipeline Type</label>
                         <select id="pipelineType" tabindex="0" aria-label="Select pipeline type">
-                            <option value="full">Full CI/CD Pipeline</option>
+                            <option value="full">Full CI/CD Pipeline (10 phases with safeguards)</option>
                             <option value="tests">Tests Only</option>
                             <option value="security">Security Scan</option>
                             <option value="accessibility">Accessibility Check</option>
                             <option value="compliance">Compliance Audit</option>
+                            <option value="safeguards">Safeguards Validation Only</option>
                         </select>
                     </div>
                     <div class="query-input-group">
@@ -658,6 +660,7 @@
                             <option value="fullstack">🚀 Fullstack Agent (E2E Testing)</option>
                             <option value="compliance">✅ Compliance Agent (Audits)</option>
                             <option value="sre">🔧 SRE Agent (Infrastructure)</option>
+                            <option value="safeguards">🛡️ Safeguards Agent (Protection & Governance)</option>
                         </select>
                     </div>
 
@@ -704,8 +707,8 @@
                         <button class="btn btn-secondary btn-small" onclick="quickQuery('compliance')">
                             ✅ Compliance
                         </button>
-                        <button class="btn btn-secondary btn-small" onclick="quickQuery('accessibility')">
-                            ♿ Accessibility
+                        <button class="btn btn-secondary btn-small" onclick="quickQuery('safeguards')">
+                            🛡️ Safeguards Status
                         </button>
                     </div>
 
@@ -740,7 +743,7 @@
                         </div>
                         <div class="metric">
                             <div class="metric-value">✅</div>
-                            <div class="metric-label">Status: All Green</div>
+                            <div class="metric-label">Safeguards: Active</div>
                         </div>
                     </div>
                 </div>
@@ -781,10 +784,19 @@
                         </div>
                         <div class="compliance-item">
                             <div class="compliance-header">
-                                <div class="compliance-score">A+</div>
+                                <div class="compliance-score">0.12</div>
                                 <div>
-                                    <div class="compliance-label">Performance</div>
-                                    <div class="compliance-details">Optimized</div>
+                                    <div class="compliance-label">Avg. Risk Score</div>
+                                    <div class="compliance-details">Low Risk</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="compliance-item">
+                            <div class="compliance-header">
+                                <div class="compliance-score">✅</div>
+                                <div>
+                                    <div class="compliance-label">SOC2/GDPR/HIPAA</div>
+                                    <div class="compliance-details">Audit Ready</div>
                                 </div>
                             </div>
                         </div>
@@ -912,7 +924,8 @@
                 sdet: { name: '🧪 SDET Agent', health: '✅ Excellent', activity: '2 minutes ago' },
                 fullstack: { name: '🚀 Fullstack Agent', health: '✅ Excellent', activity: '5 minutes ago' },
                 compliance: { name: '✅ Compliance Agent', health: '✅ Excellent', activity: '1 minute ago' },
-                sre: { name: '🔧 SRE Agent', health: '✅ Excellent', activity: '3 minutes ago' }
+                sre: { name: '🔧 SRE Agent', health: '✅ Excellent', activity: '3 minutes ago' },
+                safeguards: { name: '🛡️ Safeguards Agent', health: '✅ Excellent', activity: '5 seconds ago' }
             };
             
             const selected = document.getElementById('agentSelect').value;
@@ -966,7 +979,7 @@
                 health: 'Run a health check',
                 coverage: 'What is our current test coverage?',
                 compliance: 'Show compliance audit results',
-                accessibility: 'Run accessibility checks'
+                safeguards: 'Show safeguards status and audit trail summary'
             };
             
             document.getElementById('agentQuery').value = queries[type];
