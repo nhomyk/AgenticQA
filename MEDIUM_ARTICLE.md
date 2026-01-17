@@ -128,6 +128,21 @@ The Fullstack Agent analyzes test failures and automatically:
 ### **Phase 3: SRE Validation** 🚀
 The SRE Agent verifies production readiness, detects performance issues, and ensures infrastructure health.
 
+### **Phase 4: Enterprise Safeguards** 🛡️ NEW
+The Enterprise Safeguards system validates every autonomous agent change before deployment:
+
+**Why Safeguards Matter:**
+Autonomous agents are powerful—but enterprises need governance. OrbitQA's safeguards protect your codebase without blocking innovation:
+
+- **File Protection** - Critical files (package.json, auth/**, payment/**, etc.) are protected from unauthorized changes
+- **Risk Assessment** - Every change is scored for risk (0-1.0 scale) based on impact patterns
+- **Auto-Rollback Monitoring** - 30-minute post-deployment monitoring with automatic rollback if metrics degrade
+- **Immutable Audit Trails** - SHA-256 cryptographic signing creates tamper-proof logs for compliance
+- **Compliance Ready** - SOC2 Type II, GDPR, HIPAA reporting built-in
+
+**The Result:**
+Your autonomous agents move fast while your compliance team sleeps soundly. No approval bottlenecks. No manual gates. Pure governance through intelligent validation.
+
 **Result:** Your code is tested, secure, compliant, and production-ready. Automatically.
 
 ---
@@ -151,17 +166,20 @@ If your team experiences any of these, OrbitQA is built for you:
 - ❌ Brittle selectors → ✅ AI-powered resilience
 - ❌ No compliance → ✅ Built-in regulatory validation
 - ❌ Reactive security → ✅ Proactive vulnerability patching
+- ❌ No agent governance → ✅ Enterprise safeguards built-in
 
 **vs. Compliance Scanning (Snyk, SonarQube, Checkmarx)**
 - ❌ Detection only → ✅ Detection + automatic fixing
 - ❌ No testing → ✅ Comprehensive testing included
 - ❌ Manual remediation → ✅ Auto-remediation
 - ❌ Expensive overhead → ✅ Integrated into CI/CD
+- ❌ No agent protection → ✅ Autonomous agent safeguards
 
 **vs. Managed Services**
 - ✅ Runs in your infrastructure (no vendor lock-in)
 - ✅ Full visibility into testing/compliance logic
 - ✅ Customize agents for your needs
+- ✅ Enterprise-grade agent safeguards (only OrbitQA)
 - ✅ Enterprise pricing that scales with your team
 
 ---

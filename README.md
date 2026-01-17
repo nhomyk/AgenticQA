@@ -2,18 +2,18 @@
 
 **⚠️ PROPRIETARY SOFTWARE - For Licensed Enterprise Use Only**
 
-OrbitQA is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, and self-healing CI/CD pipelines. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, and compliance validation.
+OrbitQA is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
 
-> ✅ **Proprietary & Confidential** • 🔐 **Enterprise-Grade Security** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2 Ready**
+> ✅ **Proprietary & Confidential** • 🔐 **Enterprise-Grade Security** • 🛡️ **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready**
 
 ---
 
 ## 🏗️ Autonomous Orchestration Pipeline
 
-An intelligent, self-healing CI/CD pipeline with 9 phases orchestrating specialized agents to ensure code quality, compliance, security, and production readiness.
+An intelligent, self-healing CI/CD pipeline with 10 phases orchestrating specialized agents to ensure code quality, compliance, security, and production readiness—protected by enterprise-grade safeguards that validate every agent change.
 
 ```
-🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🏥 FINAL
+🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🛡️ 4: SAFEGUARDS → 🏥 FINAL
 
 • Phase -1: YAML validation & circuit breaker (prevents infinite loops)
 • Phase 0: Auto-fixes linting issues early (prevents cascading failures)  
@@ -21,10 +21,15 @@ An intelligent, self-healing CI/CD pipeline with 9 phases orchestrating speciali
 • Phase 1→2: SDET & Compliance agents analyze results concurrently
 • Phase 2: Fullstack agent applies intelligent code fixes & compliance updates
 • Phase 3: SRE agent validates production readiness & infrastructure health
+• Phase 4: SAFEGUARDS validation - comprehensive protection layer (NEW! ✨)
+  - File protection & change validation
+  - Risk assessment & scoring
+  - Auto-rollback monitoring
+  - Immutable audit trails with compliance reporting
 • Final: Health verification & loop detection
 ```
 
-**Key Features**: ✅ Self-healing • ✅ Intelligent agents • ✅ Parallel execution • ✅ Zero manual intervention • ✅ Safe failures
+**Key Features**: ✅ Self-healing • ✅ Intelligent agents • ✅ Parallel execution • ✅ Zero manual intervention • ✅ Safe failures • ✅ **Autonomous Agent Safeguards** (File protection, risk assessment, auto-rollback, immutable audit trails)
 
 ---
 
@@ -243,6 +248,58 @@ Enterprise-grade compliance remediation that automatically reads reports, identi
 - ✅ Priority-based processing (critical issues first)
 - ✅ Graceful error handling (continues on failures)
 - ✅ Re-validation with compliance agent
+
+### 9. **Enterprise-Grade Autonomous Agent Safeguards** 🛡️ NEW
+
+Mission-critical protection layer validating every autonomous agent change before deployment. Purpose-built for enterprises that require governance without blocking innovation.
+
+**3-Component Safety System:**
+
+**🔒 PipelineGatekeeper** - File Protection & Change Validation
+- Protects critical files: `package.json`, `.env*`, `.github/workflows/**`, `auth/**`, `payment/**`, `*.lock`
+- Validates agent change scope (max 50 files per operation)
+- Risk assessment with pattern-based scoring (0-1.0 scale)
+- Categorizes risk: Security code changes (+0.3), multiple directories (+0.2), deletions (+0.15)
+- Real-time validation reports with actionable feedback
+
+**📊 RollbackMonitor** - Deployment Safety & Auto-Recovery
+- 30-minute post-deployment monitoring with configurable polling
+- Metric-based auto-rollback on degradation:
+  - Error rate threshold: 50%
+  - Latency threshold: 30%
+  - Memory threshold: 100MB increase
+  - CPU threshold: 40%
+  - Failed test threshold: 5+ failures
+- Automatic notifications and rollback execution
+- Preserves system stability during agent learning
+
+**📝 AuditTrail** - Immutable Compliance Logging
+- Cryptographic SHA-256 signing for tamper-proof audit logs
+- Organized daily logs with automatic indexing
+- Multi-compliance reporting: SOC2 Type II, GDPR, HIPAA
+- Change tracking by agent, action, risk level, and timestamp
+- Integrity verification with automatic alerts
+- S3 archiving support for long-term compliance storage
+
+**Integration in CI/CD:** Runs as Phase 4 (after agent changes, before health verification)
+- ✅ Zero blocking approval gates (build-phase validation)
+- ✅ Production-ready compliance framework
+- ✅ Enterprise audit trail for governance
+- ✅ Risk scoring for informed decisions
+- ✅ Auto-recovery without manual intervention
+
+**Quick Start:**
+```bash
+npm run safeguards:test        # Run 4-scenario validation suite
+npm run safeguards:examples    # View 7 integration patterns
+npm run safeguards:verify      # Quick system readiness check
+```
+
+📚 **Full Documentation:**
+- [Safeguards Getting Started](SAFEGUARDS_GETTING_STARTED.md) - 5-15 minute setup
+- [Implementation Details](SAFEGUARDS_IMPLEMENTATION.md) - Production roadmap
+- [API Reference](src/safeguards/README.md) - Technical deep-dive
+
 - ✅ Detailed logging and reporting
 - ✅ Production-ready code (syntax validated, fully tested)
 
