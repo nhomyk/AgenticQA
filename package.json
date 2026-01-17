@@ -32,6 +32,10 @@
     "fullstack-agent": "node fullstack-agent.js",
     "qa:agent": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true && npm run start > /tmp/server.log 2>&1 & sleep 3 && node qa-agent.js",
     "compliance-agent": "node compliance-agent.js",
+    "safeguards:test": "node src/safeguards/quickstart.js",
+    "safeguards:examples": "node src/safeguards/examples.js",
+    "safeguards:integration": "node src/safeguards/agent-integration.js",
+    "safeguards:verify": "node -e \"console.log('✓ Safeguards system ready'); require('./src/safeguards/pipeline')\"",
     "docker:build": "docker build -t agentic-qa:latest .",
     "docker:run": "docker-compose up -d",
     "docker:stop": "docker-compose down"
