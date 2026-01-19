@@ -1,5 +1,6 @@
 // Agentic SRE Engineer - LangGraph Agent
 // Automates CI/CD monitoring, version bumping, and code fixes with email notifications
+// ENHANCED: DevOps health monitoring and pipeline maintenance
 
 const simpleGit = require("simple-git");
 const fs = require("fs");
@@ -10,6 +11,7 @@ const WorkflowValidationSkill = require("./workflow-validation-skill");
 const WorkflowActionParameterValidation = require("./workflow-action-parameter-validation-skill");
 const SyntaxErrorRecovery = require("./syntax-error-recovery");
 const ErrorRecoveryHandler = require("./error-recovery-handler"); // NEW: Self-healing system
+const DevOpsHealthSystem = require("./devops-health-system"); // NEW: Pipeline health monitoring
 
 // === PLATFORM KNOWLEDGE ===
 const PLATFORM_KNOWLEDGE = {
@@ -2581,7 +2583,29 @@ async function detectAndFixLintingErrors() {
 }
 
 if (require.main === module) {
-  agenticSRELoop().catch(console.error);
+  // NEW: Run DevOps health check before agent loop
+  (async () => {
+    console.log('\n🚀 === SRE AGENT STARTUP ===\n');
+    
+    // Check pipeline health first
+    const healthSystem = new DevOpsHealthSystem();
+    console.log('📊 Performing DevOps health check...\n');
+    
+    try {
+      const health = await healthSystem.checkPipelineHealth();
+      
+      if (health.status === 'critical' && health.recommendations.length > 0) {
+        console.log('\n🔧 Applying auto-fixes for critical issues...\n');
+        await healthSystem.applyAutoFixes();
+      }
+    } catch (err) {
+      console.error('⚠️  Health check error (non-blocking):', err.message);
+    }
+    
+    // Proceed with normal SRE loop
+    console.log('\n▶️  Starting SRE Agent loop...\n');
+    agenticSRELoop().catch(console.error);
+  })();
 }
 
 module.exports = { agenticSRELoop, detectAndFixLintingErrors };

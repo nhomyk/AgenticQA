@@ -1,3 +1,5 @@
+name: 🤖 AgenticQA - Self-Healing CI/CD Pipeline
+
 on:
   push:
     branches: [ main ]
@@ -45,6 +47,7 @@ jobs:
   # Runs FIRST to detect and fix any critical issues
   pipeline-rescue:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: 🚨 Pipeline Health Check & Emergency Repair
     permissions:
       contents: write
@@ -57,6 +60,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # NEW: Run pipeline maintenance coordinator
+      - name: "🔧 Run Pipeline Maintenance Coordinator"
+        run: node pipeline-maintenance-coordinator.js
+        continue-on-error: false
 
       # Check if workflows are syntactically valid
       - name: Validate workflow YAML
@@ -117,8 +128,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Install dependencies
+          node-version: '20'          cache: 'npm'      - name: Install dependencies
         run: npm ci
       - name: Run ESLint auto-fix
         run: |

@@ -5,12 +5,14 @@
 // ✅ Triggers pipeline re-run after fixes
 // ✅ NEW: Fixes compliance issues identified by Compliance Agent
 // ✅ NEW: Uses error recovery guides for intelligent fixing
+// ✅ NEW: Integrated DevOps health monitoring and pipeline maintenance
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const ErrorRecoveryHandler = require("./error-recovery-handler"); // NEW: Self-healing system
+const DevOpsHealthSystem = require("./devops-health-system"); // NEW: Pipeline health monitoring
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_RUN_ID = process.env.GITHUB_RUN_ID;

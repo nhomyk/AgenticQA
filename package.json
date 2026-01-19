@@ -1,6 +1,6 @@
 {
   "name": "@orbitqa/platform",
-  "version": "0.9.NaN",
+  "version": "0.9.1",
   "description": "Enterprise Autonomous QA & Compliance Platform with Agent Safeguards - Proprietary Software",
   "main": "server.js",
   "private": true,
