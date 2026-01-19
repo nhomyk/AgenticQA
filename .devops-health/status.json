@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-01-19T21:56:31.770Z",
+  "checks": {
+    "package_json": {
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "workflows": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "⚠️  agent-safeguards.yml: Missing 'timeout-minutes' configuration",
+        "⚠️  agentic-sre-engineer.yml: Missing 'timeout-minutes' configuration",
+        "⚠️  validate-workflows.yml: Missing 'timeout-minutes' configuration",
+        "✅ 4 workflow file(s) validated"
+      ],
+      "files_checked": 4
+    },
+    "dependencies": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "✅ Dependencies appear to be installed"
+      ],
+      "status": "installed"
+    },
+    "cache": {
+      "valid": true,
+      "cache_location": "/home/runner/work/AgenticQA/AgenticQA/node_modules",
+      "size_mb": 418,
+      "summary": "✅ Cache: 418MB"
+    },
+    "git_config": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "✅ .gitignore present"
+      ]
+    },
+    "environment": {
+      "required": [],
+      "optional": [],
+      "missing": [
+        "⚠️  OPENAI_API_KEY (optional)",
+        "⚠️  NPM_TOKEN (optional)"
+      ],
+      "configured": [
+        "✅ GITHUB_TOKEN",
+        "✅ GH_PAT"
+      ]
+    },
+    "docker": {
+      "available": true,
+      "version": "Docker version 28.0.4, build b8034c0",
+      "errors": [],
+      "summary": "✅ Docker available: Docker version 28.0.4, build b8034c0"
+    },
+    "file_permissions": {
+      "valid": true,
+      "files_checked": 3,
+      "issues": []
+    }
+  },
+  "issues": [],
+  "recommendations": [],
+  "status": "healthy"
+}

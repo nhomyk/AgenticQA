@@ -855,20 +855,20 @@ app.post("/api/github/connect", (req, res) => {
 
     // Store GitHub token in memory (in production, use secure storage)
     global.githubConfig = {
-      token: token.substring(0, 10) + '***', // Masked version for logging
+      token: token.substring(0, 10) + "***", // Masked version for logging
       fullToken: token, // Full token for actual use
-      repository: repository || '',
+      repository: repository || "",
       connectedAt: new Date().toISOString()
     };
 
     log("info", "GitHub token saved", {
-      repository: repository || 'not specified'
+      repository: repository || "not specified"
     });
 
     res.json({
       status: "success",
       message: "GitHub account connected successfully",
-      repository: repository || 'Not specified'
+      repository: repository || "Not specified"
     });
   } catch (error) {
     log("error", "GitHub connection failed", { error: error.message });
@@ -885,7 +885,7 @@ app.get("/api/github/status", (req, res) => {
     if (global.githubConfig) {
       res.json({
         status: "connected",
-        repository: global.githubConfig.repository || 'Not specified',
+        repository: global.githubConfig.repository || "Not specified",
         connectedAt: global.githubConfig.connectedAt
       });
     } else {
@@ -929,7 +929,7 @@ app.post("/api/github/test", (req, res) => {
     res.json({
       status: "success",
       message: "GitHub connection test successful",
-      repository: global.githubConfig.repository || 'Not specified'
+      repository: global.githubConfig.repository || "Not specified"
     });
   } catch (error) {
     res.status(500).json({
