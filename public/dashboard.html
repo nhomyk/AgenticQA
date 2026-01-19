@@ -1261,8 +1261,10 @@
                 });
 
                 const data = await response.json();
+                console.debug('[GitHub Connection Check]', { status: data.status, response: data });
                 return data.status === 'connected';
             } catch (error) {
+                console.error('[GitHub Connection Check Error]', error);
                 return false;
             }
         }
@@ -1290,6 +1292,8 @@
             // Build pipeline name: use custom if provided, otherwise use default with type
             const pipelineName = customName || `🤖 AgenticQA - ${getPipelineNameFromType(pipelineType)}`;
 
+            console.log('[Pipeline Kickoff] Starting pipeline trigger', { pipelineType, branch, pipelineName });
+
             try {
                 // Validate branch is selected
                 if (!branch) {
@@ -1298,7 +1302,10 @@
                 }
 
                 // Check if GitHub is connected
+                console.log('[Pipeline Kickoff] Checking GitHub connection...');
                 const isConnected = await checkGitHubConnectionBefore();
+                console.log('[Pipeline Kickoff] GitHub connection check result:', { isConnected });
+                
                 if (!isConnected) {
                     showAlert('⚠️ GitHub is not connected. Go to Settings to connect your GitHub account.', 'error');
                     return;
@@ -1306,10 +1313,12 @@
 
                 // Show warning for main branch
                 if (branch === 'main') {
+                    console.log('[Pipeline Kickoff] Main branch selected, showing warning...');
                     const confirmed = await new Promise((resolve) => {
                         showMainBranchWarning(() => resolve(true), () => resolve(false));
                     });
                     if (!confirmed) {
+                        console.log('[Pipeline Kickoff] User cancelled main branch deployment');
                         return;
                     }
                 }
@@ -1320,6 +1329,7 @@
 
                 // Call our backend API endpoint instead of GitHub API directly
                 // This allows us to use authenticated requests securely
+                console.log('[Pipeline Kickoff] Calling /api/trigger-workflow endpoint...');
                 const response = await fetch('/api/trigger-workflow', {
                     method: 'POST',
                     headers: {
@@ -1336,10 +1346,13 @@
                 launchBtn.disabled = false;
                 launchBtn.innerHTML = '🚀 Launch Pipeline';
 
+                console.log('[Pipeline Kickoff] Response received', { status: response.status, ok: response.ok });
                 const result = await response.json();
+                console.log('[Pipeline Kickoff] Response body:', result);
 
                 if (response.ok && result.status === 'success') {
                     // Success response
+                    console.log('[Pipeline Kickoff] ✅ Pipeline triggered successfully!');
                     showAlert(`✅ ${result.message}`, 'success');
                     
                     // Refresh pipelines after delay
@@ -1349,25 +1362,30 @@
                     }
                 } else if (response.status === 403) {
                     // Authentication issues
+                    console.warn('[Pipeline Kickoff] ⚠️ Authentication failed');
                     showAlert(`⚠️ ${result.error}`, 'error');
                 } else if (response.status === 404) {
                     // Workflow not found
+                    console.warn('[Pipeline Kickoff] ❌ Workflow not found');
                     showAlert(`❌ ${result.error}`, 'error');
                 } else if (response.status === 503) {
                     // Service unavailable (token not configured)
+                    console.warn('[Pipeline Kickoff] ⚠️ Service unavailable - token not configured');
                     showAlert(`⚠️ ${result.error}. Check server logs for details.`, 'error');
                 } else if (response.status === 400) {
                     // Validation error
+                    console.warn('[Pipeline Kickoff] ❌ Validation error');
                     showAlert(`❌ ${result.error}`, 'error');
                 } else {
                     // Other errors
+                    console.error('[Pipeline Kickoff] ❌ Unexpected error', { status: response.status, result });
                     showAlert(`❌ Error: ${result.error || `Request failed with status ${response.status}`}`, 'error');
                 }
             } catch (error) {
                 launchBtn.disabled = false;
                 launchBtn.innerHTML = '🚀 Launch Pipeline';
+                console.error('[Pipeline Kickoff] ❌ Exception occurred:', error);
                 showAlert(`❌ Error kicking off pipeline: ${error.message}`, 'error');
-                console.error('Pipeline kickoff error:', error);
             }
         }
 

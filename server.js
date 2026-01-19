@@ -665,6 +665,8 @@ app.post("/api/trigger-workflow", async (req, res) => {
   try {
     const { pipelineType = "manual", branch = "main", pipelineName } = req.body;
     
+    log("info", "🚀 Trigger workflow request received", { pipelineType, branch, pipelineName });
+    
     // Validate pipeline type against whitelist (prevent injection)
     const validPipelineTypes = ["full", "tests", "security", "accessibility", "compliance", "manual"];
     if (!validPipelineTypes.includes(pipelineType)) {
@@ -678,6 +680,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
     // Validate branch name (alphanumeric, dash, underscore, slash only)
     // Max 255 characters
     if (!branch || typeof branch !== "string" || branch.length > 255) {
+      log("warn", "Invalid branch name (missing or too long)", { branch, ip: req.ip });
       return res.status(400).json({
         error: "Invalid branch",
         status: "error"
@@ -705,10 +708,13 @@ app.post("/api/trigger-workflow", async (req, res) => {
     let githubToken = process.env.GITHUB_TOKEN;
     if (!githubToken && global.githubConfig && global.githubConfig.fullToken) {
       githubToken = global.githubConfig.fullToken;
+      log("info", "Using GitHub token from global config");
+    } else if (githubToken) {
+      log("info", "Using GitHub token from environment variable");
     }
     
     if (!githubToken) {
-      log("warn", "GITHUB_TOKEN not available for workflow dispatch");
+      log("warn", "❌ GITHUB_TOKEN not available for workflow dispatch");
       return res.status(503).json({
         error: "GitHub token not configured. Please add your GitHub PAT in Settings.",
         status: "error"
@@ -736,6 +742,8 @@ app.post("/api/trigger-workflow", async (req, res) => {
       }
     };
     
+    log("info", "📋 Preparing GitHub workflow dispatch", { workflowName, ref: branch });
+    
     // Call GitHub API to dispatch workflow
     return new Promise((resolve) => {
       const payloadString = JSON.stringify(payload);
@@ -746,7 +754,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
         method: "POST",
         headers: {
           "Accept": "application/vnd.github.v3+json",
-          "Authorization": `token ${githubToken}`,
+          "Authorization": `token ${githubToken.substring(0, 10)}...`,
           "Content-Type": "application/json",
           "User-Agent": "AgenticQA-Dashboard",
           "Content-Length": Buffer.byteLength(payloadString)
@@ -761,23 +769,27 @@ app.post("/api/trigger-workflow", async (req, res) => {
         });
         
         githubRes.on("end", () => {
+          log("info", "📡 GitHub API response received", { statusCode: githubRes.statusCode });
+          
           if (githubRes.statusCode === 204) {
-            log("info", "Workflow dispatch successful", {
+            log("info", "✅ Workflow dispatch successful!", {
               pipelineType,
               branch,
+              workflowName,
               timestamp: new Date().toISOString()
             });
             
             resolve(res.status(200).json({
               status: "success",
-              message: `Pipeline '${pipelineType}' triggered successfully on branch '${branch}'`,
+              message: `✅ Pipeline '${pipelineType}' triggered successfully on branch '${branch}'`,
               workflow: "ci.yml",
               branch: branch,
               pipelineType: pipelineType,
+              workflowName: workflowName,
               timestamp: new Date().toISOString()
             }));
           } else if (githubRes.statusCode === 401 || githubRes.statusCode === 403) {
-            log("warn", "GitHub token authentication failed", {
+            log("warn", "🔐 GitHub token authentication failed", {
               status: githubRes.statusCode,
               body: responseBody
             });
@@ -788,7 +800,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
               helpUrl: "https://github.com/settings/tokens"
             }));
           } else if (githubRes.statusCode === 404) {
-            log("warn", "GitHub workflow not found", {
+            log("warn", "🔍 GitHub workflow not found", {
               repository: "nhomyk/AgenticQA",
               workflow: "ci.yml",
               status: githubRes.statusCode
@@ -799,7 +811,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
               status: "error"
             }));
           } else {
-            log("error", "GitHub API returned unexpected status", {
+            log("error", "⚠️ GitHub API returned unexpected status", {
               status: githubRes.statusCode,
               body: responseBody
             });
@@ -814,7 +826,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
       });
       
       githubReq.on("error", (error) => {
-        log("error", "GitHub API request failed", {
+        log("error", "❌ GitHub API request failed", {
           error: error.message
         });
         
@@ -829,7 +841,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
       githubReq.end();
     });
   } catch (error) {
-    log("error", "Workflow dispatch failed", {
+    log("error", "❌ Workflow dispatch failed with exception", {
       error: error.message,
       stack: error.stack
     });
