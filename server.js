@@ -711,11 +711,18 @@ app.post("/api/trigger-workflow", async (req, res) => {
     
     // Get GitHub token from config or environment
     let githubToken = process.env.GITHUB_TOKEN;
+    log("info", "🔍 Token check", {
+      hasEnv: !!process.env.GITHUB_TOKEN,
+      envLength: process.env.GITHUB_TOKEN ? process.env.GITHUB_TOKEN.length : 0,
+      hasConfig: !!(global.githubConfig && global.githubConfig.fullToken),
+      configLength: (global.githubConfig && global.githubConfig.fullToken) ? global.githubConfig.fullToken.length : 0
+    });
+    
     if (!githubToken && global.githubConfig && global.githubConfig.fullToken) {
       githubToken = global.githubConfig.fullToken;
       log("info", "Using GitHub token from global config");
     } else if (githubToken) {
-      log("info", "Using GitHub token from environment variable");
+      log("info", "Using GitHub token from environment variable", { tokenStart: githubToken.substring(0, 10), length: githubToken.length });
     }
     
     if (!githubToken) {
@@ -758,8 +765,9 @@ app.post("/api/trigger-workflow", async (req, res) => {
         path: "/repos/nhomyk/AgenticQA/actions/workflows/ci.yml/dispatches",
         method: "POST",
         headers: {
-          "Accept": "application/vnd.github.v3+json",
-          "Authorization": `token ${githubToken.substring(0, 10)}...`,
+          "Accept": "application/vnd.github+json",
+          "Authorization": `Bearer ${githubToken}`,
+          "X-GitHub-Api-Version": "2022-11-28",
           "Content-Type": "application/json",
           "User-Agent": "AgenticQA-Dashboard",
           "Content-Length": Buffer.byteLength(payloadString)
@@ -906,12 +914,13 @@ app.get("/api/github/status", (req, res) => {
     
     const hasEnvToken = !!process.env.GITHUB_TOKEN;
     const hasConfigToken = !!(global.githubConfig && global.githubConfig.fullToken);
+    const isConnected = hasEnvToken || hasConfigToken || (global.githubConfig && global.githubConfig.fullToken);
     
-    if (global.githubConfig) {
+    if (isConnected) {
       res.json({
         status: "connected",
-        repository: global.githubConfig.repository || "Not specified",
-        connectedAt: global.githubConfig.connectedAt,
+        repository: global.githubConfig?.repository || "nhomyk/AgenticQA",
+        connectedAt: global.githubConfig?.connectedAt || new Date().toISOString(),
         hasEnvToken: hasEnvToken,
         hasConfigToken: hasConfigToken,
         tokenSource: hasEnvToken ? "environment" : (hasConfigToken ? "config" : "none")
