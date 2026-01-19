@@ -937,14 +937,15 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">🤖 orbitQA.ai</div>
+            <div class="logo">🤖 AgenticQA + orbitqa-ai</div>
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#tabs">Capabilities</a></li>
                 <li class="dropdown">
                     <button class="dropdown-btn">Products ▼</button>
                     <div class="dropdown-menu">
-                        <a href="/product-orbitqa.html">orbitQA</a>
+                        <a href="#agentic-cli">AgenticQA (CLI)</a>
+                        <a href="#saas">orbitqa-ai (SaaS)</a>
                     </div>
                 </li>
                 <li><a href="#scanner">Scanner</a></li>
@@ -958,32 +959,78 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <h1>High-Tech Autonomous QA Built by Expert Architects</h1>
-            <p class="hero-subtitle">Enterprise-Grade Self-Healing CI/CD • 175+ Compliance Checks • Any Test Framework • 99.9% Uptime</p>
+            <h1>Enterprise-Grade Autonomous QA Built by Expert Architects</h1>
+            <p class="hero-subtitle">Shared Agent Architecture • 6 NPM Packages • 100% Code Reuse • CLI + SaaS</p>
             <p class="hero-description">
-                Built by a team with decades of experience in system architecture, orbitQA.ai demonstrates what's possible with unlimited autonomous AI agents, 
+                Built by a team with decades of experience in system architecture, AgenticQA and orbitqa-ai deliver unlimited autonomous AI agents, 
                 comprehensive testing infrastructure, WCAG 2.1 accessibility compliance, and automated security scanning. 
-                This is how the world's most demanding organizations ensure code quality.
+                Same powerful agents—different interfaces. Both designed for the world's most demanding organizations.
             </p>
             <div class="badge-row">
-                <div class="badge">✅ Production Ready</div>
-                <div class="badge">🔐 Security Focused</div>
-                <div class="badge">♿ Accessibility First</div>
-                <div class="badge">📊 Compliance Certified</div>
+                <div class="badge">✅ Monorepo Architecture</div>
+                <div class="badge">🔐 Enterprise Security</div>
+                <div class="badge">♿ WCAG 2.1 Compliant</div>
+                <div class="badge">📦 Shared Agent Cores</div>
+                <div class="badge">0% Code Duplication</div>
             </div>
             <div class="cta-buttons" role="button" aria-label="button" role="button" aria-label="button">
-                <a href="/login.html" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); box-shadow: 0 15px 40px rgba(139, 92, 246, 0.4);">🚀 Access SaaS Dashboard</a>
-                <button class="btn-primary">Start Free Trial</button>
-                <button class="btn-secondary">View Documentation</button>
+                <a href="/login.html" target="_blank" rel="noopener noreferrer" class="btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); box-shadow: 0 15px 40px rgba(139, 92, 246, 0.4);">🚀 Try orbitqa-ai SaaS</a>
+                <a href="#agentic-cli" class="btn-primary">📦 AgenticQA CLI</a>
+                <button class="btn-secondary">View Architecture</button>
             </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="features" id="products" style="background: #f9fafb;">
+        <div class="section-header">
+            <h2 class="section-title">Two Products. Same Powerful Agents.</h2>
+            <p class="section-description">Both platforms use identical agent cores from our monorepo—just different interfaces</p>
+        </div>
+        
+        <div style="max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            <div class="feature-card" style="border: 2px solid #3b82f6;">
+                <div class="feature-icon">🖥️</div>
+                <h3>AgenticQA (In-Repo)</h3>
+                <p><strong>For Developers</strong></p>
+                <ul style="text-align: left; color: #6b7280; line-height: 2;">
+                    <li>✅ CLI Integration</li>
+                    <li>✅ Pre-commit Hooks</li>
+                    <li>✅ File System Access</li>
+                    <li>✅ Open Source</li>
+                    <li>✅ Zero Setup Time</li>
+                </ul>
+            </div>
+
+            <div class="feature-card" style="border: 2px solid #8b5cf6;">
+                <div class="feature-icon">☁️</div>
+                <h3>orbitqa-ai (SaaS)</h3>
+                <p><strong>For Enterprises</strong></p>
+                <ul style="text-align: left; color: #6b7280; line-height: 2;">
+                    <li>✅ REST API</li>
+                    <li>✅ Web Dashboard</li>
+                    <li>✅ Webhooks</li>
+                    <li>✅ Multi-Tenant</li>
+                    <li>✅ Enterprise SLA</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem; padding: 2rem; background: white; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <h3 style="color: #0f172a; margin-bottom: 1rem;">Shared Foundation</h3>
+            <p style="color: #6b7280; max-width: 600px; margin: 0 auto;">
+                Both products use 6 shared NPM packages (@orbitqa/*) containing all agent logic. 
+                This means you get the same powerful compliance, SDET, orchestration, DevOps, fullstack, and recovery agents—
+                just deployed differently for your use case.
+            </p>
         </div>
     </section>
 
     <!-- Features Section -->
     <section class="features" id="features">
         <div class="section-header">
-            <h2 class="section-title">High-Tech Capabilities Our Team Built</h2>
-            <p class="section-description">The sophisticated systems we create demonstrate decades of expertise in system architecture and innovation</p>
+            <h2 class="section-title">Enterprise Capabilities</h2>
+            <p class="section-description">Sophisticated systems built with decades of architecture expertise</p>
         </div>
         
         <div class="features-grid">
@@ -996,13 +1043,13 @@
             <div class="feature-card">
                 <div class="feature-icon">🔐</div>
                 <h3>Security Scanning</h3>
-                <p>Continuous vulnerability scanning with npm audit. Automatic remediation of security issues before they reach production.</p>
+                <p>Advanced scanning with Semgrep (OWASP Top 10) and Trivy (container CVEs). Automatic remediation of vulnerabilities.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🤖</div>
-                <h3>Unlimited AI Agents</h3>
-                <p>Deploy autonomous agents for any capability: compliance, QA, SRE, SDET, security, and beyond. Scale agents to match your needs.</p>
+                <h3>6 Autonomous Agents</h3>
+                <p>SDET, Compliance, Orchestration, DevOps, Fullstack, and Recovery agents. Each specializes in a domain.</p>
             </div>
 
             <div class="feature-card">
@@ -1013,32 +1060,38 @@
 
             <div class="feature-card">
                 <div class="feature-icon">📊</div>
-                <h3>Auto-Updating Test Suite</h3>
-                <p>Auto-updating tests that continuously expand and cover your codebase. ESLint, Jest, Vitest, Playwright, Cypress, and Pa11y with complete coverage.</p>
+                <h3>Auto-Updating Tests</h3>
+                <p>Continuously expanding test suite. ESLint, Jest, Vitest, Playwright, Cypress with complete framework coverage.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🛡️</div>
                 <h3>Enterprise Compliance</h3>
-                <p>175+ compliance checks for GDPR, CCPA, WCAG, ADA, OWASP, and more. Automatic audit reports for regulators.</p>
+                <p>175+ compliance checks across GDPR, CCPA, WCAG, ADA, OWASP. Automatic audit reports for regulators.</p>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">⚡</div>
-                <h3>Real-Time Monitoring</h3>
-                <p>10-second polling intervals with intelligent 5-stage failure recovery. Know instantly when something breaks.</p>
+                <div class="feature-icon">📡</div>
+                <h3>Advanced Observability</h3>
+                <p>Prometheus metrics + Jaeger distributed tracing. See exactly what your agents are doing in real-time.</p>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🚀</div>
-                <h3>3x Faster Deployments</h3>
-                <p>Parallel test execution across any framework or ecosystem. Full CI/CD pipeline in under 3 minutes instead of 30+.</p>
+                <h3>3x Faster CI/CD</h3>
+                <p>Parallel test execution across all frameworks. Full pipeline in under 3 minutes instead of 30+.</p>
             </div>
 
             <div class="feature-card" style="grid-column: 1 / 2; border: 2px solid #3b82f6; background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);">
                 <div class="feature-icon">🛠️</div>
-                <h3>⭐ Autonomous Compliance Auto-Fix</h3>
-                <p><strong>NEW:</strong> Intelligent system that reads compliance reports, identifies issues, and applies targeted fixes across 4 specialized domains. GDPR, CCPA, accessibility, security—all automated with re-validation.</p>
+                <h3>⭐ Compliance Auto-Fix</h3>
+                <p><strong>NEW:</strong> Intelligent system that reads compliance reports, identifies issues, and applies targeted fixes. GDPR, CCPA, accessibility—all automated with re-validation.</p>
+            </div>
+
+            <div class="feature-card" style="grid-column: 2 / 3; border: 2px solid #8b5cf6; background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%);">
+                <div class="feature-icon">🏗️</div>
+                <h3>⭐ Monorepo Architecture</h3>
+                <p><strong>NEW:</strong> Shared agent cores (6 NPM packages) eliminate code duplication. Same logic, different interfaces. 4,200+ lines of code saved.</p>
             </div>
         </div>
     </section>
@@ -1513,39 +1566,39 @@
         <div id="competitors" class="tab-content">
             <div class="content-grid">
                 <div class="content-card">
-                    <h3>🏆 Our Competitive Advantages</h3>
+                    <h3>🏆 Competitive Advantages</h3>
                     <ul style="list-style: none; padding: 0;">
+                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Shared Agent Architecture</strong> - 6 NPM packages</li>
+                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Dual Deployment</strong> - CLI + SaaS</li>
                         <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Circular Self-Healing</strong> - Agents test agents</li>
-                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Agent-on-Agent Testing</strong> - Only platform with this</li>
-                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Autonomous Logic Rewriting</strong> - Not just selector fixes</li>
-                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Built-in Compliance</strong> - WCAG + security native</li>
-                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ LLM Safeguards</strong> - Zero-trust AI validation</li>
-                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Unlimited Scaling</strong> - Agent-based, not device-based</li>
+                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Built-in Compliance</strong> - 7 standards, auto-fix</li>
+                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Advanced Observability</strong> - Prometheus + Jaeger</li>
+                        <li style="margin: 0.75rem 0;"><strong style="color: #10b981;">✓ Enterprise Safeguards</strong> - 3-component system</li>
                     </ul>
                 </div>
 
                 <div class="content-card">
-                    <h3>📊 Cost Comparison (1-Year)</h3>
-                    <ul style="font-size: 0.95em;">
-                        <li><strong>Small Team (5-10):</strong> 🎯 $48K-72K</li>
-                        <li style="color: #999; margin-left: 1rem;">Testim: $60K-90K</li>
-                        <li style="color: #999; margin-left: 1rem;">Applitools: $72K-108K</li>
-                        <li><strong>Medium Team (20-30):</strong> 🎯 $192K-288K</li>
-                        <li style="color: #999; margin-left: 1rem;">Testim: $240K-360K</li>
-                        <li><strong>Enterprise (100+):</strong> 🎯 Contact for custom</li>
+                    <h3>📦 What Makes Us Different</h3>
+                    <ul style="font-size: 0.95em; line-height: 2;">
+                        <li><strong>vs Testim:</strong> More sophisticated agent architecture + compliance</li>
+                        <li><strong>vs Applitools:</strong> Functional testing + compliance (not visual only)</li>
+                        <li><strong>vs BrowserStack:</strong> Autonomous agents + 40% lower cost</li>
+                        <li><strong>vs TestMu AI:</strong> Shared cores + dual deployment + safeguards</li>
                     </ul>
                 </div>
 
                 <div class="content-card">
-                    <h3>🔍 Market Leaders Compared</h3>
-                    <ul style="font-size: 0.9em; line-height: 1.8;">
-                        <li><strong>vs Testim:</strong> Better autonomy, true self-healing</li>
-                        <li><strong>vs Applitools:</strong> Compliance built-in, broader testing</li>
-                        <li><strong>vs BrowserStack:</strong> Unlimited scaling, compliance focus</li>
-                        <li><strong>vs Sauce Labs:</strong> Modern AI-first approach, lower cost</li>
+                    <h3>💡 Architecture Difference</h3>
+                    <p style="margin-bottom: 1rem;"><strong>AgenticQA + orbitqa-ai:</strong></p>
+                    <ul style="font-size: 0.9em;">
+                        <li>✅ Same agent cores (@orbitqa/*)</li>
+                        <li>✅ CLI interface (AgenticQA)</li>
+                        <li>✅ SaaS interface (orbitqa-ai)</li>
+                        <li>✅ Zero code duplication</li>
+                        <li>✅ Independent evolution</li>
                     </ul>
                     <p style="margin-top: 1rem; font-size: 0.85em; color: #666;">
-                        <a href="/COMPETITOR_COMPARISON.md" style="color: #667eea; text-decoration: none; font-weight: 600;">📊 View full detailed comparison →</a>
+                        <a href="README.md" style="color: #667eea; text-decoration: none; font-weight: 600;">📊 View architecture details →</a>
                     </p>
                 </div>
             </div>
@@ -1556,86 +1609,111 @@
     <section class="features" id="comparison">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Why Choose OrbitQA Over Competitors?</h2>
-                <p class="section-description">See how we compare to industry leaders</p>
+                <h2 class="section-title">Enterprise Advantages vs Competitors</h2>
+                <p class="section-description">How AgenticQA and orbitqa-ai outpace industry leaders</p>
             </div>
 
             <div style="overflow-x: auto; margin: 2rem 0;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
                     <thead>
                         <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                             <th style="padding: 1rem; text-align: left; border: 1px solid #ddd; font-weight: 600;">Feature</th>
-                            <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">🤖 OrbitQA</th>
+                            <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">AgenticQA + orbitqa-ai</th>
+                            <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">TestMu</th>
                             <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">Testim</th>
                             <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">Applitools</th>
                             <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">BrowserStack</th>
-                            <th style="padding: 1rem; text-align: center; border: 1px solid #ddd; font-weight: 600;">Sauce Labs</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr style="background: #f9fafb;">
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Autonomous Test Generation</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Shared Agent Architecture</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 6 packages</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
                         </tr>
                         <tr>
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Self-Healing Tests</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Dual Deployment (CLI + SaaS)</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
                         </tr>
                         <tr style="background: #f9fafb;">
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Agent-on-Agent Testing</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ Unique</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Zero Code Duplication</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 0%</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
                         </tr>
                         <tr>
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Compliance Automation</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Self-Healing Tests</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
                         </tr>
                         <tr style="background: #f9fafb;">
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Multi-Browser Testing</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 50+</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 20+</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 20+</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 2000+</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 1000+</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Compliance Automation (7 standards)</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
                         </tr>
                         <tr>
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Accessibility Testing (a11y)</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ AA/AAA</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Advanced Observability (Prometheus + Jaeger)</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
                         </tr>
                         <tr style="background: #f9fafb;">
-                            <td style="padding: 1rem; border: 1px solid #ddd; font-weight: 500;">Cost Model</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd; color: #10b981;">💰 Usage-based</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd;">💵 Seat-based</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd;">💵 Seat-based</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd;">💵 Device-based</td>
-                            <td style="padding: 1rem; text-align: center; border: 1px solid #ddd;">💵 Device-based</td>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Enterprise Agent Safeguards</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅ 3-tier</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #f59e0b;">⚠️</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">LLM Prompt Validation (Promptfoo)</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                        </tr>
+                        <tr style="background: #f9fafb;">
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Autonomous Compliance Auto-Fix</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">✅</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #ef4444;">❌</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.75rem; border: 1px solid #ddd; font-weight: 500;">Cost Model</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd; color: #10b981;">💰 Usage-based</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd;">💵 Subscription</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd;">💵 Seat-based</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd;">💵 Seat-based</td>
+                            <td style="padding: 0.75rem; text-align: center; border: 1px solid #ddd;">💵 Device-based</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
             <div style="text-align: center; margin-top: 2rem;">
-                <a href="/COMPETITOR_COMPARISON.md" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
-                    📊 View Full Competitor Analysis
+                <p style="color: #6b7280; margin-bottom: 1rem;">✅ = Full Support | ⚠️ = Limited Support | ❌ = Not Available</p>
+                <a href="README.md" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px; text-decoration: none; font-weight: 600; transition: transform 0.2s;">
+                    📊 View Detailed Comparison
                 </a>
             </div>
         </div>

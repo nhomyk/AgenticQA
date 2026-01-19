@@ -1,10 +1,48 @@
-# 🤖 OrbitQA - Enterprise Autonomous QA & Compliance Platform
+# 🤖 AgenticQA + orbitqa-ai - Enterprise Autonomous QA & Compliance Platform
 
 **⚠️ PROPRIETARY SOFTWARE - For Licensed Enterprise Use Only**
 
-OrbitQA is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
+AgenticQA is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
 
-> ✅ **Proprietary & Confidential** • 🔐 **Enterprise-Grade Security** • 🛡️ **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready**
+Available in two deployments:
+- **AgenticQA** - In-repo CLI + pre-commit hooks for developers
+- **orbitqa-ai** - External SaaS platform with REST API + web dashboard
+
+> ✅ **Proprietary & Confidential** • 🔐 **Enterprise-Grade Security** • 🛡️ **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 📦 **6 Npm Packages**
+
+---
+
+## 🏗️ Monorepo Architecture - Shared Agent Cores
+
+**100% Code Reuse** across AgenticQA and orbitqa-ai through 6 shared npm packages:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│           Shared Agent Cores (@orbitqa/*)                   │
+│                                                             │
+│  @orbitqa/sdet-core              @orbitqa/compliance-core  │
+│  @orbitqa/orchestration-core     @orbitqa/devops-core      │
+│  @orbitqa/fullstack-agent-core   @orbitqa/recovery-system-core
+└──────────┬──────────────────────────────┬──────────────────┘
+           │                              │
+    ┌──────▼──────┐              ┌───────▼────────┐
+    │  AgenticQA  │              │  orbitqa-ai    │
+    │  (In-Repo)  │              │  (External)    │
+    │             │              │                │
+    │  • CLI      │              │  • REST API    │
+    │  • Pre-commit              │  • Webhooks    │
+    │  • File I/O │              │  • Dashboard   │
+    │  • Open src │              │  • Multi-tenant│
+    └─────────────┘              └────────────────┘
+```
+
+**Architecture Benefits:**
+- ✅ **Single Source of Truth** - One implementation of each agent
+- ✅ **Zero Code Duplication** - Saved 4,200+ lines of code
+- ✅ **Unified Versioning** - Both products use same agent versions
+- ✅ **Independent Products** - Different interfaces, shared logic
+- ✅ **Easy Publishing** - @orbitqa/* packages ready for npm registry
+- ✅ **Team Scalability** - Teams can work on cores independently from products
 
 ---
 
@@ -403,20 +441,103 @@ npx eslint . --ext .js  # ESLint linting
 	 Go to [http://localhost:3000](http://localhost:3000) in your browser. Enter a URL to scan.
 
 
-## How OrbitQA Compares to Competitors
+## How AgenticQA Compares to Competitors
 
-OrbitQA stands apart through **circular self-healing architecture** where agents test agents, creating unprecedented autonomy and reliability. 
+AgenticQA stands apart through **circular self-healing architecture with shared agent cores** where agents test agents, creating unprecedented autonomy and reliability—backed by enterprise-grade architecture shared across both in-repo and SaaS products.
 
-### Quick Comparison
+### Competitive Advantages vs Industry Leaders
 
-| Feature | **OrbitQA** | Testim | Applitools | BrowserStack | Sauce Labs |
-|---------|-----------|--------|-----------|--------|-----------|
-| **Autonomous Test Generation** | ✅ AI-native agents | ⚠️ Limited ML | ⚠️ Partial | ❌ No | ❌ No |
-| **Self-Healing Tests** | ✅ Circular agent loop | ⚠️ ML-based | ⚠️ Visual only | ❌ No | ❌ No |
-| **Agent-on-Agent Testing** | ✅ Unique | ❌ No | ❌ No | ❌ No | ❌ No |
-| **Compliance Automation** | ✅ Built-in | ❌ No | ❌ No | ❌ No | ❌ No |
-| **Cost Model** | Usage-based agents | Seat-based | Seat-based | Device-based | Device-based |
-| **Learning Loop** | Continuous (circular) | Periodic | Snapshot-based | N/A | N/A |
+| Feature | **AgenticQA** | **orbitqa-ai** | Testim | Applitools | BrowserStack | Sauce Labs | TestMu AI |
+|---------|-----------|-----------|--------|-----------|--------|-----------|-----------|
+| **Autonomous Test Generation** | ✅ AI-native agents | ✅ AI-native agents | ⚠️ Limited ML | ⚠️ Partial | ❌ No | ❌ No | ⚠️ Basic |
+| **Self-Healing Tests** | ✅ Circular agent loop | ✅ Circular agent loop | ⚠️ ML-based | ⚠️ Visual only | ❌ No | ❌ No | ⚠️ Limited |
+| **Agent-on-Agent Testing** | ✅ Unique | ✅ Unique | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Compliance Automation** | ✅ 7 standards | ✅ 7 standards | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Shared Agent Cores** | ✅ 6 npm packages | ✅ 6 npm packages | ❌ N/A | ❌ N/A | ❌ N/A | ❌ N/A | ❌ No |
+| **CLI Interface** | ✅ Full CLI + pre-commit | ❌ REST only | ⚠️ Limited | ⚠️ Limited | ❌ No | ❌ No | ❌ No |
+| **SaaS Interface** | ❌ CLI only | ✅ Full SaaS + API | ✅ Web UI | ✅ Web UI | ✅ Web UI | ✅ Web UI | ✅ Web UI |
+| **Cost Model** | Usage-based agents | Usage-based agents | Seat-based | Seat-based | Device-based | Device-based | Subscription |
+| **Learning Loop** | Continuous (circular) | Continuous (circular) | Periodic | Snapshot-based | N/A | N/A | Limited |
+| **Zero Code Duplication** | ✅ Monorepo design | ✅ Same agent cores | ❌ Separate platforms | ❌ Separate platforms | ❌ Separate systems | ❌ Separate systems | ❌ Separate |
+| **Advanced Security** | ✅ Semgrep + Trivy | ✅ Semgrep + Trivy | ⚠️ Basic | ⚠️ Basic | ⚠️ Basic | ⚠️ Basic | ⚠️ Basic |
+| **Observability Stack** | ✅ Prometheus + Jaeger | ✅ Prometheus + Jaeger | ❌ Limited | ❌ Limited | ⚠️ Basic | ⚠️ Basic | ❌ No |
+| **Agent Safeguards** | ✅ 3-component system | ✅ 3-component system | ❌ No | ❌ No | ❌ No | ❌ No | ⚠️ Basic |
+
+### Key Differentiators
+
+#### 1. **Shared Agent Architecture (Unique)**
+- **What:** 6 npm packages (@orbitqa/*) used by both AgenticQA and orbitqa-ai
+- **Why:** Eliminates code duplication, ensures identical agent behavior, enables independent product evolution
+- **Impact:** 4,200+ lines of duplicate code eliminated, single source of truth, easier maintenance
+- **Competitors:** Testim, TestMu, Applitools maintain separate codebases per product
+
+#### 2. **Dual Deployment Model**
+- **CLI Version (AgenticQA):** Pre-commit hooks, file system access, developer tools, open-source friendly
+- **SaaS Version (orbitqa-ai):** REST API, webhooks, web dashboard, multi-tenant, enterprise ready
+- **Both:** Identical agent logic, different interfaces
+- **Competitors:** Choose either CLI (rare) or SaaS (most), not both with same agent logic
+
+#### 3. **Enterprise Agent Safeguards**
+- **3-Component Protection:** PipelineGatekeeper, RollbackMonitor, AuditTrail
+- **Compliance Ready:** SOC2 Type II, GDPR, HIPAA audit logging
+- **Autonomous Protection:** No manual approval gates, build-phase validation
+- **Competitors:** Manual approval gates, limited audit trails, no autonomous protection
+
+#### 4. **Advanced Observability**
+- **Prometheus:** Real-time metrics from agent pipeline execution
+- **Jaeger:** End-to-end distributed tracing for request flows
+- **LLM Validation:** Promptfoo for agent prompt testing
+- **Security Scanning:** Semgrep (OWASP) + Trivy (container CVEs)
+- **Competitors:** Limited observability, few open-source integrations
+
+#### 5. **Compliance at Enterprise Scale**
+- **175+ Checks** across 7 standards (GDPR, CCPA, WCAG 2.1, ADA, OWASP, Licensing, Legal)
+- **Both Products:** Identical compliance engine
+- **Automatic Fixes:** Reads reports, auto-fixes issues, re-validates
+- **Competitors:** Limited compliance, no automation, not standardized
+
+#### 6. **Circular Self-Healing**
+- **Agent Testing:** SDET agent tests other agents' outputs
+- **Continuous Loop:** Agents improve each other automatically
+- **Failure Recovery:** 5-stage recovery with automatic fixes
+- **Competitors:** Linear pipelines, no agent-on-agent testing, limited recovery
+
+#### 7. **Open Standards Integration**
+- **Jest, Vitest, Playwright, Cypress** - All supported
+- **Node.js Ecosystem** - npm, pnpm, yarn compatible
+- **Container Native** - Docker, Kubernetes ready
+- **GitHub Native** - Actions, webhooks, status checks
+- **Competitors:** Proprietary integrations, limited ecosystem support
+
+### Industry Positioning
+
+**vs Testim/Mabl (ML-based Test Automation):**
+- ✅ More sophisticated agent architecture (vs ML models)
+- ✅ Compliance automation (vs test-only focus)
+- ✅ Self-healing (vs ML guessing)
+- ✅ Shared agent cores (vs single product)
+
+**vs Applitools (Visual AI):**
+- ✅ Functional testing (vs visual only)
+- ✅ Compliance automation (not just visuals)
+- ✅ Safeguards for governance (vs no safeguards)
+- ✅ Dual deployment (vs SaaS only)
+
+**vs BrowserStack/Sauce Labs (Device Labs):**
+- ✅ Autonomous agents (vs manual/recorded tests)
+- ✅ Compliance scanning (vs device access)
+- ✅ Self-healing (vs static tests)
+- ✅ Much lower cost (usage-based agents vs device-based)
+
+**vs TestMu AI (Agentic Testing):**
+- ✅ Shared agent architecture (vs separate implementations)
+- ✅ Dual deployment options (vs SaaS only)
+- ✅ Enterprise safeguards (3-component system)
+- ✅ Compliance automation (7 standards + auto-fix)
+- ✅ Zero code duplication (monorepo design)
+- ✅ Open standards (Jest, Cypress, Playwright)
+- ✅ Advanced observability (Prometheus, Jaeger)
+- ✅ LLM validation (Promptfoo)
 
 **[View Full Competitor Analysis →](./COMPETITOR_COMPARISON.md)**
 
@@ -424,18 +545,24 @@ OrbitQA stands apart through **circular self-healing architecture** where agents
 
 ## Features
 
-- **Scan Results:**
-	- Console errors, page exceptions, failed requests, and DOM/accessibility issues (max 25 items per scan)
-- **Recommended Test Cases:**
-	- 10 positive and 10 negative test cases are generated for the scanned page
-- **Performance Results:**
-	- Simulated JMeter-like summary: total/failed requests, resource count, average response time, page load time, throughput, and top resources
-- **APIs Used:**
-	- Displays up to 10 API calls (fetch/XHR) detected on the scanned page
-- **Playwright Example:**
-	- Shows a Playwright test code snippet for the first recommended test case
-- **Cypress Example:**
-	- Shows a Cypress test code snippet for the first recommended test case
+### AgenticQA (In-Repo)
+- **Scan Results:** Console errors, page exceptions, failed requests, and DOM/accessibility issues (max 25 items per scan)
+- **Recommended Test Cases:** 10 positive and 10 negative test cases are generated for the scanned page
+- **Performance Results:** Simulated JMeter-like summary: total/failed requests, resource count, average response time, page load time, throughput, and top resources
+- **APIs Used:** Displays up to 10 API calls (fetch/XHR) detected on the scanned page
+- **Playwright Example:** Shows a Playwright test code snippet for the first recommended test case
+- **Cypress Example:** Shows a Cypress test code snippet for the first recommended test case
+- **Pre-commit Hooks:** Automatic testing on every git commit
+- **CLI Integration:** Run tests directly from command line
+
+### orbitqa-ai (External SaaS)
+- **All AgenticQA Features:** Plus REST API exposure
+- **Web Dashboard:** Visual interface for analyzing results
+- **Webhooks:** Integrate with GitHub, GitLab, Gitea, Bitbucket
+- **Multi-Tenant:** Support for multiple organizations
+- **API Access:** Full REST API for programmatic access
+- **Scheduled Scans:** Configure recurring URL scans
+- **Reports:** Generate comprehensive audit reports
 
 ## Autonomous Agent (Agentic Engineering Expert)
 
