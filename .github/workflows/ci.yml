@@ -327,7 +327,7 @@ jobs:
 
   # Phase 1: SDET Agent
   sdet-agent:
-    needs: [phase-1-testing, phase-1-compliance-scans]
+    needs: [phase-1-testing, phase-1-compliance-scans, llm-agent-validation, advanced-security-scan]
     if: always()
     runs-on: ubuntu-latest
     name: "Phase 1️⃣ SDET Agent"
@@ -359,7 +359,7 @@ jobs:
 
   # Phase 1: Compliance Agent
   compliance-agent:
-    needs: [phase-1-testing, phase-1-compliance-scans]
+    needs: [phase-1-testing, phase-1-compliance-scans, llm-agent-validation, advanced-security-scan]
     if: always()
     runs-on: ubuntu-latest
     name: "Phase 1️⃣ Compliance Agent"
@@ -417,7 +417,7 @@ jobs:
 
   # Phase 1.5: LLM Agent Validation (Promptfoo - Test agent prompts & outputs)
   llm-agent-validation:
-    needs: [lint]
+    needs: [phase-1-testing, phase-1-compliance-scans]
     runs-on: ubuntu-latest
     name: "Phase 1.5️⃣ LLM Agent Validation (Promptfoo)"
     steps:
@@ -449,7 +449,7 @@ jobs:
 
   # Phase 1.6: Advanced Security Scanning (Semgrep + Trivy)
   advanced-security-scan:
-    needs: [lint]
+    needs: [phase-1-testing, phase-1-compliance-scans]
     runs-on: ubuntu-latest
     name: "Phase 1.6🔒 Advanced Security Scanning"
     steps:
