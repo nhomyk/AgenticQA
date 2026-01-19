@@ -4,11 +4,13 @@
 // ✅ Generates tests for code lacking coverage
 // ✅ Triggers pipeline re-run after fixes
 // ✅ NEW: Fixes compliance issues identified by Compliance Agent
+// ✅ NEW: Uses error recovery guides for intelligent fixing
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const ErrorRecoveryHandler = require("./error-recovery-handler"); // NEW: Self-healing system
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_RUN_ID = process.env.GITHUB_RUN_ID;
@@ -1482,13 +1484,27 @@ async function main() {
     // Display compliance auto-fix capabilities
     displayComplianceAutoFixCapabilities();
     
+    // NEW: Check for agent recovery guides created by SRE Agent
+    log('\n📚 STEP 0: Checking for agent recovery guides...\n');
+    let recoveryGuidePath = null;
+    try {
+      if (fs.existsSync('.agent-recovery-guide.json')) {
+        recoveryGuidePath = '.agent-recovery-guide.json';
+        const guide = JSON.parse(fs.readFileSync(recoveryGuidePath, 'utf8'));
+        log(`✅ Found recovery guide with ${guide.patternAnalysis?.length || 0} error patterns`);
+        log('   Will use recovery suggestions for intelligent fixing\n');
+      }
+    } catch (err) {
+      log(`ℹ️  No recovery guide available (${err.message})\n`);
+    }
+    
     let changesApplied = false;
     let testFailuresDetected = false;
     let complianceIssuesFixed = false;
     
     // NEW STEP: Check for compliance issues to fix
     if (COMPLIANCE_MODE) {
-      log('\n🛡️  STEP 0: Checking for compliance issues to fix...\n');
+      log('\n🛡️  STEP 1: Checking for compliance issues to fix...\n');
       const complianceReport = await checkAndFixComplianceIssues();
       if (complianceReport.issuesFixed > 0) {
         complianceIssuesFixed = true;
@@ -1500,7 +1516,7 @@ async function main() {
     }
     
     // STRATEGY 0: Analyze test failure summaries (NEW - artifact-based detection)
-    log('📊 STEP 1: Analyzing test failure summaries...\n');
+    log('📊 STEP 2: Analyzing test failure summaries...\n');
     
     const failureAnalysis = await analyzeTestFailureSummary();
     testFailuresDetected = failureAnalysis.failuresDetected;
@@ -1516,7 +1532,7 @@ async function main() {
     }
     
     // STRATEGY 1: Scan and fix known issues in source files (fallback)
-    log('\n📝 STEP 2: Scanning source files for bugs...\n');
+    log('\n📝 STEP 3: Scanning source files for bugs...\n');
     
     const filesToCheck = [
       'public/app.js',

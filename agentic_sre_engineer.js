@@ -9,6 +9,7 @@ const https = require("https");
 const WorkflowValidationSkill = require("./workflow-validation-skill");
 const WorkflowActionParameterValidation = require("./workflow-action-parameter-validation-skill");
 const SyntaxErrorRecovery = require("./syntax-error-recovery");
+const ErrorRecoveryHandler = require("./error-recovery-handler"); // NEW: Self-healing system
 
 // === PLATFORM KNOWLEDGE ===
 const PLATFORM_KNOWLEDGE = {
@@ -1889,6 +1890,14 @@ async function monitorAndFixFailures(workflowRunId) {
     for (const failedJob of failedJobs) {
       console.log(`  ❌ ${failedJob.name}`);
       
+      // NEW: Log failure to error recovery system for future learning
+      try {
+        await ErrorRecoveryHandler.logPhaseFailure(failedJob.name, `Phase failed in workflow ${workflowRunId}`);
+        console.log(`     [Recovery system notified]`);
+      } catch (recoveryErr) {
+        console.log(`     [Recovery logging skipped: ${recoveryErr.message}]`);
+      }
+      
       // Get logs for this job
       try {
         const octokit = await initOctokit();
@@ -1911,6 +1920,15 @@ async function monitorAndFixFailures(workflowRunId) {
           error: err.message,
         });
       }
+    }
+    
+    // NEW: Generate recovery guide for agents to read before fixing
+    try {
+      console.log('\n📚 Generating recovery guide...');
+      const guide = await ErrorRecoveryHandler.createAgentRecoveryGuide();
+      console.log('✅ Recovery guide created at:', guide);
+    } catch (guideErr) {
+      console.log('⚠️  Could not create recovery guide:', guideErr.message);
     }
     
     return { failures: failedJobs, failureDetails };
