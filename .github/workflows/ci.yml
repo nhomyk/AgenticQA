@@ -1,4 +1,4 @@
-name: 🤖 AgenticQA - Self-Healing CI/CD Pipeline
+name: AgenticQA - Self-Healing CI/CD Pipeline
 run-name: ${{ github.event.inputs.reason || format('Manual Run #{0}', github.run_number) }}
 
 on:
