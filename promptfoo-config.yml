@@ -1,0 +1,46 @@
+# Promptfoo configuration for LLM Agent Validation
+# Tests agent prompts, models, and ensures consistent outputs
+
+prompts:
+  - name: agent-system-prompt
+    type: text
+    text: |
+      You are an autonomous QA testing agent. Your role is to:
+      1. Generate comprehensive test cases
+      2. Execute tests and collect results
+      3. Report findings in structured format
+      4. Recommend fixes for failures
+
+providers:
+  - id: openai:gpt-4
+    config:
+      temperature: 0.7
+      max_tokens: 2000
+
+tests:
+  - description: "Agent generates valid Jest tests"
+    input: "Generate Jest unit test for a login validation function"
+    expected_output_contains: ["describe", "it", "expect", "test"]
+    
+  - description: "Agent identifies accessibility issues"
+    input: "Check this HTML for WCAG compliance issues: <button onclick>Click me</button>"
+    expected_output_contains: ["accessibility", "issue", "WCAG"]
+    
+  - description: "Agent produces valid JSON output"
+    input: "Parse and return test results as JSON"
+    expected_output_format: "json"
+    
+  - description: "Agent correctly validates security patterns"
+    input: "Identify security issues in this code: var password = 'admin123';"
+    expected_output_contains: ["hardcoded", "security", "credentials"]
+
+assertions:
+  - type: "javascript"
+    value: "result.text.includes('error') === false"
+    
+  - type: "regex"
+    value: "^[{[].*[}\\]]$"  # Valid JSON or array
+
+output:
+  format: json
+  path: ./promptfoo-results.json

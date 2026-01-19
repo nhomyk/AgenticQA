@@ -10,18 +10,29 @@ OrbitQA is an enterprise-grade, closed-source Node.js platform combining AI-powe
 
 ## 🏗️ Autonomous Orchestration Pipeline
 
-An intelligent, self-healing CI/CD pipeline with 10 phases orchestrating specialized agents to ensure code quality, compliance, security, and production readiness—protected by enterprise-grade safeguards that validate every agent change.
+An intelligent, self-healing CI/CD pipeline with 13 phases orchestrating specialized agents to ensure code quality, compliance, security, and production readiness—protected by enterprise-grade safeguards that validate every agent change.
 
 ```
-🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🛡️ 4: SAFEGUARDS → 🏥 FINAL
+🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 1.5️⃣: LLM VALIDATION → 1.6️⃣: SECURITY → 📊 SUMMARY 
+→ 🤖 AGENTS → 🔧 2: FIX → 2.5️⃣: OBSERVABILITY → 🚀 3: SRE → 🛡️ 4: SAFEGUARDS → 🏥 FINAL
 
 • Phase -1: YAML validation & circuit breaker (prevents infinite loops)
 • Phase 0: Auto-fixes linting issues early (prevents cascading failures)  
-• Phase 1: Jest, Vitest, Playwright, Cypress + Pa11y accessibility + security scans (parallel)
+• Phase 1: Jest, Vitest, Playwright, Cypress + Pa11y accessibility + npm audit (parallel)
+• Phase 1.5 ✨ NEW: LLM Agent Validation (Promptfoo)
+  - Validates agent prompts for consistency and correctness
+  - Tests LLM output patterns and edge cases
+  - Ensures generated code is valid and safe
+• Phase 1.6 ✨ NEW: Advanced Security Scanning
+  - Semgrep: OWASP Top 10 + CWE vulnerability detection
+  - Trivy: Container image CVE scanning with severity levels
 • Phase 1→2: SDET & Compliance agents analyze results concurrently
 • Phase 2: Fullstack agent applies intelligent code fixes & compliance updates
+• Phase 2.5 ✨ NEW: Observability & Distributed Tracing
+  - Prometheus: Real-time metrics collection for agent pipeline
+  - Jaeger: Distributed tracing for request flow visualization
 • Phase 3: SRE agent validates production readiness & infrastructure health
-• Phase 4: SAFEGUARDS validation - comprehensive protection layer (NEW! ✨)
+• Phase 4: SAFEGUARDS validation - comprehensive protection layer
   - File protection & change validation
   - Risk assessment & scoring
   - Auto-rollback monitoring
@@ -29,7 +40,7 @@ An intelligent, self-healing CI/CD pipeline with 10 phases orchestrating special
 • Final: Health verification & loop detection
 ```
 
-**Key Features**: ✅ Self-healing • ✅ Intelligent agents • ✅ Parallel execution • ✅ Zero manual intervention • ✅ Safe failures • ✅ **Autonomous Agent Safeguards** (File protection, risk assessment, auto-rollback, immutable audit trails)
+**Key Features**: ✅ Self-healing • ✅ Intelligent agents • ✅ LLM prompt validation (Promptfoo) • ✅ Advanced security scanning (Semgrep + Trivy) • ✅ Production observability (Prometheus + Jaeger) • ✅ Parallel execution • ✅ Zero manual intervention • ✅ Safe failures • ✅ **Autonomous Agent Safeguards** (File protection, risk assessment, auto-rollback, immutable audit trails)
 
 ---
 
@@ -231,7 +242,46 @@ Professional dashboard for real-time URL scanning, comprehensive issue analysis,
 - **Playwright Example:** Shows a Playwright test code snippet for the first recommended test case
 - **Cypress Example:** Shows a Cypress test code snippet for the first recommended test case
 
-### 8. **Autonomous Compliance Auto-Fix System** ⭐ NEW
+### 8. **Enterprise-Grade Testing & Observability Stack** ✨ NEW
+
+**5 Open Source Tools for Comprehensive Agent Validation & Monitoring:**
+
+#### LLM Agent Validation
+- **Promptfoo** - Validates agent prompts and LLM outputs
+  - Tests prompt consistency across multiple runs
+  - Validates JSON/code generation correctness
+  - Detects edge cases and error scenarios
+  - Automated regression testing for agent behavior
+
+#### Advanced Security Scanning
+- **Semgrep** - OWASP Top 10 + CWE vulnerability detection
+  - Pattern-based code security scanning
+  - Real-time vulnerability identification
+  - Customizable security rules
+  - Integrates with CI/CD pipeline
+
+- **Trivy** - Container image vulnerability scanning
+  - Scans Docker images for CVE vulnerabilities
+  - Dependency analysis and threat reporting
+  - Severity-based vulnerability filtering
+  - Pre-deployment image validation
+
+#### Production Observability
+- **Prometheus** - Metrics collection and monitoring
+  - Real-time agent pipeline metrics
+  - Custom metric collection from agents
+  - Time-series data for historical analysis
+  - HTTP API for metric queries
+
+- **Jaeger** - Distributed tracing for agent requests
+  - End-to-end request tracing through pipeline
+  - Service dependency visualization
+  - Latency analysis and bottleneck detection
+  - Error tracking and failure analysis
+
+**Integration:** All tools run automatically in CI/CD phases 1.5, 1.6, and 2.5. Full results uploaded as artifacts for review and compliance.
+
+### 9. **Autonomous Compliance Auto-Fix System** ⭐
 
 Enterprise-grade compliance remediation that automatically reads reports, identifies issues, and applies targeted fixes:
 
@@ -249,7 +299,7 @@ Enterprise-grade compliance remediation that automatically reads reports, identi
 - ✅ Graceful error handling (continues on failures)
 - ✅ Re-validation with compliance agent
 
-### 9. **Enterprise-Grade Autonomous Agent Safeguards** 🛡️ NEW
+### 10. **Enterprise-Grade Autonomous Agent Safeguards** 🛡️ NEW
 
 Mission-critical protection layer validating every autonomous agent change before deployment. Purpose-built for enterprises that require governance without blocking innovation.
 

@@ -36,6 +36,9 @@
     "safeguards:examples": "node src/safeguards/examples.js",
     "safeguards:integration": "node src/safeguards/agent-integration.js",
     "safeguards:verify": "node -e \"console.log('✓ Safeguards system ready'); require('./src/safeguards/pipeline')\"",
+    "test:promptfoo": "npx promptfoo eval -c promptfoo-config.yml",
+    "scan:semgrep": "semgrep --config=p/owasp-top-ten --json --output semgrep-report.json . || true",
+    "scan:trivy": "trivy image agentic-qa:latest --severity HIGH,CRITICAL --format json --output trivy-report.json || true",
     "docker:build": "docker build -t agentic-qa:latest .",
     "docker:run": "docker-compose up -d",
     "docker:stop": "docker-compose down"
@@ -62,6 +65,7 @@
     "jest": "^30.2.0",
     "pa11y": "^9.0.1",
     "pa11y-ci": "^4.0.1",
+    "promptfoo": "^0.82.0",
     "start-server-and-test": "^2.0.0",
     "vitest": "^4.0.17"
   },
