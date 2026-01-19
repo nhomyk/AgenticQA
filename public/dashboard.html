@@ -1229,7 +1229,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2>⚠️ Main Branch Warning</h2>
-                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                        <button class="modal-close">&times;</button>
                     </div>
                     <div class="modal-body">
                         <p><strong>You are about to trigger a pipeline on the main branch.</strong></p>
@@ -1242,12 +1242,29 @@
                         <p style="color: #fbbf24;">Are you sure you want to continue?</p>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove(); (${onCancel.toString()})()">Cancel</button>
-                        <button class="btn btn-danger" onclick="this.closest('.modal').remove(); (${onConfirm.toString()})()">Yes, Deploy to Main</button>
+                        <button class="btn btn-secondary" data-action="cancel">Cancel</button>
+                        <button class="btn btn-danger" data-action="confirm">Yes, Deploy to Main</button>
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
+            
+            // Add event listeners
+            modal.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+                modal.remove();
+                onCancel();
+            });
+            
+            modal.querySelector('[data-action="confirm"]').addEventListener('click', () => {
+                modal.remove();
+                onConfirm();
+            });
+            
+            modal.querySelector('.modal-close').addEventListener('click', () => {
+                modal.remove();
+                onCancel();
+            });
+        }
         }
 
         // Check GitHub connection before launching pipeline
