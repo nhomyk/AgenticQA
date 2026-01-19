@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="orbitQA.ai - Autonomous QA CLI | Developer Tools, Pre-commit Hooks & Open Source">
+    <title>orbitQA.ai - CLI Edition (Open Source)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            line-height: 1.6;
+            color: #1f2937;
+            background: #ffffff;
+        }
+
+        /* Navigation */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 0;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #6b7280;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #3b82f6;
+        }
+
+        .back-btn {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            color: #8b5cf6;
+        }
+
+        .badge-cli {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #0f172a 0%, #3b82f6 100%);
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .hero-subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #e0e7ff;
+            font-weight: 500;
+        }
+
+        .hero-description {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.8;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Content Sections */
+        .section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+
+        .section-description {
+            font-size: 1.1rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #0f172a;
+        }
+
+        .feature-card p {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card ul {
+            list-style: none;
+            padding: 0;
+            color: #6b7280;
+        }
+
+        .feature-card li {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .feature-card li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        /* CLI Example */
+        .code-example {
+            background: #1f2937;
+            color: #10b981;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin: 1.5rem 0;
+            border: 1px solid #374151;
+        }
+
+        .code-example .prompt {
+            color: #60a5fa;
+        }
+
+        /* Comparison Section */
+        .comparison-section {
+            background: #f9fafb;
+            padding: 4rem 2rem;
+        }
+
+        .comparison-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .comparison-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .comparison-card.highlight {
+            border: 2px solid #3b82f6;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+        }
+
+        .comparison-card h3 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            color: #0f172a;
+        }
+
+        .comparison-card .subtitle {
+            color: #3b82f6;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .comparison-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .comparison-card li {
+            margin: 0.75rem 0;
+            color: #6b7280;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .comparison-card li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        /* Footer */
+        .footer {
+            background: #0f172a;
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer p {
+            color: #cbd5e1;
+            margin: 0.5rem 0;
+        }
+
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            color: #8b5cf6;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.875rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.1rem;
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">💻 orbitQA.ai (CLI)</div>
+            <div class="nav-links">
+                <a href="/" class="back-btn">← Back to Home</a>
+                <a href="/dashboard.html" class="badge-cli">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>orbitQA.ai</h1>
+            <p class="hero-subtitle">Autonomous QA Platform for Developers</p>
+            <p class="hero-subtitle" style="font-size: 1rem; font-weight: 400; color: #e0e7ff; margin-bottom: 2rem;">Local CLI with Pre-commit Hooks & Open Source</p>
+            <p class="hero-description">
+                Powerful autonomous testing agents integrated directly into your development workflow. 
+                Pre-commit hooks catch issues before they're committed, CLI tools for rapid testing, 
+                and open source for complete transparency and community contributions.
+            </p>
+            <div class="badge-row">
+                <div class="badge">💻 Local CLI</div>
+                <div class="badge">🔗 Pre-commit Hooks</div>
+                <div class="badge">📂 File System Access</div>
+                <div class="badge">🔓 Open Source</div>
+                <div class="badge">⚡ Zero Setup</div>
+            </div>
+            <div class="cta-buttons">
+                <a href="#install" class="btn-primary">📦 Get Started</a>
+                <button class="btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Learn Features</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Differences from orbitqa-ai -->
+    <section class="comparison-section">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Same Agents. Different Interface.</h2>
+                <p class="section-description">Both products use identical shared agent cores. Here's what's different:</p>
+            </div>
+
+            <div class="comparison-grid">
+                <div class="comparison-card highlight">
+                    <h3>💻 orbitQA.ai (CLI)</h3>
+                    <div class="subtitle">In-Repo Version</div>
+                    <ul>
+                        <li>Local CLI tools</li>
+                        <li>Pre-commit hooks</li>
+                        <li>Direct file system access</li>
+                        <li>Developer-focused</li>
+                        <li>Open source</li>
+                        <li>Zero setup for developers</li>
+                        <li>Runs on your machine</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card">
+                    <h3>☁️ orbitQA.ai (SaaS)</h3>
+                    <div class="subtitle">External Platform</div>
+                    <ul>
+                        <li>REST API endpoints</li>
+                        <li>GitHub/GitLab webhooks</li>
+                        <li>Web dashboard UI</li>
+                        <li>Enterprise-focused</li>
+                        <li>Managed service</li>
+                        <li>No infrastructure to manage</li>
+                        <li>Runs in the cloud</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px; border: 2px solid #e5e7eb;">
+                <h3 style="color: #0f172a; margin-bottom: 1rem;">Shared Agent Logic</h3>
+                <p style="color: #6b7280; margin-bottom: 1rem;">
+                    Both products use the same 6 agent cores:
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 800px; margin: 0 auto;">
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">SDET</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Test Generation</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">Compliance</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">175+ Checks</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">DevOps</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">SRE Monitoring</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">Orchestration</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Workflow Coordination</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">Fullstack</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Code Fixing</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #3b82f6;">Recovery</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Self-Healing</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- orbitQA.ai Features -->
+    <section class="section" id="features">
+        <div class="section-header">
+            <h2 class="section-title">Developer-First Features</h2>
+            <p class="section-description">Built for teams that integrate testing into their development process</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔗</div>
+                <h3>Pre-commit Hooks</h3>
+                <p>Catch issues before they're committed. Automatic testing on every git commit.</p>
+                <div class="code-example">$ git commit<br>
+🧪 Running AgenticQA tests...<br>
+✅ All checks passed<br>
+[main 1a2b3c4] Add new feature</div>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">💻</div>
+                <h3>CLI Tools</h3>
+                <p>Full command-line interface for running tests on-demand.</p>
+                <ul>
+                    <li>Scan URLs directly from terminal</li>
+                    <li>Generate tests on demand</li>
+                    <li>Run compliance checks</li>
+                    <li>View detailed reports</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📂</div>
+                <h3>Direct File Access</h3>
+                <p>Agents have full access to your local file system for comprehensive analysis.</p>
+                <ul>
+                    <li>Scan entire projects</li>
+                    <li>Analyze code structure</li>
+                    <li>Auto-fix files locally</li>
+                    <li>Generate reports</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Zero Configuration</h3>
+                <p>Works out of the box. No server to set up, no accounts to create.</p>
+                <ul>
+                    <li>Install via npm</li>
+                    <li>Run immediately</li>
+                    <li>Optional configuration</li>
+                    <li>Sensible defaults</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔓</div>
+                <h3>Open Source</h3>
+                <p>Complete transparency. Modify, audit, and contribute to the codebase.</p>
+                <ul>
+                    <li>Source code available</li>
+                    <li>MIT licensed</li>
+                    <li>Community contributions</li>
+                    <li>No vendor lock-in</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">♿</div>
+                <h3>All 175+ Compliance Checks</h3>
+                <p>Same compliance engine, available locally on your machine.</p>
+                <ul>
+                    <li>GDPR compliance</li>
+                    <li>CCPA validation</li>
+                    <li>WCAG accessibility</li>
+                    <li>OWASP security</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>6 Autonomous Agents</h3>
+                <p>SDET, Compliance, DevOps, Orchestration, Fullstack, and Recovery agents all in one.</p>
+                <ul>
+                    <li>SDET: Test generation</li>
+                    <li>Compliance: 175+ checks</li>
+                    <li>DevOps: SRE monitoring</li>
+                    <li>Plus 3 more agents</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🧪</div>
+                <h3>Integrated Testing</h3>
+                <p>All testing frameworks supported: Jest, Vitest, Playwright, Cypress, and more.</p>
+                <ul>
+                    <li>Jest unit tests</li>
+                    <li>Vitest fast tests</li>
+                    <li>Playwright E2E</li>
+                    <li>Cypress integration</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation -->
+    <section class="section" style="background: #f9fafb;" id="install">
+        <div class="section-header">
+            <h2 class="section-title">Get Started in 3 Minutes</h2>
+            <p class="section-description">Installation is quick and painless</p>
+        </div>
+
+        <div style="max-width: 800px; margin: 0 auto;">
+            <div class="feature-card">
+                <h3 style="margin-bottom: 1.5rem;">Step 1: Install</h3>
+                <div class="code-example"><span class="prompt">$</span> npm install -g agentic-qa</div>
+            </div>
+
+            <div class="feature-card" style="margin-top: 1.5rem;">
+                <h3 style="margin-bottom: 1.5rem;">Step 2: Initialize (Optional)</h3>
+                <div class="code-example"><span class="prompt">$</span> agentic-qa init</div>
+            </div>
+
+            <div class="feature-card" style="margin-top: 1.5rem;">
+                <h3 style="margin-bottom: 1.5rem;">Step 3: Start Testing</h3>
+                <div class="code-example"><span class="prompt">$</span> agentic-qa scan https://example.com<br>
+<span class="prompt">$</span> agentic-qa generate-tests<br>
+<span class="prompt">$</span> agentic-qa compliance-check</div>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <p style="color: #6b7280; margin-bottom: 1rem;">Want pre-commit integration?</p>
+                <div class="code-example" style="text-align: left;"><span class="prompt">$</span> agentic-qa setup-hooks<br>
+✅ Pre-commit hooks installed</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why orbitQA.ai for Developers -->
+    <section class="section">
+        <div class="section-header">
+            <h2 class="section-title">Perfect For Developers</h2>
+            <p class="section-description">Built into your workflow, not separate from it</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Catch Issues Early</h3>
+                <p>Pre-commit hooks stop problems before they reach version control.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Instant Feedback</h3>
+                <p>Run tests locally on your machine with instant results.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Continuous Integration</h3>
+                <p>Works seamlessly with GitHub Actions, GitLab CI, and other CI/CD tools.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Developer Experience</h3>
+                <p>Beautiful CLI output and helpful error messages guide you to fixes.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔓</div>
+                <h3>Open Source</h3>
+                <p>No restrictions. Run it anywhere, modify it however you want.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3>Great Documentation</h3>
+                <p>Comprehensive guides, examples, and API documentation.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="section" style="background: #f9fafb;">
+        <div class="section-header">
+            <h2 class="section-title">Developer Community</h2>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">175+</div>
+                <div class="stat-label">Compliance Checks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">Test Generation</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">6</div>
+                <div class="stat-label">Autonomous Agents</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Setup Required</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Common Commands -->
+    <section class="section">
+        <div class="section-header">
+            <h2 class="section-title">Common Commands</h2>
+            <p class="section-description">CLI reference for everyday tasks</p>
+        </div>
+
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="feature-card">
+                    <h4 style="font-weight: 600; color: #3b82f6; margin-bottom: 0.5rem;">Scanning</h4>
+                    <div class="code-example" style="font-size: 0.85rem; padding: 1rem;">
+agentic-qa scan https://site.com<br>
+agentic-qa scan . --local
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <h4 style="font-weight: 600; color: #3b82f6; margin-bottom: 0.5rem;">Testing</h4>
+                    <div class="code-example" style="font-size: 0.85rem; padding: 1rem;">
+agentic-qa test<br>
+agentic-qa test --watch
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <h4 style="font-weight: 600; color: #3b82f6; margin-bottom: 0.5rem;">Compliance</h4>
+                    <div class="code-example" style="font-size: 0.85rem; padding: 1rem;">
+agentic-qa compliance<br>
+agentic-qa compliance --export
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <h4 style="font-weight: 600; color: #3b82f6; margin-bottom: 0.5rem;">Configuration</h4>
+                    <div class="code-example" style="font-size: 0.85rem; padding: 1rem;">
+agentic-qa config list<br>
+agentic-qa config set key value
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="hero" style="background: linear-gradient(135deg, #0f172a 0%, #3b82f6 100%);">
+        <div class="hero-content">
+            <h2 style="font-size: 2rem; margin-bottom: 1rem;">Ready to Upgrade Your Testing?</h2>
+            <p style="margin-bottom: 2rem;">Start with orbitQA.ai today. Local, powerful, and open source.</p>
+            <div class="cta-buttons">
+                <a href="#install" class="btn-primary">📦 Install Now</a>
+                <a href="/" class="btn-secondary">← Back to Home</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <h3 style="margin-bottom: 1rem;">orbitQA.ai</h3>
+            <p>Autonomous QA Platform | <strong>CLI Edition</strong></p>
+            <p style="margin-top: 1.5rem; color: #6b7280; font-size: 0.9rem;">
+                Built with ❤️ by architects with decades of enterprise experience
+            </p>
+            <p style="margin-top: 0.5rem;">
+                <a href="/">Home</a> • 
+                <a href="https://github.com" target="_blank">GitHub</a> • 
+                <a href="/">Docs</a> • 
+                <a href="/">Support</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

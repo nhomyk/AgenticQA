@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="orbitQA.ai - Enterprise Autonomous QA Platform | SaaS Edition with REST API, Webhooks & Dashboard">
+    <title>orbitQA.ai - SaaS Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            line-height: 1.6;
+            color: #1f2937;
+            background: #ffffff;
+        }
+
+        /* Navigation */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 0;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #6b7280;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #8b5cf6;
+        }
+
+        .back-btn {
+            color: #8b5cf6;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            color: #ec4899;
+        }
+
+        .badge-saas {
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1f2937 0%, #8b5cf6 100%);
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .hero-subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #e0e7ff;
+            font-weight: 500;
+        }
+
+        .hero-description {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.8;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Content Sections */
+        .section {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+
+        .section-description {
+            font-size: 1.1rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: #8b5cf6;
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #0f172a;
+        }
+
+        .feature-card p {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card ul {
+            list-style: none;
+            padding: 0;
+            color: #6b7280;
+        }
+
+        .feature-card li {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .feature-card li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #8b5cf6;
+            font-weight: 600;
+        }
+
+        /* Comparison Section */
+        .comparison-section {
+            background: #f9fafb;
+            padding: 4rem 2rem;
+        }
+
+        .comparison-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .comparison-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .comparison-card.highlight {
+            border: 2px solid #8b5cf6;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%);
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
+        }
+
+        .comparison-card h3 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            color: #0f172a;
+        }
+
+        .comparison-card .subtitle {
+            color: #8b5cf6;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .comparison-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .comparison-card li {
+            margin: 0.75rem 0;
+            color: #6b7280;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .comparison-card li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #8b5cf6;
+            font-weight: 600;
+        }
+
+        /* API Example */
+        .code-example {
+            background: #1f2937;
+            color: #e5e7ff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin: 1.5rem 0;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        /* Footer */
+        .footer {
+            background: #0f172a;
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer p {
+            color: #cbd5e1;
+            margin: 0.5rem 0;
+        }
+
+        .footer a {
+            color: #8b5cf6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            color: #ec4899;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.875rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.1rem;
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">☁️ orbitQA.ai (SaaS)</div>
+            <div class="nav-links">
+                <a href="/" class="back-btn">← Back to Home</a>
+                <a href="/dashboard.html" class="badge-saas">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>orbitQA.ai</h1>
+            <p class="hero-subtitle">Enterprise Autonomous QA Platform</p>
+            <p class="hero-subtitle" style="font-size: 1rem; font-weight: 400; color: #e0e7ff; margin-bottom: 2rem;">SaaS Edition with REST API, Webhooks & Web Dashboard</p>
+            <p class="hero-description">
+                The same powerful autonomous agents from orbitQA.ai, now deployed as a scalable SaaS platform. 
+                Access the complete testing infrastructure through REST APIs, webhooks, and an intuitive web dashboard. 
+                Perfect for teams that want enterprise-grade QA without managing on-premises infrastructure.
+            </p>
+            <div class="badge-row">
+                <div class="badge">☁️ Cloud-Native</div>
+                <div class="badge">🔌 REST API</div>
+                <div class="badge">📊 Web Dashboard</div>
+                <div class="badge">🔗 Webhooks</div>
+                <div class="badge">🏢 Multi-Tenant</div>
+            </div>
+            <div class="cta-buttons">
+                <a href="http://localhost:3001/login.html" target="_blank" class="btn-primary">🚀 Launch SaaS Platform</a>
+                <button class="btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Learn Features</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Differences from orbitQA.ai -->
+    <section class="comparison-section">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">Same Agents. Different Interface.</h2>
+                <p class="section-description">Both products use identical shared agent cores. Here's what's different:</p>
+            </div>
+
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h3>🖥️ orbitQA.ai (CLI)</h3>
+                    <div class="subtitle">In-Repo Version</div>
+                    <ul>
+                        <li>Local CLI tools</li>
+                        <li>Pre-commit hooks</li>
+                        <li>Direct file system access</li>
+                        <li>Developer-focused</li>
+                        <li>Open source</li>
+                        <li>Zero setup for developers</li>
+                        <li>Runs on your machine</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card highlight">
+                    <h3>☁️ orbitQA.ai (SaaS)</h3>
+                    <div class="subtitle">External Platform</div>
+                    <ul>
+                        <li>REST API endpoints</li>
+                        <li>GitHub/GitLab webhooks</li>
+                        <li>Web dashboard UI</li>
+                        <li>Enterprise-focused</li>
+                        <li>Managed service</li>
+                        <li>No infrastructure to manage</li>
+                        <li>Runs in the cloud</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px; border: 2px solid #e5e7eb;">
+                <h3 style="color: #0f172a; margin-bottom: 1rem;">Shared Agent Logic</h3>
+                <p style="color: #6b7280; margin-bottom: 1rem;">
+                    Both products use the same 6 agent cores:
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 800px; margin: 0 auto;">
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #8b5cf6;">SDET</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Test Generation</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #8b5cf6;">Compliance</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">175+ Checks</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #8b5cf6;">DevOps</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">SRE Monitoring</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #8b5cf6;">Orchestration</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Workflow Coordination</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #8b5cf6;">Fullstack</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Code Fixing</span>
+                    </div>
+                    <div style="padding: 1rem; background: #f9fafb; border-radius: 8px;">
+                        <strong style="color: #8b5cf6;">Recovery</strong><br>
+                        <span style="color: #6b7280; font-size: 0.9rem;">Self-Healing</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- orbitQA.ai Features -->
+    <section class="section" id="features">
+        <div class="section-header">
+            <h2 class="section-title">Enterprise SaaS Features</h2>
+            <p class="section-description">All the power of orbitQA.ai, plus cloud-native capabilities</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔌</div>
+                <h3>REST API</h3>
+                <p>Full API access to all testing capabilities. Integrate orbitQA.ai into your existing workflows.</p>
+                <div class="code-example">POST /api/scan
+{
+  "url": "https://example.com",
+  "depth": 2
+}</div>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔗</div>
+                <h3>Webhook Integration</h3>
+                <p>Connect GitHub, GitLab, Gitea, or Bitbucket. Automatic scanning on push events.</p>
+                <ul>
+                    <li>Real-time CI/CD integration</li>
+                    <li>Automatic status checks</li>
+                    <li>Pull request comments</li>
+                    <li>Deployment notifications</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Web Dashboard</h3>
+                <p>Beautiful, intuitive interface for managing and analyzing scans.</p>
+                <ul>
+                    <li>Real-time scan results</li>
+                    <li>Historical trends & analytics</li>
+                    <li>Team collaboration tools</li>
+                    <li>Custom reports & exports</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🏢</div>
+                <h3>Multi-Tenant</h3>
+                <p>Support for multiple organizations, teams, and projects in one instance.</p>
+                <ul>
+                    <li>User management & SSO</li>
+                    <li>Role-based access control</li>
+                    <li>Isolated data per tenant</li>
+                    <li>Usage quotas & billing</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔐</div>
+                <h3>Enterprise Security</h3>
+                <p>Built for enterprises from day one with security and compliance at the core.</p>
+                <ul>
+                    <li>SOC2 Type II compliance</li>
+                    <li>GDPR & HIPAA ready</li>
+                    <li>Encrypted data at rest</li>
+                    <li>Audit logging</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⏱️</div>
+                <h3>Scheduled Scans</h3>
+                <p>Set up recurring scans to monitor your applications continuously.</p>
+                <ul>
+                    <li>Daily/weekly/monthly schedules</li>
+                    <li>Cron job support</li>
+                    <li>Smart retry logic</li>
+                    <li>Email notifications</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <h3>Advanced Analytics</h3>
+                <p>Deep insights into your testing metrics and trends over time.</p>
+                <ul>
+                    <li>Compliance score tracking</li>
+                    <li>Test coverage trends</li>
+                    <li>Performance metrics</li>
+                    <li>Risk assessment reports</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3>API Keys & Auth</h3>
+                <p>Secure API access with tokens, OAuth2, and team-based permissions.</p>
+                <ul>
+                    <li>API key management</li>
+                    <li>OAuth2 support</li>
+                    <li>Rate limiting & quotas</li>
+                    <li>Team-based access</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">♿</div>
+                <h3>All 175+ Compliance Checks</h3>
+                <p>Same compliance engine as orbitQA.ai, enforced through API.</p>
+                <ul>
+                    <li>GDPR compliance checks</li>
+                    <li>CCPA validation</li>
+                    <li>WCAG 2.1 accessibility</li>
+                    <li>OWASP security scanning</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why orbitQA.ai for Enterprises -->
+    <section class="section" style="background: #f9fafb;">
+        <div class="section-header">
+            <h2 class="section-title">Perfect For Enterprises</h2>
+            <p class="section-description">orbitQA.ai removes the burden of infrastructure while keeping all the power</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3>No Infrastructure</h3>
+                <p>We manage servers, scaling, and maintenance. You focus on testing.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Automatic Updates</h3>
+                <p>New agents and features roll out automatically without your intervention.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📞</div>
+                <h3>Enterprise Support</h3>
+                <p>Dedicated support team, SLA guarantees, and priority feature requests.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <h3>Global Scale</h3>
+                <p>CDN-backed API, multi-region deployment, and 99.9% uptime.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3>Team Collaboration</h3>
+                <p>Built-in features for large teams: permissions, audits, and alerts.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Usage Insights</h3>
+                <p>Detailed billing, usage analytics, and cost optimization recommendations.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="section">
+        <div class="section-header">
+            <h2 class="section-title">Enterprise-Grade Platform</h2>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">175+</div>
+                <div class="stat-label">Compliance Checks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">99.9%</div>
+                <div class="stat-label">Uptime SLA</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">API Rate</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">Support</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases -->
+    <section class="section" style="background: #f9fafb;">
+        <div class="section-header">
+            <h2 class="section-title">Common Use Cases</h2>
+            <p class="section-description">How enterprises are using orbitQA.ai</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>CI/CD Integration</h3>
+                <p>Connect orbitQA.ai to your GitHub Actions, GitLab CI, or Jenkins pipelines to run automated testing on every commit.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3>Cross-Functional QA</h3>
+                <p>Give product managers, designers, and developers access to unified testing dashboards and reports.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>Production Monitoring</h3>
+                <p>Run scheduled scans against production URLs to catch regressions and accessibility issues before users do.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🤝</div>
+                <h3>Compliance Audits</h3>
+                <p>Generate automated compliance reports for regulators (SOC2, GDPR, HIPAA) with full audit trails.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔐</div>
+                <h3>Security Testing</h3>
+                <p>Continuous security scanning with Semgrep and Trivy integration to catch vulnerabilities early.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Enterprise Analytics</h3>
+                <p>Track testing trends, compliance scores, and quality metrics across your entire organization.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="hero" style="background: linear-gradient(135deg, #0f172a 0%, #8b5cf6 100%);">
+        <div class="hero-content">
+            <h2 style="font-size: 2rem; margin-bottom: 1rem;">Ready to Transform Your QA?</h2>
+            <p style="margin-bottom: 2rem;">Start with orbitQA.ai today. Same powerful agents, cloud-native delivery.</p>
+            <div class="cta-buttons">
+                <a href="http://localhost:3001/login.html" target="_blank" class="btn-primary">🚀 Access Dashboard</a>
+                <a href="/" class="btn-secondary">← Back to Home</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <h3 style="margin-bottom: 1rem;">orbitQA.ai</h3>
+            <p>Enterprise Autonomous QA Platform | <strong>SaaS Edition</strong></p>
+            <p style="margin-top: 1.5rem; color: #6b7280; font-size: 0.9rem;">
+                Built with ❤️ by architects with decades of enterprise experience
+            </p>
+            <p style="margin-top: 0.5rem;">
+                <a href="/">Home</a> • 
+                <a href="/">Features</a> • 
+                <a href="/">Pricing</a> • 
+                <a href="/">Support</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

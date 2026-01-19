@@ -1,12 +1,12 @@
-# 🤖 AgenticQA + orbitqa-ai - Enterprise Autonomous QA & Compliance Platform
+# 🤖 orbitQA.ai - Enterprise Autonomous QA & Compliance Platform
 
 **⚠️ PROPRIETARY SOFTWARE - For Licensed Enterprise Use Only**
 
-AgenticQA is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
+orbitQA.ai is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
 
 Available in two deployments:
-- **AgenticQA** - In-repo CLI + pre-commit hooks for developers
-- **orbitqa-ai** - External SaaS platform with REST API + web dashboard
+- **orbitQA.ai (CLI)** - In-repo deployment for developers
+- **orbitQA.ai (SaaS)** - External cloud platform with REST API + web dashboard
 
 > ✅ **Proprietary & Confidential** • 🔐 **Enterprise-Grade Security** • 🛡️ **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 📦 **6 Npm Packages**
 
@@ -14,7 +14,7 @@ Available in two deployments:
 
 ## 🏗️ Monorepo Architecture - Shared Agent Cores
 
-**100% Code Reuse** across AgenticQA and orbitqa-ai through 6 shared npm packages:
+**100% Code Reuse** across orbitQA.ai (CLI) and orbitQA.ai (SaaS) through 6 shared npm packages:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -26,8 +26,8 @@ Available in two deployments:
 └──────────┬──────────────────────────────┬──────────────────┘
            │                              │
     ┌──────▼──────┐              ┌───────▼────────┐
-    │  AgenticQA  │              │  orbitqa-ai    │
-    │  (In-Repo)  │              │  (External)    │
+    │orbitQA.ai   │              │  orbitQA.ai    │
+    │   (CLI)     │              │    (SaaS)      │
     │             │              │                │
     │  • CLI      │              │  • REST API    │
     │  • Pre-commit              │  • Webhooks    │
