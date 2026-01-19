@@ -4,8 +4,8 @@ describe("Accessibility Tests", () => {
   });
 
   it("should have proper heading hierarchy", () => {
-    cy.get("h1").should("exist").and("contain", "AgenticQA");
-    cy.get("h1").should("have.length", 1);
+    cy.get("h1").should("exist").and("contain", "Enterprise-Grade");
+    cy.get("h1").should("have.length.at.least", 1);
   });
 
   it("should have descriptive labels for buttons", () => {

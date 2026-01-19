@@ -1,11 +1,11 @@
-describe("AgenticQA Dashboard - UI Tests", () => {
+describe("orbitQA.ai Dashboard - UI Tests", () => {
   beforeEach(() => {
     cy.visit("/");
   });
 
   it("should load the homepage with correct title", () => {
-    cy.get("h1").should("contain", "AgenticQA");
-    cy.get(".tagline").should("contain", "Self-Healing, AI-Powered Quality Assurance");
+    cy.get("h1").should("contain", "Enterprise-Grade");
+    cy.get(".hero-description").should("contain", "orbitQA.ai");
   });
 
   it("should display all navigation tabs", () => {

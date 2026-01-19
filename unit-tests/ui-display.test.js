@@ -1,5 +1,5 @@
 // unit-tests/ui-display.test.js
-// Tests for AgenticQA dashboard (new UI)
+// Tests for orbitQA.ai dashboard (new UI)
 const { expect, test, describe } = require('@jest/globals');
 const fs = require('fs');
 const path = require('path');
@@ -19,8 +19,8 @@ describe('UI Display Tests - Dashboard', () => {
       expect(htmlContent).toContain('lang="en"');
     });
 
-    test('HTML contains AgenticQA branding', () => {
-      expect(htmlContent).toContain('AgenticQA');
+    test('HTML contains orbitQA.ai branding', () => {
+      expect(htmlContent).toContain('orbitQA.ai');
     });
 
     test('HTML includes viewport meta tag', () => {

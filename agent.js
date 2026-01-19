@@ -317,7 +317,7 @@ class QAAgent {
         console.log(`Has Recommendations: ${summary.hasRecommendations ? "Yes" : "No"}`);
 
         if (sections.recommendations && sections.recommendations.length > 0) {
-          console.log("\n💡 AgenticQA Engineer's Recommendations:");
+          console.log("\n💡 orbitQA.ai Engineer's Recommendations:");
           sections.recommendations.forEach((rec, i) => {
             if (rec.trim()) {
               console.log(`\n  ${i + 1}. ${rec}`);
@@ -341,7 +341,7 @@ class QAAgent {
       console.log(`Performance Data: ${summary.hasPerformanceData ? "Yes" : "No"}`);
 
       if (sections.recommendations && sections.recommendations.length > 0) {
-        console.log("\n💡 AgenticQA Engineer's Recommendations:");
+        console.log("\n💡 orbitQA.ai Engineer's Recommendations:");
         sections.recommendations.forEach((rec, i) => {
           if (rec.trim()) {
             console.log(`\n  ${i + 1}. ${rec}`);

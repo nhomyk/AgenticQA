@@ -166,7 +166,7 @@ function renderResults(resp) {
 
   // render recommendations if present
   if (recommendationsBox && resp.recommendations && Array.isArray(resp.recommendations)) {
-    const headerR = "AgenticQA Engineer's Recommendations\n\n";
+    const headerR = "orbitQA.ai Engineer's Recommendations\n\n";
     const recLines = resp.recommendations.map((r, i) => `${i+1}. ${r}`);
     recommendationsBox.value = headerR + recLines.join("\n\n");
   } else if (recommendationsBox) {
