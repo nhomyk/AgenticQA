@@ -1,5 +1,5 @@
 name: AgenticQA - Self-Healing CI/CD Pipeline
-run-name: ${{ github.event.inputs.reason }}
+run-name: ${{ github.event.inputs.reason != '' && github.event.inputs.reason != 'Manual workflow trigger' && github.event.inputs.reason || format('AgenticQA Run #{0}', github.run_number) }}
 on:
   push:
     branches: [ main ]
