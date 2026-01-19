@@ -432,7 +432,18 @@ jobs:
         id: promptfoo
         run: |
           echo "Testing agent prompt consistency and outputs..."
-          npm run test:promptfoo || true
+          # Check if OpenAI API key is configured
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "⚠️  OPENAI_API_KEY not configured - skipping LLM validation"
+            echo "status=skipped-no-key" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # Run with full config path
+          npx promptfoo eval -c "${{ github.workspace }}/promptfoo-config.yml" --output "${{ github.workspace }}/promptfoo-results.json" || {
+            echo "⚠️ Promptfoo validation failed, but continuing..."
+            echo "status=partial" >> $GITHUB_OUTPUT
+            exit 0
+          }
           echo "status=validated" >> $GITHUB_OUTPUT
       - name: Upload Promptfoo results
         if: always()
@@ -465,11 +476,34 @@ jobs:
         id: semgrep
         run: |
           echo "Installing Semgrep..."
-          pip install semgrep || brew install semgrep
-          echo "Running Semgrep OWASP scanning..."
-          npm run scan:semgrep || true
-          echo "status=completed" >> $GITHUB_OUTPUT
-        continue-on-error: true
+          # Try apt-get first (works on ubuntu-latest)
+          if ! command -v semgrep &> /dev/null; then
+            if command -v apt-get &> /dev/null; then
+              sudo apt-get update -qq && sudo apt-get install -qq -y semgrep 2>/dev/null || {
+                echo "apt-get failed, trying curl..."
+                mkdir -p /tmp/semgrep-dl
+                cd /tmp/semgrep-dl
+                curl -sSfL https://github.com/returntocorp/semgrep/releases/download/v1.45.0/semgrep-v1.45.0-ubuntu-20.04.tgz -o semgrep.tgz 2>/dev/null || {
+                  echo "⚠️ Semgrep download failed"
+                  echo "status=failed-install" >> $GITHUB_OUTPUT
+                  exit 0
+                }
+                tar xzf semgrep.tgz && chmod +x semgrep && export PATH="/tmp/semgrep-dl:$PATH"
+              }
+            fi
+          fi
+          
+          if command -v semgrep &> /dev/null || [ -f "/tmp/semgrep-dl/semgrep" ]; then
+            export PATH="/tmp/semgrep-dl:$PATH"
+            echo "Running Semgrep OWASP scanning..."
+            semgrep --config=p/owasp-top-ten --json --output "${{ github.workspace }}/semgrep-report.json" . || {
+              echo "⚠️ Semgrep scan had issues, but continuing..."
+            }
+            echo "status=completed" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Semgrep installation failed"
+            echo "status=failed-install" >> $GITHUB_OUTPUT
+          fi
       
       - name: Upload Semgrep report
         if: always()
@@ -484,13 +518,39 @@ jobs:
         id: trivy
         run: |
           echo "Installing Trivy..."
-          brew install trivy || curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .
-          echo "Building Docker image for scanning..."
-          npm run docker:build || docker build -t agentic-qa:latest .
-          echo "Running Trivy vulnerability scan..."
-          npm run scan:trivy || trivy image agentic-qa:latest --severity HIGH,CRITICAL --format json --output trivy-report.json || true
-          echo "status=completed" >> $GITHUB_OUTPUT
-        continue-on-error: true
+          # Try apt-get first
+          if ! command -v trivy &> /dev/null; then
+            if command -v apt-get &> /dev/null; then
+              sudo apt-get update -qq && sudo apt-get install -qq -y trivy 2>/dev/null || {
+                echo "apt-get failed, trying curl..."
+                mkdir -p /tmp/trivy-dl
+                cd /tmp/trivy-dl
+                # Use curl with GitHub releases
+                curl -sSfL https://github.com/aquasecurity/trivy/releases/download/v0.47.0/trivy_0.47.0_Linux-64bit.tar.gz -o trivy.tar.gz 2>/dev/null || {
+                  echo "⚠️ Trivy download failed - skipping container scanning"
+                  echo "status=failed-install" >> $GITHUB_OUTPUT
+                  exit 0
+                }
+                tar xzf trivy.tar.gz && chmod +x trivy && export PATH="/tmp/trivy-dl:$PATH"
+              }
+            fi
+          fi
+          
+          if command -v trivy &> /dev/null || [ -f "/tmp/trivy-dl/trivy" ]; then
+            export PATH="/tmp/trivy-dl:$PATH"
+            echo "Building Docker image for scanning..."
+            docker build -t agentic-qa:latest . 2>&1 | tail -5 || {
+              echo "⚠️ Docker build had issues, but continuing with trivy..."
+            }
+            echo "Running Trivy vulnerability scan..."
+            trivy image agentic-qa:latest --severity HIGH,CRITICAL --format json --output "${{ github.workspace }}/trivy-report.json" || {
+              echo "⚠️ Trivy scan had issues, but continuing..."
+            }
+            echo "status=completed" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Trivy installation failed"
+            echo "status=failed-install" >> $GITHUB_OUTPUT
+          fi
       
       - name: Upload Trivy report
         if: always()
@@ -562,48 +622,79 @@ jobs:
     name: "Phase 2.5📊 Observability Setup (Prometheus & Jaeger)"
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
+      - name: Check Docker availability
+        id: docker-check
+        run: |
+          if docker info >/dev/null 2>&1; then
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "✅ Docker is available"
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Docker not available in this environment"
+          fi
       
-      - name: "📊 Initialize Prometheus"
+      - name: "📊 Initialize Prometheus (if Docker available)"
+        if: steps.docker-check.outputs.available == 'true'
         run: |
           echo "Setting up Prometheus metrics collection..."
-          docker run -d \
-            --name agentic-qa-prometheus \
-            -p 9090:9090 \
-            -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml \
-            prom/prometheus:latest \
-            --config.file=/etc/prometheus/prometheus.yml \
-            --storage.tsdb.path=/prometheus
-          
-          echo "✅ Prometheus initialized on http://localhost:9090"
+          # Check if config file exists
+          if [ ! -f "${{ github.workspace }}/prometheus.yml" ]; then
+            echo "⚠️  prometheus.yml not found, creating basic config..."
+            mkdir -p /tmp/prometheus
+            cat > /tmp/prometheus/prometheus.yml << 'PROM_EOF'
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: 'agentic-qa'
+              static_configs:
+                - targets: ['localhost:3000']
+          PROM_EOF
+            docker run -d \
+              --name agentic-qa-prometheus \
+              -p 9090:9090 \
+              -v /tmp/prometheus:/etc/prometheus \
+              prom/prometheus:latest \
+              --config.file=/etc/prometheus/prometheus.yml
+          else
+            docker run -d \
+              --name agentic-qa-prometheus \
+              -p 9090:9090 \
+              -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml \
+              prom/prometheus:latest \
+              --config.file=/etc/prometheus/prometheus.yml
+          fi
+          echo "✅ Prometheus initialized"
         continue-on-error: true
       
-      - name: "🔍 Initialize Jaeger Distributed Tracing"
+      - name: "🔍 Initialize Jaeger Distributed Tracing (if Docker available)"
+        if: steps.docker-check.outputs.available == 'true'
         run: |
           echo "Setting up Jaeger distributed tracing..."
           docker run -d \
             --name agentic-qa-jaeger \
-            -p 6831:6831/udp \
             -p 16686:16686 \
             jaegertracing/all-in-one:latest
-          
-          echo "✅ Jaeger initialized on http://localhost:16686"
+          echo "✅ Jaeger initialized"
         continue-on-error: true
       
       - name: "✅ Verify observability stack"
         run: |
-          sleep 3
-          echo "Checking Prometheus..."
-          curl -s http://localhost:9090/-/healthy || echo "Prometheus check: pending"
-          echo ""
-          echo "Checking Jaeger..."
-          curl -s http://localhost:16686/search || echo "Jaeger check: pending"
-          echo ""
-          echo "## 📊 Observability Stack Initialized" >> $GITHUB_STEP_SUMMARY
-          echo "- **Prometheus**: http://localhost:9090 (Metrics collection)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Jaeger**: http://localhost:16686 (Distributed tracing)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: Ready for agent pipeline monitoring" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.docker-check.outputs.available }}" = "true" ]; then
+            sleep 3
+            echo "Checking Prometheus..."
+            curl -s http://localhost:9090/-/healthy || echo "Prometheus check: pending"
+            echo ""
+            echo "Checking Jaeger..."
+            curl -s http://localhost:16686/search || echo "Jaeger check: pending"
+            echo "## 📊 Observability Stack Initialized" >> $GITHUB_STEP_SUMMARY
+            echo "- **Prometheus**: http://localhost:9090 (Metrics collection)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Jaeger**: http://localhost:16686 (Distributed tracing)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status**: Ready for agent pipeline monitoring" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️  Docker not available - observability stack skipped"
+            echo "## 📊 Observability Stack - Skipped" >> $GITHUB_STEP_SUMMARY
+            echo "Docker not available in this environment" >> $GITHUB_STEP_SUMMARY
+          fi
         continue-on-error: true
 
   # Phase 3: SRE Agent (Only runs after Fullstack Agent completes)
