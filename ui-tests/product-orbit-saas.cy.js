@@ -13,7 +13,7 @@
  * - Accessibility features
  */
 
-describe('product-orbit-saas - UI Components', () => {
+describe('orbitQA.ai SaaS - UI Components', () => {
   beforeEach(() => {
     cy.visit('/product-orbit-saas.html');
   });

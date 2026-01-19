@@ -13,7 +13,7 @@
  * - Accessibility features
  */
 
-describe('product-orbit-cli - UI Components', () => {
+describe('orbitQA.ai CLI - UI Components', () => {
   beforeEach(() => {
     cy.visit('/product-orbit-cli.html');
   });
