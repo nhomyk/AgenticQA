@@ -52,7 +52,12 @@
     "test:agents:framework": "node agent-test-framework.js",
     "test:agents:repair": "node agent-tests.js",
     "test:agents:recover": "node agent-recovery-system.js",
-    "test:agents:watch": "watch -n 5 'npm run test:agents' -- ."
+    "test:agents:watch": "watch -n 5 'npm run test:agents' -- .",
+    "sdet": "node sdet-ui-change-detector.js",
+    "sdet:full": "npm run sdet && npm test && npm run test:cypress",
+    "sdet:monitor": "watch -n 3 'npm run sdet' -- public unit-tests",
+    "test:all": "npm run sdet:full && npm run test:compliance",
+    "pre-commit": "bash .git/hooks/pre-commit"
   },
   "dependencies": {
     "@langchain/core": "^1.1.12",
