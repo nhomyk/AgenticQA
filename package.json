@@ -41,7 +41,12 @@
     "scan:trivy": "trivy image agentic-qa:latest --severity HIGH,CRITICAL --format json --output trivy-report.json || true",
     "docker:build": "docker build -t agentic-qa:latest .",
     "docker:run": "docker-compose up -d",
-    "docker:stop": "docker-compose down"
+    "docker:stop": "docker-compose down",
+    "test:agents": "node agent-orchestrator.js",
+    "test:agents:framework": "node agent-test-framework.js",
+    "test:agents:repair": "node agent-tests.js",
+    "test:agents:recover": "node agent-recovery-system.js",
+    "test:agents:watch": "watch -n 5 'npm run test:agents' -- ."
   },
   "dependencies": {
     "@langchain/core": "^1.1.12",

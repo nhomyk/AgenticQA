@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-01-19T13:40:29.967Z",
+  "agents": {
+    "fullstack-agent.js": {
+      "status": "passing",
+      "tests": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4
+      },
+      "passRate": "100.0",
+      "details": {
+        "fileExists": true,
+        "canRead": true,
+        "syntaxValid": true,
+        "hasExports": true
+      }
+    },
+    "agentic_sre_engineer.js": {
+      "status": "passing",
+      "tests": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4
+      },
+      "passRate": "100.0",
+      "details": {
+        "fileExists": true,
+        "canRead": true,
+        "syntaxValid": true,
+        "hasExports": true
+      }
+    },
+    "compliance-agent.js": {
+      "status": "passing",
+      "tests": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4
+      },
+      "passRate": "100.0",
+      "details": {
+        "fileExists": true,
+        "canRead": true,
+        "syntaxValid": true,
+        "hasExports": true
+      }
+    },
+    "sdet-agent.js": {
+      "status": "passing",
+      "tests": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4
+      },
+      "passRate": "100.0",
+      "details": {
+        "fileExists": true,
+        "canRead": true,
+        "syntaxValid": true,
+        "hasExports": true
+      }
+    },
+    "qa-agent.js": {
+      "status": "failing",
+      "tests": {
+        "passed": 3,
+        "failed": 2,
+        "total": 5
+      },
+      "passRate": "60.0",
+      "details": {
+        "fileExists": true,
+        "canRead": true,
+        "syntaxValid": false,
+        "hasExports": true,
+        "syntaxError": "Invalid or unexpected token"
+      }
+    },
+    "agent.js": {
+      "status": "passing",
+      "tests": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4
+      },
+      "passRate": "100.0",
+      "details": {
+        "fileExists": true,
+        "canRead": true,
+        "syntaxValid": true,
+        "hasExports": true
+      }
+    }
+  },
+  "summary": {
+    "totalAgents": 6,
+    "totalTests": 25,
+    "totalPassed": 23,
+    "totalFailed": 2,
+    "passRate": "92.0"
+  }
+}
