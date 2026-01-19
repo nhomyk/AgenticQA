@@ -26,6 +26,7 @@ on:
         description: 'Reason for manual trigger'
         required: false
         default: 'Manual workflow trigger'
+        type: string
       run_type:
         description: 'Type of run (initial, retest, retry, manual)'
         required: false
