@@ -48,7 +48,6 @@ jobs:
   pipeline-rescue:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    timeout-minutes: 10
     name: 🚨 Pipeline Health Check & Emergency Repair
     permissions:
       contents: write
@@ -132,7 +131,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'          cache: 'npm'      - name: Install dependencies
+          cache: 'npm'
+      - name: Install dependencies
         run: npm ci
       - name: Run ESLint auto-fix
         run: |
@@ -289,7 +289,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
           cache: 'npm'
       
       - name: Install dependencies
