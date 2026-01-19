@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
 dotenv.config();
 
@@ -16,6 +17,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // In-memory storage (reset on server restart)
 const db = {
@@ -96,6 +100,11 @@ function logAudit(action, userId, organizationId, details) {
 }
 
 // ===== ROUTES =====
+
+// Root path - redirect to login
+app.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
 
 // Health check
 app.get('/health', (req, res) => {
