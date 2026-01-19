@@ -804,7 +804,7 @@
                         <input type="text" id="pipelineName" placeholder="e.g., Bug Fix for Issue #123" tabindex="0" aria-label="Custom pipeline name" />
                         <div class="form-help">Leave blank to use default naming with pipeline type (e.g., "AgenticQA - Security Scan")</div>
                     </div>
-                    <button class="btn btn-primary" onclick="kickoffPipeline()">
+                    <button class="btn btn-primary" id="launchPipelineBtn">
                         🚀 Launch Pipeline
                     </button>
                 </div>
@@ -1527,6 +1527,9 @@
                 }, 300);
             }, 4000);
         }
+
+        // Setup button event listeners after functions are defined
+        document.getElementById('launchPipelineBtn')?.addEventListener('click', kickoffPipeline);
     </script>
 </body>
 </html>
