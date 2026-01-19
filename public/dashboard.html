@@ -1330,6 +1330,8 @@
                 // Call our backend API endpoint instead of GitHub API directly
                 // This allows us to use authenticated requests securely
                 console.log('[Pipeline Kickoff] Calling /api/trigger-workflow endpoint...');
+                console.log('[Pipeline Kickoff] Request payload:', { pipelineType, branch, pipelineName });
+                
                 const response = await fetch('/api/trigger-workflow', {
                     method: 'POST',
                     headers: {
@@ -1346,9 +1348,10 @@
                 launchBtn.disabled = false;
                 launchBtn.innerHTML = '🚀 Launch Pipeline';
 
-                console.log('[Pipeline Kickoff] Response received', { status: response.status, ok: response.ok });
+                console.log('[Pipeline Kickoff] Response received', { status: response.status, ok: response.ok, statusText: response.statusText });
                 const result = await response.json();
                 console.log('[Pipeline Kickoff] Response body:', result);
+                console.log('[Pipeline Kickoff] Full response details:', { status: response.status, ok: response.ok, result });
 
                 if (response.ok && result.status === 'success') {
                     // Success response
@@ -1378,13 +1381,14 @@
                     showAlert(`❌ ${result.error}`, 'error');
                 } else {
                     // Other errors
-                    console.error('[Pipeline Kickoff] ❌ Unexpected error', { status: response.status, result });
+                    console.error('[Pipeline Kickoff] ❌ Unexpected error', { status: response.status, result, response });
                     showAlert(`❌ Error: ${result.error || `Request failed with status ${response.status}`}`, 'error');
                 }
             } catch (error) {
                 launchBtn.disabled = false;
                 launchBtn.innerHTML = '🚀 Launch Pipeline';
                 console.error('[Pipeline Kickoff] ❌ Exception occurred:', error);
+                console.error('[Pipeline Kickoff] Full error details:', { message: error.message, stack: error.stack, error });
                 showAlert(`❌ Error kicking off pipeline: ${error.message}`, 'error');
             }
         }
