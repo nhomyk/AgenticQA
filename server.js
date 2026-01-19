@@ -742,7 +742,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
       }
     };
     
-    log("info", "📋 Preparing GitHub workflow dispatch", { workflowName, ref: branch });
+    log("info", "📋 Preparing GitHub workflow dispatch", { workflowName, ref: branch, payload: JSON.stringify(payload) });
     
     // Call GitHub API to dispatch workflow
     return new Promise((resolve) => {
