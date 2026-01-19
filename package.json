@@ -12,6 +12,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
+    "saas:api": "node saas-api-server.js",
+    "saas:api:dev": "NODE_ENV=development nodemon saas-api-server.js",
+    "saas:dashboard": "cd src/saas/dashboard && npm start",
+    "saas:dashboard:build": "cd src/saas/dashboard && npm run build",
+    "saas:all": "concurrently 'npm run saas:api' 'npm run saas:dashboard'",
     "test:vitest": "vitest",
     "test:vitest:run": "vitest --run",
     "cypress": "cypress run",

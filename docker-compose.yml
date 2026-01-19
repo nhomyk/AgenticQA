@@ -1,23 +1,69 @@
-version: "3.8"
+version: "3.9"
 
 services:
+  # ===== DATABASE =====
+  postgres:
+    image: postgres:15-alpine
+    container_name: orbitqa-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-orbitqa_saas}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - orbitqa-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===== REDIS (Optional - for job queuing) =====
+  redis:
+    image: redis:7-alpine
+    container_name: orbitqa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - orbitqa-network
+    restart: unless-stopped
+
+  # ===== QA AGENT =====
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: orbitqa-agent
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - PROMETHEUS_URL=http://prometheus:9090
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./.agent-recovery:/app/.agent-recovery
+    networks:
+      - orbitqa-network
     restart: unless-stopped
     depends_on:
-      - prometheus
-      - jaeger
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
       interval: 30s
@@ -25,9 +71,44 @@ services:
       retries: 3
       start_period: 5s
 
-  # Prometheus - Metrics collection for agent pipeline monitoring
+  # ===== SaaS API =====
+  saas-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.saas
+    container_name: orbitqa-saas-api
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      SAAS_PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-orbitqa_saas}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      PROMETHEUS_URL: http://prometheus:9090
+      JAEGER_AGENT_HOST: jaeger
+      JAEGER_AGENT_PORT: 6831
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - orbitqa-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # ===== Prometheus - Metrics collection for agent pipeline monitoring =====
   prometheus:
     image: prom/prometheus:latest
+    container_name: orbitqa-prometheus
+
     container_name: agentic-qa-prometheus
     ports:
       - "9090:9090"
@@ -38,17 +119,27 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
     restart: unless-stopped
+    networks:
+      - orbitqa-network
 
   # Jaeger - Distributed tracing for agent orchestration
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: agentic-qa-jaeger
+    container_name: orbitqa-jaeger
     ports:
       - "6831:6831/udp"
       - "16686:16686"
     environment:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
     restart: unless-stopped
+    networks:
+      - orbitqa-network
 
 volumes:
   prometheus-data:
+  postgres-data:
+  redis-data:
+
+networks:
+  orbitqa-network:
+    driver: bridge
