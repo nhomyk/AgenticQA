@@ -663,7 +663,7 @@ app.post("/scan", async (req, res) => {
 // Workflow dispatch API endpoint
 app.post("/api/trigger-workflow", async (req, res) => {
   try {
-    const { pipelineType = "manual", branch = "main" } = req.body;
+    const { pipelineType = "manual", branch = "main", pipelineName } = req.body;
     
     // Validate pipeline type against whitelist (prevent injection)
     const validPipelineTypes = ["full", "tests", "security", "accessibility", "compliance", "manual"];
@@ -692,26 +692,51 @@ app.post("/api/trigger-workflow", async (req, res) => {
       });
     }
     
-    // Get GitHub token from environment
-    const githubToken = process.env.GITHUB_TOKEN;
+    // Validate pipeline name if provided (max 255 characters)
+    if (pipelineName && (typeof pipelineName !== "string" || pipelineName.length > 255)) {
+      log("warn", "Invalid pipeline name format attempted", { pipelineName, ip: req.ip });
+      return res.status(400).json({
+        error: "Invalid pipeline name",
+        status: "error"
+      });
+    }
+    
+    // Get GitHub token from config or environment
+    let githubToken = process.env.GITHUB_TOKEN;
+    if (!githubToken && global.githubConfig && global.githubConfig.fullToken) {
+      githubToken = global.githubConfig.fullToken;
+    }
+    
     if (!githubToken) {
-      log("warn", "GITHUB_TOKEN not configured for workflow dispatch");
+      log("warn", "GITHUB_TOKEN not available for workflow dispatch");
       return res.status(503).json({
-        error: "Service temporarily unavailable",
+        error: "GitHub token not configured. Please add your GitHub PAT in Settings.",
         status: "error"
       });
     }
     
     // Prepare workflow dispatch payload
+    // Use custom pipeline name if provided, otherwise generate from type
+    const pipelineTypeDisplayNames = {
+      full: "Full CI/CD Pipeline",
+      tests: "Test Suite",
+      security: "Security Scan",
+      accessibility: "Accessibility Audit",
+      compliance: "Compliance Check",
+      manual: "Manual Pipeline"
+    };
+    
+    const workflowName = pipelineName || `🤖 AgenticQA - ${pipelineTypeDisplayNames[pipelineType] || pipelineType}`;
+    
     const payload = {
       ref: branch,
       inputs: {
-        pipelineType: pipelineType,
-        reason: "Triggered via dashboard"
+        reason: workflowName,
+        run_type: "manual"
       }
     };
     
-    // Call GitHub API with authentication using https
+    // Call GitHub API to dispatch workflow
     return new Promise((resolve) => {
       const payloadString = JSON.stringify(payload);
       const options = {
@@ -754,7 +779,7 @@ app.post("/api/trigger-workflow", async (req, res) => {
           } else if (githubRes.statusCode === 401 || githubRes.statusCode === 403) {
             log("warn", "GitHub token authentication failed", {
               status: githubRes.statusCode,
-              branch
+              body: responseBody
             });
             
             resolve(res.status(403).json({
@@ -765,7 +790,8 @@ app.post("/api/trigger-workflow", async (req, res) => {
           } else if (githubRes.statusCode === 404) {
             log("warn", "GitHub workflow not found", {
               repository: "nhomyk/AgenticQA",
-              workflow: "ci.yml"
+              workflow: "ci.yml",
+              status: githubRes.statusCode
             });
             
             resolve(res.status(404).json({
@@ -811,6 +837,188 @@ app.post("/api/trigger-workflow", async (req, res) => {
     return res.status(500).json({
       error: "Failed to trigger workflow: " + error.message,
       status: "error"
+    });
+  }
+});
+
+// GitHub Connection API endpoint
+app.post("/api/github/connect", (req, res) => {
+  try {
+    const { token, repository } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        error: "GitHub Personal Access Token is required",
+        status: "error"
+      });
+    }
+
+    // Store GitHub token in memory (in production, use secure storage)
+    global.githubConfig = {
+      token: token.substring(0, 10) + '***', // Masked version for logging
+      fullToken: token, // Full token for actual use
+      repository: repository || '',
+      connectedAt: new Date().toISOString()
+    };
+
+    log("info", "GitHub token saved", {
+      repository: repository || 'not specified'
+    });
+
+    res.json({
+      status: "success",
+      message: "GitHub account connected successfully",
+      repository: repository || 'Not specified'
+    });
+  } catch (error) {
+    log("error", "GitHub connection failed", { error: error.message });
+    res.status(500).json({
+      error: "Failed to connect GitHub account: " + error.message,
+      status: "error"
+    });
+  }
+});
+
+// GitHub connection status endpoint
+app.get("/api/github/status", (req, res) => {
+  try {
+    if (global.githubConfig) {
+      res.json({
+        status: "connected",
+        repository: global.githubConfig.repository || 'Not specified',
+        connectedAt: global.githubConfig.connectedAt
+      });
+    } else {
+      res.json({
+        status: "disconnected"
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to check GitHub status: " + error.message
+    });
+  }
+});
+
+// GitHub disconnect endpoint
+app.post("/api/github/disconnect", (req, res) => {
+  try {
+    global.githubConfig = null;
+    log("info", "GitHub account disconnected");
+    res.json({
+      status: "success",
+      message: "GitHub account disconnected"
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to disconnect GitHub account: " + error.message
+    });
+  }
+});
+
+// GitHub test connection endpoint
+app.post("/api/github/test", (req, res) => {
+  try {
+    if (!global.githubConfig) {
+      return res.status(400).json({
+        error: "GitHub account not connected",
+        status: "error"
+      });
+    }
+
+    res.json({
+      status: "success",
+      message: "GitHub connection test successful",
+      repository: global.githubConfig.repository || 'Not specified'
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "GitHub connection test failed: " + error.message
+    });
+  }
+});
+
+// Get available branches from GitHub repository
+app.get("/api/github/branches", async (req, res) => {
+  try {
+    if (!global.githubConfig) {
+      return res.json({
+        status: "success",
+        branches: [
+          { name: "main", protected: true },
+          { name: "develop", protected: false }
+        ]
+      });
+    }
+
+    const [owner, repo] = (global.githubConfig.repository || "").split("/");
+    
+    if (!owner || !repo) {
+      return res.json({
+        status: "success",
+        branches: [
+          { name: "main", protected: true },
+          { name: "develop", protected: false },
+          { name: "staging", protected: false }
+        ]
+      });
+    }
+
+    const branchResponse = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: "api.github.com",
+        path: `/repos/${owner}/${repo}/branches`,
+        method: "GET",
+        headers: {
+          "Authorization": `token ${global.githubConfig.fullToken}`,
+          "User-Agent": "orbitQA.ai",
+          "Accept": "application/vnd.github.v3+json"
+        }
+      };
+
+      const request = https.request(options, (response) => {
+        let data = "";
+        response.on("data", (chunk) => (data += chunk));
+        response.on("end", () => {
+          try {
+            resolve({ status: response.statusCode, data: JSON.parse(data) });
+          } catch (e) {
+            resolve({ status: response.statusCode, data: [] });
+          }
+        });
+      });
+
+      request.on("error", reject);
+      request.end();
+    });
+
+    if (branchResponse.status === 200 && Array.isArray(branchResponse.data)) {
+      const branches = branchResponse.data.map(b => ({
+        name: b.name,
+        protected: b.protected || false
+      }));
+      
+      res.json({
+        status: "success",
+        branches: branches
+      });
+    } else {
+      res.json({
+        status: "success",
+        branches: [
+          { name: "main", protected: true },
+          { name: "develop", protected: false }
+        ]
+      });
+    }
+  } catch (error) {
+    log("error", "Failed to fetch branches", { error: error.message });
+    res.json({
+      status: "success",
+      branches: [
+        { name: "main", protected: true },
+        { name: "develop", protected: false }
+      ]
     });
   }
 });

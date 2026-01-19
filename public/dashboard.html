@@ -792,8 +792,17 @@
                         </select>
                     </div>
                     <div class="query-input-group">
-                        <label for="pipelineBranch">Branch (optional)</label>
-                        <input type="text" id="pipelineBranch" placeholder="main" value="main" tabindex="0" aria-label="Git branch name">
+                        <label for="pipelineBranch">Branch <span style="color: #ef4444;">*</span></label>
+                        <select id="pipelineBranch" tabindex="0" aria-label="Git branch name">
+                            <option value="main">main</option>
+                            <option value="develop">develop</option>
+                        </select>
+                        <div class="form-help">Select the branch to trigger the pipeline on. Main branch requires approval.</div>
+                    </div>
+                    <div class="query-input-group">
+                        <label for="pipelineName">Pipeline Name (Optional)</label>
+                        <input type="text" id="pipelineName" placeholder="e.g., Bug Fix for Issue #123" tabindex="0" aria-label="Custom pipeline name" />
+                        <div class="form-help">Leave blank to use default naming with pipeline type (e.g., "AgenticQA - Security Scan")</div>
                     </div>
                     <button class="btn btn-primary" onclick="showNotification('Launch Pipeline', 'A single click is all it takes to Kickoff a new pipeline!'); kickoffPipeline()">
                         🚀 Launch Pipeline
@@ -978,6 +987,7 @@
     <script>
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
+            loadAvailableBranches();
             loadRecentPipelines();
             updateAgentInfo();
             setupUploadDragDrop();
@@ -1177,6 +1187,69 @@
             queryAgent();
         }
 
+        // Load available branches on page load
+        async function loadAvailableBranches() {
+            try {
+                const response = await fetch('/api/github/branches', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (data.branches && Array.isArray(data.branches)) {
+                    const branchSelect = document.getElementById('pipelineBranch');
+                    const currentValue = branchSelect.value;
+                    branchSelect.innerHTML = '';
+                    
+                    data.branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch.name;
+                        option.textContent = branch.name + (branch.protected ? ' (protected)' : '');
+                        branchSelect.appendChild(option);
+                    });
+                    
+                    // Set back to current value if it still exists
+                    if (data.branches.some(b => b.name === currentValue)) {
+                        branchSelect.value = currentValue;
+                    } else {
+                        branchSelect.value = data.branches[0]?.name || 'main';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+            }
+        }
+
+        // Show warning modal for main branch
+        function showMainBranchWarning(onConfirm, onCancel) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>⚠️ Main Branch Warning</h2>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>You are about to trigger a pipeline on the main branch.</strong></p>
+                        <p>This will deploy to production. Please ensure:</p>
+                        <ul style="margin: 1rem 0; text-align: left;">
+                            <li>✓ All tests are passing</li>
+                            <li>✓ Code has been reviewed</li>
+                            <li>✓ Changes are production-ready</li>
+                        </ul>
+                        <p style="color: #fbbf24;">Are you sure you want to continue?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove(); (${onCancel.toString()})()">Cancel</button>
+                        <button class="btn btn-danger" onclick="this.closest('.modal').remove(); (${onConfirm.toString()})()">Yes, Deploy to Main</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
         // Check GitHub connection before launching pipeline
         async function checkGitHubConnectionBefore() {
             try {
@@ -1188,24 +1261,57 @@
                 });
 
                 const data = await response.json();
-                return data.connected;
+                return data.status === 'connected';
             } catch (error) {
                 return false;
             }
         }
 
+        // Build pipeline name from type
+        function getPipelineNameFromType(type) {
+            const typeNames = {
+                'full': 'Full CI/CD Pipeline',
+                'tests': 'Test Suite',
+                'security': 'Security Scan',
+                'accessibility': 'Accessibility Check',
+                'compliance': 'Compliance Audit',
+                'safeguards': 'Safeguards Validation'
+            };
+            return typeNames[type] || 'Pipeline';
+        }
+
         // Kickoff pipeline
         async function kickoffPipeline() {
             const pipelineType = document.getElementById('pipelineType').value;
-            const branch = document.getElementById('pipelineBranch').value || 'main';
+            const branch = document.getElementById('pipelineBranch').value;
+            const customName = document.getElementById('pipelineName').value.trim();
             const launchBtn = document.querySelector('.kickoff-section .btn-primary');
 
+            // Build pipeline name: use custom if provided, otherwise use default with type
+            const pipelineName = customName || `🤖 AgenticQA - ${getPipelineNameFromType(pipelineType)}`;
+
             try {
+                // Validate branch is selected
+                if (!branch) {
+                    showAlert('❌ Please select a branch.', 'error');
+                    return;
+                }
+
                 // Check if GitHub is connected
                 const isConnected = await checkGitHubConnectionBefore();
                 if (!isConnected) {
                     showAlert('⚠️ GitHub is not connected. Go to Settings to connect your GitHub account.', 'error');
                     return;
+                }
+
+                // Show warning for main branch
+                if (branch === 'main') {
+                    const confirmed = await new Promise((resolve) => {
+                        showMainBranchWarning(() => resolve(true), () => resolve(false));
+                    });
+                    if (!confirmed) {
+                        return;
+                    }
                 }
 
                 // Disable button during request
@@ -1221,7 +1327,8 @@
                     },
                     body: JSON.stringify({
                         pipelineType: pipelineType,
-                        branch: branch
+                        branch: branch,
+                        pipelineName: pipelineName
                     })
                 });
 

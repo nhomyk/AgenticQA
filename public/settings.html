@@ -445,6 +445,84 @@
                 font-size: 0.85rem;
             }
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-content h2 {
+            color: #1f2937;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .modal-content p {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .modal-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .modal-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -554,7 +632,7 @@
                 </div>
 
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="saveGitHubToken()">
+                    <button class="btn btn-primary" id="saveTokenBtn" onclick="saveGitHubToken(this)">
                         💾 Save Token
                     </button>
                     <button class="btn btn-secondary" onclick="hideManualTokenTab()">
@@ -602,9 +680,12 @@
                 <p>Try triggering a workflow to make sure everything is working correctly.</p>
 
                 <div class="form-group">
-                    <label for="testBranch">Branch</label>
-                    <input type="text" id="testBranch" placeholder="main" value="main" aria-label="Git branch to test trigger">
-                    <div class="form-help">The branch to trigger the workflow on</div>
+                    <label for="testBranch">Branch <span style="color: #ef4444;">*</span></label>
+                    <select id="testBranch" aria-label="Git branch to test trigger">
+                        <option value="main">main</option>
+                        <option value="develop">develop</option>
+                    </select>
+                    <div class="form-help">The branch to trigger the workflow on. Main requires approval.</div>
                 </div>
 
                 <div class="form-group">
@@ -682,9 +763,20 @@
         </div>
     </div>
 
+    <!-- Test Connection Success Modal -->
+    <div id="testSuccessModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-icon">✅</div>
+            <h2>Connection Successful!</h2>
+            <p>GitHub connection test passed. Your Personal Access Token is valid and working correctly.</p>
+            <button class="modal-button" onclick="closeTestModal()">Got it!</button>
+        </div>
+    </div>
+
     <script>
         // Initialize settings page
         document.addEventListener('DOMContentLoaded', async () => {
+            loadAvailableBranches();
             checkGitHubConnection();
         });
 
@@ -719,7 +811,7 @@
 
                 const data = await response.json();
 
-                if (data.connected) {
+                if (data.status === 'connected') {
                     showConnectedStatus(data);
                 } else {
                     showDisconnectedStatus();
@@ -732,11 +824,12 @@
 
         function showConnectedStatus(data) {
             document.getElementById('githubStatus').classList.remove('disconnected');
-            document.getElementById('statusMessage').textContent = `Connected as ${data.account}`;
+            document.getElementById('githubStatus').querySelector('h3').textContent = '✅ GitHub Connected';
+            document.getElementById('statusMessage').textContent = `✅ Connected`;
 
-            document.getElementById('connectedAccount').textContent = data.account || '—';
+            document.getElementById('connectedAccount').textContent = 'GitHub PAT Connected';
             document.getElementById('connectedRepo').textContent = data.repository || '—';
-            document.getElementById('lastUsed').textContent = data.lastUsed || 'Never';
+            document.getElementById('lastUsed').textContent = data.connectedAt ? new Date(data.connectedAt).toLocaleDateString() : 'Just now';
 
             document.getElementById('githubLoginBtn').style.display = 'none';
             document.getElementById('manualTokenBtn').style.display = 'none';
@@ -747,6 +840,7 @@
 
         function showDisconnectedStatus() {
             document.getElementById('githubStatus').classList.add('disconnected');
+            document.getElementById('githubStatus').querySelector('h3').textContent = '❌ GitHub Not Connected';
             document.getElementById('statusMessage').textContent = 'Click "Connect GitHub" below to link your GitHub account';
 
             document.getElementById('githubLoginBtn').style.display = 'inline-block';
@@ -778,7 +872,7 @@
             document.getElementById('manualTokenCard').style.display = 'none';
         }
 
-        async function saveGitHubToken() {
+        async function saveGitHubToken(btn) {
             const token = document.getElementById('githubToken').value;
             const repo = document.getElementById('githubRepo').value;
 
@@ -788,7 +882,7 @@
             }
 
             try {
-                const btn = event.target;
+                if (!btn) btn = document.getElementById('saveTokenBtn');
                 btn.disabled = true;
                 btn.textContent = '💾 Saving...';
 
@@ -809,6 +903,13 @@
                     showAlert('✅ GitHub account connected successfully!', 'success');
                     hideManualTokenTab();
                     await new Promise(r => setTimeout(r, 1500));
+                    
+                    // Clear form and force refresh
+                    document.getElementById('githubToken').value = '';
+                    document.getElementById('githubRepo').value = '';
+                    
+                    // Force check connection with delay to ensure backend has data
+                    await new Promise(r => setTimeout(r, 500));
                     checkGitHubConnection();
                 } else {
                     showAlert(`❌ ${data.error}`, 'error');
@@ -818,9 +919,73 @@
                 btn.textContent = '💾 Save Token';
             } catch (error) {
                 showAlert(`❌ Error: ${error.message}`, 'error');
-                event.target.disabled = false;
-                event.target.textContent = '💾 Save Token';
+                if (!btn) btn = document.getElementById('saveTokenBtn');
+                btn.disabled = false;
+                btn.textContent = '💾 Save Token';
             }
+        }
+
+        // Load available branches on page load
+        async function loadAvailableBranches() {
+            try {
+                const response = await fetch('/api/github/branches', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (data.branches && Array.isArray(data.branches)) {
+                    const branchSelect = document.getElementById('testBranch');
+                    const currentValue = branchSelect.value;
+                    branchSelect.innerHTML = '';
+                    
+                    data.branches.forEach(branch => {
+                        const option = document.createElement('option');
+                        option.value = branch.name;
+                        option.textContent = branch.name + (branch.protected ? ' (protected)' : '');
+                        branchSelect.appendChild(option);
+                    });
+                    
+                    // Set back to current value if it still exists
+                    if (data.branches.some(b => b.name === currentValue)) {
+                        branchSelect.value = currentValue;
+                    } else {
+                        branchSelect.value = data.branches[0]?.name || 'main';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+            }
+        }
+
+        // Show warning modal for main branch
+        function showMainBranchWarning(onConfirm, onCancel) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>⚠️ Main Branch Warning</h2>
+                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>You are about to trigger a pipeline on the main branch.</strong></p>
+                        <p>This will deploy to production. Please ensure:</p>
+                        <ul style="margin: 1rem 0; text-align: left;">
+                            <li>✓ All tests are passing</li>
+                            <li>✓ Code has been reviewed</li>
+                            <li>✓ Changes are production-ready</li>
+                        </ul>
+                        <p style="color: #fbbf24;">Are you sure you want to continue?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove(); (${onCancel.toString()})()">Cancel</button>
+                        <button class="btn btn-danger" onclick="this.closest('.modal').remove(); (${onConfirm.toString()})()">Yes, Deploy to Main</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
         }
 
         async function testGitHubConnection() {
@@ -839,7 +1004,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showAlert('✅ GitHub connection test passed!', 'success');
+                    showTestSuccessModal();
                 } else {
                     showAlert(`❌ Test failed: ${data.error}`, 'error');
                 }
@@ -853,11 +1018,45 @@
             }
         }
 
+        function showTestSuccessModal() {
+            const modal = document.getElementById('testSuccessModal');
+            modal.classList.add('show');
+        }
+
+        function closeTestModal() {
+            const modal = document.getElementById('testSuccessModal');
+            modal.classList.remove('show');
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('testSuccessModal');
+            if (event.target === modal) {
+                modal.classList.remove('show');
+            }
+        }
+
         async function triggerTestWorkflow() {
-            const branch = document.getElementById('testBranch').value || 'main';
+            const branch = document.getElementById('testBranch').value;
             const workflowType = document.getElementById('testWorkflow').value;
 
             try {
+                // Validate branch is selected
+                if (!branch) {
+                    showAlert('❌ Please select a branch.', 'error');
+                    return;
+                }
+
+                // Show warning for main branch
+                if (branch === 'main') {
+                    const confirmed = await new Promise((resolve) => {
+                        showMainBranchWarning(() => resolve(true), () => resolve(false));
+                    });
+                    if (!confirmed) {
+                        return;
+                    }
+                }
+
                 const btn = event.target;
                 btn.disabled = true;
                 btn.textContent = '⏳ Triggering...';

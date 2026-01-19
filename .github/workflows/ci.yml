@@ -1,4 +1,5 @@
 name: 🤖 AgenticQA - Self-Healing CI/CD Pipeline
+run-name: ${{ github.event.inputs.reason || '🤖 AgenticQA - Self-Healing CI/CD Pipeline' }}
 
 on:
   push:
@@ -9,6 +10,18 @@ on:
     - cron: '0 2 * * *'  # Daily at 2 AM UTC
   workflow_dispatch:
     inputs:
+      pipeline_type:
+        description: 'Pipeline type (full, tests, security, accessibility, compliance, manual)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - tests
+          - security
+          - accessibility
+          - compliance
+          - manual
       reason:
         description: 'Reason for manual trigger'
         required: false
@@ -39,6 +52,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  PIPELINE_TYPE: ${{ github.event.inputs.pipeline_type || 'full' }}
   RUN_TYPE: ${{ github.event.inputs.run_type || 'initial' }}
   RUN_CHAIN_ID: ${{ github.event.inputs.run_chain_id || github.run_id }}
 
