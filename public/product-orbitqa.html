@@ -144,10 +144,110 @@
             margin-bottom: 0.5rem;
         }
 
-        /* Features Grid */
-        .benefits-grid {
+        /* Architecture Diagram Styles */
+        .architecture-diagram {
+            background: linear-gradient(135deg, #f8f9fb 0%, #f0f4f8 100%);
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            overflow-x: auto;
+            line-height: 1.6;
+            color: #1f2937;
+        }
+
+        .architecture-title {
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .flow-box {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            transition: all 0.3s;
+        }
+
+        .flow-box:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .flow-box-title {
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flow-box-content {
+            color: #4b5563;
+            font-size: 0.85rem;
+            line-height: 1.7;
+        }
+
+        .flow-connector {
+            text-align: center;
+            color: #667eea;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            font-size: 1.2rem;
+        }
+
+        .layer-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .layer-card {
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+
+        .layer-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+
+        .layer-card h4 {
+            color: #667eea;
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .layer-card ul {
+            list-style: none;
+            font-size: 0.85rem;
+            color: #4b5563;
+        }
+
+        .layer-card li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .layer-card li:before {
+            content: "▸";
+            color: #667eea;
+            position: absolute;
+            left: 0;
+            font-weight: 700;
+        }
             gap: 2rem;
             margin: 2rem 0;
         }
@@ -344,6 +444,172 @@
             <div class="highlight-box" style="border-left-color: #764ba2;">
                 <h3 style="color: #764ba2;">Not Replacement. Collaboration.</h3>
                 <p>This is not about replacing humans with AI Agents. It's about further collaboration between them by opening communication and efficiency. Your engineers will link their IDEs directly to prototype and iterate to build more products in a single day than you would previously make in several months.</p>
+            </div>
+
+            <!-- System Architecture Diagram -->
+            <div class="architecture-diagram">
+                <div class="architecture-title">🏗️ System Architecture: End-to-End Workflow</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">📥 INPUT LAYER</div>
+                    <div class="flow-box-content">
+                        GitHub Webhooks → CI/CD Trigger → Code Repository Analysis<br/>
+                        Multi-branch support | Real-time monitoring | Automatic detection
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">🔍 VALIDATION & CIRCUIT BREAKER</div>
+                    <div class="flow-box-content">
+                        YAML Syntax Check → Pipeline Configuration Validation → Infinite Loop Detection<br/>
+                        Prevents malformed configurations | Blocks recursive triggers | Safe failure handling
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">⚡ AUTO-FIX LAYER (Phase 0)</div>
+                    <div class="flow-box-content">
+                        ESLint Auto-fix → Prettier Formatting → Linting Issue Resolution<br/>
+                        Fixes common patterns | Prevents cascading test failures | Pre-execution cleanup
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">🧪 PARALLEL TEST EXECUTION (Phase 1)</div>
+                    <div class="flow-box-content">
+                        Jest Unit Tests ↔ Vitest Tests ↔ Playwright E2E ↔ Cypress E2E<br/>
+                        Pa11y Accessibility ↔ Security Scanning ↔ Performance Analysis<br/>
+                        <strong>Parallel Execution:</strong> All tests run simultaneously, 60-70% time reduction
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">🤖 INTELLIGENT AGENT ANALYSIS (Phase 1→2)</div>
+                    <div class="flow-box-content">
+                        SDET Agent analyzes test results → Compliance Agent audits code<br/>
+                        Identifies patterns | Generates recommendations | Validates standards<br/>
+                        Runs concurrently with Phase 1 results aggregation
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">🔧 INTELLIGENT CODE FIXES (Phase 2)</div>
+                    <div class="flow-box-content">
+                        Fullstack Agent applies intelligent fixes → Code refactoring → Dependency updates<br/>
+                        Uses agent analysis to improve code quality | Updates documentation | Optimizes performance
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">🚀 INFRASTRUCTURE VALIDATION (Phase 3)</div>
+                    <div class="flow-box-content">
+                        SRE Agent validates production readiness → Infrastructure health check<br/>
+                        System resource analysis | Deployment safety verification | Auto-scaling readiness
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">🛡️ ENTERPRISE SAFEGUARDS (Phase 4)</div>
+                    <div class="flow-box-content">
+                        File protection policies → Risk assessment & scoring → Automatic rollback triggers<br/>
+                        Audit trails & compliance logging → Governance verification → Safe code deployment
+                    </div>
+                </div>
+
+                <div class="flow-connector">↓</div>
+
+                <div class="flow-box">
+                    <div class="flow-box-title">✅ FINAL VERIFICATION & OUTPUT</div>
+                    <div class="flow-box-content">
+                        Health verification → Loop detection → Success confirmation<br/>
+                        Comprehensive metrics reporting → Dashboard notifications → Team notifications
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Layer Architecture -->
+            <h3 style="margin: 2rem 0 1rem 0; color: #1f2937; font-size: 1.3rem;">🏢 Multi-Layer Technical Stack</h3>
+
+            <div class="layer-grid">
+                <div class="layer-card">
+                    <h4>Frontend Layer</h4>
+                    <ul>
+                        <li>React 18+ Dashboard</li>
+                        <li>Real-time WebSocket Updates</li>
+                        <li>WCAG 2.1 AA Accessible</li>
+                        <li>Mobile-Responsive Design</li>
+                        <li>Multi-tenant UI</li>
+                    </ul>
+                </div>
+
+                <div class="layer-card">
+                    <h4>API Gateway Layer</h4>
+                    <ul>
+                        <li>Express.js REST APIs</li>
+                        <li>JWT Authentication</li>
+                        <li>Rate Limiting (OWASP)</li>
+                        <li>CORS Optimization</li>
+                        <li>GraphQL Support</li>
+                    </ul>
+                </div>
+
+                <div class="layer-card">
+                    <h4>Agent Orchestration</h4>
+                    <ul>
+                        <li>LangChain Framework</li>
+                        <li>5 Autonomous Agents</li>
+                        <li>Dynamic Routing Logic</li>
+                        <li>Parallel Execution Engine</li>
+                        <li>Fallback Mechanisms</li>
+                    </ul>
+                </div>
+
+                <div class="layer-card">
+                    <h4>Data Layer</h4>
+                    <ul>
+                        <li>PostgreSQL Database</li>
+                        <li>Redis Cache (Session/Queue)</li>
+                        <li>Document Storage</li>
+                        <li>Time-Series Metrics</li>
+                        <li>Audit Log Archive</li>
+                    </ul>
+                </div>
+
+                <div class="layer-card">
+                    <h4>CI/CD Integration</h4>
+                    <ul>
+                        <li>GitHub Actions Native</li>
+                        <li>GitLab CI Compatible</li>
+                        <li>Jenkins Integration</li>
+                        <li>Webhook Processing</li>
+                        <li>Auto-Deployment Ready</li>
+                    </ul>
+                </div>
+
+                <div class="layer-card">
+                    <h4>Observability & Security</h4>
+                    <ul>
+                        <li>Prometheus Metrics</li>
+                        <li>Jaeger Distributed Tracing</li>
+                        <li>ELK Stack Compatible</li>
+                        <li>Security Scanning (OWASP)</li>
+                        <li>Compliance Audit Ready</li>
+                    </ul>
+                </div>
             </div>
         </section>
 

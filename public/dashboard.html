@@ -406,6 +406,104 @@
             background: rgba(102, 126, 234, 0.5);
         }
 
+        /* Pipeline Modules - Professional Flow Diagram */
+        .pipeline-modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .module {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 1.2rem 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .module:hover {
+            transform: translateY(-8px);
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+            box-shadow: 0 12px 28px rgba(102, 126, 234, 0.25);
+        }
+
+        .module-icon {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .module-name {
+            font-weight: 700;
+            color: #a5b4fc;
+            font-size: 0.85rem;
+            margin-bottom: 0.4rem;
+            letter-spacing: 0.3px;
+        }
+
+        .module-description {
+            font-size: 0.75rem;
+            color: #7c8dff;
+            line-height: 1.3;
+            min-height: 2.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .module-step {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 0 12px 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .pipeline-flow-info {
+            background: rgba(102, 126, 234, 0.05);
+            border-left: 3px solid #667eea;
+            padding: 1.2rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: #a5b4fc;
+            line-height: 1.7;
+        }
+
+        .pipeline-flow-info strong {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .pipeline-flow-info em {
+            color: #764ba2;
+            font-style: italic;
+        }
+
         /* Compliance & Accessibility Section */
         .compliance-grid {
             display: grid;
@@ -589,25 +687,76 @@
         </div>
 
         <!-- Workflow Pipeline Diagram -->
-        <div class="card" style="margin-bottom: 2rem; background: rgba(31, 41, 55, 0.6); border: 1px solid rgba(102, 126, 234, 0.3);">
+        <div class="card" style="margin-bottom: 2rem; background: rgba(31, 41, 55, 0.8); border: 1px solid rgba(102, 126, 234, 0.3);">
             <div class="card-header">
                 <span class="card-icon" aria-hidden="true">🏗️</span>
                 <h2 class="card-title">Autonomous Orchestration Pipeline</h2>
             </div>
-            <div style="padding: 1.5rem; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.8rem; line-height: 1.4; overflow-x: auto; color: #a5b4fc; background: rgba(15, 23, 42, 0.8); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.2);">
-                <pre style="margin: 0; color: #a5b4fc;">🚨 -1: RESCUE → 🔧 0: LINTING → 🧪 1: TESTING → 📊 SUMMARY → 🤖 AGENTS → 🔧 2: FIX → 🚀 3: SRE → 🛡️ 4: SAFEGUARDS → 🏥 FINAL
 
-• Phase -1: YAML validation & circuit breaker (prevents infinite loops)
-• Phase 0: Auto-fixes linting issues (prevents cascading failures)  
-• Phase 1: Jest • Vitest • Playwright • Cypress • Pa11y • Security scans (parallel)
-• Phase 1→2: SDET & Compliance agents analyze results concurrently
-• Phase 2: Fullstack agent applies intelligent code fixes & updates
-• Phase 3: SRE agent validates production readiness & infrastructure health
-• Phase 4: SAFEGUARDS - File protection, risk assessment, auto-rollback, audit trails (NEW! ✨)
-• Final: Health verification & loop detection</pre>
-            </div>
-            <div style="padding: 1rem; font-size: 0.9rem; color: #a5b4fc;">
-                <strong>✨ Key Features:</strong> Self-healing • Intelligent agents • Parallel execution • Zero manual intervention • Safe failures • <span style="color: #667eea; font-weight: 600;">Enterprise Agent Safeguards</span>
+            <!-- Professional Module Flow -->
+            <div style="padding: 0 1.5rem;">
+                <div class="pipeline-modules">
+                    <div class="module">
+                        <div class="module-step">-1</div>
+                        <div class="module-icon">🚨</div>
+                        <div class="module-name">RESCUE</div>
+                        <div class="module-description">YAML validation & circuit breaker</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">0</div>
+                        <div class="module-icon">🔧</div>
+                        <div class="module-name">LINTING</div>
+                        <div class="module-description">Auto-fix linting issues</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">1</div>
+                        <div class="module-icon">🧪</div>
+                        <div class="module-name">TESTING</div>
+                        <div class="module-description">Parallel test execution</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">1→2</div>
+                        <div class="module-icon">📊</div>
+                        <div class="module-name">ANALYSIS</div>
+                        <div class="module-description">Agent intelligence layer</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">2</div>
+                        <div class="module-icon">🤖</div>
+                        <div class="module-name">FIX</div>
+                        <div class="module-description">Intelligent code fixes</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">3</div>
+                        <div class="module-icon">🚀</div>
+                        <div class="module-name">SRE</div>
+                        <div class="module-description">Infrastructure validation</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">4</div>
+                        <div class="module-icon">🛡️</div>
+                        <div class="module-name">SAFEGUARDS</div>
+                        <div class="module-description">Enterprise protection</div>
+                    </div>
+                    <div class="module">
+                        <div class="module-step">✓</div>
+                        <div class="module-icon">🏥</div>
+                        <div class="module-name">FINAL</div>
+                        <div class="module-description">Verification & success</div>
+                    </div>
+                </div>
+
+                <div class="pipeline-flow-info">
+                    <strong>🎯 Pipeline Execution Flow:</strong><br/>
+                    <em>Phase -1:</em> Prevents infinite loops with YAML validation<br/>
+                    <em>Phase 0:</em> Auto-fixes prevent cascading test failures<br/>
+                    <em>Phase 1:</em> Jest • Vitest • Playwright • Cypress • Pa11y • Security (parallel)<br/>
+                    <em>Phase 1→2:</em> SDET & Compliance agents analyze results concurrently<br/>
+                    <em>Phase 2:</em> Fullstack agent applies intelligent fixes<br/>
+                    <em>Phase 3:</em> SRE validates production readiness<br/>
+                    <em>Phase 4:</em> Safeguards apply file protection & governance<br/>
+                    <em>Final:</em> Health verification & loop detection
+                </div>
             </div>
         </div>
 
