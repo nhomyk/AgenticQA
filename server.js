@@ -894,15 +894,24 @@ app.post("/api/github/connect", (req, res) => {
 // GitHub connection status endpoint
 app.get("/api/github/status", (req, res) => {
   try {
+    const hasEnvToken = !!process.env.GITHUB_TOKEN;
+    const hasConfigToken = !!(global.githubConfig && global.githubConfig.fullToken);
+    
     if (global.githubConfig) {
       res.json({
         status: "connected",
         repository: global.githubConfig.repository || "Not specified",
-        connectedAt: global.githubConfig.connectedAt
+        connectedAt: global.githubConfig.connectedAt,
+        hasEnvToken: hasEnvToken,
+        hasConfigToken: hasConfigToken,
+        tokenSource: hasEnvToken ? 'environment' : (hasConfigToken ? 'config' : 'none')
       });
     } else {
       res.json({
-        status: "disconnected"
+        status: "disconnected",
+        hasEnvToken: hasEnvToken,
+        hasConfigToken: hasConfigToken,
+        tokenSource: hasEnvToken ? 'environment' : (hasConfigToken ? 'config' : 'none')
       });
     }
   } catch (error) {
