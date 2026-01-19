@@ -663,6 +663,11 @@ app.post("/scan", async (req, res) => {
 // Workflow dispatch API endpoint
 app.post("/api/trigger-workflow", async (req, res) => {
   try {
+    // Disable caching for this endpoint
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const { pipelineType = "manual", branch = "main", pipelineName } = req.body;
     
     log("info", "🚀 Trigger workflow request received", { pipelineType, branch, pipelineName });
@@ -894,6 +899,11 @@ app.post("/api/github/connect", (req, res) => {
 // GitHub connection status endpoint
 app.get("/api/github/status", (req, res) => {
   try {
+    // Disable caching for this endpoint
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const hasEnvToken = !!process.env.GITHUB_TOKEN;
     const hasConfigToken = !!(global.githubConfig && global.githubConfig.fullToken);
     
