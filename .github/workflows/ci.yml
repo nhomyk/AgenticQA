@@ -417,7 +417,7 @@ jobs:
 
   # Phase 1.5: LLM Agent Validation (Promptfoo - Test agent prompts & outputs)
   llm-agent-validation:
-    needs: [phase-1-testing, phase-1-compliance-scans]
+    needs: [lint]
     runs-on: ubuntu-latest
     name: "Phase 1.5️⃣ LLM Agent Validation (Promptfoo)"
     steps:
@@ -449,7 +449,7 @@ jobs:
 
   # Phase 1.6: Advanced Security Scanning (Semgrep + Trivy)
   advanced-security-scan:
-    needs: [phase-1-testing, phase-1-compliance-scans]
+    needs: [lint]
     runs-on: ubuntu-latest
     name: "Phase 1.6🔒 Advanced Security Scanning"
     steps:
