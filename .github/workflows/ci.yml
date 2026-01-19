@@ -48,6 +48,7 @@ jobs:
   pipeline-rescue:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    timeout-minutes: 10
     name: 🚨 Pipeline Health Check & Emergency Repair
     permissions:
       contents: write
@@ -60,6 +61,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -122,13 +124,15 @@ jobs:
   linting-fix:
     needs: [pipeline-rescue]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: "🔧 Auto-Fix Linting Issues (SRE Agent)"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'          cache: 'npm'      - name: Install dependencies
+          node-version: '20'
+          cache: 'npm'          cache: 'npm'      - name: Install dependencies
         run: npm ci
       - name: Run ESLint auto-fix
         run: |
@@ -155,6 +159,7 @@ jobs:
   lint:
     needs: [linting-fix]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Code Linting
     steps:
       - uses: actions/checkout@v4
@@ -162,6 +167,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: Run ESLint
@@ -172,6 +178,7 @@ jobs:
   phase-1-testing:
     needs: [lint]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "Phase 1️⃣ Consolidated Testing"
     steps:
       - uses: actions/checkout@v4
@@ -179,6 +186,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       
@@ -267,6 +275,7 @@ jobs:
   # Phase 1: Compliance Scans (Pa11y, Security, Audit) - Matrix Strategy
   phase-1-compliance-scans:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: Accessibility & Security Compliance
     strategy:
       matrix:
@@ -280,6 +289,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
           cache: 'npm'
       
       - name: Install dependencies
@@ -340,12 +350,14 @@ jobs:
     needs: [phase-1-testing, phase-1-compliance-scans, llm-agent-validation, advanced-security-scan]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     name: "Phase 1️⃣ SDET Agent"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - run: npm ci
       - uses: actions/download-artifact@v4
         with:
@@ -372,6 +384,7 @@ jobs:
     needs: [phase-1-testing, phase-1-compliance-scans, llm-agent-validation, advanced-security-scan]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     name: "Phase 1️⃣ Compliance Agent"
     steps:
       - uses: actions/checkout@v4
@@ -379,6 +392,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: "🛡️  Run Compliance Agent - Analysis"
@@ -402,6 +416,7 @@ jobs:
   compliance-summary:
     needs: [sdet-agent, compliance-agent]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Compliance Summary
     if: always()
     
@@ -429,6 +444,7 @@ jobs:
   llm-agent-validation:
     needs: [phase-1-testing, phase-1-compliance-scans]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: "Phase 1.5️⃣ LLM Agent Validation (Promptfoo)"
     steps:
       - uses: actions/checkout@v4
@@ -436,6 +452,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: "🤖 Run Promptfoo - Validate Agent Prompts"
@@ -472,6 +489,7 @@ jobs:
   advanced-security-scan:
     needs: [phase-1-testing, phase-1-compliance-scans]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: "Phase 1.6🔒 Advanced Security Scanning"
     steps:
       - uses: actions/checkout@v4
@@ -479,6 +497,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
 
@@ -582,6 +601,7 @@ jobs:
     needs: [compliance-summary, llm-agent-validation, advanced-security-scan]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     name: "Phase 2️⃣ Fullstack Agent (Code & Compliance Fixes)"
     permissions:
       contents: write
@@ -609,6 +629,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: Set up git credentials
@@ -629,6 +650,7 @@ jobs:
     needs: [fullstack-agent]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: "Phase 2.5📊 Observability Setup (Prometheus & Jaeger)"
     steps:
       - uses: actions/checkout@v4
@@ -712,6 +734,7 @@ jobs:
     needs: [observability-setup]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     name: "Phase 3️⃣ SRE Agent (Pipeline & Production Fixes)"
     permissions:
       contents: write
@@ -724,6 +747,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
         run: npm ci
       - name: Set up git credentials
@@ -742,6 +766,7 @@ jobs:
     needs: [sre-agent]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: "Phase 4🔐 Safeguards Validation - Verify Agent Changes"
     permissions:
       contents: read
@@ -753,6 +778,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       
       - name: Install dependencies
         run: npm ci
@@ -834,6 +860,7 @@ jobs:
   pipeline-health-check:
     needs: [safeguards-validation]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: 🏥 Pipeline Health Verification
     if: always()
     steps:
