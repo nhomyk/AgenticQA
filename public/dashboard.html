@@ -1411,6 +1411,7 @@
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 padding: 1rem 1.5rem;
+                padding-top: 0.5rem;
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
                 z-index: 10000;
@@ -1418,6 +1419,36 @@
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
                 animation: slideIn 0.3s ease-out;
             `;
+
+            // Create close button
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 8px;
+                right: 10px;
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.5rem;
+                cursor: pointer;
+                padding: 0;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0.8;
+                transition: opacity 0.2s;
+            `;
+            closeBtn.onmouseover = () => closeBtn.style.opacity = '1';
+            closeBtn.onmouseout = () => closeBtn.style.opacity = '0.8';
+            closeBtn.onclick = (e) => {
+                e.stopPropagation();
+                clearTimeout(notification.autoCloseTimeout);
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => notification.remove(), 300);
+            };
 
             const titleEl = document.createElement('div');
             titleEl.style.cssText = `
@@ -1436,6 +1467,7 @@
             `;
             messageEl.textContent = message;
 
+            notification.appendChild(closeBtn);
             notification.appendChild(titleEl);
             notification.appendChild(messageEl);
             document.body.appendChild(notification);
@@ -1467,7 +1499,7 @@
             document.head.appendChild(style);
 
             // Remove after 4 seconds
-            setTimeout(() => {
+            notification.autoCloseTimeout = setTimeout(() => {
                 notification.style.animation = 'slideOut 0.3s ease-in';
                 setTimeout(() => {
                     notification.remove();
