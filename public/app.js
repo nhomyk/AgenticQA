@@ -225,9 +225,9 @@ function copyToClipboard(textOrElementId) {
 
 function generatePlaywrightExample(testCase, url, caseNum) {
   return `// Playwright Test ${caseNum}: ${testCase}\nconst { test, expect } = require('@playwright/test');\n\ntest('Test ${caseNum}: ${testCase}', async ({ page }) => {\n  await page.goto('${url}');\n  // TODO: Implement: ${testCase}\n  expect(true).toBe(true);\n});`;
-  }
+}
 
-  function generateCypressExample(testCase, url, caseNum) {
+function generateCypressExample(testCase, url, caseNum) {
   return `// Cypress Test Case ${caseNum}: ${testCase}\ndescribe('Test case ${caseNum}', () => {\n  it('should ${testCase.toLowerCase()}', () => {\n    cy.visit('${url}');\n    // TODO: Implement: ${testCase}\n    expect(true).to.be.true;\n  });\n});`;
 }
 

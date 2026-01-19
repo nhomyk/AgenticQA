@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>orbitQA.ai Settings - GitHub Integration & Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%);
+            color: #e0e7ff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #a5b4fc;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: #667eea;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Page Header */
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-header p {
+            color: #a5b4fc;
+            font-size: 1rem;
+        }
+
+        /* Settings Tabs */
+        .settings-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+            overflow-x: auto;
+        }
+
+        .tab-button {
+            padding: 1rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #a5b4fc;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+
+        .tab-button:hover {
+            color: #667eea;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Card Styling */
+        .card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(102, 126, 234, 0.5);
+            background: rgba(30, 41, 59, 0.95);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #e0e7ff;
+        }
+
+        .card p {
+            color: #a5b4fc;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        /* GitHub Status */
+        .github-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .github-status.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .status-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .github-status.disconnected .status-indicator {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+            }
+        }
+
+        .status-text h3 {
+            color: #e0e7ff;
+            margin-bottom: 0.25rem;
+        }
+
+        .status-text p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #e0e7ff;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="email"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 6px;
+            color: #e0e7ff;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(15, 23, 42, 0.8);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-help {
+            color: #a5b4fc;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #667eea;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+        }
+
+        /* Button Groups */
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+
+        .instructions h4 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .instructions ol {
+            margin-left: 1.5rem;
+            color: #a5b4fc;
+            line-height: 1.8;
+        }
+
+        .instructions li {
+            margin-bottom: 0.5rem;
+        }
+
+        .instructions code {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            color: #a5b4fc;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Connection Status Details */
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .detail-item {
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 6px;
+        }
+
+        .detail-label {
+            color: #a5b4fc;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .detail-value {
+            color: #e0e7ff;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        /* Loading State */
+        .loading {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #667eea;
+            margin-left: 0.5rem;
+            animation: dots 1.4s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20%, 50%, 80%, 100% {
+                opacity: 1;
+            }
+            40% {
+                opacity: 0.5;
+            }
+            60% {
+                opacity: 0.8;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .page-header h1 {
+                font-size: 1.8rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .tab-button {
+                padding: 0.75rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/dashboard.html" class="logo">🚀 orbitQA.ai</a>
+            <ul class="nav-links">
+                <li><a href="/dashboard.html">← Back to Dashboard</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="page-header">
+            <h1>⚙️ Settings</h1>
+            <p>Configure GitHub integration and manage your CI/CD pipeline</p>
+        </div>
+
+        <!-- Alerts -->
+        <div id="successAlert" class="alert alert-success show" style="display: none;"></div>
+        <div id="errorAlert" class="alert alert-error show" style="display: none;"></div>
+        <div id="infoAlert" class="alert alert-info show" style="display: none;"></div>
+
+        <!-- Settings Tabs -->
+        <div class="settings-tabs">
+            <button class="tab-button active" onclick="switchTab('github')">
+                <span style="font-size: 1.2rem;">🔗</span> GitHub Integration
+            </button>
+            <button class="tab-button" onclick="switchTab('organization')">
+                <span style="font-size: 1.2rem;">🏢</span> Organization
+            </button>
+            <button class="tab-button" onclick="switchTab('workflows')">
+                <span style="font-size: 1.2rem;">⚙️</span> Workflows
+            </button>
+        </div>
+
+        <!-- GitHub Integration Tab -->
+        <div id="github" class="tab-content active">
+            <!-- GitHub Status -->
+            <div id="githubStatus" class="github-status disconnected">
+                <div class="status-indicator"></div>
+                <div class="status-text">
+                    <h3>GitHub Not Connected</h3>
+                    <p id="statusMessage">Click "Connect GitHub" below to link your GitHub account</p>
+                </div>
+            </div>
+
+            <!-- GitHub Connection Card -->
+            <div class="card">
+                <h2>🔗 Connect GitHub Account</h2>
+                <p>Link your GitHub account to enable CI/CD pipeline triggering directly from the dashboard. This is simple and secure - we only need access to trigger workflows in your repositories.</p>
+
+                <div class="instructions">
+                    <h4>Quick Setup (Recommended)</h4>
+                    <ol>
+                        <li>Click the "Login with GitHub" button below</li>
+                        <li>Authorize orbitQA to access your GitHub account</li>
+                        <li>Select which repository to connect</li>
+                        <li>Done! Your pipeline is ready to trigger</li>
+                    </ol>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="loginWithGitHub()" id="githubLoginBtn">
+                        ✅ Login with GitHub
+                    </button>
+                    <button class="btn btn-secondary" onclick="showManualTokenTab()" id="manualTokenBtn">
+                        🔑 Use Personal Access Token (Advanced)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Manual Token Setup (Initially Hidden) -->
+            <div class="card" id="manualTokenCard" style="display: none; border-left: 4px solid #667eea;">
+                <h2>🔑 Manual GitHub Setup</h2>
+                <p>If you prefer not to use GitHub OAuth, you can manually create a Personal Access Token for more control.</p>
+
+                <div class="instructions">
+                    <h4>Create a Personal Access Token</h4>
+                    <ol>
+                        <li>Go to <code>github.com/settings/tokens/new</code></li>
+                        <li>Give it a name like "orbitQA Pipeline"</li>
+                        <li>Select scopes:
+                            <ul style="margin: 0.5rem 0 0 1.5rem;">
+                                <li><code>repo</code> - Full control of private repositories</li>
+                                <li><code>workflow</code> - Update GitHub Actions workflows</li>
+                                <li><code>admin:repo_hook</code> - Full control of repository hooks</li>
+                            </ul>
+                        </li>
+                        <li>Generate the token and paste it below</li>
+                        <li>Copy it somewhere safe - you won't see it again!</li>
+                    </ol>
+                </div>
+
+                <div class="form-group">
+                    <label for="githubToken">GitHub Personal Access Token</label>
+                    <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" aria-label="GitHub personal access token">
+                    <div class="form-help">Your token is encrypted and never transmitted insecurely</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="githubRepo">Repository (optional)</label>
+                    <input type="text" id="githubRepo" placeholder="username/repository" aria-label="GitHub repository in format username/repository">
+                    <div class="form-help">Format: username/repository (e.g., nicholashomyk/AgenticQA)</div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="saveGitHubToken()">
+                        💾 Save Token
+                    </button>
+                    <button class="btn btn-secondary" onclick="hideManualTokenTab()">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Connected Status (Initially Hidden) -->
+            <div class="card" id="connectedCard" style="display: none;">
+                <h2>✅ GitHub Connected</h2>
+                
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Account</div>
+                        <div class="detail-value" id="connectedAccount">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Repository</div>
+                        <div class="detail-value" id="connectedRepo">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Workflow File</div>
+                        <div class="detail-value" id="connectedWorkflow">ci.yml</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Last Used</div>
+                        <div class="detail-value" id="lastUsed">Never</div>
+                    </div>
+                </div>
+
+                <div class="button-group" style="margin-top: 1.5rem;">
+                    <button class="btn btn-secondary" onclick="testGitHubConnection()">
+                        🧪 Test Connection
+                    </button>
+                    <button class="btn btn-danger" onclick="disconnectGitHub()">
+                        🔓 Disconnect GitHub
+                    </button>
+                </div>
+            </div>
+
+            <!-- Workflow Trigger Test -->
+            <div class="card" id="triggerTestCard" style="display: none;">
+                <h2>🚀 Test Pipeline Trigger</h2>
+                <p>Try triggering a workflow to make sure everything is working correctly.</p>
+
+                <div class="form-group">
+                    <label for="testBranch">Branch</label>
+                    <input type="text" id="testBranch" placeholder="main" value="main" aria-label="Git branch to test trigger">
+                    <div class="form-help">The branch to trigger the workflow on</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="testWorkflow">Workflow Type</label>
+                    <select id="testWorkflow" aria-label="Workflow type to test">
+                        <option value="full">Full CI/CD Pipeline</option>
+                        <option value="tests">Tests Only</option>
+                        <option value="security">Security Scan</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary" onclick="triggerTestWorkflow()">
+                    🧪 Test Trigger
+                </button>
+            </div>
+        </div>
+
+        <!-- Organization Tab -->
+        <div id="organization" class="tab-content">
+            <div class="card">
+                <h2>🏢 Organization Settings</h2>
+                <p>Currently viewing the default organization. Multi-organization support coming soon.</p>
+
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Organization Name</div>
+                        <div class="detail-value">Default Organization</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Tier</div>
+                        <div class="detail-value">Developer</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Members</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Created</div>
+                        <div class="detail-value" id="orgCreated">Jan 19, 2026</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workflows Tab -->
+        <div id="workflows" class="tab-content">
+            <div class="card">
+                <h2>⚙️ Workflow Configuration</h2>
+                <p>Manage which workflows can be triggered from the dashboard.</p>
+
+                <div class="form-group">
+                    <label for="workflowFile">Workflow File</label>
+                    <input type="text" id="workflowFile" placeholder=".github/workflows/ci.yml" value=".github/workflows/ci.yml" aria-label="Path to workflow file" disabled>
+                    <div class="form-help">The workflow file to trigger (currently: <code>.github/workflows/ci.yml</code>)</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Available Trigger Types</label>
+                    <div style="display: grid; gap: 0.75rem; margin-top: 0.5rem;">
+                        <div style="padding: 1rem; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
+                            <div style="font-weight: 600; color: #667eea; margin-bottom: 0.25rem;">Full CI/CD Pipeline</div>
+                            <div style="color: #a5b4fc; font-size: 0.9rem;">Runs all 8 phases including safeguards and final verification</div>
+                        </div>
+                        <div style="padding: 1rem; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
+                            <div style="font-weight: 600; color: #667eea; margin-bottom: 0.25rem;">Tests Only</div>
+                            <div style="color: #a5b4fc; font-size: 0.9rem;">Runs only test-related phases (Jest, Vitest, Playwright, Cypress)</div>
+                        </div>
+                        <div style="padding: 1rem; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px;">
+                            <div style="font-weight: 600; color: #667eea; margin-bottom: 0.25rem;">Security Scan</div>
+                            <div style="color: #a5b4fc; font-size: 0.9rem;">Runs only security-related checks and compliance audits</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize settings page
+        document.addEventListener('DOMContentLoaded', async () => {
+            checkGitHubConnection();
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Remove active from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+
+            // Mark button as active
+            event.target.closest('.tab-button').classList.add('active');
+        }
+
+        // GitHub Integration Functions
+        async function checkGitHubConnection() {
+            try {
+                const response = await fetch('/api/github/status', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.connected) {
+                    showConnectedStatus(data);
+                } else {
+                    showDisconnectedStatus();
+                }
+            } catch (error) {
+                console.log('GitHub integration not yet configured');
+                showDisconnectedStatus();
+            }
+        }
+
+        function showConnectedStatus(data) {
+            document.getElementById('githubStatus').classList.remove('disconnected');
+            document.getElementById('statusMessage').textContent = `Connected as ${data.account}`;
+
+            document.getElementById('connectedAccount').textContent = data.account || '—';
+            document.getElementById('connectedRepo').textContent = data.repository || '—';
+            document.getElementById('lastUsed').textContent = data.lastUsed || 'Never';
+
+            document.getElementById('githubLoginBtn').style.display = 'none';
+            document.getElementById('manualTokenBtn').style.display = 'none';
+            document.getElementById('manualTokenCard').style.display = 'none';
+            document.getElementById('connectedCard').style.display = 'block';
+            document.getElementById('triggerTestCard').style.display = 'block';
+        }
+
+        function showDisconnectedStatus() {
+            document.getElementById('githubStatus').classList.add('disconnected');
+            document.getElementById('statusMessage').textContent = 'Click "Connect GitHub" below to link your GitHub account';
+
+            document.getElementById('githubLoginBtn').style.display = 'inline-block';
+            document.getElementById('manualTokenBtn').style.display = 'inline-block';
+            document.getElementById('connectedCard').style.display = 'none';
+            document.getElementById('triggerTestCard').style.display = 'none';
+        }
+
+        async function loginWithGitHub() {
+            showAlert('Opening GitHub login...', 'info');
+            
+            // In a real application, this would redirect to GitHub OAuth
+            // For now, show the manual token option
+            showAlert('GitHub OAuth coming soon. Use Personal Access Token below.', 'info');
+            showManualTokenTab();
+        }
+
+        function showManualTokenTab() {
+            document.getElementById('manualTokenCard').style.display = 'block';
+            document.getElementById('githubToken').focus();
+        }
+
+        function hideManualTokenTab() {
+            document.getElementById('manualTokenCard').style.display = 'none';
+        }
+
+        async function saveGitHubToken() {
+            const token = document.getElementById('githubToken').value;
+            const repo = document.getElementById('githubRepo').value;
+
+            if (!token) {
+                showAlert('Please enter a GitHub Personal Access Token', 'error');
+                return;
+            }
+
+            try {
+                const btn = event.target;
+                btn.disabled = true;
+                btn.textContent = '💾 Saving...';
+
+                const response = await fetch('/api/github/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        repository: repo
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ GitHub account connected successfully!', 'success');
+                    hideManualTokenTab();
+                    await new Promise(r => setTimeout(r, 1500));
+                    checkGitHubConnection();
+                } else {
+                    showAlert(`❌ ${data.error}`, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = '💾 Save Token';
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+                event.target.disabled = false;
+                event.target.textContent = '💾 Save Token';
+            }
+        }
+
+        async function testGitHubConnection() {
+            try {
+                const btn = event.target;
+                btn.disabled = true;
+                btn.textContent = '🧪 Testing...';
+
+                const response = await fetch('/api/github/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ GitHub connection test passed!', 'success');
+                } else {
+                    showAlert(`❌ Test failed: ${data.error}`, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = '🧪 Test Connection';
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+                event.target.disabled = false;
+                event.target.textContent = '🧪 Test Connection';
+            }
+        }
+
+        async function triggerTestWorkflow() {
+            const branch = document.getElementById('testBranch').value || 'main';
+            const workflowType = document.getElementById('testWorkflow').value;
+
+            try {
+                const btn = event.target;
+                btn.disabled = true;
+                btn.textContent = '⏳ Triggering...';
+
+                const response = await fetch('/api/trigger-workflow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        pipelineType: workflowType,
+                        branch: branch
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert(`✅ Workflow triggered! Status: ${data.message}`, 'success');
+                    await new Promise(r => setTimeout(r, 1500));
+                    checkGitHubConnection();
+                } else {
+                    showAlert(`❌ Failed to trigger: ${data.error}`, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = '🧪 Test Trigger';
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+                event.target.disabled = false;
+                event.target.textContent = '🧪 Test Trigger';
+            }
+        }
+
+        async function disconnectGitHub() {
+            if (!confirm('Are you sure you want to disconnect GitHub? You won\'t be able to trigger pipelines from the dashboard.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/github/disconnect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ GitHub account disconnected', 'success');
+                    await new Promise(r => setTimeout(r, 1500));
+                    checkGitHubConnection();
+                } else {
+                    showAlert(`❌ ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Alert Helper
+        function showAlert(message, type) {
+            const alertId = type === 'success' ? 'successAlert' : type === 'error' ? 'errorAlert' : 'infoAlert';
+            const alertEl = document.getElementById(alertId);
+            alertEl.textContent = message;
+            alertEl.classList.add('show');
+
+            setTimeout(() => {
+                alertEl.classList.remove('show');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

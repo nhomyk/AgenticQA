@@ -33,20 +33,20 @@ describe('UI Display Tests - Dashboard', () => {
       expect(htmlContent).toContain('Overview');
     });
 
-    test('HTML contains Features tab', () => {
-      expect(htmlContent).toContain('Features');
+    test('HTML contains Who We Are tab', () => {
+      expect(htmlContent).toContain('Who We Are');
     });
 
-    test('HTML contains Use Cases tab', () => {
-      expect(htmlContent).toContain('Use Cases');
+    test('HTML contains Consulting Services tab', () => {
+      expect(htmlContent).toContain('Consulting Services');
     });
 
-    test('HTML contains Technical tab', () => {
-      expect(htmlContent).toContain('Technical');
+    test('HTML contains Architecture tab', () => {
+      expect(htmlContent).toContain('Architecture');
     });
 
-    test('HTML contains Pricing tab', () => {
-      expect(htmlContent).toContain('Pricing');
+    test('HTML contains Compliance tab', () => {
+      expect(htmlContent).toContain('Compliance');
     });
   });
 

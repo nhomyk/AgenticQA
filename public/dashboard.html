@@ -55,16 +55,22 @@
             align-items: center;
         }
 
-        .nav-links a {
+        .nav-links a,
+        .nav-links button {
             color: #a5b4fc;
             text-decoration: none;
             font-size: 0.95rem;
             transition: all 0.3s ease;
             display: inline-block;
+            background: none;
+            border: none;
+            cursor: pointer;
         }
 
         .nav-links a:hover,
-        .nav-links a.active {
+        .nav-links a.active,
+        .nav-links button:hover,
+        .nav-links button.active {
             color: #667eea;
             font-weight: 600;
         }
@@ -673,7 +679,7 @@
                 <li><a href="/index.html">Home</a></li>
                 <li><a href="/index.html#features">Features</a></li>
                 <li><a href="/dashboard.html" class="active">📊 Dashboard</a></li>
-                <li><a href="/scanner.html">Scanner</a></li>
+                <li><button onclick="window.location.href='/settings.html'" style="font-size: 1.1rem;">⚙️</button></li>
             </ul>
         </div>
     </nav>
@@ -1171,6 +1177,23 @@
             queryAgent();
         }
 
+        // Check GitHub connection before launching pipeline
+        async function checkGitHubConnectionBefore() {
+            try {
+                const response = await fetch('/api/github/status', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                return data.connected;
+            } catch (error) {
+                return false;
+            }
+        }
+
         // Kickoff pipeline
         async function kickoffPipeline() {
             const pipelineType = document.getElementById('pipelineType').value;
@@ -1178,6 +1201,13 @@
             const launchBtn = document.querySelector('.kickoff-section .btn-primary');
 
             try {
+                // Check if GitHub is connected
+                const isConnected = await checkGitHubConnectionBefore();
+                if (!isConnected) {
+                    showAlert('⚠️ GitHub is not connected. Go to Settings to connect your GitHub account.', 'error');
+                    return;
+                }
+
                 // Disable button during request
                 launchBtn.disabled = true;
                 launchBtn.textContent = '⏳ Launching...';
