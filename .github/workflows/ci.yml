@@ -1,5 +1,5 @@
 name: AgenticQA - Self-Healing CI/CD Pipeline
-run-name: ${{ github.event.inputs.reason != '' && github.event.inputs.reason || format('AgenticQA - Pipeline #{0}', github.run_number) }}
+run-name: ${{ github.event.inputs.reason }}
 on:
   push:
     branches: [ main ]
