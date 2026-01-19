@@ -2608,4 +2608,91 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { agenticSRELoop, detectAndFixLintingErrors };
+// ========== DUPLICATE FILE DETECTION & CLEANUP ==========
+// Identifies duplicate files that should be consolidated or removed
+
+async function detectDuplicateFiles(directoryPath = '.') {
+  const crypto = require('crypto');
+  const duplicates = {};
+  const fileHashes = {};
+
+  async function hashFile(filePath) {
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash('sha256');
+      const stream = fs.createReadStream(filePath);
+      stream.on('data', data => hash.update(data));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', reject);
+    });
+  }
+
+  async function walkDirectory(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || 
+          ['node_modules', 'dist', 'coverage', '.git'].includes(entry.name)) {
+        continue;
+      }
+
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory()) {
+        await walkDirectory(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.html')) {
+        try {
+          const hash = await hashFile(fullPath);
+          const fileSize = fs.statSync(fullPath).size;
+          
+          if (!fileHashes[hash]) {
+            fileHashes[hash] = [];
+          }
+          fileHashes[hash].push({ path: fullPath, size: fileSize });
+        } catch (err) {
+          // Skip unreadable files
+        }
+      }
+    }
+  }
+
+  await walkDirectory(directoryPath);
+
+  // Find duplicates
+  for (const [hash, files] of Object.entries(fileHashes)) {
+    if (files.length > 1) {
+      duplicates[hash] = files;
+    }
+  }
+
+  return duplicates;
+}
+
+async function reportDuplicateFiles(duplicates) {
+  if (Object.keys(duplicates).length === 0) {
+    console.log('✅ No duplicate files detected');
+    return;
+  }
+
+  console.log('\n🔍 DUPLICATE FILES DETECTED:\n');
+  let totalDuplicates = 0;
+
+  for (const [hash, files] of Object.entries(duplicates)) {
+    console.log(`📋 Hash: ${hash.substring(0, 8)}...`);
+    console.log(`   Found ${files.length} identical files:`);
+    files.forEach((file, idx) => {
+      console.log(`   ${idx === 0 ? '✓' : '✗'} [${idx === 0 ? 'KEEP' : 'DELETE'}] ${file.path} (${(file.size / 1024).toFixed(1)} KB)`);
+      if (idx > 0) totalDuplicates++;
+    });
+    console.log();
+  }
+
+  console.log(`⚠️  ${totalDuplicates} duplicate file(s) can be safely removed`);
+  return totalDuplicates;
+}
+
+module.exports = { 
+  agenticSRELoop, 
+  detectAndFixLintingErrors,
+  detectDuplicateFiles,
+  reportDuplicateFiles
+};

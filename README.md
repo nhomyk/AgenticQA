@@ -403,6 +403,25 @@ npx eslint . --ext .js  # ESLint linting
 	 Go to [http://localhost:3000](http://localhost:3000) in your browser. Enter a URL to scan.
 
 
+## How OrbitQA Compares to Competitors
+
+OrbitQA stands apart through **circular self-healing architecture** where agents test agents, creating unprecedented autonomy and reliability. 
+
+### Quick Comparison
+
+| Feature | **OrbitQA** | Testim | Applitools | BrowserStack | Sauce Labs |
+|---------|-----------|--------|-----------|--------|-----------|
+| **Autonomous Test Generation** | ✅ AI-native agents | ⚠️ Limited ML | ⚠️ Partial | ❌ No | ❌ No |
+| **Self-Healing Tests** | ✅ Circular agent loop | ⚠️ ML-based | ⚠️ Visual only | ❌ No | ❌ No |
+| **Agent-on-Agent Testing** | ✅ Unique | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Compliance Automation** | ✅ Built-in | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Cost Model** | Usage-based agents | Seat-based | Seat-based | Device-based | Device-based |
+| **Learning Loop** | Continuous (circular) | Periodic | Snapshot-based | N/A | N/A |
+
+**[View Full Competitor Analysis →](./COMPETITOR_COMPARISON.md)**
+
+---
+
 ## Features
 
 - **Scan Results:**
