@@ -44,7 +44,7 @@ An intelligent, self-healing CI/CD pipeline with 13 phases orchestrating special
 
 ---
 
-**Our team brings decades of deep expertise in tech architecture, AI systems, and enterprise software.**
+**Our team brings decades of deep expertise in system architecture, AI systems, and enterprise software.**
 
 We've spent decades:
 - **Building High-Tech Systems** for Fortune 500 companies, consulting groups, and multinational enterprises
@@ -94,7 +94,7 @@ Our team doesn't just build software—we architect strategic technology advanta
 
 ## 💼 Consulting Services
 
-Beyond orbitQA.ai, we offer strategic consulting across a comprehensive range of high-impact projects. Our decades of tech architecture expertise enables us to deliver solutions that drive real business value.
+Beyond orbitQA.ai, we offer strategic consulting across a comprehensive range of high-impact projects. Our decades of system architecture expertise enables us to deliver solutions that drive real business value.
 
 ### AI Transformations
 Reimagine your entire SDLC with autonomous AI agents. We design and implement intelligent systems that reduce manual work, improve quality, and accelerate delivery. From compliance automation to intelligent testing, we transform how your organization builds software.

@@ -14,7 +14,7 @@ We've successfully created a compelling new "Who We Are" tab and updated the mes
 **Features:**
 - Professional hero section with team tagline
 - 6 comprehensive expertise cards covering:
-  - 15+ Years of Tech Architecture
+  - 15+ Years of System Architecture
   - AI Agents Beyond Public Data
   - Cutting-Edge Technology Stack
   - Global & Enterprise Experience
@@ -45,7 +45,7 @@ We've successfully created a compelling new "Who We Are" tab and updated the mes
 ### 3. Updated README.md
 
 **New "Who We Are" Section:**
-- Explains the team's 15+ years in tech architecture
+- Explains the team's 15+ years in system architecture
 - Highlights experience with Fortune 500, consulting groups, multinational enterprises
 - Emphasizes 0-1 startup scaling expertise
 - Explains how domain expertise is embedded in AI agents
