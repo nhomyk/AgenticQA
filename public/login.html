@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>orbitQA SaaS Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 2rem;
+        }
+
+        .logo {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .status {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            color: #166534;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            color: #374151;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .toggle {
+            text-align: center;
+            margin-top: 1rem;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .toggle a {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .toggle a:hover {
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            color: #166534;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .demo-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .demo-info strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🚀</div>
+        <h1>orbitQA Dashboard</h1>
+        <p class="subtitle">Enterprise QA & Compliance Platform</p>
+
+        <div class="status">✅ Connected to API</div>
+
+        <div class="demo-info">
+            <strong>Demo Account:</strong>
+            Email: demo@orbitqa.ai<br>
+            Password: demo123
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-section">
+            <div id="login-error" class="error hidden"></div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="login-email" placeholder="Enter your email" value="demo@orbitqa.ai">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="Enter your password" value="demo123">
+            </div>
+            <button onclick="login()">Sign In</button>
+            <div class="toggle">
+                Don't have an account? <a onclick="toggleForms()">Create one</a>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-section" class="hidden">
+            <div id="register-error" class="error hidden"></div>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="register-name" placeholder="Your name">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="register-email" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="register-password" placeholder="Create a password">
+            </div>
+            <div class="form-group">
+                <label>Organization</label>
+                <input type="text" id="register-org" placeholder="Your company">
+            </div>
+            <button onclick="register()">Create Account</button>
+            <div class="toggle">
+                Already have an account? <a onclick="toggleForms()">Sign in</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001';
+
+        function toggleForms() {
+            document.getElementById('login-section').classList.toggle('hidden');
+            document.getElementById('register-section').classList.toggle('hidden');
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            if (!email || !password) {
+                showError(errorDiv, 'Email and password required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showError(errorDiv, data.error || 'Login failed');
+                    return;
+                }
+
+                // Store token and redirect
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                window.location.href = '/dashboard.html?token=' + data.token;
+            } catch (error) {
+                showError(errorDiv, 'Connection error: ' + error.message);
+            }
+        }
+
+        async function register() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const organization = document.getElementById('register-org').value;
+            const errorDiv = document.getElementById('register-error');
+
+            if (!name || !email || !password) {
+                showError(errorDiv, 'All fields required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, organization })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showError(errorDiv, data.error || 'Registration failed');
+                    return;
+                }
+
+                // Store token and redirect
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                window.location.href = '/dashboard.html?token=' + data.token;
+            } catch (error) {
+                showError(errorDiv, 'Connection error: ' + error.message);
+            }
+        }
+
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.remove('hidden');
+        }
+
+        // Auto-fill demo credentials on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('login-email').value = 'demo@orbitqa.ai';
+            document.getElementById('login-password').value = 'demo123';
+        });
+    </script>
+</body>
+</html>
