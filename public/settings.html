@@ -766,10 +766,15 @@
 
         function showManualTokenTab() {
             document.getElementById('manualTokenCard').style.display = 'block';
+            // Scroll the card into view
+            document.getElementById('manualTokenCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             document.getElementById('githubToken').focus();
         }
 
         function hideManualTokenTab() {
+            // Clear form fields when hiding
+            document.getElementById('githubToken').value = '';
+            document.getElementById('githubRepo').value = '';
             document.getElementById('manualTokenCard').style.display = 'none';
         }
 
