@@ -664,9 +664,9 @@ app.post("/scan", async (req, res) => {
 app.post("/api/trigger-workflow", async (req, res) => {
   try {
     // Disable caching for this endpoint
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     
     const { pipelineType = "manual", branch = "main", pipelineName } = req.body;
     
@@ -900,9 +900,9 @@ app.post("/api/github/connect", (req, res) => {
 app.get("/api/github/status", (req, res) => {
   try {
     // Disable caching for this endpoint
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     
     const hasEnvToken = !!process.env.GITHUB_TOKEN;
     const hasConfigToken = !!(global.githubConfig && global.githubConfig.fullToken);
@@ -914,14 +914,14 @@ app.get("/api/github/status", (req, res) => {
         connectedAt: global.githubConfig.connectedAt,
         hasEnvToken: hasEnvToken,
         hasConfigToken: hasConfigToken,
-        tokenSource: hasEnvToken ? 'environment' : (hasConfigToken ? 'config' : 'none')
+        tokenSource: hasEnvToken ? "environment" : (hasConfigToken ? "config" : "none")
       });
     } else {
       res.json({
         status: "disconnected",
         hasEnvToken: hasEnvToken,
         hasConfigToken: hasConfigToken,
-        tokenSource: hasEnvToken ? 'environment' : (hasConfigToken ? 'config' : 'none')
+        tokenSource: hasEnvToken ? "environment" : (hasConfigToken ? "config" : "none")
       });
     }
   } catch (error) {
