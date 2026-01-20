@@ -1240,9 +1240,9 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
 
     const branchToTrigger = branch || 'main';
     
-    // 🔄 AUTO-DEPLOY: Ensure workflow has correct inputs by deploying it if needed
+    // 🔄 AUTO-DEPLOY: Ensure workflow has full pipeline by deploying if needed
     try {
-      console.log('[Trigger Workflow] Ensuring workflow file has pipeline_name input...');
+      console.log('[Trigger Workflow] Ensuring workflow file has full pipeline...');
       const [owner, repo] = connection.repository.split('/');
       
       // Try to fetch existing workflow
@@ -1264,7 +1264,9 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
         const existingFile = await checkFetch.json();
         existingSha = existingFile.sha;
         const content = Buffer.from(existingFile.content, 'base64').toString('utf-8');
-        if (content.includes('pipeline_name:')) {
+        // Check if workflow has the full pipeline (lint job exists)
+        // If it doesn't have lint job, it's the old minimal workflow - needs update
+        if (content.includes('lint:') && content.includes('  unit-test:') && content.includes('  test-playwright:')) {
           needsUpdate = false;
         }
       }
