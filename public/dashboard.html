@@ -948,6 +948,39 @@
                     </div>
                 </div>
 
+                <!-- Client Self-Service Setup Section -->
+                <div class="card" id="setupSection" style="display: none;">
+                    <div class="card-header">
+                        <span class="card-icon" aria-hidden="true">⚙️</span>
+                        <h2 class="card-title">Setup AgenticQA Pipeline</h2>
+                    </div>
+                    <p style="color: #a5b4fc; margin-bottom: 1rem; font-size: 0.9rem;">
+                        Connect your GitHub repository to automatically run the AgenticQA pipeline on every push.
+                    </p>
+                    <div class="query-input-group">
+                        <label for="setupRepoUrl">GitHub Repository URL</label>
+                        <input type="text" id="setupRepoUrl" placeholder="https://github.com/your-username/your-repo" tabindex="0" aria-label="Enter your GitHub repository URL" style="padding: 0.75rem; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px; color: #e0e7ff;">
+                    </div>
+                    <div class="query-input-group">
+                        <label for="setupGithubToken">GitHub Personal Access Token</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="password" id="setupGithubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" tabindex="0" aria-label="Enter your GitHub Personal Access Token" style="flex: 1; padding: 0.75rem; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 6px; color: #e0e7ff;">
+                            <button class="btn btn-secondary" onclick="toggleTokenVisibility()" style="padding: 0.75rem 1rem;">👁️</button>
+                        </div>
+                        <small style="color: #a5b4fc; margin-top: 0.5rem; display: block;">
+                            📖 <a href="https://github.com/settings/tokens" target="_blank" style="color: #667eea; text-decoration: none;">Generate a token</a> with <code>repo</code> and <code>actions</code> scopes
+                        </small>
+                    </div>
+                    <div class="query-input-group">
+                        <button class="btn btn-primary" id="setupSubmitBtn" onclick="setupClientPipeline()" style="width: 100%; padding: 0.75rem;">
+                            ✨ Setup Pipeline
+                        </button>
+                    </div>
+                    <div id="setupStatus" style="margin-top: 1rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-radius: 8px; display: none; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <p id="setupStatusText" style="color: #a5b4fc;"></p>
+                    </div>
+                </div>
+
                 <!-- Agent Interaction Section -->
                 <div class="card">
                     <div class="card-header">
@@ -1755,6 +1788,111 @@
 
         // Initialize client mode on page load
         document.addEventListener('DOMContentLoaded', initializeClientMode);
+
+        // ===== SELF-SERVICE SETUP FUNCTIONS =====
+
+        function toggleTokenVisibility() {
+            const tokenInput = document.getElementById('setupGithubToken');
+            const isPassword = tokenInput.type === 'password';
+            tokenInput.type = isPassword ? 'text' : 'password';
+        }
+
+        async function setupClientPipeline() {
+            const repoUrl = document.getElementById('setupRepoUrl').value.trim();
+            const githubToken = document.getElementById('setupGithubToken').value.trim();
+            const submitBtn = document.getElementById('setupSubmitBtn');
+            const statusDiv = document.getElementById('setupStatus');
+            const statusText = document.getElementById('setupStatusText');
+
+            // Validate inputs
+            if (!repoUrl || !githubToken) {
+                showAlert('❌ Please enter both repository URL and GitHub token', 'error');
+                return;
+            }
+
+            if (!repoUrl.includes('github.com')) {
+                showAlert('❌ Please enter a valid GitHub repository URL', 'error');
+                return;
+            }
+
+            // Show status and disable button
+            statusDiv.style.display = 'block';
+            statusText.innerHTML = '⏳ Setting up pipeline...';
+            statusText.style.color = '#667eea';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Setting up...';
+
+            try {
+                const response = await fetch('/api/setup-self-service', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        repoUrl,
+                        githubToken
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusText.innerHTML = `
+                        ✅ <strong>Setup Complete!</strong><br>
+                        <span style="color: #a5b4fc; font-size: 0.9rem;">
+                            Client ID: <code style="color: #667eea;">${data.clientId}</code><br>
+                            <br>
+                            Your workflow file has been created at:<br>
+                            <code style="color: #667eea;">.github/workflows/agentic-qa.yml</code><br>
+                            <br>
+                            <strong>Next steps:</strong><br>
+                            1. Push your next change to GitHub<br>
+                            2. Workflow runs automatically<br>
+                            3. <a href="${data.dashboardUrl}" target="_blank" style="color: #667eea; text-decoration: underline;">View results on dashboard</a>
+                        </span>
+                    `;
+                    statusText.style.color = '#10b981';
+
+                    // Clear inputs after success
+                    setTimeout(() => {
+                        document.getElementById('setupRepoUrl').value = '';
+                        document.getElementById('setupGithubToken').value = '';
+                    }, 2000);
+                } else {
+                    statusText.innerHTML = `
+                        ❌ <strong>Setup Failed</strong><br>
+                        <span style="color: #fca5a5; font-size: 0.9rem;">
+                            ${data.error}<br>
+                            ${data.details ? `<small>${data.details}</small>` : ''}
+                        </span>
+                    `;
+                    statusText.style.color = '#fca5a5';
+                }
+            } catch (error) {
+                statusText.innerHTML = `
+                    ❌ <strong>Error</strong><br>
+                    <span style="color: #fca5a5; font-size: 0.9rem;">
+                        ${error.message}
+                    </span>
+                `;
+                statusText.style.color = '#fca5a5';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '✨ Setup Pipeline';
+            }
+        }
+
+        // Show setup page if no client ID in URL
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientId = urlParams.get('client');
+
+            if (!clientId) {
+                // Show setup section if not in client mode
+                const setupSection = document.getElementById('setupSection');
+                if (setupSection && !window.SETUP_PAGE_HIDDEN) {
+                    setupSection.style.display = 'block';
+                }
+            }
+        });
     </script>
 </body>
 </html>
