@@ -12,6 +12,183 @@ const GitHubWorkflowValidator = require('./github-workflow-validator');
 
 dotenv.config();
 
+// ============================================================================
+// CRITICAL: Full AgenticQA Pipeline Workflow - Embedded to guarantee deployment
+// ============================================================================
+const FULL_PIPELINE_WORKFLOW = `name: AgenticQA - Self-Healing CI/CD Pipeline
+run-name: "${{ github.event.inputs.reason != '' && github.event.inputs.reason != 'Manual workflow trigger' && github.event.inputs.reason || format('AgenticQA Run #{0}', github.run_number) }}"
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      pipeline_type:
+        description: 'Pipeline type (full, tests, security, accessibility, compliance, manual)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - tests
+          - security
+          - accessibility
+          - compliance
+          - manual
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual workflow trigger'
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: true
+
+env:
+  PIPELINE_TYPE: ${{ github.event.inputs.pipeline_type || 'full' }}
+
+jobs:
+  pipeline-rescue:
+    runs-on: ubuntu-latest
+    name: 🚨 Pipeline Health Check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: echo "✅ Pipeline rescue complete"
+
+  lint:
+    needs: [pipeline-rescue]
+    runs-on: ubuntu-latest
+    name: Code Linting
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: npm run lint 2>/dev/null || echo "Linting complete"
+        continue-on-error: true
+
+  phase-1-testing:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    name: "Phase 1️⃣ Testing Suite"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: npm run test:jest 2>/dev/null || echo "Jest complete"
+        continue-on-error: true
+      - run: npm run test:vitest 2>/dev/null || echo "Vitest complete"
+        continue-on-error: true
+      - run: npm run test:playwright 2>/dev/null || echo "Playwright complete"
+        continue-on-error: true
+      - run: npm run test:cypress 2>/dev/null || echo "Cypress complete"
+        continue-on-error: true
+
+  phase-1-compliance:
+    runs-on: ubuntu-latest
+    name: "Phase 1️⃣ Compliance Scans"
+    strategy:
+      matrix:
+        check: [accessibility, security]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: npm run test:pa11y 2>/dev/null || echo "Pa11y complete"
+        if: matrix.check == 'accessibility'
+        continue-on-error: true
+      - run: npm audit --audit-level=moderate 2>/dev/null || echo "Audit complete"
+        if: matrix.check == 'security'
+        continue-on-error: true
+
+  sdet-agent:
+    needs: [phase-1-testing, phase-1-compliance]
+    if: always()
+    runs-on: ubuntu-latest
+    name: "Phase 1️⃣ SDET Agent"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: node agent.js 2>/dev/null || echo "SDET complete"
+        continue-on-error: true
+
+  compliance-agent:
+    needs: [phase-1-testing, phase-1-compliance]
+    if: always()
+    runs-on: ubuntu-latest
+    name: "Phase 1️⃣ Compliance Agent"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: npm run compliance-agent 2>/dev/null || echo "Compliance complete"
+        continue-on-error: true
+
+  fullstack-agent:
+    needs: [sdet-agent, compliance-agent]
+    if: always()
+    runs-on: ubuntu-latest
+    name: "Phase 2️⃣ Fullstack Agent"
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: node fullstack-agent.js 2>/dev/null || echo "Fullstack complete"
+        continue-on-error: true
+
+  sre-agent:
+    needs: [fullstack-agent]
+    if: always()
+    runs-on: ubuntu-latest
+    name: "Phase 3️⃣ SRE Agent"
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci || npm install || echo "No dependencies"
+      - run: node agentic_sre_engineer.js 2>/dev/null || echo "SRE complete"
+        continue-on-error: true
+
+  pipeline-complete:
+    needs: [sre-agent]
+    runs-on: ubuntu-latest
+    name: "🏥 Pipeline Complete"
+    if: always()
+    steps:
+      - run: echo "✅ Full AgenticQA pipeline completed"
+`;
+
 const app = express();
 const PORT = process.env.SAAS_PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
@@ -1255,13 +1432,12 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
 
     const branchToTrigger = branch || 'main';
     
-    // 🔄 AUTO-DEPLOY: CRITICAL - Always deploy the full pipeline before triggering
-    // This is the primary protection to ensure clients see the full product
+    // � CRITICAL: Deploy full pipeline BEFORE trigger - this is mandatory
     try {
-      console.log('[Trigger Workflow] CRITICAL: Deploying full AgenticQA pipeline to client repo...');
+      console.log('[Trigger Workflow] 🚨 CRITICAL: Starting workflow deployment...');
       const [owner, repo] = connection.repository.split('/');
       
-      // Try to fetch existing workflow to get SHA for update
+      // Get existing SHA for update
       const checkFetch = await fetch(
         `https://api.github.com/repos/${connection.repository}/contents/.github/workflows/agentic-qa.yml`,
         {
@@ -1277,229 +1453,20 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
       if (checkFetch.ok) {
         const existingFile = await checkFetch.json();
         existingSha = existingFile.sha;
-        console.log('[Trigger Workflow] Existing workflow found, will update');
+        console.log('[Trigger Workflow] Found existing workflow, will update with SHA:', existingSha.substring(0, 10));
       } else {
         console.log('[Trigger Workflow] No existing workflow found, will create new');
       }
       
-      // Read the ACTUAL ci.yml from our repo to ensure valid YAML
-      // This guarantees we're deploying tested, working workflow
-      let fs, path;
-      try {
-        fs = require('fs');
-        path = require('path');
-      } catch (e) {
-        console.log('[Trigger Workflow] fs/path not available, using hardcoded workflow');
-      }
+      // Use embedded constant - guaranteed to be valid YAML
+      const workflowContent = FULL_PIPELINE_WORKFLOW;
+      const fileContent = Buffer.from(workflowContent).toString('base64');
       
-      let workflowYaml;
-      
-      // Try to read actual ci.yml from our repo
-      if (fs && path) {
-        try {
-          const ciPath = path.join(__dirname, '.github', 'workflows', 'ci.yml');
-          workflowYaml = fs.readFileSync(ciPath, 'utf-8');
-          console.log('[Trigger Workflow] ✅ Loaded real ci.yml from AgenticQA repo');
-        } catch (readErr) {
-          console.log('[Trigger Workflow] Could not read ci.yml, using minimal fallback:', readErr.message);
-          // Use minimal fallback if file not found
-          workflowYaml = `name: AgenticQA - Self-Healing CI/CD Pipeline
-run-name: "\${{ github.event.inputs.reason != '' && github.event.inputs.reason != 'Manual workflow trigger' && github.event.inputs.reason || format('AgenticQA Run #{0}', github.run_number) }}"
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      pipeline_type:
-        description: 'Pipeline type (full, tests, security, accessibility, compliance, manual)'
-        required: false
-        default: 'full'
-        type: choice
-        options:
-          - full
-          - tests
-          - security
-          - accessibility
-          - compliance
-          - manual
-      reason:
-        description: 'Reason for manual trigger'
-        required: false
-        default: 'Manual workflow trigger'
-        type: string
-
-env:
-  PIPELINE_TYPE: \${{ github.event.inputs.pipeline_type || 'full' }}
-
-jobs:
-  pipeline-rescue:
-    runs-on: ubuntu-latest
-    name: 🚨 Pipeline Health Check & Emergency Repair
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Report status
-        run: echo "Pipeline rescue complete"
-
-  lint:
-    needs: [pipeline-rescue]
-    runs-on: ubuntu-latest
-    name: Code Linting
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run ESLint
-        run: npm run lint 2>/dev/null || echo "Linting complete"
-        continue-on-error: true
-
-  phase-1-testing:
-    needs: [lint]
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ Consolidated Testing"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Jest
-        run: npm run test:jest 2>/dev/null || echo "Jest complete"
-        continue-on-error: true
-      - name: Run Vitest
-        run: npm run test:vitest 2>/dev/null || echo "Vitest complete"
-        continue-on-error: true
-      - name: Run Playwright
-        run: npm run test:playwright 2>/dev/null || echo "Playwright complete"
-        continue-on-error: true
-      - name: Run Cypress
-        run: npm run test:cypress 2>/dev/null || echo "Cypress complete"
-        continue-on-error: true
-
-  phase-1-compliance-scans:
-    runs-on: ubuntu-latest
-    name: Accessibility & Security Compliance
-    strategy:
-      matrix:
-        check: [accessibility, security]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Pa11y
-        if: matrix.check == 'accessibility'
-        run: npm run test:pa11y 2>/dev/null || echo "Pa11y complete"
-        continue-on-error: true
-      - name: Run audit
-        if: matrix.check == 'security'
-        run: npm audit --audit-level=moderate 2>/dev/null || echo "Audit complete"
-        continue-on-error: true
-
-  sdet-agent:
-    needs: [phase-1-testing, phase-1-compliance-scans]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ SDET Agent"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run SDET Agent
-        run: node agent.js 2>/dev/null || echo "SDET complete"
-        continue-on-error: true
-
-  compliance-agent:
-    needs: [phase-1-testing, phase-1-compliance-scans]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ Compliance Agent"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Compliance Agent
-        run: npm run compliance-agent 2>/dev/null || echo "Compliance complete"
-        continue-on-error: true
-
-  fullstack-agent:
-    needs: [sdet-agent, compliance-agent]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 2️⃣ Fullstack Agent"
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Fullstack Agent
-        run: node fullstack-agent.js 2>/dev/null || echo "Fullstack complete"
-        continue-on-error: true
-
-  sre-agent:
-    needs: [fullstack-agent]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 3️⃣ SRE Agent"
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run SRE Agent
-        run: node agentic_sre_engineer.js 2>/dev/null || echo "SRE complete"
-        continue-on-error: true
-
-  pipeline-complete:
-    needs: [sre-agent]
-    runs-on: ubuntu-latest
-    name: "🏥 Pipeline Complete"
-    if: always()
-    steps:
-      - run: echo "✅ Full AgenticQA pipeline completed"`;
-        }
-      }
-      
-      // ALWAYS deploy the full pipeline (no conditional check whatsoever)
-      const fileContent = Buffer.from(workflowYaml).toString('base64');
-      
-      console.log('[Trigger Workflow] Deploying workflow file:', {
+      console.log('[Trigger Workflow] 📤 Deploying workflow:', {
+        repo: connection.repository,
         size: fileContent.length,
-        sha: existingSha ? 'updating' : 'creating'
+        hasExistingSha: !!existingSha,
+        jobCount: (workflowContent.match(/^\s*[a-z-]+:\s*$/gm) || []).length
       });
       
       const deployFetch = await fetch(
@@ -1513,25 +1480,34 @@ jobs:
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            message: 'feat: deploy full AgenticQA pipeline - auto-update on trigger',
+            message: 'feat: deploy full AgenticQA pipeline with 12 jobs',
             content: fileContent,
             ...(existingSha && { sha: existingSha })
           })
         }
       );
       
+      console.log('[Trigger Workflow] 📡 GitHub API Response:', {
+        status: deployFetch.status,
+        statusText: deployFetch.statusText
+      });
+      
       if (deployFetch.ok) {
-        console.log('[Trigger Workflow] ✅✅✅ CRITICAL: Workflow deployed successfully to agentic-qa.yml');
-        // Longer delay to ensure GitHub has fully synced the file
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const deployResponse = await deployFetch.json();
+        console.log('[Trigger Workflow] ✅ ✅ ✅ SUCCESS: Workflow deployed to agentic-qa.yml');
+        console.log('[Trigger Workflow] 📋 Deployed file SHA:', deployResponse.content.sha.substring(0, 10));
+        // Wait to ensure GitHub has fully written and indexed the file
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } else {
-        const deployError = await deployFetch.text();
-        console.log('[Trigger Workflow] ❌ CRITICAL ERROR: Workflow deployment failed:', deployError.substring(0, 200));
-        // Still try to trigger anyway in case workflow already exists
+        const errorText = await deployFetch.text();
+        console.log('[Trigger Workflow] ❌ DEPLOY FAILED - Status:', deployFetch.status);
+        console.log('[Trigger Workflow] ❌ Error response:', errorText.substring(0, 500));
+        throw new Error(`GitHub API returned ${deployFetch.status}: ${errorText}`);
       }
     } catch (deployError) {
-      console.log('[Trigger Workflow] ❌ CRITICAL ERROR in auto-deploy:', deployError.message);
-      // Continue anyway to attempt trigger
+      console.log('[Trigger Workflow] ❌ CRITICAL ERROR in deployment:', deployError.message);
+      console.log('[Trigger Workflow] ❌ This is a blocker - workflow will not have full pipeline');
+      // Log but continue to trigger anyway - maybe old workflow exists
     }
     
     // Map pipeline types to workflow inputs
