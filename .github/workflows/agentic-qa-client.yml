@@ -257,15 +257,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download SDET Agent
+      - name: Run SDET Agent (Optional)
         run: |
-          mkdir -p .agents
-          curl -sSL https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agent.js -o .agents/agent.js 2>/dev/null || echo "ℹ️  Agent download skipped"
-      - name: Run SDET Agent
-        run: |
-          if [ -f .agents/agent.js ]; then
-            node .agents/agent.js
-          elif [ -f agent.js ]; then
+          if [ -f agent.js ]; then
+            echo "✅ Running local SDET Agent..."
             node agent.js
           else
             echo "ℹ️  SDET Agent not available (optional)"
@@ -287,15 +282,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download Compliance Agent
+      - name: Run Compliance Agent (Optional)
         run: |
-          mkdir -p .agents
-          curl -sSL https://raw.githubusercontent.com/nhomyk/AgenticQA/main/compliance-agent.js -o .agents/compliance-agent.js 2>/dev/null || echo "ℹ️  Agent download skipped"
-      - name: Run Compliance Agent
-        run: |
-          if [ -f .agents/compliance-agent.js ]; then
-            node .agents/compliance-agent.js
-          elif [ -f compliance-agent.js ]; then
+          if [ -f compliance-agent.js ]; then
+            echo "✅ Running local Compliance Agent..."
             node compliance-agent.js
           else
             echo "ℹ️  Compliance Agent not available (optional)"
@@ -317,15 +307,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download Fullstack Agent
+      - name: Run Fullstack Agent (Optional)
         run: |
-          mkdir -p .agents
-          curl -sSL https://raw.githubusercontent.com/nhomyk/AgenticQA/main/fullstack-agent.js -o .agents/fullstack-agent.js 2>/dev/null || echo "ℹ️  Agent download skipped"
-      - name: Run Fullstack Agent
-        run: |
-          if [ -f .agents/fullstack-agent.js ]; then
-            node .agents/fullstack-agent.js
-          elif [ -f fullstack-agent.js ]; then
+          if [ -f fullstack-agent.js ]; then
+            echo "✅ Running local Fullstack Agent..."
             node fullstack-agent.js
           else
             echo "ℹ️  Fullstack Agent not available (optional)"
@@ -416,15 +401,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download SRE Agent
+      - name: Run SRE Agent (Optional)
         run: |
-          mkdir -p .agents
-          curl -sSL https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agentic_sre_engineer.js -o .agents/agentic_sre_engineer.js 2>/dev/null || echo "ℹ️  Agent download skipped"
-      - name: Run SRE Agent
-        run: |
-          if [ -f .agents/agentic_sre_engineer.js ]; then
-            node .agents/agentic_sre_engineer.js
-          elif [ -f agentic_sre_engineer.js ]; then
+          if [ -f agentic_sre_engineer.js ]; then
+            echo "✅ Running local SRE Agent..."
             node agentic_sre_engineer.js
           else
             echo "ℹ️  SRE Agent not available (optional)"
