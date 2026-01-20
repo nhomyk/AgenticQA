@@ -114,8 +114,11 @@ triggerClientPipeline()     // Trigger workflow in client's repo
 
 ### 5. Onboarding Script (`scripts/onboard-client.js`)
 
-**One-Command Setup:**
+**One-Command Setup (from AgenticQA directory):**
 ```bash
+# ⚠️ IMPORTANT: Must run from /Users/nicholashomyk/mono/AgenticQA
+cd /Users/nicholashomyk/mono/AgenticQA
+
 node scripts/onboard-client.js https://github.com/user/repo ghp_xxxxxxxxxxxx
 ```
 
@@ -131,6 +134,10 @@ node scripts/onboard-client.js https://github.com/user/repo ghp_xxxxxxxxxxxx
 
 **Step 1: Register Client**
 ```bash
+# Navigate to AgenticQA directory first
+cd /Users/nicholashomyk/mono/AgenticQA
+
+# Then run the onboarding script
 node scripts/onboard-client.js https://github.com/acme/product ghp_xxxxxxxxxxxx
 ```
 

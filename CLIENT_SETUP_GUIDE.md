@@ -7,17 +7,32 @@
 Onboard a client repository in 3 steps:
 
 ```bash
-# 1. Get the client's GitHub token (Personal Access Token)
-#    Required scopes: repo, actions
+# STEP 1: Navigate to AgenticQA directory
+#         ⚠️ This is REQUIRED - run from /Users/nicholashomyk/mono/AgenticQA
+cd /Users/nicholashomyk/mono/AgenticQA
 
-# 2. Run the onboarding script
+# STEP 2: Get the client's GitHub token (Personal Access Token)
+#         Required scopes: repo, actions
+#         Token will look like: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# STEP 3: Run the onboarding script with YOUR_GITHUB_TOKEN
 node scripts/onboard-client.js \
   https://github.com/acme/webapp \
-  ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  YOUR_GITHUB_TOKEN
 
-# 3. Share the dashboard link with client
+# Example with actual token:
+# node scripts/onboard-client.js \
+#   https://github.com/nhomyk/react_project \
+#   ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# STEP 4: Share the dashboard link with client
 # Dashboard: http://localhost:3000?client=client_a1b2c3d4e5f6
 ```
+
+**⚠️ COMMON ERROR:** If you see `Cannot find module 'scripts/onboard-client.js'`:
+- Make sure you're in the AgenticQA directory: `/Users/nicholashomyk/mono/AgenticQA`
+- Check your current directory: `pwd`
+- Run `cd /Users/nicholashomyk/mono/AgenticQA` first, then try the command again
 
 ### For Clients
 
