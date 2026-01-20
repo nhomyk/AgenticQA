@@ -114,42 +114,53 @@ triggerClientPipeline()     // Trigger workflow in client's repo
 
 ### 5. Onboarding Script (`scripts/onboard-client.js`)
 
-**One-Command Setup (from AgenticQA directory):**
+**One-Command Setup (with optional local path):**
 ```bash
 # ⚠️ IMPORTANT: Must run from /Users/nicholashomyk/mono/AgenticQA
 cd /Users/nicholashomyk/mono/AgenticQA
 
+# Option A: Run from AgenticQA directory
 node scripts/onboard-client.js https://github.com/user/repo ghp_xxxxxxxxxxxx
+
+# Option B: Specify client's local repository path (recommended)
+node scripts/onboard-client.js \
+  https://github.com/user/repo \
+  ghp_xxxxxxxxxxxx \
+  /path/to/local/repo
 ```
 
 **Steps Performed:**
 1. Register client with API
-2. Create workflow file
-3. Setup executor
+2. Create workflow file in client's repo (.github/workflows/agentic-qa.yml)
+3. Setup executor in client's repo (.agentic-qa/executor.js)
 4. Commit and push to repository
 
 ## Usage Flow
 
 ### For AgenticQA Provider
 
-**Step 1: Register Client**
+**Step 1: Register Client (with local path)**
 ```bash
-# Navigate to AgenticQA directory first
+# Navigate to AgenticQA directory
 cd /Users/nicholashomyk/mono/AgenticQA
 
-# Then run the onboarding script
-node scripts/onboard-client.js https://github.com/acme/product ghp_xxxxxxxxxxxx
+# Run with optional local repo path for testing
+node scripts/onboard-client.js \
+  https://github.com/acme/product \
+  ghp_xxxxxxxxxxxx \
+  /Users/nicholashomyk/Desktop/reactproject
 ```
 
 Output:
 ```
 ✓ Client registered with ID: client_a1b2c3d4e5f6
 ✓ Created workflow file: .github/workflows/agentic-qa.yml
+✓ Created executor: .agentic-qa/executor.js
 ✓ Committed workflow file
 ✓ Pushed to remote repository
 
 Next Steps:
-1. Open dashboard: http://dashboard.orbitqa.ai?client=client_a1b2c3d4e5f6
+1. Open dashboard: http://localhost:3000?client=client_a1b2c3d4e5f6
 2. Workflow runs on every push to main
 3. View results in AgenticQA dashboard
 ```

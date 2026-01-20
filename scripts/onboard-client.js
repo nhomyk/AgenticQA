@@ -16,6 +16,7 @@ const { execSync } = require('child_process');
 const args = process.argv.slice(2);
 const REPO_URL = args[0];
 const GITHUB_TOKEN = args[1];
+const LOCAL_REPO_PATH = args[2]; // Optional: local path to repository
 const DASHBOARD_API = process.env.DASHBOARD_API || 'http://localhost:3001';
 
 const colors = {
@@ -91,7 +92,7 @@ async function registerClient() {
 function createWorkflowFile() {
   log('INFO', 'Creating workflow file...');
 
-  const workflowDir = '.github/workflows';
+  const workflowDir = path.join(LOCAL_REPO_PATH || '.', '.github/workflows');
   const workflowFile = path.join(workflowDir, 'agentic-qa.yml');
 
   // Create directory if it doesn't exist
@@ -119,19 +120,22 @@ function commitAndPushWorkflow() {
   log('INFO', 'Committing and pushing workflow...');
 
   try {
+    // Change to local repo if specified
+    const cwd = LOCAL_REPO_PATH ? { cwd: LOCAL_REPO_PATH } : undefined;
+
     // Check if we're in a git repository
-    execSync('git status > /dev/null 2>&1');
+    execSync('git status > /dev/null 2>&1', cwd);
 
     // Add workflow file
-    execSync('git add .github/workflows/agentic-qa.yml');
+    execSync('git add .github/workflows/agentic-qa.yml', cwd);
     log('SUCCESS', 'Staged workflow file');
 
     // Commit
-    execSync('git commit -m "ci: add AgenticQA automated testing pipeline"');
+    execSync('git commit -m "ci: add AgenticQA automated testing pipeline"', cwd);
     log('SUCCESS', 'Committed workflow file');
 
     // Push
-    execSync('git push origin main');
+    execSync('git push origin main', cwd);
     log('SUCCESS', 'Pushed to remote repository');
   } catch (e) {
     log('WARN', 'Git operations failed (repository may not be initialized)');
@@ -146,7 +150,7 @@ async function setupExecutor(clientId) {
   log('INFO', 'Setting up pipeline executor...');
 
   try {
-    const execDir = '.agentic-qa';
+    const execDir = path.join(LOCAL_REPO_PATH || '.', '.agentic-qa');
     if (!fs.existsSync(execDir)) {
       fs.mkdirSync(execDir, { recursive: true });
     }
@@ -172,7 +176,7 @@ async function main() {
 
   // Validate inputs
   if (!REPO_URL || !GITHUB_TOKEN) {
-    error('Usage: node scripts/onboard-client.js <repo_url> <github_token>');
+    error('Usage: node scripts/onboard-client.js <repo_url> <github_token> [local_repo_path]');
   }
 
   // Parse repo URL
@@ -185,6 +189,9 @@ async function main() {
   const repo = repoMatch[2];
 
   console.log(`Repository: ${colors.cyan}${owner}/${repo}${colors.reset}`);
+  if (LOCAL_REPO_PATH) {
+    console.log(`Local Path: ${colors.cyan}${LOCAL_REPO_PATH}${colors.reset}`);
+  }
   console.log(`Dashboard API: ${colors.cyan}${DASHBOARD_API}${colors.reset}\n`);
 
   try {

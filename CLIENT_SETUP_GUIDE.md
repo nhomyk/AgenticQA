@@ -16,23 +16,41 @@ cd /Users/nicholashomyk/mono/AgenticQA
 #         Token will look like: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # STEP 3: Run the onboarding script with YOUR_GITHUB_TOKEN
+#         Option A: Run from AgenticQA (creates files in current directory)
 node scripts/onboard-client.js \
   https://github.com/acme/webapp \
   YOUR_GITHUB_TOKEN
 
-# Example with actual token:
-# node scripts/onboard-client.js \
-#   https://github.com/nhomyk/react_project \
-#   ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#         Option B: Specify client's local path (recommended for testing)
+node scripts/onboard-client.js \
+  https://github.com/nhomyk/react_project \
+  YOUR_GITHUB_TOKEN \
+  /Users/nicholashomyk/Desktop/reactproject
 
 # STEP 4: Share the dashboard link with client
 # Dashboard: http://localhost:3000?client=client_a1b2c3d4e5f6
 ```
 
+**Using Option B (Specify Local Path):**
+This approach is useful when you're testing with a local repository clone. The script will:
+- Create `.github/workflows/agentic-qa.yml` in your client's repo
+- Copy `.agentic-qa/executor.js` to the client's repo
+- Automatically commit and push the changes
+
+**Example:**
+```bash
+cd /Users/nicholashomyk/mono/AgenticQA
+
+node scripts/onboard-client.js \
+  https://github.com/nhomyk/react_project \
+  ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  /Users/nicholashomyk/Desktop/reactproject
+```
+
 **⚠️ COMMON ERROR:** If you see `Cannot find module 'scripts/onboard-client.js'`:
 - Make sure you're in the AgenticQA directory: `/Users/nicholashomyk/mono/AgenticQA`
 - Check your current directory: `pwd`
-- Run `cd /Users/nicholashomyk/mono/AgenticQA` first, then try the command again
+- If running from client directory, use Option B with full path to client repo
 
 ### For Clients
 
