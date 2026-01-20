@@ -118,6 +118,60 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Detailed comparison endpoint
+app.get("/api/comparison", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    data: {
+      products: [
+        {
+          name: "orbitQA.ai (CLI)",
+          category: "In-Repo Version",
+          features: [
+            "Local CLI tools",
+            "Pre-commit hooks",
+            "Direct file system access",
+            "Developer-focused",
+            "Open source",
+            "Zero setup for developers",
+            "Runs on your machine"
+          ],
+          pricing: "Free / Open Source",
+          deployment: "Local"
+        },
+        {
+          name: "orbitQA.ai (SaaS)",
+          category: "External Platform",
+          features: [
+            "REST API endpoints",
+            "GitHub/GitLab webhooks",
+            "Multi-tenant infrastructure",
+            "Team collaboration",
+            "Enterprise security",
+            "Managed hosting",
+            "Real-time dashboards"
+          ],
+          pricing: "Subscription-based",
+          deployment: "Cloud"
+        }
+      ],
+      comparison: {
+        architecture: "Shared agent cores (@orbitqa/* packages)",
+        codebase: "Zero duplication between CLI and SaaS",
+        maintenance: "Single source of truth for core logic",
+        scalability: "Independent evolution per deployment model"
+      },
+      capabilities: {
+        testing: "Automated QA, Compliance checks, Performance analysis",
+        integration: "GitHub, GitLab, CI/CD pipelines",
+        reporting: "Real-time dashboards, Historical trends, Risk assessment",
+        compliance: "GDPR, SOC2, HIPAA, CCPA, GDPR, LGPD, PCI-DSS, ISO 27001"
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Logging function
 function log(level, message, data = {}) {
   const timestamp = new Date().toISOString();

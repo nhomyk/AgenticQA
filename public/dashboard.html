@@ -921,6 +921,33 @@
                     </button>
                 </div>
 
+                <!-- Client Repository Management Section -->
+                <div class="card" id="clientSection" style="display: none;">
+                    <div class="card-header">
+                        <span class="card-icon" aria-hidden="true">👥</span>
+                        <h2 class="card-title">Client Repository</h2>
+                    </div>
+                    <div class="query-input-group">
+                        <label>Repository Information</label>
+                        <div style="background: rgba(102, 126, 234, 0.1); padding: 1rem; border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                            <div><strong>Client ID:</strong> <code id="clientId" style="color: #667eea;"></code></div>
+                            <div style="margin-top: 0.5rem;"><strong>Repository:</strong> <code id="clientRepo" style="color: #667eea;"></code></div>
+                            <div style="margin-top: 0.5rem;"><strong>Status:</strong> <span id="clientStatus" style="color: #10b981;">🟢 Active</span></div>
+                        </div>
+                    </div>
+                    <div class="query-input-group">
+                        <button class="btn btn-primary" id="triggerClientPipelineBtn" onclick="triggerClientPipeline()">
+                            🚀 Trigger Client Pipeline
+                        </button>
+                    </div>
+                    <div class="query-input-group">
+                        <label>Pipeline Status</label>
+                        <div id="clientPipelineStatus" style="background: rgba(102, 126, 234, 0.1); padding: 1rem; border-radius: 8px; min-height: 60px;">
+                            <p style="color: #a5b4fc;">No pipeline run yet. Click above to start.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Agent Interaction Section -->
                 <div class="card">
                     <div class="card-header">
@@ -1641,6 +1668,93 @@
 
         // Setup button event listeners after functions are defined
         document.getElementById('launchPipelineBtn')?.addEventListener('click', kickoffPipeline);
+
+        // ===== CLIENT MANAGEMENT FUNCTIONS =====
+
+        async function initializeClientMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientId = urlParams.get('client');
+
+            if (!clientId) return; // Not in client mode
+
+            console.log('🔗 Initializing client mode for:', clientId);
+
+            // Show client section
+            document.getElementById('clientSection').style.display = 'block';
+            document.getElementById('clientId').textContent = clientId;
+
+            try {
+                // Fetch client details
+                const response = await fetch(`/api/clients/${clientId}`);
+                if (!response.ok) throw new Error('Client not found');
+
+                const data = await response.json();
+                const client = data.client;
+
+                document.getElementById('clientRepo').textContent = client.repoUrl;
+                document.getElementById('clientStatus').innerHTML = `
+                    🟢 Active
+                    <span style="color: #a5b4fc; font-size: 0.85rem; margin-left: 0.5rem;">
+                    (${client.runCount} runs)
+                    </span>
+                `;
+
+                // Update pipeline kickoff endpoint
+                window.TRIGGER_ENDPOINT = `/api/clients/${clientId}/trigger-pipeline`;
+            } catch (error) {
+                console.error('Failed to load client details:', error);
+                document.getElementById('clientStatus').innerHTML = `
+                    🔴 Error loading client
+                    <span style="color: #fca5a5; font-size: 0.85rem;">
+                    (${error.message})
+                    </span>
+                `;
+            }
+        }
+
+        async function triggerClientPipeline() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientId = urlParams.get('client');
+
+            if (!clientId) {
+                showAlert('❌ No client ID found', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('triggerClientPipelineBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Triggering...';
+
+            try {
+                const response = await fetch(`/api/clients/${clientId}/trigger-pipeline`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert(`✅ ${data.message}`, 'success');
+                    document.getElementById('clientPipelineStatus').innerHTML = `
+                        <div style="color: #10b981;">✅ Pipeline triggered successfully</div>
+                        <div style="color: #a5b4fc; font-size: 0.85rem; margin-top: 0.5rem;">
+                        Repository: ${data.repoUrl}<br>
+                        Check GitHub Actions for real-time progress
+                        </div>
+                    `;
+                } else {
+                    showAlert(`❌ ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Trigger Client Pipeline';
+            }
+        }
+
+        // Initialize client mode on page load
+        document.addEventListener('DOMContentLoaded', initializeClientMode);
     </script>
 </body>
 </html>

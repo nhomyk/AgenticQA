@@ -1,0 +1,99 @@
+name: AgenticQA Client Pipeline
+# This workflow is automatically provisioned for client repositories
+# It enables remote testing of client code against AgenticQA standards
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_id:
+        description: 'Client identifier for dashboard linking'
+        required: false
+        type: string
+  push:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+concurrency:
+  group: agentic-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agentic-qa-pipeline:
+    name: AgenticQA Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install AgenticQA Pipeline
+        run: |
+          echo "🚀 Installing AgenticQA Pipeline Executor..."
+          mkdir -p .agentic-qa
+          cd .agentic-qa
+
+      - name: 🔍 Run AgenticQA Analysis
+        env:
+          CLIENT_ID: ${{ inputs.client_id || github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AGENTIC_QA_API: ${{ secrets.AGENTIC_QA_API || 'http://localhost:3001' }}
+        run: |
+          echo "📊 Starting AgenticQA Pipeline Execution"
+          echo "Client ID: $CLIENT_ID"
+          echo "Repository: ${{ github.repository }}"
+          
+          # Create execution wrapper
+          node .agentic-qa/executor.js
+
+      - name: 📤 Upload Results to Dashboard
+        if: always()
+        env:
+          CLIENT_ID: ${{ inputs.client_id || github.repository }}
+          AGENTIC_QA_API: ${{ secrets.AGENTIC_QA_API || 'http://localhost:3001' }}
+        run: |
+          echo "📤 Uploading results to AgenticQA Dashboard..."
+          
+          if [ -f results.json ]; then
+            curl -X POST "$AGENTIC_QA_API/api/clients/$CLIENT_ID/results" \
+              -H "Content-Type: application/json" \
+              -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}" \
+              -d @results.json || echo "⚠️ Could not reach dashboard"
+          fi
+
+      - name: 📝 Create Summary Report
+        if: always()
+        run: |
+          echo "## 🤖 AgenticQA Analysis Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f results.json ]; then
+            echo "✅ Analysis completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat results.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No results file found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📊 Report Status
+        if: failure()
+        run: |
+          echo "❌ AgenticQA Pipeline encountered an error"
+          exit 1

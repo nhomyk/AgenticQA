@@ -902,6 +902,270 @@ app.post('/api/trigger-workflow', async (req, res) => {
   }
 });
 
+// ===== CLIENT PROVISIONING ENDPOINTS =====
+
+// In-memory storage for client repositories
+const clientRepositories = new Map();
+
+// Generate unique client ID
+function generateClientId() {
+  return 'client_' + crypto.randomBytes(8).toString('hex');
+}
+
+// Register client repository for pipeline execution
+app.post('/api/clients/register', authenticateToken, async (req, res) => {
+  try {
+    const { repoUrl, clientToken } = req.body;
+
+    if (!repoUrl || !clientToken) {
+      return res.status(400).json({ 
+        error: 'repoUrl and clientToken are required' 
+      });
+    }
+
+    // Validate repo URL format
+    const repoMatch = repoUrl.match(/github\.com[/:]([\w-]+)\/([\w-]+)/);
+    if (!repoMatch) {
+      return res.status(400).json({ 
+        error: 'Invalid GitHub repository URL' 
+      });
+    }
+
+    const clientId = generateClientId();
+    const encryptedToken = encryptToken(clientToken);
+
+    clientRepositories.set(clientId, {
+      id: clientId,
+      repoUrl,
+      owner: repoMatch[1],
+      repo: repoMatch[2],
+      encryptedToken,
+      userId: req.user.id,
+      createdAt: new Date(),
+      lastRun: null,
+      runCount: 0,
+      status: 'active'
+    });
+
+    logAudit('client_repo_registered', req.user.id, req.user.organizationId, {
+      clientId,
+      repoUrl: repoMatch[1] + '/' + repoMatch[2]
+    });
+
+    res.json({
+      status: 'success',
+      clientId,
+      message: 'Client repository registered successfully',
+      setupUrl: `http://localhost:${PORT}/setup?client=${clientId}`,
+      dashboardUrl: `http://localhost:3000?client=${clientId}`
+    });
+  } catch (error) {
+    console.error('Client registration error:', error);
+    res.status(500).json({ error: 'Failed to register client repository' });
+  }
+});
+
+// Get client repository details
+app.get('/api/clients/:clientId', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const clientRepo = clientRepositories.get(clientId);
+
+    if (!clientRepo) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json({
+      status: 'success',
+      client: {
+        id: clientRepo.id,
+        repoUrl: clientRepo.repoUrl,
+        owner: clientRepo.owner,
+        repo: clientRepo.repo,
+        createdAt: clientRepo.createdAt,
+        lastRun: clientRepo.lastRun,
+        runCount: clientRepo.runCount,
+        status: clientRepo.status
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching client:', error);
+    res.status(500).json({ error: 'Failed to fetch client details' });
+  }
+});
+
+// List client repositories for authenticated user
+app.get('/api/clients', authenticateToken, async (req, res) => {
+  try {
+    const userClients = Array.from(clientRepositories.values()).filter(
+      c => c.userId === req.user.id
+    );
+
+    res.json({
+      status: 'success',
+      clients: userClients.map(c => ({
+        id: c.id,
+        repoUrl: c.repoUrl,
+        owner: c.owner,
+        repo: c.repo,
+        createdAt: c.createdAt,
+        lastRun: c.lastRun,
+        runCount: c.runCount,
+        status: c.status
+      }))
+    });
+  } catch (error) {
+    console.error('Error listing clients:', error);
+    res.status(500).json({ error: 'Failed to list client repositories' });
+  }
+});
+
+// Trigger pipeline for client repository
+app.post('/api/clients/:clientId/trigger-pipeline', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const clientRepo = clientRepositories.get(clientId);
+
+    if (!clientRepo) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // Decrypt GitHub token
+    const clientToken = decryptToken(clientRepo.encryptedToken);
+    const { owner, repo } = clientRepo;
+
+    console.log(`🚀 Triggering pipeline for client repo: ${owner}/${repo}`);
+
+    // Trigger workflow dispatch in client's repository
+    const workflowResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/actions/workflows/agentic-qa.yml/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${clientToken}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ref: 'main',
+          inputs: {
+            client_id: clientId
+          }
+        })
+      }
+    );
+
+    if (workflowResponse.status === 204) {
+      clientRepo.lastRun = new Date();
+      clientRepo.runCount++;
+
+      logAudit('client_pipeline_triggered', clientRepo.userId, null, {
+        clientId,
+        repoUrl: `${owner}/${repo}`
+      });
+
+      res.json({
+        status: 'success',
+        message: 'Pipeline triggered successfully in client repository',
+        clientId,
+        repoUrl: clientRepo.repoUrl
+      });
+    } else {
+      const errorData = await workflowResponse.text();
+      throw new Error(`GitHub API returned ${workflowResponse.status}: ${errorData}`);
+    }
+  } catch (error) {
+    console.error('Client pipeline trigger error:', error);
+    res.status(500).json({ 
+      error: 'Failed to trigger pipeline: ' + error.message 
+    });
+  }
+});
+
+// Get pipeline definition for client (download-safe version)
+app.get('/api/clients/:clientId/pipeline-definition', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const clientRepo = clientRepositories.get(clientId);
+
+    if (!clientRepo) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json({
+      status: 'success',
+      definition: {
+        version: '1.0',
+        phases: [
+          {
+            name: 'Scan Codebase',
+            toolId: 'scan-codebase',
+            description: 'Analyze project structure and files'
+          },
+          {
+            name: 'Detect Issues',
+            toolId: 'detect-issues',
+            description: 'Identify accessibility, performance, and security issues'
+          },
+          {
+            name: 'Generate Tests',
+            toolId: 'generate-tests',
+            description: 'Create Playwright, Cypress, and Vitest test cases'
+          },
+          {
+            name: 'Run Compliance',
+            toolId: 'run-compliance',
+            description: 'Check compliance against standards'
+          },
+          {
+            name: 'Generate Report',
+            toolId: 'generate-report',
+            description: 'Create comprehensive analysis report'
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching pipeline definition:', error);
+    res.status(500).json({ error: 'Failed to fetch pipeline definition' });
+  }
+});
+
+// Submit pipeline results from client workflow
+app.post('/api/clients/:clientId/results', async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const results = req.body;
+    const clientRepo = clientRepositories.get(clientId);
+
+    if (!clientRepo) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    console.log(`📊 Received results from client: ${clientId}`);
+
+    // Store results (in production, would save to database)
+    clientRepo.lastResults = {
+      timestamp: new Date(),
+      data: results
+    };
+
+    logAudit('client_results_received', clientRepo.userId, null, {
+      clientId,
+      resultsReceived: true
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Results received and stored',
+      clientId
+    });
+  } catch (error) {
+    console.error('Error storing client results:', error);
+    res.status(500).json({ error: 'Failed to store results' });
+  }
+});
+
 // ===== ERROR HANDLING =====
 
 // Serve static files BEFORE 404 handler (so static routes are found)
