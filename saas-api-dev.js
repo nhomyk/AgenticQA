@@ -1550,6 +1550,8 @@ jobs:
         
         if (deployFetch.ok) {
           console.log('[Trigger Workflow] ✅ Workflow deployed successfully with full pipeline');
+          // Small delay to ensure GitHub has synced the file
+          await new Promise(resolve => setTimeout(resolve, 500));
         } else {
           console.log('[Trigger Workflow] ⚠️ Could not deploy workflow, will try to trigger anyway');
         }
