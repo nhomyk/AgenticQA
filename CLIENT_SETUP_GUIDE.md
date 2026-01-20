@@ -1,50 +1,74 @@
 # 🚀 AgenticQA Client Setup Guide
 
-## Quick Start
+> **⚠️ IMPORTANT:** This guide has TWO sections:
+> - **For Clients:** Self-service setup (NEW - recommended!)
+> - **For Providers:** Team-based onboarding (legacy)
 
-### For AgenticQA Team
+---
 
-Onboard a client repository in 3 steps:
+## 🎯 For Clients: Self-Service Setup (Easiest)
+
+**No installation needed. No configuration. Just 2 minutes!**
+
+### Step 1: Open Dashboard
+```
+https://your-agentic-qa-domain.com/dashboard
+```
+
+You'll see the **Setup AgenticQA Pipeline** form (no login required).
+
+### Step 2: Enter Repository URL
+```
+https://github.com/your-org/your-repo
+```
+
+### Step 3: Create GitHub Token
+1. Go to: https://github.com/settings/tokens
+2. Click **"Generate new token (classic)"** (⚠️ NOT fine-grained)
+3. Give it a name: `AgenticQA`
+4. Select scopes:
+   - ✅ `repo` (full repository access)
+   - ✅ `actions` (manage GitHub Actions)
+5. Click "Generate token" and copy it
+
+### Step 4: Complete Setup
+1. Paste your GitHub token
+2. Click **"✨ Setup Pipeline"**
+3. Done! 🎉
+
+**What happens:**
+- Workflow file created in your repo: `.github/workflows/agentic-qa.yml`
+- Pipeline triggers automatically on next push
+- Results appear on your dashboard with client ID
+
+### 📖 Full Self-Service Guide
+See [CLIENT_SELF_SERVICE_GUIDE.md](CLIENT_SELF_SERVICE_GUIDE.md) for detailed information about:
+- Monitoring pipeline execution
+- Understanding analysis results  
+- Triggering manual runs
+- Troubleshooting
+- Security & token management
+
+---
+
+## 👥 For Providers: Team Onboarding (Legacy)
+
+If you're onboarding clients on behalf of a team or managing multiple clients...
+
+### Quick Start
 
 ```bash
 # STEP 1: Navigate to AgenticQA directory
-#         ⚠️ This is REQUIRED - run from /Users/nicholashomyk/mono/AgenticQA
 cd /Users/nicholashomyk/mono/AgenticQA
 
-# STEP 2: Get the client's GitHub token (Personal Access Token)
-#         Required scopes: repo, actions
-#         Token will look like: ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# STEP 3: Run the onboarding script with YOUR_GITHUB_TOKEN
-#         Option A: Run from AgenticQA (creates files in current directory)
+# STEP 2: Run onboarding script
 node scripts/onboard-client.js \
   https://github.com/acme/webapp \
-  YOUR_GITHUB_TOKEN
-
-#         Option B: Specify client's local path (recommended for testing)
-node scripts/onboard-client.js \
-  https://github.com/nhomyk/react_project \
   YOUR_GITHUB_TOKEN \
-  /Users/nicholashomyk/Desktop/reactproject
+  /optional/local/path/to/repo
 
-# STEP 4: Share the dashboard link with client
+# STEP 3: Share dashboard link with client
 # Dashboard: http://localhost:3000?client=client_a1b2c3d4e5f6
-```
-
-**Using Option B (Specify Local Path):**
-This approach is useful when you're testing with a local repository clone. The script will:
-- Create `.github/workflows/agentic-qa.yml` in your client's repo
-- Copy `.agentic-qa/executor.js` to the client's repo
-- Automatically commit and push the changes
-
-**Example:**
-```bash
-cd /Users/nicholashomyk/mono/AgenticQA
-
-node scripts/onboard-client.js \
-  https://github.com/nhomyk/react_project \
-  ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-  /Users/nicholashomyk/Desktop/reactproject
 ```
 
 **⚠️ COMMON ERROR:** If you see `Cannot find module 'scripts/onboard-client.js'`:
