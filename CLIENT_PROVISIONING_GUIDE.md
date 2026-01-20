@@ -299,11 +299,15 @@ The dashboard shows:
 
 ## Security Considerations
 
-1. **Token Encryption** - GitHub tokens encrypted with AES-256-CBC
-2. **Rate Limiting** - Auth endpoints rate-limited to 5 attempts/15 min
-3. **CORS Protection** - Strict origin validation
-4. **Token Scopes** - Client token requires minimal GitHub permissions
-5. **In-Memory Storage** - Development mode; use database in production
+1. **Token Type** - Use GitHub Personal Access Token (PAT) classic, NOT fine-grained
+   - ⚠️ Go to https://github.com/settings/tokens
+   - Click **"Generate new token (classic)"**
+   - Required scopes: `repo` + `actions`
+2. **Token Encryption** - GitHub tokens encrypted with AES-256-CBC
+3. **Rate Limiting** - Auth endpoints rate-limited to 5 attempts/15 min
+4. **CORS Protection** - Strict origin validation
+5. **Token Scopes** - Client token requires minimal GitHub permissions
+6. **In-Memory Storage** - Development mode; use database in production
 
 ## Production Deployment
 

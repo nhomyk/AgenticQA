@@ -108,12 +108,19 @@ Click "🚀 Trigger Client Pipeline" to:
 
 ### GitHub Token Generation
 
-1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Create new token with these scopes:
-   - `repo` - Full control of repositories
-   - `actions` - Manage GitHub Actions
-3. Copy the token (appears only once!)
-4. Never commit this token to version control
+⚠️ **IMPORTANT: Use "Generate new token (classic)" - NOT the newer fine-grained token option**
+
+1. Go to https://github.com/settings/tokens
+2. Click **"Generate new token (classic)"** (not "New token")
+3. Give it a name: `AgenticQA Test Token`
+4. Select these scopes:
+   - ✅ `repo` - Full control of repositories
+   - ✅ `actions` - Manage GitHub Actions
+5. Scroll to bottom and click "Generate token"
+6. Copy the token immediately (you'll only see it once!)
+7. Never commit this token to version control
+
+**Why classic?** The classic token type has simpler configuration and works perfectly for AgenticQA. Fine-grained tokens require additional setup that isn't necessary for this use case.
 
 ### Local Development
 
