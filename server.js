@@ -126,7 +126,7 @@ app.use("/api/", async (req, res) => {
     log("info", "Proxying API request to SaaS server", { 
       originalUrl: req.originalUrl,
       method: req.method,
-      target: `localhost:3001`
+      target: "localhost:3001"
     });
 
     // Prepare proxy request options
@@ -136,9 +136,9 @@ app.use("/api/", async (req, res) => {
       path: url.pathname + url.search,
       method: req.method,
       headers: {
-        'Content-Type': req.headers['content-type'] || 'application/json',
-        'Authorization': req.headers['authorization'] || '',
-        'User-Agent': 'Dashboard-Proxy/1.0'
+        "Content-Type": req.headers["content-type"] || "application/json",
+        "Authorization": req.headers["authorization"] || "",
+        "User-Agent": "Dashboard-Proxy/1.0"
       }
     };
 
@@ -152,14 +152,14 @@ app.use("/api/", async (req, res) => {
     });
 
     // Forward body for POST/PUT/PATCH requests
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (req.method !== "GET" && req.method !== "HEAD") {
       if (req.body && Object.keys(req.body).length > 0) {
         proxyReq.write(JSON.stringify(req.body));
       }
     }
 
     // Handle proxy request errors
-    proxyReq.on('error', (error) => {
+    proxyReq.on("error", (error) => {
       log("error", "API proxy error", { 
         error: error.message,
         url: req.originalUrl,
@@ -169,7 +169,7 @@ app.use("/api/", async (req, res) => {
       // If SaaS server is not available, return error
       if (!res.headersSent) {
         res.status(503).json({ 
-          error: 'SaaS API server is not available. Make sure saas-api-dev.js is running on port 3001.',
+          error: "SaaS API server is not available. Make sure saas-api-dev.js is running on port 3001.",
           details: error.message 
         });
       }
@@ -185,7 +185,7 @@ app.use("/api/", async (req, res) => {
     });
     
     res.status(500).json({ 
-      error: 'Internal server error in API proxy',
+      error: "Internal server error in API proxy",
       details: error.message 
     });
   }
