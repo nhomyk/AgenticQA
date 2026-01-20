@@ -1255,12 +1255,12 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
 
     const branchToTrigger = branch || 'main';
     
-    // 🔄 AUTO-DEPLOY: Ensure workflow has full pipeline by deploying if needed
+    // 🔄 AUTO-DEPLOY: Always ensure full pipeline is deployed
     try {
-      console.log('[Trigger Workflow] Ensuring workflow file has full pipeline...');
+      console.log('[Trigger Workflow] Deploying full AgenticQA pipeline...');
       const [owner, repo] = connection.repository.split('/');
       
-      // Try to fetch existing workflow
+      // Try to fetch existing workflow to get SHA for update
       const checkFetch = await fetch(
         `https://api.github.com/repos/${connection.repository}/contents/.github/workflows/agentic-qa.yml`,
         {
@@ -1272,23 +1272,15 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
         }
       );
 
-      let needsUpdate = true;
       let existingSha = null;
-      
       if (checkFetch.ok) {
         const existingFile = await checkFetch.json();
         existingSha = existingFile.sha;
-        const content = Buffer.from(existingFile.content, 'base64').toString('utf-8');
-        // Check if workflow has the full real pipeline (pipeline-rescue job exists)
-        // If it doesn't have pipeline-rescue, it's an old simplified workflow - needs update
-        if (content.includes('pipeline-rescue:') && content.includes('phase-1-testing:') && content.includes('fullstack-agent:')) {
-          needsUpdate = false;
-        }
       }
       
-      // Deploy workflow file with full real pipeline if needed
-      if (needsUpdate || !checkFetch.ok) {
-        console.log('[Trigger Workflow] Deploying workflow with full real AgenticQA pipeline...');
+      // ALWAYS deploy the full pipeline (no conditional check)
+      // This ensures every trigger gets the latest full pipeline
+      console.log('[Trigger Workflow] Deploying workflow with full real AgenticQA pipeline...');
         
         const workflowYaml = `name: AgenticQA - Self-Healing CI/CD Pipeline
 run-name: "\${{ github.event.inputs.reason != '' && github.event.inputs.reason != 'Manual workflow trigger' && github.event.inputs.reason || format('AgenticQA Run #{0}', github.run_number) }}"
@@ -1557,13 +1549,12 @@ jobs:
         );
         
         if (deployFetch.ok) {
-          console.log('[Trigger Workflow] ✅ Workflow updated with pipeline_name support');
+          console.log('[Trigger Workflow] ✅ Workflow deployed successfully with full pipeline');
         } else {
-          console.log('[Trigger Workflow] ⚠️ Could not update workflow, will try to trigger anyway');
+          console.log('[Trigger Workflow] ⚠️ Could not deploy workflow, will try to trigger anyway');
         }
-      }
     } catch (deployError) {
-      console.log('[Trigger Workflow] ℹ️ Auto-deploy check skipped:', deployError.message);
+      console.log('[Trigger Workflow] ℹ️ Auto-deploy skipped:', deployError.message);
     }
     
     // Map pipeline types to workflow inputs
