@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-01-19T19:47:39.995Z",
-  "detectedChanges": 8,
+  "timestamp": "2026-01-20T12:29:44.243Z",
+  "detectedChanges": 5,
   "generatedTests": 1,
-  "testGaps": 0,
+  "testGaps": 3,
   "summary": {
     "highPriority": 0,
-    "mediumPriority": 0,
-    "lowPriority": 0
+    "mediumPriority": 2,
+    "lowPriority": 1
   }
 }

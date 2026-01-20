@@ -5,6 +5,11 @@
  * 
  * Coordinates agent testing, failure detection, and automatic recovery
  * to ensure the pipeline can continue even when agents fail
+ * 
+ * NEW SKILLS:
+ * - GitHub Workflow Validation: Prevents workflow trigger failures
+ * - Automatic Input Filtering: Corrects invalid workflow parameters
+ * - Workflow Diagnostics: Identifies and fixes workflow issues
  */
 
 const fs = require('fs');
@@ -12,6 +17,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const AgentTestFramework = require('./agent-test-framework');
 const AgentRecoverySystem = require('./agent-recovery-system');
+const GitHubWorkflowValidator = require('./github-workflow-validator');
 
 class AgentOrchestrator {
   constructor() {
@@ -20,7 +26,29 @@ class AgentOrchestrator {
     this.resultsDir = '.agent-orchestration-results';
     this.timestampedResults = null;
     
+    // NEW SKILL: GitHub Workflow Validation
+    // Prevents 404 errors from undefined workflow inputs
+    this.workflowValidator = null; // Initialized per workflow with token
+    
+    // Agent capabilities enhanced with GitHub diagnostics
+    this.agentCapabilities = {
+      github: {
+        validateWorkflowInputs: true,
+        autoFixInputMismatches: true,
+        diagnosticReporting: true,
+        fallbackWorkflows: true
+      }
+    };
+    
     this.ensureResultsDir();
+  }
+
+  /**
+   * Initialize GitHub workflow validator with credentials
+   */
+  initializeWorkflowValidator(token, owner, repo) {
+    this.workflowValidator = new GitHubWorkflowValidator(token, owner, repo);
+    console.log('✅ GitHub Workflow Validator initialized');
   }
 
   /**

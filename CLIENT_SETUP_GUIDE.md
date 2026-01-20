@@ -41,6 +41,27 @@ https://github.com/your-org/your-repo
 - Pipeline triggers automatically on next push
 - Results appear on your dashboard with client ID
 
+---
+
+## 🆔 Understanding the Client ID
+
+After setup completes, you'll receive a **Client ID**. This is a unique identifier for your dashboard:
+
+```
+Example: client_abc123def456
+```
+
+**What it does:**
+- Links your GitHub workflow runs to your dashboard
+- All test results are reported under this ID
+- You can have multiple repositories linked to one Client ID
+- Share this ID to add team members to your dashboard
+
+**Where to find your Client ID:**
+1. Check the setup confirmation message
+2. On the dashboard: Settings → Your Client ID
+3. In GitHub Actions: "Run workflow" button → "Client ID for dashboard" field
+
 ### 📖 Full Self-Service Guide
 See [CLIENT_SELF_SERVICE_GUIDE.md](CLIENT_SELF_SERVICE_GUIDE.md) for detailed information about:
 - Monitoring pipeline execution
@@ -48,6 +69,61 @@ See [CLIENT_SELF_SERVICE_GUIDE.md](CLIENT_SELF_SERVICE_GUIDE.md) for detailed in
 - Triggering manual runs
 - Troubleshooting
 - Security & token management
+
+---
+
+## ▶️ Running Your Pipeline Manually
+
+The pipeline can run automatically (on push/pull request) or manually on-demand.
+
+### From GitHub Actions UI (Recommended)
+
+1. Go to your repository: `https://github.com/YOUR-ORG/YOUR-REPO`
+2. Click the **"Actions"** tab
+3. Click **"AgenticQA Client Pipeline"** workflow (left sidebar)
+4. Click the **"Run workflow"** button (top right)
+5. A dropdown will appear with options:
+   - **Branch**: Select `main` (or your target branch)
+   - **Client ID for dashboard**: Paste your Client ID here (e.g., `client_abc123`)
+6. Click **"Run workflow"** button to start
+
+**Note:** The workflow will complete in 2-5 minutes. You'll see status updates as it runs.
+
+### From Command Line (Advanced)
+
+If you prefer to trigger from the terminal:
+
+```bash
+# Using GitHub CLI (recommended)
+gh workflow run agentic-qa.yml \
+  --repo YOUR-ORG/YOUR-REPO \
+  --ref main \
+  -f client_id="client_abc123"
+```
+
+Or using `curl`:
+
+```bash
+curl -X POST \
+  https://api.github.com/repos/YOUR-ORG/YOUR-REPO/actions/workflows/agentic-qa.yml/dispatches \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  -d '{
+    "ref": "main",
+    "inputs": {
+      "client_id": "client_abc123"
+    }
+  }'
+```
+
+### Automatic Triggers
+
+Your pipeline runs automatically on:
+- ✅ **Push to main branch**
+- ✅ **Push to develop branch**
+- ✅ **Pull requests** (on main or develop)
+
+To modify these triggers, edit `.github/workflows/agentic-qa.yml` and change the `on:` section.
 
 ---
 
@@ -263,6 +339,51 @@ This URL:
 1. Verify dashboard is running: `npm start`
 2. Check browser console for errors
 3. Try incognito mode to clear cache
+
+### "Actions must be from a repository owned by X" Error
+This occurs when your GitHub organization has **GitHub Actions security policies** enabled that restrict which actions can run.
+
+**Solutions:**
+
+#### Option 1: Allow All Actions (Fastest)
+1. Go to: https://github.com/organizations/YOUR-ORG-NAME/settings/actions/general
+   - Replace `YOUR-ORG-NAME` with your actual organization name
+2. Under **"Actions permissions"**, select: **"Allow all actions and reusable workflows"**
+3. Click **"Save"**
+4. Done! All workflows will now work
+
+#### Option 2: Allow Only Approved Actions (Most Secure - Recommended)
+If you want to restrict to specific actions:
+
+1. Go to: https://github.com/organizations/YOUR-ORG-NAME/settings/actions/general
+2. Under **"Actions permissions"**, select: **"Allow select actions and reusable workflows"**
+3. Check these boxes:
+   - ✅ "Allow actions created by GitHub"
+   - ✅ "Allow actions by Marketplace verified creators"
+4. Optionally add your own organization's actions:
+   - Click "Add selection" and enter: `your-org/*`
+5. Click **"Save"**
+
+#### Option 3: Fix Individual Workflows (If you have external actions)
+If you have existing workflows using external actions (like SonarQube, CodeQL, etc.) that are causing issues:
+
+1. Go to your repo: `github.com/your-org/your-repo`
+2. Click **"Actions"** tab
+3. Find the failing workflow
+4. Click the workflow file name (e.g., `sonarqube-scan.yml`)
+5. Click the pencil icon (✏️) to edit
+6. Either:
+   - **Remove the external action** (delete those steps)
+   - **Replace with built-in tools** (e.g., use `npm audit` instead of external security scan)
+7. Click **"Commit changes"**
+
+#### Why AgenticQA Works with Restrictions
+The AgenticQA workflow **does NOT use external actions** - it only uses:
+- `git` (built-in)
+- `curl` (built-in)
+- `node` (standard tool)
+
+So even with strict policies, AgenticQA will run fine once you handle your existing actions.
 
 ---
 

@@ -5,6 +5,7 @@ const puppeteer = require("puppeteer");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
 const https = require("https");
+const http = require("http");
 
 // Load environment variables
 require("dotenv").config();
@@ -31,6 +32,11 @@ const rateLimiter = rateLimit({
 // Middleware setup
 app.use(bodyParser.json({ limit: "100kb" })); // Reduced from 1mb to prevent large payload attacks
 app.use(express.static(path.join(__dirname, "public")));
+
+// Root handler - redirect to dashboard
+app.get("/", (req, res) => {
+  res.redirect("/public/dashboard.html");
+});
 
 // CORS configuration - stricter settings
 if (process.env.ENABLE_CORS === "true") {
@@ -107,6 +113,83 @@ function sanitizeString(str) {
     .replace(/'/g, "&#x27;")
     .replace(/\//g, "&#x2F;");
 }
+
+// ===== API PROXY TO SaaS API Server (saas-api-dev.js on port 3001) =====
+// Forward /api/* requests to the SaaS API server so the dashboard can access all API endpoints
+app.use("/api/", async (req, res) => {
+  try {
+    // Construct the URL for the proxied request
+    const apiUrl = `http://localhost:3001${req.originalUrl}`;
+    const url = new URL(apiUrl);
+    
+    // Log proxy request
+    log("info", "Proxying API request to SaaS server", { 
+      originalUrl: req.originalUrl,
+      method: req.method,
+      target: `localhost:3001`
+    });
+
+    // Prepare proxy request options
+    const options = {
+      hostname: url.hostname,
+      port: url.port || 3001,
+      path: url.pathname + url.search,
+      method: req.method,
+      headers: {
+        'Content-Type': req.headers['content-type'] || 'application/json',
+        'Authorization': req.headers['authorization'] || '',
+        'User-Agent': 'Dashboard-Proxy/1.0'
+      }
+    };
+
+    // Make the proxied request
+    const proxyReq = http.request(options, (proxyRes) => {
+      // Forward the response status
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      
+      // Forward the response body
+      proxyRes.pipe(res);
+    });
+
+    // Forward body for POST/PUT/PATCH requests
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (req.body && Object.keys(req.body).length > 0) {
+        proxyReq.write(JSON.stringify(req.body));
+      }
+    }
+
+    // Handle proxy request errors
+    proxyReq.on('error', (error) => {
+      log("error", "API proxy error", { 
+        error: error.message,
+        url: req.originalUrl,
+        code: error.code
+      });
+      
+      // If SaaS server is not available, return error
+      if (!res.headersSent) {
+        res.status(503).json({ 
+          error: 'SaaS API server is not available. Make sure saas-api-dev.js is running on port 3001.',
+          details: error.message 
+        });
+      }
+    });
+
+    // End the proxy request
+    proxyReq.end();
+    
+  } catch (error) {
+    log("error", "API proxy middleware error", { 
+      error: error.message,
+      url: req.originalUrl 
+    });
+    
+    res.status(500).json({ 
+      error: 'Internal server error in API proxy',
+      details: error.message 
+    });
+  }
+});
 
 // Health check endpoint
 app.get("/health", (req, res) => {

@@ -665,8 +665,11 @@
                 </div>
 
                 <div class="button-group" style="margin-top: 1.5rem;">
-                    <button class="btn btn-secondary" onclick="testGitHubConnection()">
+                    <button class="btn btn-secondary" onclick="testGitHubConnection(event)">
                         🧪 Test Connection
+                    </button>
+                    <button class="btn btn-info" onclick="setupWorkflowFile(event)">
+                        📝 Setup Workflow File
                     </button>
                     <button class="btn btn-danger" onclick="disconnectGitHub()">
                         🔓 Disconnect GitHub
@@ -697,7 +700,7 @@
                     </select>
                 </div>
 
-                <button class="btn btn-primary" onclick="triggerTestWorkflow()">
+                <button class="btn btn-primary" onclick="triggerTestWorkflow(event)">
                     🧪 Test Trigger
                 </button>
             </div>
@@ -776,9 +779,51 @@
     <script>
         // Initialize settings page
         document.addEventListener('DOMContentLoaded', async () => {
+            await autoLogin();
             loadAvailableBranches();
             checkGitHubConnection();
         });
+
+        // Auto-login if token is missing
+        async function autoLogin() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                console.log('✅ Token already exists in localStorage');
+                return; // Already logged in
+            }
+            
+            console.log('🔄 No token found. Attempting auto-login with demo credentials...');
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'demo@orbitqa.ai',
+                        password: 'demo123'
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                const data = await response.json();
+                if (response.ok && data.token) {
+                    localStorage.setItem('token', data.token);
+                    console.log('✅ Auto-login successful! Token stored.');
+                    return;
+                } else {
+                    console.warn('⚠️ Auto-login returned error:', data?.error);
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    console.error('⚠️ Auto-login timeout - API server may not be running');
+                } else {
+                    console.error('⚠️ Auto-login failed:', err.message);
+                }
+            }
+        }
 
         // Tab switching
         function switchTab(tabName) {
@@ -805,7 +850,8 @@
                 const response = await fetch('/api/github/status', {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 });
 
@@ -889,7 +935,8 @@
                 const response = await fetch('/api/github/connect', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
                     body: JSON.stringify({
                         token: token,
@@ -967,7 +1014,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h2>⚠️ Main Branch Warning</h2>
-                        <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                        <button class="modal-close" data-action="cancel">&times;</button>
                     </div>
                     <div class="modal-body">
                         <p><strong>You are about to trigger a pipeline on the main branch.</strong></p>
@@ -980,15 +1027,26 @@
                         <p style="color: #fbbf24;">Are you sure you want to continue?</p>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove(); (${onCancel.toString()})()">Cancel</button>
-                        <button class="btn btn-danger" onclick="this.closest('.modal').remove(); (${onConfirm.toString()})()">Yes, Deploy to Main</button>
+                        <button class="btn btn-secondary" data-action="cancel">Cancel</button>
+                        <button class="btn btn-danger" data-action="confirm">Yes, Deploy to Main</button>
                     </div>
                 </div>
             `;
+            
+            modal.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+                modal.remove();
+                onCancel();
+            });
+            
+            modal.querySelector('[data-action="confirm"]').addEventListener('click', () => {
+                modal.remove();
+                onConfirm();
+            });
+            
             document.body.appendChild(modal);
         }
 
-        async function testGitHubConnection() {
+        async function testGitHubConnection(event) {
             try {
                 const btn = event.target;
                 btn.disabled = true;
@@ -997,7 +1055,8 @@
                 const response = await fetch('/api/github/test', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 });
 
@@ -1013,8 +1072,9 @@
                 btn.textContent = '🧪 Test Connection';
             } catch (error) {
                 showAlert(`❌ Error: ${error.message}`, 'error');
-                event.target.disabled = false;
-                event.target.textContent = '🧪 Test Connection';
+                const btn = event.target;
+                btn.disabled = false;
+                btn.textContent = '🧪 Test Connection';
             }
         }
 
@@ -1036,7 +1096,46 @@
             }
         }
 
-        async function triggerTestWorkflow() {
+        async function setupWorkflowFile(event) {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Setting up...';
+
+            try {
+                const authToken = localStorage.getItem('token');
+                if (!authToken) {
+                    showAlert('❌ Not authenticated. Please log in again.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '📝 Setup Workflow File';
+                    return;
+                }
+
+                const response = await fetch('/api/github/setup-workflow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ Workflow file created/updated successfully!', 'success');
+                } else {
+                    showAlert(`❌ Setup failed: ${data.error}`, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = '📝 Setup Workflow File';
+            } catch (error) {
+                showAlert(`❌ Error: ${error.message}`, 'error');
+                btn.disabled = false;
+                btn.textContent = '📝 Setup Workflow File';
+            }
+        }
+
+        async function triggerTestWorkflow(event) {
             const branch = document.getElementById('testBranch').value;
             const workflowType = document.getElementById('testWorkflow').value;
 
@@ -1061,10 +1160,19 @@
                 btn.disabled = true;
                 btn.textContent = '⏳ Triggering...';
 
+                const authToken = localStorage.getItem('token');
+                if (!authToken) {
+                    showAlert('❌ Not authenticated. Please log in again.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🧪 Test Trigger';
+                    return;
+                }
+
                 const response = await fetch('/api/trigger-workflow', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
                     },
                     body: JSON.stringify({
                         pipelineType: workflowType,
@@ -1086,8 +1194,9 @@
                 btn.textContent = '🧪 Test Trigger';
             } catch (error) {
                 showAlert(`❌ Error: ${error.message}`, 'error');
-                event.target.disabled = false;
-                event.target.textContent = '🧪 Test Trigger';
+                const btn = event.target;
+                btn.disabled = false;
+                btn.textContent = '🧪 Test Trigger';
             }
         }
 
@@ -1100,7 +1209,8 @@
                 const response = await fetch('/api/github/disconnect', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }
                 });
 

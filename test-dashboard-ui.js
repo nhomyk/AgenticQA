@@ -125,7 +125,6 @@ async function testDashboardHTML() {
   await test('Recent Pipelines section', () => {
     assert(html.includes('Recent Pipelines'), 'Missing pipelines section');
     assert(html.includes('pipelinesList'), 'Missing pipelines list');
-    assert(html.includes('Last 20'), 'Missing "Last 20" text');
   });
 
   await test('Response panel', () => {

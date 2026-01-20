@@ -204,7 +204,7 @@
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" id="login-password" placeholder="Enter your password">
+                <input type="password" id="login-password" placeholder="Enter your password" value="demo123">
             </div>
             <button onclick="login()">Sign In</button>
             <div class="toggle">
@@ -257,18 +257,27 @@
             }
 
             try {
-                // Demo mode: accept demo credentials or any non-empty credentials
-                if (email && password) {
-                    // Store token and user info
-                    const token = 'demo-token-' + Date.now();
-                    localStorage.setItem('token', token);
-                    localStorage.setItem('user', JSON.stringify({
+                // Call the actual login API endpoint
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
                         email: email,
-                        name: email.split('@')[0]
-                    }));
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    // Store the actual JWT token from the API
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
                     window.location.href = '/dashboard.html';
                 } else {
-                    showError(errorDiv, 'Email and password required');
+                    showError(errorDiv, data.error || 'Login failed');
                 }
             } catch (error) {
                 showError(errorDiv, 'Connection error: ' + error.message);
@@ -288,15 +297,30 @@
             }
 
             try {
-                // Demo mode: accept registration and redirect
-                const token = 'demo-token-' + Date.now();
-                localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify({
-                    email: email,
-                    name: name,
-                    organization: organization
-                }));
-                window.location.href = '/dashboard.html';
+                // Call the actual register API endpoint
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        password: password,
+                        organization: organization
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    // Store the actual JWT token from the API
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    window.location.href = '/dashboard.html';
+                } else {
+                    showError(errorDiv, data.error || 'Registration failed');
+                }
             } catch (error) {
                 showError(errorDiv, 'Connection error: ' + error.message);
             }

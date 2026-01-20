@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const GitHubWorkflowValidator = require('./github-workflow-validator');
 
 class AgentRecoverySystem {
   constructor() {
@@ -486,6 +487,55 @@ class AgentRecoverySystem {
     console.log(`\n${allSuccessful ? '✅' : '⚠️'} Recovery ${allSuccessful ? 'successful' : 'partially successful'}\n`);
 
     return allSuccessful;
+  }
+
+  /**
+   * Diagnose and auto-fix GitHub API parameter mismatches
+   * This prevents 404 errors from sending undefined workflow inputs
+   */
+  async diagnoseGitHubWorkflowIssue(token, owner, repo, workflowFilename, inputsSent) {
+    console.log(`\n🔍 GitHub Workflow Diagnostic`);
+    console.log(`Repository: ${owner}/${repo}`);
+    console.log(`Workflow: ${workflowFilename}`);
+    console.log(`Inputs being sent:`, Object.keys(inputsSent));
+
+    try {
+      const validator = new GitHubWorkflowValidator(token, owner, repo);
+      const validation = await validator.validateInputs(workflowFilename, inputsSent);
+
+      if (!validation.valid) {
+        console.error('❌ ISSUE DETECTED: Invalid workflow inputs');
+        console.error('Errors:', validation.errors);
+        
+        // Auto-fix: provide filtered inputs
+        const filteredInputs = {};
+        for (const input of validation.expectedInputs) {
+          if (inputsSent.hasOwnProperty(input)) {
+            filteredInputs[input] = inputsSent[input];
+          }
+        }
+
+        console.log('\n🔧 AUTO-FIX: Filtering invalid inputs');
+        console.log('Expected inputs:', validation.expectedInputs);
+        console.log('Filtered inputs to send:', filteredInputs);
+        
+        return {
+          valid: false,
+          errors: validation.errors,
+          filteredInputs: filteredInputs,
+          recommendation: 'Use filteredInputs instead of original inputs'
+        };
+      } else {
+        console.log('✅ All inputs are valid');
+        if (validation.warnings.length > 0) {
+          console.log('⚠️ Warnings:', validation.warnings);
+        }
+        return { valid: true, warnings: validation.warnings };
+      }
+    } catch (error) {
+      console.error('Error during diagnostic:', error.message);
+      return { valid: false, error: error.message };
+    }
   }
 }
 
