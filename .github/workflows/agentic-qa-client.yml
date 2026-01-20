@@ -257,13 +257,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Run SDET Agent (Optional)
+      - name: Setup SDET Agent
+        run: |
+          # Check for local agent first
+          if [ -f agent.js ]; then
+            echo "✅ Found local SDET Agent"
+            exit 0
+          fi
+          
+          # Download from AgenticQA repo
+          echo "📥 Downloading SDET Agent from AgenticQA repo..."
+          mkdir -p .agents
+          AGENT_FILE=".agents/agent.js"
+          curl -sSL --max-time 10 https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agent.js -o "$AGENT_FILE"
+          
+          # Verify download succeeded
+          if [ ! -f "$AGENT_FILE" ] || grep -q "404\|Not Found" "$AGENT_FILE" 2>/dev/null; then
+            echo "❌ Failed to download SDET Agent"
+            cat "$AGENT_FILE" 2>/dev/null || echo "File not created"
+            exit 1
+          fi
+          
+          echo "✅ SDET Agent downloaded successfully"
+      - name: Run SDET Agent
         run: |
           if [ -f agent.js ]; then
-            echo "✅ Running local SDET Agent..."
             node agent.js
+          elif [ -f .agents/agent.js ]; then
+            node .agents/agent.js
           else
-            echo "ℹ️  SDET Agent not available (optional)"
+            echo "❌ SDET Agent not found"
+            exit 1
           fi
         continue-on-error: true
 
@@ -282,13 +306,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Run Compliance Agent (Optional)
+      - name: Setup Compliance Agent
+        run: |
+          # Check for local agent first
+          if [ -f compliance-agent.js ]; then
+            echo "✅ Found local Compliance Agent"
+            exit 0
+          fi
+          
+          # Download from AgenticQA repo
+          echo "📥 Downloading Compliance Agent from AgenticQA repo..."
+          mkdir -p .agents
+          AGENT_FILE=".agents/compliance-agent.js"
+          curl -sSL --max-time 10 https://raw.githubusercontent.com/nhomyk/AgenticQA/main/compliance-agent.js -o "$AGENT_FILE"
+          
+          # Verify download succeeded
+          if [ ! -f "$AGENT_FILE" ] || grep -q "404\|Not Found" "$AGENT_FILE" 2>/dev/null; then
+            echo "❌ Failed to download Compliance Agent"
+            cat "$AGENT_FILE" 2>/dev/null || echo "File not created"
+            exit 1
+          fi
+          
+          echo "✅ Compliance Agent downloaded successfully"
+      - name: Run Compliance Agent
         run: |
           if [ -f compliance-agent.js ]; then
-            echo "✅ Running local Compliance Agent..."
             node compliance-agent.js
+          elif [ -f .agents/compliance-agent.js ]; then
+            node .agents/compliance-agent.js
           else
-            echo "ℹ️  Compliance Agent not available (optional)"
+            echo "❌ Compliance Agent not found"
+            exit 1
           fi
         continue-on-error: true
 
@@ -307,13 +355,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Run Fullstack Agent (Optional)
+      - name: Setup Fullstack Agent
+        run: |
+          # Check for local agent first
+          if [ -f fullstack-agent.js ]; then
+            echo "✅ Found local Fullstack Agent"
+            exit 0
+          fi
+          
+          # Download from AgenticQA repo
+          echo "📥 Downloading Fullstack Agent from AgenticQA repo..."
+          mkdir -p .agents
+          AGENT_FILE=".agents/fullstack-agent.js"
+          curl -sSL --max-time 10 https://raw.githubusercontent.com/nhomyk/AgenticQA/main/fullstack-agent.js -o "$AGENT_FILE"
+          
+          # Verify download succeeded
+          if [ ! -f "$AGENT_FILE" ] || grep -q "404\|Not Found" "$AGENT_FILE" 2>/dev/null; then
+            echo "❌ Failed to download Fullstack Agent"
+            cat "$AGENT_FILE" 2>/dev/null || echo "File not created"
+            exit 1
+          fi
+          
+          echo "✅ Fullstack Agent downloaded successfully"
+      - name: Run Fullstack Agent
         run: |
           if [ -f fullstack-agent.js ]; then
-            echo "✅ Running local Fullstack Agent..."
             node fullstack-agent.js
+          elif [ -f .agents/fullstack-agent.js ]; then
+            node .agents/fullstack-agent.js
           else
-            echo "ℹ️  Fullstack Agent not available (optional)"
+            echo "❌ Fullstack Agent not found"
+            exit 1
           fi
         continue-on-error: true
 
@@ -401,13 +473,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Run SRE Agent (Optional)
+      - name: Setup SRE Agent
+        run: |
+          # Check for local agent first
+          if [ -f agentic_sre_engineer.js ]; then
+            echo "✅ Found local SRE Agent"
+            exit 0
+          fi
+          
+          # Download from AgenticQA repo
+          echo "📥 Downloading SRE Agent from AgenticQA repo..."
+          mkdir -p .agents
+          AGENT_FILE=".agents/agentic_sre_engineer.js"
+          curl -sSL --max-time 10 https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agentic_sre_engineer.js -o "$AGENT_FILE"
+          
+          # Verify download succeeded
+          if [ ! -f "$AGENT_FILE" ] || grep -q "404\|Not Found" "$AGENT_FILE" 2>/dev/null; then
+            echo "❌ Failed to download SRE Agent"
+            cat "$AGENT_FILE" 2>/dev/null || echo "File not created"
+            exit 1
+          fi
+          
+          echo "✅ SRE Agent downloaded successfully"
+      - name: Run SRE Agent
         run: |
           if [ -f agentic_sre_engineer.js ]; then
-            echo "✅ Running local SRE Agent..."
             node agentic_sre_engineer.js
+          elif [ -f .agents/agentic_sre_engineer.js ]; then
+            node .agents/agentic_sre_engineer.js
           else
-            echo "ℹ️  SRE Agent not available (optional)"
+            echo "❌ SRE Agent not found"
+            exit 1
           fi
         continue-on-error: true
 
