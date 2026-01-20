@@ -1510,6 +1510,19 @@ app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
       // Log but continue to trigger anyway - maybe old workflow exists
     }
     
+    // DEPLOYMENT: Use new clean helper function
+    try {
+      console.log('[Trigger] Deploying workflow...');
+      await deployWorkflowToRepo(connection.repository, decryptedToken);
+      console.log('[Trigger] Deployment successful');
+    } catch (deployErr) {
+      console.log('[Trigger] Deployment failed:', deployErr.message);
+      return res.status(500).json({
+        error: 'Workflow deployment failed',
+        details: deployErr.message
+      });
+    }
+    
     // Map pipeline types to workflow inputs
     const pipelineInputs = {
       full: { pipeline_type: 'full' },
@@ -2186,6 +2199,68 @@ app.post('/api/setup-self-service', async (req, res) => {
   }
 });
 
+// ===== HELPER: Deploy workflow to GitHub repo =====
+async function deployWorkflowToRepo(repository, token) {
+  console.log('[deployWorkflowToRepo] Starting deployment to:', repository);
+  
+  try {
+    // Get existing SHA
+    const checkResp = await fetch(
+      `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`,
+      {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    );
+    
+    let sha = null;
+    if (checkResp.ok) {
+      const file = await checkResp.json();
+      sha = file.sha;
+      console.log('[deployWorkflowToRepo] Found existing file');
+    }
+    
+    // Deploy
+    const workflow = FULL_PIPELINE_WORKFLOW;
+    const encoded = Buffer.from(workflow).toString('base64');
+    
+    const putResp = await fetch(
+      `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'ci: deploy AgenticQA pipeline',
+          content: encoded,
+          ...(sha && { sha })
+        })
+      }
+    );
+    
+    const body = await putResp.text();
+    
+    if (putResp.ok) {
+      console.log('[deployWorkflowToRepo] SUCCESS - Status:', putResp.status);
+      return { ok: true, sha: JSON.parse(body).content?.sha };
+    } else {
+      console.log('[deployWorkflowToRepo] FAILED - Status:', putResp.status);
+      console.log('[deployWorkflowToRepo] Error:', body.substring(0, 300));
+      throw new Error(`GitHub API returned ${putResp.status}`);
+    }
+  } catch (err) {
+    console.log('[deployWorkflowToRepo] Exception:', err.message);
+    throw err;
+  }
+}
+
 // ===== ERROR HANDLING =====
 
 // Serve static files BEFORE 404 handler (so static routes are found)
@@ -2194,6 +2269,123 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({ error: 'Internal server error' });
+});
+
+// DEBUG ENDPOINT - Test deployment directly without any wrapper logic
+app.post('/api/debug/deploy-workflow', authenticateToken, async (req, res) => {
+  try {
+    const { repository, token } = req.body;
+    console.log('\n🔴 === DEBUG: DEPLOY WORKFLOW TEST ===');
+    console.log('Repository:', repository);
+    console.log('Token length:', token?.length);
+    console.log('Token prefix:', token?.substring(0, 10) + '...');
+    
+    if (!repository || !token) {
+      return res.status(400).json({ error: 'Missing repository or token' });
+    }
+    
+    // Step 1: Check if file exists
+    console.log('\nStep 1: Checking for existing workflow...');
+    const checkUrl = `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`;
+    console.log('URL:', checkUrl);
+    
+    const checkFetch = await fetch(checkUrl, {
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    
+    console.log('Check response status:', checkFetch.status);
+    let existingSha = null;
+    
+    if (checkFetch.ok) {
+      const existing = await checkFetch.json();
+      existingSha = existing.sha;
+      console.log('✅ File exists, SHA:', existingSha.substring(0, 10));
+    } else {
+      console.log('⚠️  File does not exist (status', checkFetch.status, ')');
+    }
+    
+    // Step 2: Deploy the workflow
+    console.log('\nStep 2: Deploying workflow...');
+    const workflowContent = FULL_PIPELINE_WORKFLOW;
+    const fileContent = Buffer.from(workflowContent).toString('base64');
+    
+    console.log('Workflow size:', workflowContent.length, 'chars');
+    console.log('Base64 size:', fileContent.length, 'chars');
+    
+    const putPayload = {
+      message: 'DEBUG: deploy full pipeline test',
+      content: fileContent,
+      ...(existingSha && { sha: existingSha })
+    };
+    
+    console.log('PUT payload keys:', Object.keys(putPayload));
+    
+    const deployUrl = `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`;
+    console.log('Deploy URL:', deployUrl);
+    
+    const deployFetch = await fetch(deployUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(putPayload)
+    });
+    
+    console.log('Deploy response status:', deployFetch.status);
+    const deployBody = await deployFetch.text();
+    console.log('Deploy response body (first 500 chars):', deployBody.substring(0, 500));
+    
+    if (deployFetch.ok) {
+      const deployResp = JSON.parse(deployBody);
+      console.log('✅✅✅ DEPLOYMENT SUCCESSFUL');
+      console.log('New SHA:', deployResp.content?.sha?.substring(0, 10));
+      
+      res.json({
+        status: 'success',
+        message: 'Deployment successful',
+        newSha: deployResp.content?.sha,
+        details: {
+          repository,
+          fileSize: workflowContent.length,
+          hadExistingFile: !!existingSha,
+          responseStatus: deployFetch.status
+        }
+      });
+    } else {
+      console.log('❌ DEPLOYMENT FAILED');
+      if (deployFetch.status === 401) {
+        console.log('❌ AUTHENTICATION ERROR - Invalid or expired token');
+      } else if (deployFetch.status === 403) {
+        console.log('❌ PERMISSION ERROR - Token lacks permissions');
+      }
+      
+      res.status(deployFetch.status).json({
+        status: 'failed',
+        message: `GitHub API returned ${deployFetch.status}`,
+        details: {
+          status: deployFetch.status,
+          statusText: deployFetch.statusText,
+          body: deployBody.substring(0, 500)
+        }
+      });
+    }
+  } catch (error) {
+    console.log('❌ ERROR:', error.message);
+    console.log(error.stack);
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      stack: error.stack
+    });
+  }
+  console.log('🔴 === END DEBUG ===\n');
 });
 
 app.use((req, res) => {
