@@ -703,6 +703,10 @@
                 <button class="btn btn-primary" onclick="triggerTestWorkflow(event)">
                     🧪 Test Trigger
                 </button>
+
+                <button class="btn btn-secondary" onclick="refreshWorkflow(event)" style="margin-left: 10px;">
+                    🔄 Refresh Workflow
+                </button>
             </div>
         </div>
 
@@ -932,6 +936,8 @@
                 btn.disabled = true;
                 btn.textContent = '💾 Saving...';
 
+                console.log('[saveGitHubToken] Sending token (length: ' + token.length + '), repo:', repo);
+
                 const response = await fetch('/api/github/connect', {
                     method: 'POST',
                     headers: {
@@ -944,9 +950,13 @@
                     })
                 });
 
+                console.log('[saveGitHubToken] Response status:', response.status);
+
                 const data = await response.json();
+                console.log('[saveGitHubToken] Response data:', data);
 
                 if (response.ok) {
+                    console.log('[saveGitHubToken] Success! Hiding manual tab...');
                     showAlert('✅ GitHub account connected successfully!', 'success');
                     hideManualTokenTab();
                     await new Promise(r => setTimeout(r, 1500));
@@ -957,14 +967,17 @@
                     
                     // Force check connection with delay to ensure backend has data
                     await new Promise(r => setTimeout(r, 500));
+                    console.log('[saveGitHubToken] Calling checkGitHubConnection...');
                     checkGitHubConnection();
                 } else {
+                    console.error('[saveGitHubToken] Error response:', data);
                     showAlert(`❌ ${data.error}`, 'error');
                 }
 
                 btn.disabled = false;
                 btn.textContent = '💾 Save Token';
             } catch (error) {
+                console.error('[saveGitHubToken] Exception:', error);
                 showAlert(`❌ Error: ${error.message}`, 'error');
                 if (!btn) btn = document.getElementById('saveTokenBtn');
                 btn.disabled = false;
@@ -977,7 +990,10 @@
             try {
                 const response = await fetch('/api/github/branches', {
                     method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
                 const data = await response.json();
                 
@@ -1197,6 +1213,75 @@
                 const btn = event.target;
                 btn.disabled = false;
                 btn.textContent = '🧪 Test Trigger';
+            }
+        }
+
+        async function refreshWorkflow(event) {
+            const btn = event.target;
+            
+            try {
+                const confirmed = confirm('⚠️ This will:\n1. Delete the old workflow file\n2. Deploy the new full pipeline\n\nContinue?');
+                if (!confirmed) return;
+
+                btn.disabled = true;
+                btn.textContent = '⏳ Clearing old workflow...';
+
+                const authToken = localStorage.getItem('token');
+                if (!authToken) {
+                    showAlert('❌ Not authenticated. Please log in again.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Refresh Workflow';
+                    return;
+                }
+
+                // Step 1: Delete old workflow
+                console.log('[Refresh] Deleting old workflow...');
+                const deleteRes = await fetch('/api/github/setup-workflow', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const deleteData = await deleteRes.json();
+                if (!deleteRes.ok) {
+                    console.warn('[Refresh] Delete response not ok:', deleteRes.status, deleteData);
+                    // It's ok if file doesn't exist, continue anyway
+                }
+
+                console.log('[Refresh] Delete result:', deleteData);
+
+                // Step 2: Deploy new workflow
+                btn.textContent = '⏳ Deploying new workflow...';
+                console.log('[Refresh] Deploying new workflow...');
+
+                const setupRes = await fetch('/api/github/setup-workflow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const setupData = await setupRes.json();
+                console.log('[Refresh] Setup response:', setupRes.status, setupData);
+
+                if (setupRes.ok) {
+                    showAlert(`✅ Workflow refreshed successfully!\n\nNew workflow deployed to: ${setupData.repository}\n\nView on GitHub: ${setupData.workflowUrl}`, 'success');
+                    await new Promise(r => setTimeout(r, 2000));
+                    checkGitHubConnection();
+                } else {
+                    showAlert(`❌ Failed to deploy workflow: ${setupData.error}`, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh Workflow';
+            } catch (error) {
+                console.error('[Refresh] Error:', error);
+                showAlert(`❌ Error: ${error.message}`, 'error');
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh Workflow';
             }
         }
 

@@ -8,186 +8,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const crypto = require('crypto');
-const GitHubWorkflowValidator = require('./github-workflow-validator');
 
 dotenv.config();
-
-// ============================================================================
-// CRITICAL: Full AgenticQA Pipeline Workflow - Embedded to guarantee deployment
-// ============================================================================
-const FULL_PIPELINE_WORKFLOW = `name: AgenticQA - Self-Healing CI/CD Pipeline
-run-name: "${{ github.event.inputs.reason != '' && github.event.inputs.reason != 'Manual workflow trigger' && github.event.inputs.reason || format('AgenticQA Run #{0}', github.run_number) }}"
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      pipeline_type:
-        description: 'Pipeline type (full, tests, security, accessibility, compliance, manual)'
-        required: false
-        default: 'full'
-        type: choice
-        options:
-          - full
-          - tests
-          - security
-          - accessibility
-          - compliance
-          - manual
-      reason:
-        description: 'Reason for manual trigger'
-        required: false
-        default: 'Manual workflow trigger'
-        type: string
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
-  cancel-in-progress: true
-
-env:
-  PIPELINE_TYPE: ${{ github.event.inputs.pipeline_type || 'full' }}
-
-jobs:
-  pipeline-rescue:
-    runs-on: ubuntu-latest
-    name: 🚨 Pipeline Health Check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: echo "✅ Pipeline rescue complete"
-
-  lint:
-    needs: [pipeline-rescue]
-    runs-on: ubuntu-latest
-    name: Code Linting
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: npm run lint 2>/dev/null || echo "Linting complete"
-        continue-on-error: true
-
-  phase-1-testing:
-    needs: [lint]
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ Testing Suite"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: npm run test:jest 2>/dev/null || echo "Jest complete"
-        continue-on-error: true
-      - run: npm run test:vitest 2>/dev/null || echo "Vitest complete"
-        continue-on-error: true
-      - run: npm run test:playwright 2>/dev/null || echo "Playwright complete"
-        continue-on-error: true
-      - run: npm run test:cypress 2>/dev/null || echo "Cypress complete"
-        continue-on-error: true
-
-  phase-1-compliance:
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ Compliance Scans"
-    strategy:
-      matrix:
-        check: [accessibility, security]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: npm run test:pa11y 2>/dev/null || echo "Pa11y complete"
-        if: matrix.check == 'accessibility'
-        continue-on-error: true
-      - run: npm audit --audit-level=moderate 2>/dev/null || echo "Audit complete"
-        if: matrix.check == 'security'
-        continue-on-error: true
-
-  sdet-agent:
-    needs: [phase-1-testing, phase-1-compliance]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ SDET Agent"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: node agent.js 2>/dev/null || echo "SDET complete"
-        continue-on-error: true
-
-  compliance-agent:
-    needs: [phase-1-testing, phase-1-compliance]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 1️⃣ Compliance Agent"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: npm run compliance-agent 2>/dev/null || echo "Compliance complete"
-        continue-on-error: true
-
-  fullstack-agent:
-    needs: [sdet-agent, compliance-agent]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 2️⃣ Fullstack Agent"
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: node fullstack-agent.js 2>/dev/null || echo "Fullstack complete"
-        continue-on-error: true
-
-  sre-agent:
-    needs: [fullstack-agent]
-    if: always()
-    runs-on: ubuntu-latest
-    name: "Phase 3️⃣ SRE Agent"
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci || npm install || echo "No dependencies"
-      - run: node agentic_sre_engineer.js 2>/dev/null || echo "SRE complete"
-        continue-on-error: true
-
-  pipeline-complete:
-    needs: [sre-agent]
-    runs-on: ubuntu-latest
-    name: "🏥 Pipeline Complete"
-    if: always()
-    steps:
-      - run: echo "✅ Full AgenticQA pipeline completed"
-`;
 
 const app = express();
 const PORT = process.env.SAAS_PORT || 3001;
@@ -329,23 +151,6 @@ const defaultUser = {
 
 db.organizations.set(defaultOrg.id, defaultOrg);
 db.users.set(defaultUser.id, defaultUser);
-
-// 🎯 Auto-setup GitHub connection for demo user (development mode)
-if (NODE_ENV === 'development') {
-  const realToken = process.env.GITHUB_TOKEN || 'ghp_demo_token_placeholder';
-  const demoGitHubConnection = {
-    id: 'user_user_default_github',
-    userId: 'user_default',
-    token: encryptToken(realToken), // Use real token from env or placeholder
-    repository: 'nhomyk/react_project',
-    account: 'nhomyk',
-    workflowFile: '.github/workflows/agentic-qa.yml',
-    connectedAt: new Date(),
-    lastUsed: null,
-  };
-  db.githubConnections.set(demoGitHubConnection.id, demoGitHubConnection);
-  console.log(`✅ Demo GitHub connection initialized with ${realToken === 'ghp_demo_token_placeholder' ? 'placeholder token' : 'GITHUB_TOKEN from environment'}`);
-}
 
 // ===== AUTH MIDDLEWARE =====
 
@@ -849,25 +654,31 @@ app.post('/api/settings/api-key/regenerate', authenticateToken, authorizeRole('o
 // GET GitHub connection status
 app.get('/api/github/status', authenticateToken, (req, res) => {
   try {
-    // 🔒 SECURITY: Get connection specific to this user
+    // Look up the user's specific connection
     const connectionId = `user_${req.user.id}_github`;
     const connection = db.githubConnections.get(connectionId);
     
+    console.log('[GitHub Status] Checking connection for user', req.user.id, 'connectionId:', connectionId, 'found:', !!connection);
+    
     if (connection) {
       res.json({
-        connected: true,
         status: 'connected',
+        connected: true,
         account: connection.account,
         repository: connection.repository,
+        connectedAt: connection.connectedAt,
         lastUsed: connection.lastUsed || 'Never',
-        workflowFile: connection.workflowFile || '.github/workflows/ci.yml',
-        connectedAt: connection.connectedAt
+        workflowFile: connection.workflowFile || '.github/workflows/ci.yml'
       });
     } else {
-      res.json({ connected: false, status: 'disconnected' });
+      console.log('[GitHub Status] No connection found for user', req.user.id);
+      res.json({ 
+        status: 'disconnected',
+        connected: false 
+      });
     }
   } catch (error) {
-    console.error('GitHub status error:', error);
+    console.error('[GitHub Status] Error:', error);
     res.status(500).json({ error: 'Failed to get GitHub status' });
   }
 });
@@ -928,25 +739,62 @@ app.get('/api/github/branches', authenticateToken, async (req, res) => {
 });
 
 // POST Connect GitHub (save token)
-app.post('/api/github/connect', authenticateToken, (req, res) => {
+app.post('/api/github/connect', authenticateToken, async (req, res) => {
   try {
     const { token, repository } = req.body;
 
     console.log('[GitHub Connect] Received request', { 
+      userId: req.user?.id,
       hasToken: !!token, 
       tokenLength: token ? token.length : 0,
-      tokenPrefix: token ? token.substring(0, 10) : 'none',
-      repository 
+      repository,
+      userOrgId: req.user?.organizationId
     });
 
     if (!token || token.length < 10) {
+      console.log('[GitHub Connect] Invalid token length');
       return res.status(400).json({ error: 'Invalid GitHub token - must be at least 10 characters' });
     }
 
     // Validate token format (basic check)
-    if (!token.startsWith('ghp_') && !token.startsWith('gho_') && !token.startsWith('github_pat_')) {
-      console.warn('[GitHub Connect] Invalid token format:', token.substring(0, 20));
-      return res.status(400).json({ error: 'Invalid token format. Must start with ghp_, gho_, or github_pat_' });
+    if (!token.startsWith('ghp_') && !token.startsWith('gho_')) {
+      console.log('[GitHub Connect] Invalid token format');
+      return res.status(400).json({ error: 'Invalid token format. Must start with ghp_ or gho_' });
+    }
+
+    // 🔐 TEST token with GitHub API before storing
+    console.log('[GitHub Connect] Testing token with GitHub API...');
+    try {
+      const testResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AgenticQA'
+        }
+      });
+
+      if (!testResponse.ok) {
+        const errorData = await testResponse.text();
+        console.log('[GitHub Connect] GitHub API test failed:', testResponse.status, errorData);
+        
+        if (testResponse.status === 401 || testResponse.status === 403) {
+          return res.status(401).json({ 
+            error: 'Invalid or expired GitHub token. Please check your token and make sure it has the required permissions (repo, workflow).',
+            details: testResponse.status === 401 ? 'Unauthorized' : 'Forbidden - token may lack permissions'
+          });
+        }
+        return res.status(400).json({ 
+          error: `GitHub API error: ${testResponse.status}. ${testResponse.statusText}`
+        });
+      }
+
+      const userData = await testResponse.json();
+      console.log('[GitHub Connect] Token valid! GitHub user:', userData.login);
+    } catch (githubError) {
+      console.error('[GitHub Connect] GitHub API test error:', githubError.message);
+      return res.status(500).json({ 
+        error: 'Failed to validate token with GitHub: ' + githubError.message
+      });
     }
 
     // 🔒 SECURITY: Bind token to specific user
@@ -954,22 +802,26 @@ app.post('/api/github/connect', authenticateToken, (req, res) => {
     try {
       encryptedToken = encryptToken(token);
     } catch (encryptError) {
-      console.error('Token encryption failed:', encryptError);
+      console.error('[GitHub Connect] Token encryption failed:', encryptError);
       return res.status(500).json({ error: 'Failed to securely store token' });
     }
 
     // Use user-specific key instead of global
     const connectionId = `user_${req.user.id}_github`;
+    console.log('[GitHub Connect] Storing connection with ID:', connectionId);
+    
     db.githubConnections.set(connectionId, {
       id: connectionId,
       userId: req.user.id, // 🔒 Associate with specific user
       token: encryptedToken,
       repository: repository || 'unknown',
       account: repository ? repository.split('/')[0] : 'unknown',
-      workflowFile: '.github/workflows/agentic-qa.yml',
+      workflowFile: '.github/workflows/ci.yml',
       connectedAt: new Date(),
       lastUsed: null,
     });
+
+    console.log('[GitHub Connect] Connection stored. Total connections:', db.githubConnections.size);
 
     logAudit('github_connected', req.user.id, req.user.organizationId, {
       repository: repository,
@@ -989,11 +841,9 @@ app.post('/api/github/connect', authenticateToken, (req, res) => {
 });
 
 // POST Test GitHub connection
-app.post('/api/github/test', authenticateToken, (req, res) => {
+app.post('/api/github/test', (req, res) => {
   try {
-    // 🔒 SECURITY: Get token specific to this user
-    const connectionId = `user_${req.user.id}_github`;
-    const connection = db.githubConnections.get(connectionId);
+    const connection = Array.from(db.githubConnections.values()).pop();
     
     if (!connection) {
       return res.status(403).json({ error: 'GitHub not connected' });
@@ -1002,7 +852,7 @@ app.post('/api/github/test', authenticateToken, (req, res) => {
     // In a real app, we'd make a test API call to GitHub
     // For now, just verify we have a token
     if (connection.token && connection.token.length > 10) {
-      logAudit('github_test_passed', req.user.id, req.user.organizationId, {
+      logAudit('github_test_passed', 'system', 'default', {
         repository: connection.repository,
       });
 
@@ -1021,18 +871,21 @@ app.post('/api/github/test', authenticateToken, (req, res) => {
 });
 
 // POST Disconnect GitHub
-app.post('/api/github/disconnect', authenticateToken, (req, res) => {
+app.post('/api/github/disconnect', (req, res) => {
   try {
-    // 🔒 SECURITY: Delete only this user's GitHub connection
-    const connectionId = `user_${req.user.id}_github`;
-    const found = db.githubConnections.has(connectionId);
-    
+    // Find and delete the connection
+    let found = false;
+    for (const [key, conn] of db.githubConnections.entries()) {
+      db.githubConnections.delete(key);
+      found = true;
+      break;
+    }
+
     if (!found) {
       return res.status(404).json({ error: 'GitHub connection not found' });
     }
 
-    db.githubConnections.delete(connectionId);
-    logAudit('github_disconnected', req.user.id, req.user.organizationId, {});
+    logAudit('github_disconnected', 'system', 'default', {});
 
     res.json({
       status: 'success',
@@ -1041,627 +894,6 @@ app.post('/api/github/disconnect', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('GitHub disconnect error:', error);
     res.status(500).json({ error: 'Failed to disconnect GitHub' });
-  }
-});
-
-// POST Setup workflow file in repository
-app.post('/api/github/setup-workflow', authenticateToken, async (req, res) => {
-  try {
-    // Get user from token or use default demo user in development
-    let userId = req.user.id;
-    
-    // 🔧 Development mode: fallback to demo user if token is invalid
-    if (!userId && NODE_ENV === 'development') {
-      userId = 'user_default';
-      console.log('[Setup Workflow - Dev Mode] Using demo user');
-    }
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const connectionId = `user_${userId}_github`;
-    const connection = db.githubConnections.get(connectionId);
-
-    if (!connection) {
-      return res.status(403).json({ error: 'GitHub not connected' });
-    }
-
-    if (!connection.token || !connection.repository) {
-      return res.status(400).json({ error: 'GitHub repository not configured' });
-    }
-
-    let decryptedToken;
-    try {
-      decryptedToken = decryptToken(connection.token);
-    } catch (decryptError) {
-      return res.status(503).json({ error: 'Failed to retrieve GitHub credentials' });
-    }
-
-    const [owner, repo] = connection.repository.split('/');
-    
-    // ✅ FULL REAL PIPELINE - Deploy the actual AgenticQA workflow
-    // This is the comprehensive 15-job pipeline that clients see
-    const pipelineName = req.body.pipelineName || '';
-    const finalWorkflowName = pipelineName && pipelineName.trim() ? pipelineName.trim() : 'AgenticQA - Self-Healing CI/CD Pipeline';
-    
-    // Load the real ci.yml workflow from our repo
-    // This ensures client repos get the exact same pipeline as AgenticQA
-    const workflowContent = `name: ${finalWorkflowName}
-run-name: "${{ github.event.inputs.reason != '' && github.event.inputs.reason != 'Manual workflow trigger' && github.event.inputs.reason || format('AgenticQA Run #{0}', github.run_number) }}"
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      pipeline_type:
-        description: 'Pipeline type (full, tests, security, accessibility, compliance, manual)'
-        required: false
-        default: 'full'
-        type: choice
-        options:
-          - full
-          - tests
-          - security
-          - accessibility
-          - compliance
-          - manual
-      reason:
-        description: 'Reason for manual trigger'
-        required: false
-        default: 'Manual workflow trigger'
-        type: string
-      run_type:
-        description: 'Type of run (initial, retest, retry, manual)'
-        required: false
-        default: 'manual'
-        type: choice
-        options:
-          - initial
-          - retest
-          - retry
-          - manual
-          - diagnostic
-      run_chain_id:
-        description: 'Run chain ID (for grouping reruns with their initial run)'
-        required: false
-        default: ''
-
-concurrency:
-  group: \${{ github.workflow }}-\${{ github.ref }}-\${{ github.event.inputs.run_chain_id || github.run_id }}
-  cancel-in-progress: true
-
-env:
-  PIPELINE_TYPE: \${{ github.event.inputs.pipeline_type || 'full' }}
-  RUN_TYPE: \${{ github.event.inputs.run_type || 'initial' }}
-  RUN_CHAIN_ID: \${{ github.event.inputs.run_chain_id || github.run_id }}
-
-jobs:
-  pipeline-rescue:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    name: 🚨 Pipeline Health Check & Emergency Repair
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Validate workflow YAML
-        id: validate
-        run: |
-          echo "🔍 Validating workflows..."
-          echo "status=valid" >> \$GITHUB_OUTPUT
-        continue-on-error: true
-      - name: Report rescue status
-        run: |
-          echo "## 🔧 Pipeline Rescue Report" >> \$GITHUB_STEP_SUMMARY
-          echo "**Status**: \${{ steps.validate.outputs.status }}" >> \$GITHUB_STEP_SUMMARY
-          echo "✅ Pipeline is healthy - proceeding with workflow" >> \$GITHUB_STEP_SUMMARY
-
-  lint:
-    needs: [pipeline-rescue]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    name: Code Linting
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run ESLint
-        run: npm run lint 2>/dev/null || echo "Linting checks complete"
-        continue-on-error: true
-
-  phase-1-testing:
-    needs: [lint]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    name: "Phase 1️⃣ Consolidated Testing"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Jest unit tests
-        run: npm run test:jest 2>/dev/null || echo "Jest tests complete"
-        continue-on-error: true
-      - name: Run Vitest
-        run: npm run test:vitest 2>/dev/null || echo "Vitest tests complete"
-        continue-on-error: true
-      - name: Run Playwright tests
-        run: npm run test:playwright 2>/dev/null || echo "Playwright tests complete"
-        continue-on-error: true
-      - name: Run Cypress tests
-        run: npm run test:cypress 2>/dev/null || echo "Cypress tests complete"
-        continue-on-error: true
-      - name: Summary
-        run: |
-          echo "## 🧪 Phase 1 Testing Summary" >> \$GITHUB_STEP_SUMMARY
-          echo "✅ Testing suite completed" >> \$GITHUB_STEP_SUMMARY
-
-  phase-1-compliance-scans:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    name: Accessibility & Security Compliance
-    strategy:
-      matrix:
-        check: [accessibility, security]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Accessibility Scan (Pa11y)
-        if: matrix.check == 'accessibility'
-        run: npm run test:pa11y 2>/dev/null || echo "Pa11y checks complete"
-        continue-on-error: true
-      - name: Run Security Scan (npm audit)
-        if: matrix.check == 'security'
-        run: npm audit --audit-level=moderate 2>/dev/null || echo "Audit checks complete"
-        continue-on-error: true
-
-  sdet-agent:
-    needs: [phase-1-testing, phase-1-compliance-scans]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    name: "Phase 1️⃣ SDET Agent"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run SDET Agent - Test Analysis
-        run: node agent.js 2>/dev/null || echo "SDET Agent analysis complete"
-        continue-on-error: true
-
-  compliance-agent:
-    needs: [phase-1-testing, phase-1-compliance-scans]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    name: "Phase 1️⃣ Compliance Agent"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Compliance Agent - Analysis
-        run: npm run compliance-agent 2>/dev/null || echo "Compliance Agent analysis complete"
-        continue-on-error: true
-
-  fullstack-agent:
-    needs: [sdet-agent, compliance-agent]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    name: "Phase 2️⃣ Fullstack Agent (Code & Compliance Fixes)"
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run Fullstack Agent - Fix Phase
-        run: node fullstack-agent.js 2>/dev/null || echo "Fullstack Agent analysis complete"
-        continue-on-error: true
-
-  sre-agent:
-    needs: [fullstack-agent]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    name: "Phase 3️⃣ SRE Agent (Pipeline & Production Fixes)"
-    permissions:
-      contents: write
-      actions: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci || npm install || echo "No dependencies"
-      - name: Run SRE Agent - Production Fixes Phase
-        run: node agentic_sre_engineer.js 2>/dev/null || echo "SRE Agent analysis complete"
-        continue-on-error: true
-
-  pipeline-health-check:
-    needs: [sre-agent]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    name: 🏥 Pipeline Health Verification
-    if: always()
-    steps:
-      - uses: actions/checkout@v4
-      - name: Report health status
-        run: |
-          echo "## 🏥 Pipeline Complete" >> \$GITHUB_STEP_SUMMARY
-          echo "✅ Full AgenticQA pipeline executed successfully" >> \$GITHUB_STEP_SUMMARY
-          echo "✅ All phases completed" >> \$GITHUB_STEP_SUMMARY`;
-    
-    // Check if file exists
-    let sha;
-    try {
-      const getRes = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `token ${decryptedToken}`,
-            'Accept': 'application/vnd.github+json'
-          }
-        }
-      );
-      if (getRes.ok) {
-        const fileData = await getRes.json();
-        sha = fileData.sha;
-      }
-    } catch (e) {
-      // File doesn't exist, that's ok
-    }
-
-    // Create or update workflow file
-    const response = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `token ${decryptedToken}`,
-          'Accept': 'application/vnd.github+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: 'feat: add AgenticQA workflow',
-          content: content,
-          ...(sha && { sha })
-        })
-      }
-    );
-
-    if (response.ok) {
-      res.json({
-        status: 'success',
-        message: 'Workflow file created/updated successfully',
-        repository: connection.repository
-      });
-    } else {
-      const error = await response.json();
-      res.status(response.status).json({ 
-        error: error.message || 'Failed to create workflow file' 
-      });
-    }
-  } catch (error) {
-    console.error('Workflow setup error:', error);
-    res.status(500).json({ error: 'Failed to setup workflow: ' + error.message });
-  }
-});
-
-// POST Trigger workflow via GitHub API
-app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
-  try {
-    const { pipelineType, branch, pipelineName } = req.body;
-    
-    console.log('[Trigger Workflow] Request received', {
-      user: req.user.email,
-      userId: req.user.id,
-      pipelineType,
-      branch,
-      pipelineName
-    });
-    
-    // 🔒 SECURITY: Get token specific to this user
-    const connectionId = `user_${req.user.id}_github`;
-    console.log('[Trigger Workflow] Looking for connection:', connectionId);
-    const connection = db.githubConnections.get(connectionId);
-
-    if (!connection) {
-      console.log('[Trigger Workflow] No connection found. Available keys:', Array.from(db.githubConnections.keys()));
-      return res.status(403).json({ error: 'GitHub not connected. Go to Settings to connect your account.' });
-    }
-
-    if (!connection.repository) {
-      return res.status(400).json({ error: 'No repository configured' });
-    }
-
-    if (!connection.token) {
-      return res.status(503).json({ error: 'GitHub token not configured. Please reconnect GitHub.' });
-    }
-
-    // ⚠️ SECURITY: Decrypt the token before using
-    let decryptedToken;
-    try {
-      decryptedToken = decryptToken(connection.token);
-    } catch (decryptError) {
-      console.error('Token decryption failed:', decryptError);
-      return res.status(503).json({ error: 'Failed to retrieve GitHub credentials. Please reconnect.' });
-    }
-
-    const branchToTrigger = branch || 'main';
-    
-    // � CRITICAL: Deploy full pipeline BEFORE trigger - this is mandatory
-    try {
-      console.log('[Trigger Workflow] 🚨 CRITICAL: Starting workflow deployment...');
-      const [owner, repo] = connection.repository.split('/');
-      
-      // Get existing SHA for update
-      const checkFetch = await fetch(
-        `https://api.github.com/repos/${connection.repository}/contents/.github/workflows/agentic-qa.yml`,
-        {
-          headers: {
-            'Authorization': `token ${decryptedToken}`,
-            'Accept': 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28'
-          }
-        }
-      );
-
-      let existingSha = null;
-      if (checkFetch.ok) {
-        const existingFile = await checkFetch.json();
-        existingSha = existingFile.sha;
-        console.log('[Trigger Workflow] Found existing workflow, will update with SHA:', existingSha.substring(0, 10));
-      } else {
-        console.log('[Trigger Workflow] No existing workflow found, will create new');
-      }
-      
-      // Use embedded constant - guaranteed to be valid YAML
-      const workflowContent = FULL_PIPELINE_WORKFLOW;
-      const fileContent = Buffer.from(workflowContent).toString('base64');
-      
-      console.log('[Trigger Workflow] 📤 Deploying workflow:', {
-        repo: connection.repository,
-        size: fileContent.length,
-        hasExistingSha: !!existingSha,
-        jobCount: (workflowContent.match(/^\s*[a-z-]+:\s*$/gm) || []).length
-      });
-      
-      const deployFetch = await fetch(
-        `https://api.github.com/repos/${connection.repository}/contents/.github/workflows/agentic-qa.yml`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `token ${decryptedToken}`,
-            'Accept': 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            message: 'feat: deploy full AgenticQA pipeline with 12 jobs',
-            content: fileContent,
-            ...(existingSha && { sha: existingSha })
-          })
-        }
-      );
-      
-      console.log('[Trigger Workflow] 📡 GitHub API Response:', {
-        status: deployFetch.status,
-        statusText: deployFetch.statusText
-      });
-      
-      if (deployFetch.ok) {
-        const deployResponse = await deployFetch.json();
-        console.log('[Trigger Workflow] ✅ ✅ ✅ SUCCESS: Workflow deployed to agentic-qa.yml');
-        console.log('[Trigger Workflow] 📋 Deployed file SHA:', deployResponse.content.sha.substring(0, 10));
-        // Wait to ensure GitHub has fully written and indexed the file
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      } else {
-        const errorText = await deployFetch.text();
-        console.log('[Trigger Workflow] ❌ DEPLOY FAILED - Status:', deployFetch.status);
-        console.log('[Trigger Workflow] ❌ Error response:', errorText.substring(0, 500));
-        throw new Error(`GitHub API returned ${deployFetch.status}: ${errorText}`);
-      }
-    } catch (deployError) {
-      console.log('[Trigger Workflow] ❌ CRITICAL ERROR in deployment:', deployError.message);
-      console.log('[Trigger Workflow] ❌ This is a blocker - workflow will not have full pipeline');
-      // Log but continue to trigger anyway - maybe old workflow exists
-    }
-    
-    // DEPLOYMENT: Use new clean helper function
-    try {
-      console.log('[Trigger] Deploying workflow...');
-      await deployWorkflowToRepo(connection.repository, decryptedToken);
-      console.log('[Trigger] Deployment successful');
-    } catch (deployErr) {
-      console.log('[Trigger] Deployment failed:', deployErr.message);
-      return res.status(500).json({
-        error: 'Workflow deployment failed',
-        details: deployErr.message
-      });
-    }
-    
-    // Map pipeline types to workflow inputs
-    const pipelineInputs = {
-      full: { pipeline_type: 'full' },
-      tests: { pipeline_type: 'tests' },
-      security: { pipeline_type: 'security' }
-    };
-
-    const inputs = pipelineInputs[pipelineType] || pipelineInputs.full;
-    
-    // Add custom pipeline name to inputs as 'reason' (what workflow expects)
-    // If not provided, leave it empty and workflow will use default
-    if (pipelineName && pipelineName.trim()) {
-      inputs.reason = String(pipelineName.trim());
-    }
-    
-    // ✅ CRITICAL: Ensure all inputs are strings (GitHub API requirement)
-    const stringifiedInputs = {};
-    for (const [key, value] of Object.entries(inputs)) {
-      stringifiedInputs[key] = String(value);
-    }
-    
-    console.log('[Trigger Workflow] Pipeline name:', pipelineName);
-    console.log('[Trigger Workflow] Inputs being sent (stringified):', stringifiedInputs);
-
-    console.log('[Trigger Workflow] Connection info:', {
-      repository: connection.repository,
-      account: connection.account,
-      hasToken: !!connection.token
-    });
-
-    // Try agentic-qa.yml first (new workflow), then ci.yml (legacy workflow)
-    const workflowFiles = ['agentic-qa.yml', 'ci.yml'];
-    let githubResponse = null;
-    let workflowUsed = null;
-
-    for (const workflowFile of workflowFiles) {
-      try {
-        console.log(`📋 Attempting to trigger workflow: ${workflowFile} on ${connection.repository}/${branchToTrigger}`);
-        
-        // OPTIONAL VALIDATION: Check inputs (diagnostic only, non-blocking)
-        // If validation fails, we still try to trigger - GitHub will tell us if there's a real problem
-        try {
-          const [owner, repo] = connection.repository.split('/');
-          const validator = new GitHubWorkflowValidator(decryptedToken, owner, repo);
-          const validation = await validator.validateInputs(workflowFile, inputs);
-          
-          if (validation.valid) {
-            console.log(`✅ Inputs validated successfully for ${workflowFile}`);
-          } else {
-            console.warn(`⚠️ Input validation warning for ${workflowFile}:`, validation.errors[0]);
-            // Continue anyway - GitHub API will be the source of truth
-          }
-        } catch (validationError) {
-          // Validation itself failed - this is expected if workflow file doesn't exist
-          // We'll find out when we try to trigger
-          console.log(`ℹ️ Validation check skipped for ${workflowFile}`);
-        }
-        
-        // Call GitHub API to trigger the workflow
-        githubResponse = await fetch(
-          `https://api.github.com/repos/${connection.repository}/actions/workflows/${workflowFile}/dispatches`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `token ${decryptedToken}`, // ✅ Use decrypted token
-              'Accept': 'application/vnd.github+json',
-              'X-GitHub-Api-Version': '2022-11-28',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              ref: branchToTrigger,
-              inputs: stringifiedInputs
-            })
-          }
-        );
-
-        // If successful, break out of loop
-        if (githubResponse.status === 204) {
-          workflowUsed = workflowFile;
-          break;
-        }
-      } catch (e) {
-        // Continue to next workflow file
-        console.log(`⚠️ Failed to trigger ${workflowFile}: ${e.message}`);
-      }
-    }
-
-    // Check response status
-    if (githubResponse && githubResponse.status === 204) {
-      // Success - GitHub returns 204 No Content
-      connection.lastUsed = new Date();
-      
-      logAudit('workflow_triggered', req.user.id, req.user.organizationId, {
-        repository: connection.repository,
-        pipelineType: pipelineType,
-        branch: branchToTrigger,
-        workflow: workflowUsed,
-        status: 'success'
-      });
-
-      console.log(`✅ Workflow triggered: ${workflowUsed}`);
-      res.json({
-        status: 'success',
-        message: `✅ Workflow triggered successfully on ${connection.repository} (${branchToTrigger})`,
-        pipelineType: pipelineType,
-        branch: branchToTrigger,
-        repository: connection.repository,
-        workflow: workflowUsed,
-        workflowId: `gh-${Date.now()}`
-      });
-    } else if (githubResponse && githubResponse.status === 401) {
-      // Invalid token
-      connection.token = null; // Clear the invalid token
-      return res.status(403).json({ 
-        error: 'GitHub token is invalid or expired. Please reconnect GitHub in Settings.' 
-      });
-    } else if (githubResponse && githubResponse.status === 422) {
-      // Validation error (e.g., branch doesn't exist)
-      const errorData = await githubResponse.json();
-      return res.status(400).json({ 
-        error: `Validation error: ${errorData.message || 'Check repository and branch name.'}` 
-      });
-    } else if (githubResponse && githubResponse.status === 404) {
-      // Workflow file not found
-      return res.status(404).json({ 
-        error: 'Workflow file not found. Make sure .github/workflows/agentic-qa.yml or .github/workflows/ci.yml exists in your repository.' 
-      });
-    } else {
-      const errorData = githubResponse ? await githubResponse.text() : 'Unknown error';
-      throw new Error(`GitHub API error: ${errorData}`);
-    }
-  } catch (error) {
-    console.error('Workflow trigger error:', error);
-    
-    logAudit('workflow_trigger_failed', req.user?.id, req.user?.organizationId, {
-      error: error.message
-    });
-
-    res.status(500).json({ error: 'Failed to trigger workflow: ' + error.message });
   }
 });
 
@@ -1929,7 +1161,17 @@ app.post('/api/clients/:clientId/results', async (req, res) => {
   }
 });
 
-// ===== HELPER FUNCTIONS =====
+// ===== ERROR HANDLING =====
+
+// Serve static files BEFORE 404 handler (so static routes are found)
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// ===== START SERVER =====
 
 // Helper function to create workflow file in GitHub repo via API
 async function createWorkflowInGitHub(owner, repo, token) {
@@ -1949,28 +1191,17 @@ jobs:
   agentic-qa:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        run: |
-          git clone https://github.com/\${{ github.repository }}.git .
-          cd .
-          git checkout \${{ github.ref_name }}
+      - uses: actions/checkout@v3
       
-      - name: Setup Node.js and Download Executor
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      
+      - name: Download AgenticQA Executor
         run: |
-          # Install Node.js 18 (Ubuntu already has nvm or nodejs)
-          which node || apt-get update && apt-get install -y nodejs npm
-          node --version
-          
-          # Create .agentic-qa directory
           mkdir -p .agentic-qa
-          
-          # Download AgenticQA Executor
           curl -sSL https://raw.githubusercontent.com/nhomyk/AgenticQA/main/.agentic-qa/executor.js -o .agentic-qa/executor.js
-          
-          if [ ! -f .agentic-qa/executor.js ]; then
-            echo "Failed to download executor"
-            exit 1
-          fi
       
       - name: Run AgenticQA Pipeline
         run: node .agentic-qa/executor.js
@@ -1986,41 +1217,11 @@ jobs:
   console.log(`   Token length: ${token.length} chars`);
   console.log(`   Token starts with: ${token.substring(0, 10)}...`);
 
-  // First, check if the file exists to get its SHA (needed for updating)
-  let sha = undefined;
-  try {
-    const getResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github+json',
-          'User-Agent': 'AgenticQA-Client-Setup'
-        }
-      }
-    );
-    
-    if (getResponse.status === 200) {
-      const existingFile = await getResponse.json();
-      sha = existingFile.sha;
-      console.log(`   Found existing workflow file (sha: ${sha.substring(0, 8)}...)`);
-    }
-  } catch (e) {
-    // File doesn't exist, that's fine
-    console.log(`   Creating new workflow file`);
-  }
-
   const payload = {
     message: 'ci: add AgenticQA automated testing pipeline',
     content: content,
     branch: 'main'
   };
-
-  // Include SHA if file exists (for update operation)
-  if (sha) {
-    payload.sha = sha;
-  }
 
   try {
     const response = await fetch(
@@ -2055,60 +1256,6 @@ jobs:
     throw error;
   }
 }
-
-// ===== DEBUG ENDPOINTS =====
-
-// DEBUG endpoint to test workflow creation
-app.post('/api/debug/test-workflow-creation', async (req, res) => {
-  try {
-    const { owner, repo, token } = req.body;
-
-    if (!owner || !repo || !token) {
-      return res.status(400).json({ 
-        error: 'owner, repo, and token are required' 
-      });
-    }
-
-    console.log(`\n🔍 === DEBUG: TESTING WORKFLOW CREATION ===`);
-    console.log(`   Repository: ${owner}/${repo}`);
-    console.log(`   Token prefix: ${token.substring(0, 10)}...`);
-
-    try {
-      await createWorkflowInGitHub(owner, repo, token);
-      
-      console.log(`✅ DEBUG: Workflow creation successful`);
-      res.json({
-        status: 'success',
-        message: 'Workflow creation test successful',
-        repoUrl: `https://github.com/${owner}/${repo}`,
-        actionsUrl: `https://github.com/${owner}/${repo}/actions`,
-        workflowFile: `.github/workflows/agentic-qa.yml`
-      });
-    } catch (error) {
-      console.error(`❌ DEBUG: Workflow creation failed:`, error.message);
-      res.status(400).json({
-        status: 'failed',
-        error: error.message,
-        troubleshooting: {
-          tokenIssues: [
-            'Check token is valid',
-            'Check token has "repo" scope',
-            'Check token has "actions" scope',
-            'Check token is not expired'
-          ],
-          permissionIssues: [
-            'You must be able to push to the repository',
-            'The repository owner must have GitHub Actions enabled',
-            'Verify you own the repository'
-          ]
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Debug endpoint error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Self-service client setup (no authentication required - client provides token)
 app.post('/api/setup-self-service', async (req, res) => {
@@ -2199,195 +1346,370 @@ app.post('/api/setup-self-service', async (req, res) => {
   }
 });
 
-// ===== HELPER: Deploy workflow to GitHub repo =====
-async function deployWorkflowToRepo(repository, token) {
-  console.log('[deployWorkflowToRepo] Starting deployment to:', repository);
-  
+// DEBUG endpoint to test workflow creation
+app.post('/api/debug/test-workflow-creation', async (req, res) => {
   try {
-    // Get existing SHA
-    const checkResp = await fetch(
-      `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`,
+    const { owner, repo, token } = req.body;
+
+    if (!owner || !repo || !token) {
+      return res.status(400).json({ 
+        error: 'owner, repo, and token are required' 
+      });
+    }
+
+    console.log(`\n🔍 === DEBUG: TESTING WORKFLOW CREATION ===`);
+    console.log(`   Repository: ${owner}/${repo}`);
+    console.log(`   Token prefix: ${token.substring(0, 10)}...`);
+
+    try {
+      await createWorkflowInGitHub(owner, repo, token);
+      
+      console.log(`✅ DEBUG: Workflow creation successful`);
+      res.json({
+        status: 'success',
+        message: 'Workflow creation test successful',
+        repoUrl: `https://github.com/${owner}/${repo}`,
+        actionsUrl: `https://github.com/${owner}/${repo}/actions`,
+        workflowFile: `.github/workflows/agentic-qa.yml`
+      });
+    } catch (error) {
+      console.error(`❌ DEBUG: Workflow creation failed:`, error.message);
+      res.status(400).json({
+        status: 'failed',
+        error: error.message,
+        troubleshooting: {
+          tokenIssues: [
+            'Check token is valid',
+            'Check token has "repo" scope',
+            'Check token has "actions" scope',
+            'Check token is not expired'
+          ],
+          permissionIssues: [
+            'You must be able to push to the repository',
+            'The repository owner must have GitHub Actions enabled',
+            'Verify you own the repository'
+          ]
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST Setup workflow file in repository
+app.post('/api/github/setup-workflow', authenticateToken, async (req, res) => {
+  try {
+    const connectionId = `user_${req.user.id}_github`;
+    const connection = db.githubConnections.get(connectionId);
+
+    console.log('[Setup Workflow] Starting for user:', req.user.id, 'repo:', connection?.repository);
+
+    if (!connection) {
+      return res.status(403).json({ error: 'GitHub not connected' });
+    }
+
+    if (!connection.token || !connection.repository) {
+      return res.status(400).json({ error: 'GitHub repository not configured' });
+    }
+
+    let decryptedToken;
+    try {
+      decryptedToken = decryptToken(connection.token);
+    } catch (decryptError) {
+      console.error('[Setup Workflow] Token decryption failed:', decryptError);
+      return res.status(503).json({ error: 'Failed to retrieve GitHub credentials' });
+    }
+
+    const [owner, repo] = connection.repository.split('/');
+    console.log('[Setup Workflow] Owner:', owner, 'Repo:', repo);
+    
+    // Deploy the full pipeline workflow by reading from template file
+    let workflowContent;
+    try {
+      const fs = require('fs');
+      // Use the client-focused workflow, not the AgenticQA framework workflow
+      workflowContent = fs.readFileSync('./.github/workflows/agentic-qa-client.yml', 'utf-8');
+      console.log('[Setup Workflow] Client workflow loaded, size:', workflowContent.length, 'bytes');
+    } catch (fileError) {
+      console.warn('[Setup Workflow] Client workflow not found, trying template:', fileError.message);
+      try {
+        const fs = require('fs');
+        workflowContent = fs.readFileSync('./.github/workflows/agentic-qa-template.yml', 'utf-8');
+        console.log('[Setup Workflow] Template loaded, size:', workflowContent.length, 'bytes');
+      } catch (templateError) {
+        console.warn('[Setup Workflow] Template not found either, using fallback:', templateError.message);
+        // Fallback to minimal workflow if neither exists
+        workflowContent = `name: AgenticQA Pipeline
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install || true
+      - run: npm test 2>/dev/null || true`;
+      }
+    }
+
+    const content = Buffer.from(workflowContent).toString('base64');
+    console.log('[Setup Workflow] Content encoded, base64 size:', content.length);
+
+    // Check if file exists to get SHA for update
+    let sha;
+    try {
+      console.log('[Setup Workflow] Checking if workflow file exists...');
+      const getRes = await fetch(
+        `https://api.github.com/repos/${connection.repository}/contents/.github/workflows/agentic-qa.yml`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `token ${decryptedToken}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          }
+        }
+      );
+      if (getRes.ok) {
+        const fileData = await getRes.json();
+        sha = fileData.sha;
+        console.log('[Setup Workflow] File exists with SHA:', sha.substring(0, 10) + '...');
+      } else {
+        console.log('[Setup Workflow] File does not exist (status: ' + getRes.status + ')');
+      }
+    } catch (e) {
+      console.log('[Setup Workflow] Error checking file:', e.message);
+    }
+
+    // Create or update workflow file
+    console.log('[Setup Workflow] Uploading workflow file...', sha ? '(update)' : '(create)');
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
       {
+        method: 'PUT',
         headers: {
-          'Authorization': `token ${token}`,
+          'Authorization': `token ${decryptedToken}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        },
+        body: JSON.stringify({
+          message: 'feat: add/update AgenticQA full pipeline workflow',
+          content: content,
+          ...(sha && { sha })
+        })
+      }
+    );
+
+    console.log('[Setup Workflow] GitHub API response status:', response.status);
+    const responseData = await response.json();
+
+    if (response.ok) {
+      console.log('[Setup Workflow] Success! File created/updated');
+      res.json({
+        status: 'success',
+        message: 'Workflow file created/updated successfully. New workflow will appear on next push or manual trigger.',
+        repository: connection.repository,
+        workflowUrl: `https://github.com/${owner}/${repo}/blob/main/.github/workflows/agentic-qa.yml`,
+        actionsUrl: `https://github.com/${owner}/${repo}/actions`
+      });
+    } else {
+      console.error('[Setup Workflow] Failed! Status:', response.status, 'Error:', responseData);
+      res.status(response.status).json({ 
+        error: responseData.message || 'Failed to create workflow file',
+        details: responseData
+      });
+    }
+  } catch (error) {
+    console.error('[Setup Workflow] Error:', error);
+    res.status(500).json({ error: 'Failed to setup workflow: ' + error.message });
+  }
+});
+
+// DELETE workflow file to force refresh
+app.delete('/api/github/setup-workflow', authenticateToken, async (req, res) => {
+  try {
+    const connectionId = `user_${req.user.id}_github`;
+    const connection = db.githubConnections.get(connectionId);
+
+    console.log('[Delete Workflow] Starting for user:', req.user.id, 'repo:', connection?.repository);
+
+    if (!connection) {
+      return res.status(403).json({ error: 'GitHub not connected' });
+    }
+
+    if (!connection.token || !connection.repository) {
+      return res.status(400).json({ error: 'GitHub repository not configured' });
+    }
+
+    let decryptedToken;
+    try {
+      decryptedToken = decryptToken(connection.token);
+    } catch (decryptError) {
+      console.error('[Delete Workflow] Token decryption failed:', decryptError);
+      return res.status(503).json({ error: 'Failed to retrieve GitHub credentials' });
+    }
+
+    const [owner, repo] = connection.repository.split('/');
+
+    // Get file SHA first
+    console.log('[Delete Workflow] Fetching file SHA...');
+    const getRes = await fetch(
+      `https://api.github.com/repos/${connection.repository}/contents/.github/workflows/agentic-qa.yml`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `token ${decryptedToken}`,
           'Accept': 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28'
         }
       }
     );
-    
-    let sha = null;
-    if (checkResp.ok) {
-      const file = await checkResp.json();
-      sha = file.sha;
-      console.log('[deployWorkflowToRepo] Found existing file');
+
+    if (!getRes.ok) {
+      console.log('[Delete Workflow] File not found or error:', getRes.status);
+      return res.status(404).json({ error: 'Workflow file not found' });
     }
-    
-    // Deploy
-    const workflow = FULL_PIPELINE_WORKFLOW;
-    const encoded = Buffer.from(workflow).toString('base64');
-    
-    const putResp = await fetch(
-      `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`,
+
+    const fileData = await getRes.json();
+    const sha = fileData.sha;
+    console.log('[Delete Workflow] File SHA:', sha.substring(0, 10) + '...');
+
+    // Delete the file
+    console.log('[Delete Workflow] Deleting workflow file...');
+    const deleteRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
       {
-        method: 'PUT',
+        method: 'DELETE',
         headers: {
-          'Authorization': `token ${token}`,
+          'Authorization': `token ${decryptedToken}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        },
+        body: JSON.stringify({
+          message: 'ci: clear old workflow for refresh',
+          sha: sha
+        })
+      }
+    );
+
+    console.log('[Delete Workflow] GitHub API response status:', deleteRes.status);
+
+    if (deleteRes.ok) {
+      console.log('[Delete Workflow] Success! File deleted');
+      res.json({
+        status: 'success',
+        message: 'Workflow file deleted. Run /api/github/setup-workflow to deploy the new version.',
+        repository: connection.repository
+      });
+    } else {
+      console.error('[Delete Workflow] Failed! Status:', deleteRes.status);
+      const error = await deleteRes.json();
+      res.status(deleteRes.status).json({ 
+        error: error.message || 'Failed to delete workflow file'
+      });
+    }
+  } catch (error) {
+    console.error('[Delete Workflow] Error:', error);
+    res.status(500).json({ error: 'Failed to delete workflow: ' + error.message });
+  }
+});
+
+// POST Trigger workflow via GitHub API
+app.post('/api/trigger-workflow', authenticateToken, async (req, res) => {
+  try {
+    const { pipelineType, branch } = req.body;
+    
+    console.log('[Trigger Workflow] Request from user:', req.user?.id, 'pipelineType:', pipelineType, 'branch:', branch);
+    
+    const connectionId = `user_${req.user.id}_github`;
+    const connection = db.githubConnections.get(connectionId);
+
+    if (!connection) {
+      console.log('[Trigger Workflow] No GitHub connection found for user:', req.user.id);
+      return res.status(403).json({ error: 'GitHub not connected' });
+    }
+
+    if (!connection.repository) {
+      console.log('[Trigger Workflow] Repository not configured for connection:', connectionId);
+      return res.status(400).json({ error: 'No repository configured' });
+    }
+
+    if (!connection.token) {
+      console.log('[Trigger Workflow] No token stored for connection:', connectionId);
+      return res.status(503).json({ error: 'GitHub token not configured' });
+    }
+
+    let decryptedToken;
+    try {
+      decryptedToken = decryptToken(connection.token);
+    } catch (decryptError) {
+      console.error('[Trigger Workflow] Token decryption failed:', decryptError);
+      return res.status(503).json({ error: 'Failed to retrieve GitHub credentials' });
+    }
+
+    const branchToTrigger = branch || 'main';
+    const inputs = {
+      pipeline_type: pipelineType || 'full'
+    };
+
+    // Try to trigger workflow
+    const githubResponse = await fetch(
+      `https://api.github.com/repos/${connection.repository}/actions/workflows/agentic-qa.yml/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${decryptedToken}`,
           'Accept': 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          message: 'ci: deploy AgenticQA pipeline',
-          content: encoded,
-          ...(sha && { sha })
+          ref: branchToTrigger,
+          inputs: inputs
         })
       }
     );
-    
-    const body = await putResp.text();
-    
-    if (putResp.ok) {
-      console.log('[deployWorkflowToRepo] SUCCESS - Status:', putResp.status);
-      return { ok: true, sha: JSON.parse(body).content?.sha };
-    } else {
-      console.log('[deployWorkflowToRepo] FAILED - Status:', putResp.status);
-      console.log('[deployWorkflowToRepo] Error:', body.substring(0, 300));
-      throw new Error(`GitHub API returned ${putResp.status}`);
-    }
-  } catch (err) {
-    console.log('[deployWorkflowToRepo] Exception:', err.message);
-    throw err;
-  }
-}
 
-// ===== ERROR HANDLING =====
-
-// Serve static files BEFORE 404 handler (so static routes are found)
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
-// DEBUG ENDPOINT - Test deployment directly without any wrapper logic
-app.post('/api/debug/deploy-workflow', authenticateToken, async (req, res) => {
-  try {
-    const { repository, token } = req.body;
-    console.log('\n🔴 === DEBUG: DEPLOY WORKFLOW TEST ===');
-    console.log('Repository:', repository);
-    console.log('Token length:', token?.length);
-    console.log('Token prefix:', token?.substring(0, 10) + '...');
-    
-    if (!repository || !token) {
-      return res.status(400).json({ error: 'Missing repository or token' });
-    }
-    
-    // Step 1: Check if file exists
-    console.log('\nStep 1: Checking for existing workflow...');
-    const checkUrl = `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`;
-    console.log('URL:', checkUrl);
-    
-    const checkFetch = await fetch(checkUrl, {
-      headers: {
-        'Authorization': `token ${token}`,
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
-    });
-    
-    console.log('Check response status:', checkFetch.status);
-    let existingSha = null;
-    
-    if (checkFetch.ok) {
-      const existing = await checkFetch.json();
-      existingSha = existing.sha;
-      console.log('✅ File exists, SHA:', existingSha.substring(0, 10));
-    } else {
-      console.log('⚠️  File does not exist (status', checkFetch.status, ')');
-    }
-    
-    // Step 2: Deploy the workflow
-    console.log('\nStep 2: Deploying workflow...');
-    const workflowContent = FULL_PIPELINE_WORKFLOW;
-    const fileContent = Buffer.from(workflowContent).toString('base64');
-    
-    console.log('Workflow size:', workflowContent.length, 'chars');
-    console.log('Base64 size:', fileContent.length, 'chars');
-    
-    const putPayload = {
-      message: 'DEBUG: deploy full pipeline test',
-      content: fileContent,
-      ...(existingSha && { sha: existingSha })
-    };
-    
-    console.log('PUT payload keys:', Object.keys(putPayload));
-    
-    const deployUrl = `https://api.github.com/repos/${repository}/contents/.github/workflows/agentic-qa.yml`;
-    console.log('Deploy URL:', deployUrl);
-    
-    const deployFetch = await fetch(deployUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${token}`,
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(putPayload)
-    });
-    
-    console.log('Deploy response status:', deployFetch.status);
-    const deployBody = await deployFetch.text();
-    console.log('Deploy response body (first 500 chars):', deployBody.substring(0, 500));
-    
-    if (deployFetch.ok) {
-      const deployResp = JSON.parse(deployBody);
-      console.log('✅✅✅ DEPLOYMENT SUCCESSFUL');
-      console.log('New SHA:', deployResp.content?.sha?.substring(0, 10));
+    if (githubResponse.status === 204) {
+      connection.lastUsed = new Date();
       
       res.json({
         status: 'success',
-        message: 'Deployment successful',
-        newSha: deployResp.content?.sha,
-        details: {
-          repository,
-          fileSize: workflowContent.length,
-          hadExistingFile: !!existingSha,
-          responseStatus: deployFetch.status
-        }
+        message: `Workflow triggered successfully on ${connection.repository}`,
+        pipelineType: pipelineType,
+        branch: branchToTrigger,
+        repository: connection.repository
+      });
+    } else if (githubResponse.status === 401) {
+      connection.token = null;
+      return res.status(403).json({ 
+        error: 'GitHub token is invalid or expired' 
+      });
+    } else if (githubResponse.status === 422) {
+      const errorData = await githubResponse.json();
+      return res.status(400).json({ 
+        error: `Validation error: ${errorData.message || 'Check repository and branch name.'}` 
       });
     } else {
-      console.log('❌ DEPLOYMENT FAILED');
-      if (deployFetch.status === 401) {
-        console.log('❌ AUTHENTICATION ERROR - Invalid or expired token');
-      } else if (deployFetch.status === 403) {
-        console.log('❌ PERMISSION ERROR - Token lacks permissions');
-      }
-      
-      res.status(deployFetch.status).json({
-        status: 'failed',
-        message: `GitHub API returned ${deployFetch.status}`,
-        details: {
-          status: deployFetch.status,
-          statusText: deployFetch.statusText,
-          body: deployBody.substring(0, 500)
-        }
-      });
+      const errorData = await githubResponse.text();
+      throw new Error(`GitHub API returned ${githubResponse.status}: ${errorData}`);
     }
   } catch (error) {
-    console.log('❌ ERROR:', error.message);
-    console.log(error.stack);
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('Workflow trigger error:', error);
+    res.status(500).json({ error: 'Failed to trigger workflow: ' + error.message });
   }
-  console.log('🔴 === END DEBUG ===\n');
 });
 
+// ===== 404 CATCH-ALL HANDLER (MUST BE AT END) =====
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
