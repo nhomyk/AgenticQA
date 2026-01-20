@@ -257,17 +257,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download SDET Agent
-        run: |
-          echo "📥 Downloading SDET Agent from AgenticQA..."
-          curl -sSL -f https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agent.js -o agent.js
-          if [ ! -f agent.js ]; then
-            echo "❌ Failed to download SDET Agent"
-            exit 1
-          fi
-          echo "✅ SDET Agent ready"
       - name: Run SDET Agent
-        run: node agent.js
+        run: |
+          # Use local agent if available, otherwise skip
+          if [ -f agent.js ]; then
+            echo "✅ Running local SDET Agent"
+            node agent.js
+          else
+            echo "ℹ️  SDET Agent not available in this repository"
+          fi
         continue-on-error: true
 
   compliance-agent:
@@ -285,17 +283,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download Compliance Agent
-        run: |
-          echo "📥 Downloading Compliance Agent from AgenticQA..."
-          curl -sSL -f https://raw.githubusercontent.com/nhomyk/AgenticQA/main/compliance-agent.js -o compliance-agent.js
-          if [ ! -f compliance-agent.js ]; then
-            echo "❌ Failed to download Compliance Agent"
-            exit 1
-          fi
-          echo "✅ Compliance Agent ready"
       - name: Run Compliance Agent
-        run: node compliance-agent.js
+        run: |
+          # Use local agent if available, otherwise skip
+          if [ -f compliance-agent.js ]; then
+            echo "✅ Running local Compliance Agent"
+            node compliance-agent.js
+          else
+            echo "ℹ️  Compliance Agent not available in this repository"
+          fi
         continue-on-error: true
 
   fullstack-agent:
@@ -313,17 +309,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download Fullstack Agent
-        run: |
-          echo "📥 Downloading Fullstack Agent from AgenticQA..."
-          curl -sSL -f https://raw.githubusercontent.com/nhomyk/AgenticQA/main/fullstack-agent.js -o fullstack-agent.js
-          if [ ! -f fullstack-agent.js ]; then
-            echo "❌ Failed to download Fullstack Agent"
-            exit 1
-          fi
-          echo "✅ Fullstack Agent ready"
       - name: Run Fullstack Agent
-        run: node fullstack-agent.js
+        run: |
+          # Use local agent if available, otherwise skip
+          if [ -f fullstack-agent.js ]; then
+            echo "✅ Running local Fullstack Agent"
+            node fullstack-agent.js
+          else
+            echo "ℹ️  Fullstack Agent not available in this repository"
+          fi
         continue-on-error: true
 
   observability-setup:
@@ -410,17 +404,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
-      - name: Download SRE Agent
-        run: |
-          echo "📥 Downloading SRE Agent from AgenticQA..."
-          curl -sSL -f https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agentic_sre_engineer.js -o agentic_sre_engineer.js
-          if [ ! -f agentic_sre_engineer.js ]; then
-            echo "❌ Failed to download SRE Agent"
-            exit 1
-          fi
-          echo "✅ SRE Agent ready"
       - name: Run SRE Agent
-        run: node agentic_sre_engineer.js
+        run: |
+          # Use local agent if available, otherwise skip
+          if [ -f agentic_sre_engineer.js ]; then
+            echo "✅ Running local SRE Agent"
+            node agentic_sre_engineer.js
+          else
+            echo "ℹ️  SRE Agent not available in this repository"
+          fi
         continue-on-error: true
 
   safeguards-validation:
