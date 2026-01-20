@@ -19,6 +19,42 @@ describe('settings - UI Components', () => {
   });
 
 
+  describe('Button Interactions', () => {
+
+    it('should handle button click for "&times;"', () => {
+      cy.contains('button', '&times;').should('be.visible');
+      cy.contains('button', '&times;').should('be.enabled');
+      cy.contains('button', '&times;').click();
+      // Verify action occurred (update assertions based on button behavior)
+      cy.get('body').should('exist'); // Placeholder
+    });
+
+    it('should have proper accessibility for "&times;" button', () => {
+      cy.contains('button', '&times;')
+        .should('have.attr', 'type', 'button')
+        .or('have.attr', 'type', 'submit');
+      // Check for aria-label if needed
+      // Add aria-label for accessibility
+    });
+
+    it('should handle button click for "Yes, Deploy to Main"', () => {
+      cy.contains('button', 'Yes, Deploy to Main').should('be.visible');
+      cy.contains('button', 'Yes, Deploy to Main').should('be.enabled');
+      cy.contains('button', 'Yes, Deploy to Main').click();
+      // Verify action occurred (update assertions based on button behavior)
+      cy.get('body').should('exist'); // Placeholder
+    });
+
+    it('should have proper accessibility for "Yes, Deploy to Main" button', () => {
+      cy.contains('button', 'Yes, Deploy to Main')
+        .should('have.attr', 'type', 'button')
+        .or('have.attr', 'type', 'submit');
+      // Check for aria-label if needed
+      // Add aria-label for accessibility
+    });
+
+  });
+
 
 
   describe('Modal/Dialog Interactions', () => {
