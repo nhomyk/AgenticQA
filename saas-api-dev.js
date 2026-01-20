@@ -1184,10 +1184,7 @@ app.use((req, res) => {
 
 // Helper function to create workflow file in GitHub repo via API
 async function createWorkflowInGitHub(owner, repo, token) {
-  return new Promise((resolve, reject) => {
-    const https = require('https');
-    
-    const workflowContent = `name: AgenticQA Client Pipeline
+  const workflowContent = `name: AgenticQA Client Pipeline
 on:
   push:
     branches: [main, develop]
@@ -1223,42 +1220,50 @@ jobs:
           BRANCH: \${{ github.ref_name }}
           AGENTIC_QA_API: http://localhost:3001`;
 
-    const content = Buffer.from(workflowContent).toString('base64');
-    
-    const payload = JSON.stringify({
-      message: 'ci: add AgenticQA automated testing pipeline',
-      content: content,
-      branch: 'main'
-    });
+  const content = Buffer.from(workflowContent).toString('base64');
+  
+  console.log(`📝 Creating workflow in GitHub: ${owner}/${repo}`);
+  console.log(`   Token length: ${token.length} chars`);
+  console.log(`   Token starts with: ${token.substring(0, 10)}...`);
 
-    const options = {
-      hostname: 'api.github.com',
-      path: `/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${token}`,
-        'User-Agent': 'AgenticQA',
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload)
+  const payload = {
+    message: 'ci: add AgenticQA automated testing pipeline',
+    content: content,
+    branch: 'main'
+  };
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/.github/workflows/agentic-qa.yml`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'AgenticQA-Client-Setup'
+        },
+        body: JSON.stringify(payload)
       }
-    };
+    );
 
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(JSON.parse(data));
-        } else {
-          reject(new Error(`GitHub API error: ${res.statusCode} - ${data}`));
-        }
-      });
-    });
+    const responseData = await response.json();
 
-    req.on('error', reject);
-    req.write(payload);
-    req.end();
-  });
+    console.log(`✅ GitHub API Response Status: ${response.status}`);
+    console.log(`   Response:`, JSON.stringify(responseData).substring(0, 200));
+
+    if (response.status === 201 || response.status === 200) {
+      console.log(`✅ Workflow file created successfully in ${owner}/${repo}`);
+      return responseData;
+    } else {
+      const errorMsg = responseData.message || responseData.error || JSON.stringify(responseData);
+      console.error(`❌ GitHub API Error (${response.status}):`, errorMsg);
+      throw new Error(`GitHub API (${response.status}): ${errorMsg}`);
+    }
+  } catch (error) {
+    console.error(`❌ Failed to create workflow:`, error);
+    throw error;
+  }
 }
 
 // Self-service client setup (no authentication required - client provides token)
@@ -1283,14 +1288,25 @@ app.post('/api/setup-self-service', async (req, res) => {
     const owner = repoMatch[1];
     const repo = repoMatch[2];
 
+    console.log(`\n🚀 === SELF-SERVICE SETUP START ===`);
+    console.log(`   Repository: ${owner}/${repo}`);
+
     // Create workflow file in client's repository
     try {
       await createWorkflowInGitHub(owner, repo, githubToken);
     } catch (error) {
-      console.error('Failed to create workflow:', error);
+      console.error('❌ Failed to create workflow:', error);
       return res.status(400).json({ 
         error: 'Failed to create workflow in repository. Check your token permissions.',
-        details: error.message 
+        details: error.message,
+        troubleshooting: {
+          check: [
+            'Token has "repo" scope (full repository access)',
+            'Token has "actions" scope (manage GitHub Actions)',
+            'Token is not expired',
+            'Repository is owned by token owner or token has access'
+          ]
+        }
       });
     }
 
@@ -1317,20 +1333,77 @@ app.post('/api/setup-self-service', async (req, res) => {
       repoUrl: `${owner}/${repo}`
     });
 
+    console.log(`✅ Client registered with ID: ${clientId}`);
+    console.log(`🚀 === SELF-SERVICE SETUP COMPLETE ===\n`);
+
     res.json({
       status: 'success',
       clientId,
       message: 'Workflow successfully created and client registered',
       dashboardUrl: `http://localhost:3000?client=${clientId}`,
+      workflowUrl: `https://github.com/${owner}/${repo}/actions`,
       nextSteps: [
         'Workflow file created at: .github/workflows/agentic-qa.yml',
         'Executor will download on first workflow run',
-        'View results on your dashboard'
+        'View results on your dashboard',
+        `Check GitHub Actions: ${`https://github.com/${owner}/${repo}/actions`}`
       ]
     });
   } catch (error) {
-    console.error('Self-service setup error:', error);
+    console.error('❌ Self-service setup error:', error);
     res.status(500).json({ error: 'Failed to setup client pipeline' });
+  }
+});
+
+// DEBUG endpoint to test workflow creation
+app.post('/api/debug/test-workflow-creation', async (req, res) => {
+  try {
+    const { owner, repo, token } = req.body;
+
+    if (!owner || !repo || !token) {
+      return res.status(400).json({ 
+        error: 'owner, repo, and token are required' 
+      });
+    }
+
+    console.log(`\n🔍 === DEBUG: TESTING WORKFLOW CREATION ===`);
+    console.log(`   Repository: ${owner}/${repo}`);
+    console.log(`   Token prefix: ${token.substring(0, 10)}...`);
+
+    try {
+      await createWorkflowInGitHub(owner, repo, token);
+      
+      console.log(`✅ DEBUG: Workflow creation successful`);
+      res.json({
+        status: 'success',
+        message: 'Workflow creation test successful',
+        repoUrl: `https://github.com/${owner}/${repo}`,
+        actionsUrl: `https://github.com/${owner}/${repo}/actions`,
+        workflowFile: `.github/workflows/agentic-qa.yml`
+      });
+    } catch (error) {
+      console.error(`❌ DEBUG: Workflow creation failed:`, error.message);
+      res.status(400).json({
+        status: 'failed',
+        error: error.message,
+        troubleshooting: {
+          tokenIssues: [
+            'Check token is valid',
+            'Check token has "repo" scope',
+            'Check token has "actions" scope',
+            'Check token is not expired'
+          ],
+          permissionIssues: [
+            'You must be able to push to the repository',
+            'The repository owner must have GitHub Actions enabled',
+            'Verify you own the repository'
+          ]
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
