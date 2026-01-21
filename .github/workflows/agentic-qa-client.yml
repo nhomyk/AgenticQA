@@ -260,11 +260,16 @@ jobs:
       - name: Run SDET Agent
         run: |
           # Use local agent if available, otherwise skip
+          echo "📍 Current directory: $(pwd)"
+          echo "📋 Checking for agent.js..."
+          ls -la agent.js 2>/dev/null || echo "⚠️  agent.js not found in root"
+          
           if [ -f agent.js ]; then
             echo "✅ Running local SDET Agent"
             node agent.js
           else
-            echo "ℹ️  SDET Agent not available in this repository"
+            echo "❌ SDET Agent not found at $(pwd)/agent.js"
+            exit 1
           fi
         continue-on-error: true
 
@@ -286,11 +291,16 @@ jobs:
       - name: Run Compliance Agent
         run: |
           # Use local agent if available, otherwise skip
+          echo "📍 Current directory: $(pwd)"
+          echo "📋 Checking for compliance-agent.js..."
+          ls -la compliance-agent.js 2>/dev/null || echo "⚠️  compliance-agent.js not found in root"
+          
           if [ -f compliance-agent.js ]; then
             echo "✅ Running local Compliance Agent"
             node compliance-agent.js
           else
-            echo "ℹ️  Compliance Agent not available in this repository"
+            echo "❌ Compliance Agent not found at $(pwd)/compliance-agent.js"
+            exit 1
           fi
         continue-on-error: true
 
@@ -407,11 +417,16 @@ jobs:
       - name: Run SRE Agent
         run: |
           # Use local agent if available, otherwise skip
+          echo "📍 Current directory: $(pwd)"
+          echo "📋 Checking for agentic_sre_engineer.js..."
+          ls -la agentic_sre_engineer.js 2>/dev/null || echo "⚠️  agentic_sre_engineer.js not found in root"
+          
           if [ -f agentic_sre_engineer.js ]; then
             echo "✅ Running local SRE Agent"
             node agentic_sre_engineer.js
           else
-            echo "ℹ️  SRE Agent not available in this repository"
+            echo "❌ SRE Agent not found at $(pwd)/agentic_sre_engineer.js"
+            exit 1
           fi
         continue-on-error: true
 
