@@ -257,18 +257,27 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
+      - name: Download SDET Agent from AgenticQA
+        run: |
+          echo "📥 Downloading SDET Agent from AgenticQA..."
+          curl -s https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agent.js -o agent.js
+          if [ $? -eq 0 ] && [ -f agent.js ]; then
+            echo "✅ Successfully downloaded agent.js"
+            chmod +x agent.js
+          else
+            echo "⚠️  Failed to download agent.js"
+            exit 1
+          fi
+        continue-on-error: false
       - name: Run SDET Agent
         run: |
-          # Use local agent if available, otherwise skip
           echo "📍 Current directory: $(pwd)"
-          echo "📋 Checking for agent.js..."
-          ls -la agent.js 2>/dev/null || echo "⚠️  agent.js not found in root"
-          
+          echo "📋 Running SDET Agent..."
           if [ -f agent.js ]; then
-            echo "✅ Running local SDET Agent"
+            echo "✅ Executing SDET Agent"
             node agent.js
           else
-            echo "❌ SDET Agent not found at $(pwd)/agent.js"
+            echo "❌ SDET Agent not available"
             exit 1
           fi
         continue-on-error: true
@@ -288,18 +297,27 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
+      - name: Download Compliance Agent from AgenticQA
+        run: |
+          echo "📥 Downloading Compliance Agent from AgenticQA..."
+          curl -s https://raw.githubusercontent.com/nhomyk/AgenticQA/main/compliance-agent.js -o compliance-agent.js
+          if [ $? -eq 0 ] && [ -f compliance-agent.js ]; then
+            echo "✅ Successfully downloaded compliance-agent.js"
+            chmod +x compliance-agent.js
+          else
+            echo "⚠️  Failed to download compliance-agent.js"
+            exit 1
+          fi
+        continue-on-error: false
       - name: Run Compliance Agent
         run: |
-          # Use local agent if available, otherwise skip
           echo "📍 Current directory: $(pwd)"
-          echo "📋 Checking for compliance-agent.js..."
-          ls -la compliance-agent.js 2>/dev/null || echo "⚠️  compliance-agent.js not found in root"
-          
+          echo "📋 Running Compliance Agent..."
           if [ -f compliance-agent.js ]; then
-            echo "✅ Running local Compliance Agent"
+            echo "✅ Executing Compliance Agent"
             node compliance-agent.js
           else
-            echo "❌ Compliance Agent not found at $(pwd)/compliance-agent.js"
+            echo "❌ Compliance Agent not available"
             exit 1
           fi
         continue-on-error: true
@@ -414,18 +432,27 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
+      - name: Download SRE Agent from AgenticQA
+        run: |
+          echo "📥 Downloading SRE Agent from AgenticQA..."
+          curl -s https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agentic_sre_engineer.js -o agentic_sre_engineer.js
+          if [ $? -eq 0 ] && [ -f agentic_sre_engineer.js ]; then
+            echo "✅ Successfully downloaded agentic_sre_engineer.js"
+            chmod +x agentic_sre_engineer.js
+          else
+            echo "⚠️  Failed to download agentic_sre_engineer.js"
+            exit 1
+          fi
+        continue-on-error: false
       - name: Run SRE Agent
         run: |
-          # Use local agent if available, otherwise skip
           echo "📍 Current directory: $(pwd)"
-          echo "📋 Checking for agentic_sre_engineer.js..."
-          ls -la agentic_sre_engineer.js 2>/dev/null || echo "⚠️  agentic_sre_engineer.js not found in root"
-          
+          echo "📋 Running SRE Agent..."
           if [ -f agentic_sre_engineer.js ]; then
-            echo "✅ Running local SRE Agent"
+            echo "✅ Executing SRE Agent"
             node agentic_sre_engineer.js
           else
-            echo "❌ SRE Agent not found at $(pwd)/agentic_sre_engineer.js"
+            echo "❌ SRE Agent not available"
             exit 1
           fi
         continue-on-error: true
