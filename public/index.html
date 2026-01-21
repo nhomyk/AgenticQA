@@ -1074,10 +1074,22 @@
                 <p>175+ compliance checks across GDPR, CCPA, WCAG, ADA, OWASP. Automatic audit reports for regulators.</p>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">📡</div>
-                <h3>Advanced Observability</h3>
-                <p>Prometheus metrics + Jaeger distributed tracing. See exactly what your agents are doing in real-time.</p>
+            <div class="feature-card" style="border: 2px solid #ec4899; background: linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(244, 114, 182, 0.05) 100%);">
+                <div class="feature-icon">🧠</div>
+                <h3>✨ LLM Agent Validation</h3>
+                <p><strong>Promptfoo:</strong> Validates agent prompts for consistency, tests LLM output patterns, detects edge cases, ensures generated code is valid and safe.</p>
+            </div>
+
+            <div class="feature-card" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(251, 146, 60, 0.05) 100%);">
+                <div class="feature-icon">🔒</div>
+                <h3>✨ Advanced Security Scanning</h3>
+                <p><strong>Semgrep + Trivy:</strong> OWASP Top 10 detection, CWE vulnerabilities, container CVE scanning with severity filtering. Automatic remediation.</p>
+            </div>
+
+            <div class="feature-card" style="border: 2px solid #06b6d4; background: linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);">
+                <div class="feature-icon">📈</div>
+                <h3>✨ Production Observability</h3>
+                <p><strong>Prometheus + Jaeger:</strong> Real-time metrics from agent pipeline, distributed tracing for request flows, latency analysis, error tracking.</p>
             </div>
 
             <div class="feature-card">
@@ -1086,16 +1098,16 @@
                 <p>Parallel test execution across all frameworks. Full pipeline in under 3 minutes instead of 30+.</p>
             </div>
 
-            <div class="feature-card" style="grid-column: 1 / 2; border: 2px solid #3b82f6; background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);">
+            <div class="feature-card" style="border: 2px solid #3b82f6; background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);">
                 <div class="feature-icon">🛠️</div>
                 <h3>⭐ Compliance Auto-Fix</h3>
-                <p><strong>NEW:</strong> Intelligent system that reads compliance reports, identifies issues, and applies targeted fixes. GDPR, CCPA, accessibility—all automated with re-validation.</p>
+                <p><strong>Intelligent Routing:</strong> Reads compliance reports, identifies issues, routes to specialized fixers. GDPR, CCPA, accessibility—all automated with re-validation.</p>
             </div>
 
-            <div class="feature-card" style="grid-column: 2 / 3; border: 2px solid #8b5cf6; background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%);">
+            <div class="feature-card" style="border: 2px solid #8b5cf6; background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%);">
                 <div class="feature-icon">🏗️</div>
                 <h3>⭐ Monorepo Architecture</h3>
-                <p><strong>NEW:</strong> Shared agent cores (6 NPM packages) eliminate code duplication. Same logic, different interfaces. 4,200+ lines of code saved.</p>
+                <p><strong>Shared Agent Cores:</strong> 6 NPM packages eliminate code duplication. Same logic, different interfaces. 4,200+ lines saved, zero duplication.</p>
             </div>
         </div>
     </section>
@@ -1132,7 +1144,6 @@
         <div class="tab-buttons" role="tablist" aria-label="documentation-tabs">
             <button class="tab-button active" onclick="switchTab(this, 'overview')" role="tab" aria-selected="true" aria-controls="overview">Overview</button>
             <button class="tab-button" onclick="switchTab(this, 'who-we-are')" role="tab" aria-selected="false" aria-controls="who-we-are">Who We Are</button>
-            <button class="tab-button" onclick="switchTab(this, 'consulting')" role="tab" aria-selected="false" aria-controls="consulting">Consulting Services</button>
             <button class="tab-button" onclick="switchTab(this, 'architecture')" role="tab" aria-selected="false" aria-controls="architecture">Architecture</button>
             <button class="tab-button" onclick="switchTab(this, 'compliance')" role="tab" aria-selected="false" aria-controls="compliance">Compliance</button>
             <button class="tab-button" onclick="switchTab(this, 'testing')" role="tab" aria-selected="false" aria-controls="testing">Testing</button>
@@ -1322,130 +1333,6 @@
                     <h3>Ready to Build Intelligent Systems Together?</h3>
                     <p>Let's create technology that matters. Contact our team to discuss how we can architect high-tech solutions for your organization.</p>
                     <button class="btn-primary" onclick="document.location.href='#contact'">Start a Conversation</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="consulting" class="tab-content">
-            <div class="consulting-container">
-                <!-- Hero Section -->
-                <div class="consulting-hero">
-                    <h2>Consulting Services</h2>
-                    <p>Leverage our decades of system architecture expertise. We deliver strategic consulting across a wide range of high-impact projects—from AI transformations to system modernization to custom development.</p>
-                    <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 8px; border-left: 4px solid #3b82f6;">
-                        <p style="margin: 0; font-size: 1rem; line-height: 1.8;"><strong>Why Work With Us?</strong> We don't operate like traditional consulting groups. Our team has deep startup experience scaling from 0-1, working with teams of all sizes—from scrappy 3-person teams to multinational enterprises. We execute alongside your team, maintain codebases, implement processes, and ensure your organization succeeds long after we're done. We work <em>with</em> you, not just for you.</p>
-                    </div>
-                </div>
-
-                <!-- Services Grid -->
-                <div class="consulting-grid">
-                    <!-- AI Transformations -->
-                    <div class="consulting-card">
-                        <div class="consulting-card-icon">🤖</div>
-                        <h3>AI Transformations</h3>
-                        <p>Reimagine your development, operations, and compliance processes with autonomous AI agents. We design and implement intelligent systems that reduce manual work and improve quality.</p>
-                        <ul class="consulting-features">
-                            <li>Agent architecture design and implementation</li>
-                            <li>Custom domain training for your business</li>
-                            <li>End-to-end AI transformation roadmap</li>
-                            <li>Integration with existing tools and workflows</li>
-                            <li>Ongoing optimization and scaling</li>
-                        </ul>
-                    </div>
-
-                    <!-- Custom Education & Upskilling -->
-                    <div class="consulting-card">
-                        <div class="consulting-card-icon">📚</div>
-                        <h3>Custom Education & Upskilling</h3>
-                        <p>Build technical expertise across your organization with tailored training programs. We deliver live sessions and on-demand video content on any technology your team needs to master.</p>
-                        <ul class="consulting-features">
-                            <li>Custom curriculum design for your team</li>
-                            <li>Advanced topics: vector databases, agents, automation</li>
-                            <li>Live workshop sessions with hands-on labs</li>
-                            <li>Video content library for ongoing reference</li>
-                            <li>Certification and skill validation</li>
-                        </ul>
-                    </div>
-
-                    <!-- Custom Automated Builds -->
-                    <div class="consulting-card">
-                        <div class="consulting-card-icon">⚙️</div>
-                        <h3>Custom Automated Builds</h3>
-                        <p>Streamline your development workflow with intelligent build automation. We design systems that compile, test, and deploy your code with zero manual intervention.</p>
-                        <ul class="consulting-features">
-                            <li>Build pipeline architecture and optimization</li>
-                            <li>Multi-framework and multi-language support</li>
-                            <li>Parallel execution for 3x faster builds</li>
-                            <li>Integration with your existing tools</li>
-                            <li>Continuous performance monitoring</li>
-                        </ul>
-                    </div>
-
-                    <!-- CI/CD Pipeline Design -->
-                    <div class="consulting-card">
-                        <div class="consulting-card-icon">🚀</div>
-                        <h3>Custom CI/CD Pipelines</h3>
-                        <p>Design and implement enterprise-grade CI/CD systems that scale with your organization. From simple deployments to complex multi-stage pipelines, we build what you need.</p>
-                        <ul class="consulting-features">
-                            <li>End-to-end pipeline architecture</li>
-                            <li>Multi-environment deployment strategies</li>
-                            <li>Blue-green, canary, and rolling deployments</li>
-                            <li>Automated rollback and recovery</li>
-                            <li>Integration with GitHub Actions, Jenkins, ArgoCD, and more</li>
-                        </ul>
-                    </div>
-
-                    <!-- Architecture Modernization -->
-                    <div class="consulting-card">
-                        <div class="consulting-card-icon">🏗️</div>
-                        <h3>Architecture Modernization</h3>
-                        <p>Transform legacy systems into modern, scalable architectures. We design and execute strategic system migrations—from monoliths to microservices, on-premise to cloud, and everything in between.</p>
-                        <ul class="consulting-features">
-                            <li>System assessment and roadmap planning</li>
-                            <li>Monolith-to-microservices migration</li>
-                            <li>On-premise to cloud transitions</li>
-                            <li>Database evolution and optimization</li>
-                            <li>Zero-downtime deployment strategies</li>
-                        </ul>
-                    </div>
-
-                    <!-- Custom Development Projects -->
-                    <div class="consulting-card">
-                        <div class="consulting-card-icon">💻</div>
-                        <h3>Strategic Development Projects</h3>
-                        <p>When you need more than consulting—when you need execution. Our architects lead implementation of complex projects, from proof-of-concepts to full-scale production systems.</p>
-                        <ul class="consulting-features">
-                            <li>Full-stack application development</li>
-                            <li>Performance optimization and scaling</li>
-                            <li>Security hardening and compliance implementation</li>
-                            <li>Integration with third-party systems</li>
-                            <li>Dedicated project leadership and delivery</li>
-                        </ul>
-                    </div>
-
-                    <!-- Our Approach - Differentiator -->
-                    <div class="consulting-card" style="background: linear-gradient(135deg, #f0f9ff 0%, #f3e8ff 100%); border-color: #3b82f6;">
-                        <div class="consulting-card-icon">🤝</div>
-                        <h3>Our Approach: Built Different</h3>
-                        <p>Unlike large, bureaucratic consulting groups, we combine startup agility with enterprise expertise. We execute quickly, adapt to your needs, and ensure long-term success.</p>
-                        <ul class="consulting-features">
-                            <li><strong>Agile Execution:</strong> Move fast without sacrificing quality. We've shipped everything from 3-person teams to global organizations</li>
-                            <li><strong>Team-First Mentorship:</strong> Work alongside your team, not over them. Transfer knowledge and build capability, not dependency</li>
-                            <li><strong>Codebase Ownership:</strong> We maintain code quality, document processes, and ensure handoff is seamless</li>
-                            <li><strong>Process Implementation:</strong> Build sustainable practices that outlast our engagement. Your team succeeds independently</li>
-                            <li><strong>Startup to Scale:</strong> Deep experience across company stages—early-stage chaos to enterprise complexity</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- CTA Section -->
-                <div class="consulting-cta">
-                    <h3>Ready to Transform Your Organization?</h3>
-                    <p>Let's discuss how our consulting services can address your specific challenges and accelerate your technical roadmap.</p>
-                    <div class="cta-buttons">
-                        <button class="btn-primary">Schedule Consultation</button>
-                        <button class="btn-secondary">View Case Studies</button>
-                    </div>
                 </div>
             </div>
         </div>

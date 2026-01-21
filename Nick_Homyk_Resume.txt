@@ -1,0 +1,64 @@
+Nick Homyk
+https://medium.com/@nickhomyk
+nickhomyk@gmail.com | +1 914 204 2139
+
+SUMMARY
+Results-driven Lead Automation Engineer and Technical Trainer with 15+ years of experience in software quality engineering, DevOps, and AI-driven automation since 2011. Expert in building scalable test automation frameworks, orchestrating multi-agent systems, and leading cross-functional teams. Proven ability to deliver robust solutions using JavaScript, Node.js, cloud platforms, and modern CI/CD pipelines.
+
+EDUCATION
+College of Saint Rose
+B.S. in Business
+
+SKILLS
+- Programming Languages: JavaScript, Java
+- Frameworks: Node.js, React, Vue.js
+- Automation Tools: Cypress, Selenium, Postman, Katalon
+- CI/CD: CircleCI, GitHub Actions, Azure DevOps
+- Cloud & DevOps: AWS, Azure, Docker
+- Methodologies: Agile, Scrum, Continuous Integration/Delivery
+- Other Tools: Jira, Android Studio, Git
+
+EXPERIENCE
+Paychex | Remote | Lead Agentic AI Technical Trainer
+Mar 2025 – Present
+- Developed and delivered a comprehensive AI training program for engineering teams, covering vector databases, multi-agent orchestration, and workflow automation.
+- Enabled rapid adoption of AI-driven solutions across the organization.
+
+Tax.com | New York, NY | Contract Automation Engineer
+Aug 2024 – Feb 2025
+- Designed and integrated a Selenium-based test automation framework with Azure DevOps for a distributed financial dashboard (React, Java).
+- Mentored global QA teams on best practices in Git, CI/CD, and automated testing.
+
+Blue Bite | New York, NY | Senior Software Development Engineer in Test (SDET)
+Jan 2017 – Jun 2024
+- Led automation initiatives across all product lines, implementing CircleCI and Cypress to reduce test cycles from a week to hours.
+- Enhanced test coverage and reliability for high-traffic IoT platforms.
+
+Blue Bite | New York, NY | Interim Head of Engineering / Senior SDET
+Jan 2020 – Dec 2022
+- Managed a 15-member engineering team, driving project delivery, technical strategy, and recruitment.
+- Oversaw all software testing and collaborated with executive leadership on company-wide goals.
+
+Blue Bite | New York, NY | Software Development Engineer in Test (SDET)
+Jan 2016 – Dec 2016
+- Built end-to-end testing solutions for distributed microservices using Cypress.
+
+TECHNICAL PROJECTS
+AgenticQA – Automated Agent Orchestration & Compliance Platform
+2025 – Present
+- Architected and developed AgenticQA, a Node.js-based platform for orchestrating, testing, and validating multi-agent workflows in compliance-driven environments.
+- Implemented advanced automation for agent recovery, compliance validation, and workflow deployment, leveraging JavaScript, VS Code extension APIs, and cloud-native tools.
+- Integrated CI/CD pipelines and automated test suites, ensuring rapid, reliable delivery and high code quality.
+- Enhanced system observability and error recovery, reducing downtime and improving operational resilience.
+- Open-sourced the project, enabling adoption by engineering teams for scalable agent orchestration and compliance automation.
+
+Automated Testing Framework for SaaS Platform | Blue Bite
+- Spearheaded the development of a robust automated testing framework for a high-traffic IoT platform, exponentially improving test coverage.
+
+Continuous Integration System Enhancement | Blue Bite
+- Led CI system enhancements, enabling efficient code integration and reducing deployment downtime.
+
+LINKS
+- GitHub: github.com/nhomyk
+- LinkedIn: linkedin.com/in/nhomyk
+- Medium: medium.com/@nickhomyk

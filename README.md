@@ -8,7 +8,7 @@ Available in two deployments:
 - **orbitQA.ai (CLI)** - In-repo deployment for developers
 - **orbitQA.ai (SaaS)** - External cloud platform with REST API + web dashboard
 
-> ✅ **Proprietary & Confidential** • 🔐 **Enterprise-Grade Security** • 🛡️ **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 📦 **6 Npm Packages**
+> ✅ **Enterprise-Grade Security** • 🔐 **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 🎯 **Promptfoo LLM Validation** • 🔍 **Semgrep + Trivy Security** • 📈 **Prometheus + Jaeger Observability** • 📦 **6 Npm Packages**
 
 ---
 
@@ -127,68 +127,6 @@ If orbitQA.ai excites you, imagine what we could build for your organization:
 - **From 0-1 Concept to Production** in weeks, not quarters
 
 Our team doesn't just build software—we architect strategic technology advantages.
-
----
-
-## 💼 Consulting Services
-
-Beyond orbitQA.ai, we offer strategic consulting across a comprehensive range of high-impact projects. Our decades of system architecture expertise enables us to deliver solutions that drive real business value.
-
-### AI Transformations
-Reimagine your entire SDLC with autonomous AI agents. We design and implement intelligent systems that reduce manual work, improve quality, and accelerate delivery. From compliance automation to intelligent testing, we transform how your organization builds software.
-
-- Agent architecture design and implementation
-- Custom domain training for your business context
-- End-to-end AI transformation roadmap
-- Integration with existing tools and workflows
-- Ongoing optimization and scaling
-
-### Custom Education & Upskilling Programs
-Build deep technical expertise across your organization with tailored training. We deliver both live workshops and on-demand video content on any technology your team needs to master.
-
-- **Custom Curriculum Design** - Tailored to your team's needs and learning pace
-- **Advanced Topics** - Automation frameworks, vector databases, AI agents, modern architectures
-- **Live Workshop Sessions** - Interactive training with hands-on labs and real-world scenarios
-- **Video Content Library** - Professional, on-demand training materials for ongoing reference
-- **Certification & Skill Validation** - Measure progress and validate competency
-
-### Custom Automated Builds
-Streamline your development workflow with intelligent build automation. We design systems that compile, test, and deploy your code with zero manual intervention and maximum efficiency.
-
-- Build pipeline architecture and optimization
-- Multi-framework and multi-language support
-- Parallel execution for 3x faster builds
-- Integration with your existing tool ecosystem
-- Continuous performance monitoring and optimization
-
-### Enterprise CI/CD Pipelines
-Design and implement world-class deployment automation that scales with your organization. From simple applications to complex microservices, we build pipelines that match your exact requirements.
-
-- End-to-end pipeline architecture and strategy
-- Multi-environment deployment patterns
-- Blue-green, canary, and rolling deployment strategies
-- Automated rollback and disaster recovery
-- Integration with GitHub Actions, Jenkins, ArgoCD, and more
-
-### Architecture Modernization
-Transform legacy systems into modern, scalable architectures. We design and execute strategic system migrations that reduce technical debt, improve performance, and enable rapid innovation.
-
-- Comprehensive system assessment and roadmap
-- Monolith-to-microservices migration strategies
-- On-premise to cloud transitions with zero downtime
-- Database evolution, optimization, and migration
-- Team training and change management
-
-### Strategic Development & Implementation
-When you need more than consulting—when you need execution. Our architects lead full-scale implementation of complex projects, combining strategic design with hands-on delivery.
-
-- Full-stack application development
-- Performance optimization and system scaling
-- Security hardening and compliance implementation
-- Third-party system integration
-- Dedicated project leadership and delivery
-
-**Every consulting engagement leverages our deep expertise in architecture, AI, compliance, and enterprise systems—the same knowledge embedded in orbitQA.ai.**
 
 ---
 
