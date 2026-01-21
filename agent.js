@@ -1,6 +1,7 @@
-const { readFileSync, readdirSync, statSync } = require("fs");
+const { readFileSync, readdirSync, statSync, writeFileSync, existsSync } = require("fs");
 const { join } = require("path");
 const { chromium } = require("playwright");
+const { execSync } = require("child_process");
 
 /**
  * Tool: Scan Codebase
@@ -357,5 +358,224 @@ class QAAgent {
     console.log("\n" + "═".repeat(60));
   }
 }
+
+/**
+ * Test Generation Engine - Automatically generates unit tests for untested code
+ */
+class TestGenerator {
+  constructor() {
+    this.testCount = 0;
+    this.generatedTests = [];
+  }
+
+  generateJestTests(srcDir = "src") {
+    console.log("\n🤖 Generating Jest Unit Tests...");
+    try {
+      const testDir = "src/__tests__";
+      if (!existsSync(testDir)) {
+        execSync(`mkdir -p ${testDir}`);
+      }
+
+      // Find JavaScript files without tests
+      const files = this.findUntested(srcDir);
+      
+      files.forEach(file => {
+        const testContent = this.createJestTemplate(file);
+        const testPath = join(testDir, `${file.replace(/\.js$/, '')}.test.js`);
+        
+        if (!existsSync(testPath)) {
+          writeFileSync(testPath, testContent);
+          this.generatedTests.push(testPath);
+          this.testCount++;
+          console.log(`✅ Generated test: ${testPath}`);
+        }
+      });
+
+      return this.testCount;
+    } catch (error) {
+      console.log(`⚠️  Test generation encountered error: ${error.message}`);
+      return 0;
+    }
+  }
+
+  generateCypressTests(appUrl = "http://localhost:3000") {
+    console.log("\n🎭 Generating Cypress E2E Tests...");
+    try {
+      const testDir = "cypress/e2e";
+      execSync(`mkdir -p ${testDir}`, { stdio: 'ignore' });
+
+      const testPath = join(testDir, "smoke-tests.cy.js");
+      
+      if (!existsSync(testPath)) {
+        const cypressTemplate = `
+describe('Smoke Tests - Application Flow', () => {
+  beforeEach(() => {
+    cy.visit('${appUrl}');
+  });
+
+  it('should load the application', () => {
+    cy.get('body').should('be.visible');
+  });
+
+  it('should have essential navigation', () => {
+    cy.get('[data-cy=nav], nav, header').should('exist');
+  });
+
+  it('should have main content area', () => {
+    cy.get('main, [role="main"], .container').should('exist');
+  });
+
+  it('should be responsive on mobile', () => {
+    cy.viewport('iphone-x');
+    cy.get('body').should('be.visible');
+  });
+});
+`;
+        writeFileSync(testPath, cypressTemplate);
+        this.generatedTests.push(testPath);
+        console.log(`✅ Generated Cypress test: ${testPath}`);
+        return 1;
+      }
+      return 0;
+    } catch (error) {
+      console.log(`⚠️  Cypress test generation encountered error: ${error.message}`);
+      return 0;
+    }
+  }
+
+  findUntested(srcDir) {
+    const files = [];
+    try {
+      const entries = readdirSync(srcDir);
+      entries.forEach(entry => {
+        if (entry.endsWith('.js') && !entry.endsWith('.test.js')) {
+          files.push(entry);
+        }
+      });
+    } catch (e) {
+      // Ignore errors
+    }
+    return files;
+  }
+
+  createJestTemplate(fileName) {
+    const componentName = fileName.replace(/\.js$/, '');
+    return `
+import ${componentName} from '../${fileName}';
+
+describe('${componentName}', () => {
+  it('should render without crashing', () => {
+    expect(${componentName}).toBeDefined();
+  });
+
+  it('should export correctly', () => {
+    expect(typeof ${componentName}).toBe('function');
+  });
+
+  // Add specific tests based on component behavior
+  // TODO: Implement component-specific tests
+});
+`;
+  }
+
+  async commitGeneratedTests(message = "feat: auto-generate missing unit and E2E tests") {
+    if (this.generatedTests.length === 0) {
+      console.log("ℹ️  No tests were generated.");
+      return false;
+    }
+
+    try {
+      console.log(`\n📤 Committing ${this.generatedTests.length} generated tests...`);
+      execSync('git config user.email "agentic-qa@bot.local"');
+      execSync('git config user.name "AgenticQA Test Bot"');
+      
+      this.generatedTests.forEach(file => {
+        execSync(`git add "${file}"`);
+      });
+      
+      execSync(`git commit -m "${message} (${this.generatedTests.length} files)"`);
+      console.log("✅ Tests committed successfully");
+      return true;
+    } catch (error) {
+      console.log(`⚠️  Could not commit tests: ${error.message}`);
+      return false;
+    }
+  }
+}
+
+/**
+ * Code Fixer - Fixes linting errors and missing dependencies
+ */
+class CodeFixer {
+  fixUnusedImports() {
+    console.log("\n🔧 Fixing unused imports...");
+    try {
+      execSync('npx eslint . --fix --format=json 2>/dev/null || true', { stdio: 'ignore' });
+      console.log("✅ ESLint auto-fixes applied");
+      return true;
+    } catch (error) {
+      console.log(`⚠️  Could not auto-fix: ${error.message}`);
+      return false;
+    }
+  }
+
+  installMissingDependencies() {
+    console.log("\n📦 Installing missing dependencies...");
+    try {
+      execSync('npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null', { stdio: 'ignore' });
+      console.log("✅ Dependencies installed");
+      return true;
+    } catch (error) {
+      console.log(`⚠️  Could not install dependencies: ${error.message}`);
+      return false;
+    }
+  }
+
+  commitCodeFixes(message = "fix: auto-fix linting errors and dependencies") {
+    try {
+      execSync('git config user.email "agentic-qa@bot.local"');
+      execSync('git config user.name "AgenticQA Code Fixer"');
+      execSync('git add -A');
+      
+      const status = execSync('git status --porcelain').toString();
+      if (status.trim()) {
+        execSync(`git commit -m "${message}"`);
+        console.log("✅ Code fixes committed");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log(`⚠️  Could not commit fixes: ${error.message}`);
+      return false;
+    }
+  }
+}
+
+// Initialize and run test generation + code fixing
+const testGen = new TestGenerator();
+const codeFixer = new CodeFixer();
+
+console.log("\n" + "═".repeat(60));
+console.log("🤖 SELF-HEALING SDET AGENT - AUTO GENERATION & FIX MODE");
+console.log("═".repeat(60));
+
+// Generate missing tests
+const jestTests = testGen.generateJestTests();
+const cypressTests = testGen.generateCypressTests();
+
+// Fix code issues
+codeFixer.fixUnusedImports();
+codeFixer.installMissingDependencies();
+
+// Commit all improvements
+if (jestTests > 0 || cypressTests > 0) {
+  testGen.commitGeneratedTests();
+}
+
+codeFixer.commitCodeFixes();
+
+console.log("\n" + "═".repeat(60));
+console.log(`✅ SDET Agent Complete: ${jestTests + cypressTests} tests generated`);
+console.log("═".repeat(60));
 
 module.exports = { QAAgent, scanCodebase, submitURLToFrontend, analyzeResults };

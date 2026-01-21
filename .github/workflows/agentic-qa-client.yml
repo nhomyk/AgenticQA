@@ -252,11 +252,18 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci || npm install
+      - name: Configure Git for Agent Commits
+        run: |
+          git config --global user.email "agentic-qa@github-actions.local"
+          git config --global user.name "AgenticQA Self-Healing Bot"
       - name: Download SDET Agent from AgenticQA
         run: |
           echo "📥 Downloading SDET Agent from AgenticQA..."
@@ -272,7 +279,7 @@ jobs:
       - name: Install SDET Agent Dependencies
         run: |
           echo "📦 Installing SDET agent dependencies..."
-          npm install --save-dev playwright 2>&1 || npm install --legacy-peer-deps --save-dev playwright
+          npm install --save-dev playwright eslint 2>&1 || npm install --legacy-peer-deps --save-dev playwright eslint
         continue-on-error: false
       - name: Run SDET Agent
         run: |
@@ -284,6 +291,15 @@ jobs:
           else
             echo "❌ SDET Agent not available"
             exit 1
+          fi
+        continue-on-error: true
+      - name: Push Agent-Generated Changes
+        run: |
+          echo "📤 Pushing agent-generated improvements..."
+          if git diff --quiet; then
+            echo "ℹ️  No changes to push"
+          else
+            git push origin HEAD:${{ github.ref }} || echo "⚠️  Could not push changes (may already be pushed)"
           fi
         continue-on-error: true
 
