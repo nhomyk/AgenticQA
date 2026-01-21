@@ -269,6 +269,11 @@ jobs:
             exit 1
           fi
         continue-on-error: false
+      - name: Install SDET Agent Dependencies
+        run: |
+          echo "📦 Installing SDET agent dependencies..."
+          npm install --save-dev playwright 2>&1 || npm install --legacy-peer-deps --save-dev playwright
+        continue-on-error: false
       - name: Run SDET Agent
         run: |
           echo "📍 Current directory: $(pwd)"
@@ -443,6 +448,11 @@ jobs:
             echo "⚠️  Failed to download agentic_sre_engineer.js"
             exit 1
           fi
+        continue-on-error: false
+      - name: Install SRE Agent Dependencies
+        run: |
+          echo "📦 Installing SRE agent dependencies..."
+          npm install --save-dev simple-git nodemailer 2>&1 || npm install --legacy-peer-deps --save-dev simple-git nodemailer
         continue-on-error: false
       - name: Run SRE Agent
         run: |
