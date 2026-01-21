@@ -1,0 +1,79 @@
+Nick Homyk
+[Your Contact Info]
+
+---
+
+Dear Tenable Hiring Team,
+
+When I read that you're seeking a Manager of Quality Engineering who can "establish an automation-first culture" and "strengthen CI/CD pipelines by integrating AI-driven test creation and self-healing automation," I recognized exactly what I've been building for the last two years. I architected AgenticQA, a multi-agent platform using LangGraph that automates test creation, implements self-healing CI/CD pipelines, and provides real-time observability into quality signals. But more importantly, I've learned something that directly applies to leading Tenable's Quality function: the difference between scaling test automation and building a culture where quality becomes everyone's responsibility. That's the leader I want to be at Tenable.
+
+Why This Role Excites Me
+
+Tenable's Quality Engineering challenge is genuinely fascinating. You're not just testing security software—you're ensuring that 44,000 organizations can trust your Exposure Management platform to accurately identify their cyber risks. That's a responsibility with massive stakes. A missed vulnerability in your scanning logic cascades into undetected security gaps for your customers. A flaky test that passes when it should fail is a potential incident. That's the kind of environment where Quality Engineering stops being a cost center and becomes a strategic competitive advantage.
+
+I've worked in high-stakes environments. At Paychex, I managed quality for systems processing billions of dollars in annual payroll—one defect could impact thousands of families' paychecks. At Tax.com, I ensured financial data integrity for millions of users. Those experiences taught me that quality at scale isn't about writing more tests. It's about architecting systems that prevent defects from reaching customers, building metrics that predict problems before they happen, and creating a culture where engineers think about quality from day one.
+
+The Technical Vision You Need
+
+Your role description mentions automation-first strategy, AI-driven test creation, self-healing automation, and observability-driven insights. I've built all of this. AgenticQA is fundamentally an automation-first platform. Six specialized agents using LangGraph orchestrate testing across Windows, macOS, iOS, Android, Linux, and backend services. But the intelligence comes from the framework's ability to:
+
+- Automatically generate and maintain test cases using LLM-assisted techniques (addressing the "AI-driven test creation" requirement)
+- Implement self-healing pipelines that detect test failures, diagnose root causes, and recover gracefully
+- Provide comprehensive observability: Prometheus metrics, Jaeger distributed tracing, Sentry error tracking, custom dashboards
+- Track and optimize quality metrics: test coverage, defect escape rate, regression stability, release reliability
+
+This isn't theoretical. It runs in production. It's validated across 175+ compliance standards (GDPR, CCPA, HIPAA, OWASP, SOC2). It manages hundreds of tests daily across multiple platforms without human intervention.
+
+More importantly, I understand the principles behind this architecture. Automation-first means test automation is not an afterthought—it's the default. When engineers commit code, tests run automatically. When tests fail, the system diagnoses why. When new features ship, automation coverage grows. When observability flags anomalies, alerts fire before customers experience issues.
+
+That's the culture you need to build at Tenable.
+
+Leadership & Team Building
+
+You're looking for someone who can "lead, mentor, and grow a team of QA engineers, SDETs, automation architects, and analysts." I've done this across multiple scale-ups. At Blue Bite, I helped build a QA function from ad-hoc testing into a disciplined engineering practice as the company scaled from 50 to 200+ employees. I didn't just manage people—I helped them understand quality as a design principle. I mentored SDETs to think architecturally. I coached engineers on testability.
+
+More recently, building AgenticQA taught me what it means to mentor through architecture. I've documented best practices. I've guided colleagues through complex testing decisions. I've created frameworks that make the right choice the easy choice.
+
+At Tenable, I would bring this same philosophy: build a team that doesn't just execute tests, but thinks about how to prevent defects. Mentor SDETs who architect automation frameworks. Coach product engineers on testability. Create a culture where quality metrics drive investment decisions.
+
+Metrics, Observability, and Data-Driven Decisions
+
+You emphasize "data-backed decision making" and defining metrics like automation coverage, escaped defect rate, release reliability score, regression stability, and performance baselines. I live this. AgenticQA generates metrics obsessively:
+
+- Automation coverage across each platform and feature
+- Defect escape rates (tests that should have caught something but didn't)
+- Regression stability (how reliably tests predict real issues)
+- Performance baselines tracked against historical data
+- Release readiness scorecards
+- Incident trends and RCA outcomes
+
+But here's what matters: I don't just collect metrics. I use them to guide strategy. Escape rate trending upward? Time to invest in observability to detect issues earlier. Coverage plateauing? Time to rethink what we're automating and why. Performance degrading? Time to partner with engineering on architecture decisions.
+
+I've built dashboards in Datadog, Grafana, and custom visualization tools. I've created monthly insights reports that translate quality data into business recommendations. I've used metrics to justify investment in tooling, mentoring, and infrastructure.
+
+Security & Compliance Context
+
+Your role focuses on an Exposure Management product—security is core. I've architected quality for security-sensitive systems. AgenticQA validates compliance across seven standards: GDPR, CCPA, HIPAA, ADA, OWASP, licensing, and legal requirements. I've worked with Semgrep and Trivy for security scanning. I understand that testing security software requires thinking about threat models, false positives, detection accuracy, and adversarial scenarios.
+
+This is different from testing typical SaaS products. Security software needs quality that accounts for attackers. Your test automation needs to validate not just that features work, but that they resist tampering, that they don't leak sensitive data, that they scale reliably under attack scenarios.
+
+Why Tenable
+
+Three reasons I'm applying:
+
+1. The mission matters: Helping 44,000 organizations understand and reduce cyber risk is genuinely important work. Quality Engineering at Tenable isn't about polish—it's about trust. That's motivating.
+
+2. The role is architectural: Manager of Quality Engineering is not just a people role—it's about defining how an organization thinks about quality. You're designing the metrics, the tools, the culture, the processes. You're making strategic choices about automation investment. That's the level of impact I want to have.
+
+3. The company reflects how I work: Tenable is at scale (Fortune 500 customer base) but still moving fast. You're not at Google-process level, so architectural decisions actually matter. Your observability strategy shapes how the company operates. Your quality culture influences how engineers design systems. That's where I thrive.
+
+The Vision
+
+Here's what I believe an exceptional Manager of Quality Engineering brings to Tenable: not just scaling test automation, but architecting a quality function that anticipates problems, measures impact precisely, and influences product decisions. You champion automation-first principles. You build observability into every system. You create metrics that guide investment. You mentor teams to think architecturally. You partner with engineering on designs that are testable, reliable, and observable.
+
+You understand that in security software, quality isn't a feature—it's a foundation.
+
+I'm ready to build that at Tenable.
+
+Sincerely,
+Nick Homyk

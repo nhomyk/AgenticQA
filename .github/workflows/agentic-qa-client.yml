@@ -439,13 +439,14 @@ jobs:
       - run: npm ci || npm install
       - name: Download SRE Agent from AgenticQA
         run: |
-          echo "📥 Downloading SRE Agent from AgenticQA..."
+          echo "📥 Downloading SRE Agent and dependencies from AgenticQA..."
           curl -s https://raw.githubusercontent.com/nhomyk/AgenticQA/main/agentic_sre_engineer.js -o agentic_sre_engineer.js
-          if [ $? -eq 0 ] && [ -f agentic_sre_engineer.js ]; then
-            echo "✅ Successfully downloaded agentic_sre_engineer.js"
+          curl -s https://raw.githubusercontent.com/nhomyk/AgenticQA/main/workflow-validation-skill.js -o workflow-validation-skill.js
+          if [ -f agentic_sre_engineer.js ] && [ -f workflow-validation-skill.js ]; then
+            echo "✅ Successfully downloaded SRE agent and dependencies"
             chmod +x agentic_sre_engineer.js
           else
-            echo "⚠️  Failed to download agentic_sre_engineer.js"
+            echo "⚠️  Failed to download SRE agent files"
             exit 1
           fi
         continue-on-error: false

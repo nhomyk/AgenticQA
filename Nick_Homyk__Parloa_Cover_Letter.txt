@@ -1,0 +1,55 @@
+Nick Homyk
+[Your Contact Info]
+
+---
+
+Dear Parloa Hiring Team,
+
+When I read that you're transforming customer service with AI Agents—guiding enterprises through complex implementations, crafting precise prompts, simplifying workflows into components LLMs can actually handle—I recognized the exact work I've been doing for the last two years. I built AgenticQA, a multi-agent AI orchestration platform using LangGraph that deploys AI workflows across enterprise systems. But more importantly, I've learned something that directly applies to Parloa's mission: the difference between building AI agents and ensuring they work reliably, consistently, and intuitively for end customers. That's what I want to do as your Lead AI Agent Architect.
+
+Why This Role, Right Now
+
+Parloa's challenge is fascinating because it's not just about deploying pre-built solutions. It's about understanding what each enterprise customer needs their AI agents to do, then architecting the conversational flows, prompts, and system integrations so flawlessly that the agent feels like a natural extension of the customer's brand. That requires simultaneous mastery: prompt engineering depth, conversational design sensibility, enterprise systems integration, and the ability to translate complex requirements into conversational experiences that actually delight users.
+
+I've done exactly this. AgenticQA orchestrates six specialized agents using LangGraph—each handling different domains (compliance, security, observability, quality routing). But building the platform taught me something critical: the difference between agents that *work technically* and agents that *work for humans*. You need precise prompts. You need to understand user intent. You need to simplify backend complexity into intuitive interactions. You need rigorous testing to ensure consistency across edge cases. That's the mindset I bring.
+
+The Technical Foundation
+
+I'm fluent in everything this role demands: advanced prompt engineering (I've tuned LLM outputs for everything from compliance validation to quality decision-making), conversational design (I think constantly about how users interact with AI, what they expect, what confuses them), and enterprise system integration (AgenticQA integrates via APIs with Jira, Datadog, Sentry, GitHub, and custom internal systems).
+
+But here's what separates this from generic AI engineering: I understand that deploying AI agents to enterprise customers is a quality problem. Every prompt you craft has downstream effects. Every integration point is a potential failure mode. Every conversation design choice impacts whether customers trust the agent or work around it. At Paychex, I managed payroll systems where billions of dollars moved—users tolerate zero margin for error. At Parloa, enterprises deploying AI customer service agents have similar expectations: when the agent responds, it needs to be accurate, aligned with brand voice, and integrated seamlessly with backend systems.
+
+That's why I'm excited about this role. It's not just about building AI agents—it's about building ones that enterprises can confidently deploy to their most important channels.
+
+Guiding Enterprises Through AI Implementation
+
+You're looking for someone who can "guide customers through different phases of AI Agent implementations, providing strategic advice and scoping implementation plans." I've done this at scale. At Blue Bite, I helped scale QA practices as the company grew from 50 to 200+ engineers—not by writing more tests, but by helping teams understand quality as a design principle. At Paychex, I scoped complex quality initiatives across billions of annual transactions, working with stakeholders to define what "ready for release" actually means.
+
+For Parloa, this translates to: I can sit with an enterprise customer, listen to their customer service challenges, understand their existing workflows, ask the right questions about edge cases and brand voice, and then design an implementation roadmap that's ambitious but achievable. I can scope the effort. I can identify blockers early. I can work backward from customer outcomes to define what the AI agent actually needs to do.
+
+Enterprise Customer Perspective
+
+You emphasize "significant experience dealing with Enterprise customers." I've worked across multiple enterprise contexts: Tax.com (fintech with millions of users and their data), Paychex (mission-critical payroll), and scale-ups navigating complex requirements. I understand enterprise tempo: long sales cycles, high stakes, risk-averse decision making, but also deep commitment to solutions that genuinely improve operations.
+
+I know how to translate that into AI agent architecture. Enterprise customers don't care about the LLM's benchmark scores. They care: "Will this agent reduce our call volume? Will it handle our specific workflows? Will it maintain our brand voice? Can we integrate it with our existing systems?" I've learned to ask these questions first, then design backward to ensure the AI agent delivers on those outcomes.
+
+Why Parloa Specifically
+
+Three reasons I'm applying:
+
+1. The mission aligns with how I think: Parloa is transforming customer service by making conversations intelligent, natural, and reliable. That's exactly what AgenticQA does for quality engineering—makes complex processes intuitive, scalable, and trustworthy. Your focus on natural-sounding conversations, seamless integration, and enterprise-grade reliability resonates deeply.
+
+2. The role is architectural: As a Lead Agent Architect, you're not just deploying solutions—you're shaping how customers think about AI agents, what's possible, what's reliable. You're mentoring teams. You're defining best practices. That's the work that drives me—architecture, not execution theater.
+
+3. The team and growth trajectory matter: 400+ people, $120M Series C, offices in Berlin/Munich/NYC, hiring globally—Parloa is at that inflection point where you need architects who can help scale without losing quality. You're not at Google-scale yet, so your architectural decisions actually shape the company. That's where I thrive.
+
+The Vision
+
+Here's what I believe an exceptional Lead AI Agent Architect brings to Parloa: not just technical fluency, but a relentless focus on ensuring that every AI agent deployment enhances the customer experience and reduces friction. You ask hard questions about conversational flow. You work backward from customer success metrics. You build documentation that helps future deployments move faster. You mentor colleagues to think like architects, not just prompt engineers. You identify patterns across deployments and push product to solve them systematically.
+
+You understand that deploying AI agents to enterprise customers is a quality problem, a design problem, and a human problem—simultaneously.
+
+I'm ready to do that at Parloa.
+
+Sincerely,
+Nick Homyk

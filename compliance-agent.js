@@ -431,20 +431,26 @@ class ComplianceAuditor {
 
     const indexPath = path.join(REPO_ROOT, 'public/index.html');
     const appPath = path.join(REPO_ROOT, 'public/app.js');
+    const srcAppPath = path.join(REPO_ROOT, 'src/App.js');
 
     if (!fs.existsSync(indexPath)) {
       this.issues.high.push({
         check: 'Accessibility: HTML Structure',
         status: 'FAIL',
         severity: 'HIGH',
-        message: 'public/index.html not found',
+        message: 'public/index.html not found (expected for some project types)',
         recommendation: 'Ensure index.html exists with proper semantic HTML'
       });
       return;
     }
 
     const htmlContent = fs.readFileSync(indexPath, 'utf8');
-    const appContent = fs.readFileSync(appPath, 'utf8');
+    let appContent = '';
+    if (fs.existsSync(appPath)) {
+      appContent = fs.readFileSync(appPath, 'utf8');
+    } else if (fs.existsSync(srcAppPath)) {
+      appContent = fs.readFileSync(srcAppPath, 'utf8');
+    }
 
     const checks = [
       { regex: /<h1/i, label: 'H1 heading present', severity: 'HIGH' },
