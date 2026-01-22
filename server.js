@@ -1159,7 +1159,7 @@ app.get("/api/github/branches", async (req, res) => {
         response.on("end", () => {
           try {
             resolve({ status: response.statusCode, data: JSON.parse(data) });
-          } catch (e) {
+          } catch {
             resolve({ status: response.statusCode, data: [] });
           }
         });

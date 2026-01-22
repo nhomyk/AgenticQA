@@ -139,6 +139,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     name: "🔧 Auto-Fix Linting Issues (SRE Agent)"
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js
@@ -148,18 +151,34 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Run ESLint auto-fix
+      - name: Run ESLint auto-fix with detailed logging
         run: |
           echo "🔍 Scanning for linting issues..."
+          echo ""
+          echo "Step 1: Identify issues..."
+          npx eslint . --ext .js --format=json > eslint-report.json || true
+          
+          ISSUE_COUNT=$(jq '[.[].messages[]] | length' eslint-report.json 2>/dev/null || echo "0")
+          echo "Found $ISSUE_COUNT linting issues"
+          
+          echo ""
+          echo "Step 2: Auto-fixing fixable issues..."
           npx eslint . --ext .js --fix || true
+          
+          echo ""
+          echo "Step 3: Verifying fixes..."
+          npx eslint . --ext .js || true
           echo "✅ Auto-fix complete"
       - name: Check if files changed
         id: verify
         run: |
           if git diff --quiet; then
             echo "status=clean" >> $GITHUB_OUTPUT
+            echo "No changes needed"
           else
             echo "status=fixed" >> $GITHUB_OUTPUT
+            echo "✅ Files fixed"
+            git diff --name-only
           fi
       - name: Commit and push fixes
         if: steps.verify.outputs.status == 'fixed'
@@ -168,7 +187,7 @@ jobs:
           git config --global user.email "sre-agent[bot]@users.noreply.github.com"
           git add -A
           git commit -m "fix: Auto-fix linting errors via SRE Agent - Phase 0 early prevention" || echo "No changes to commit"
-          git push || echo "Already up to date"
+          git push origin main || echo "Already up to date"
 
   lint:
     needs: [linting-fix]

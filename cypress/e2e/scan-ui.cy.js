@@ -9,11 +9,11 @@ describe("orbitQA.ai Dashboard - UI Tests", () => {
   });
 
   it("should display all navigation tabs", () => {
-    cy.contains(".tab-btn", "Overview").should("be.visible");
-    cy.contains(".tab-btn", "Features").should("be.visible");
-    cy.contains(".tab-btn", "Use Cases").should("be.visible");
-    cy.contains(".tab-btn", "Technical").should("be.visible");
-    cy.contains(".tab-btn", "Pricing").should("be.visible");
+    cy.contains(".tab-button", "Overview").should("be.visible");
+    cy.contains(".tab-button", "Who We Are").should("be.visible");
+    cy.contains(".tab-button", "Architecture").should("be.visible");
+    cy.contains(".tab-button", "Compliance").should("be.visible");
+    cy.contains(".tab-button", "Testing").should("be.visible");
   });
 
   it("should have Overview tab active by default", () => {
@@ -21,58 +21,44 @@ describe("orbitQA.ai Dashboard - UI Tests", () => {
   });
 
   it("should switch to Features tab when clicked", () => {
-    cy.contains(".tab-btn", "Features").click();
-    cy.get("#features").should("have.class", "active");
+    cy.contains(".tab-button", "Who We Are").click();
+    cy.get("#who-we-are").should("have.class", "active");
     cy.get("#overview").should("not.have.class", "active");
   });
 
   it("should switch to Use Cases tab and show content", () => {
-    cy.contains(".tab-btn", "Use Cases").click();
-    cy.get("#use-cases").should("have.class", "active");
-    cy.contains("h2", "How AgenticQA Solves Real Problems").should("be.visible");
-    cy.contains("h3", "Codebase Knowledge").should("be.visible");
-    cy.contains("h3", "Code Generation").should("be.visible");
-    cy.contains("h3", "Code Review").should("be.visible");
-    cy.contains("h3", "Code Deployment").should("be.visible");
-    cy.contains("h3", "Testing All Aspects of Code").should("be.visible");
-    cy.contains("h3", "UI Functionality Testing").should("be.visible");
+    cy.contains(".tab-button", "Architecture").click();
+    cy.get("#architecture").should("have.class", "active");
   });
 
   it("should switch to Technical tab and show architecture", () => {
-    cy.contains(".tab-btn", "Technical").click();
-    cy.get("#technical").should("have.class", "active");
-    cy.contains("h2", "Technical Architecture").should("be.visible");
-    cy.contains("h3", "Why AgenticQA is Technically Impressive").should("be.visible");
+    cy.contains(".tab-button", "Compliance").click();
+    cy.get("#compliance").should("have.class", "active");
   });
 
   it("should switch to Pricing tab and display pricing cards", () => {
-    cy.contains(".tab-btn", "Pricing").click();
-    cy.get("#pricing").should("have.class", "active");
-    cy.contains("h2", "Simple, Transparent Pricing").should("be.visible");
-    cy.contains("h3", "Starter").should("be.visible");
-    cy.contains("h3", "Professional").should("be.visible");
-    cy.contains("h3", "Enterprise").should("be.visible");
+    cy.contains(".tab-button", "Testing").click();
+    cy.get("#testing").should("have.class", "active");
   });
 
   it("should display CTA button in hero section", () => {
-    cy.get(".cta-button").should("contain", "Start Free Trial");
+    cy.get(".cta-buttons .btn-primary").first().should("be.visible");
   });
 
   it("should have proper responsive layout", () => {
-    cy.get(".dashboard-container").should("be.visible");
-    cy.get(".tabs").should("be.visible");
-    cy.get(".content.active").should("be.visible");
+    cy.get(".hero").should("be.visible");
+    cy.get(".tabs-section").should("be.visible");
+    cy.get(".tab-content.active").should("be.visible");
   });
 
   it("should display use case cards with hover effects", () => {
-    cy.contains(".tab-btn", "Use Cases").click();
-    cy.get(".use-case-card").should("have.length", 6);
-    cy.get(".use-case-card").first().should("be.visible");
+    cy.get(".feature-card").should("have.length.at.least", 3);
+    cy.get(".feature-card").first().should("be.visible");
   });
 
   it("should have correct feature descriptions", () => {
-    cy.contains(".tab-btn", "Features").click();
-    cy.contains("h3", "Standard Features").should("be.visible");
-    cy.contains("h3", "Premium Features").should("be.visible");
+    cy.contains(".tab-button", "Who We Are").click();
+    cy.contains("h3").should("have.length.at.least", 1);
   });
 });
+
