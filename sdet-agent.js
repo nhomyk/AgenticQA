@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const AgentReportProcessor = require('./agent-report-processor'); // NEW: Report scanning
 
 console.log('\n╔═══════════════════════════════════════════════════╗');
-console.log('║   🏆 SDET AGENT v4.0 - WORLD-CLASS ACTIVATED    ║');
+console.log('║   🏆 SDET AGENT v4.1 (Report-Aware)             ║');
 console.log('╚═══════════════════════════════════════════════════╝\n');
 
 console.log('📚 Role: Senior SDET Engineer - Enterprise-Grade Test Strategy & Automation\n');
