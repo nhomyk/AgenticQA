@@ -4,11 +4,13 @@
 
 orbitQA.ai is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
 
+**Unlike proprietary platforms (Lindy, n8n cloud), AgenticQA is fully open-sourced**, giving enterprises complete control, transparency, and the ability to self-host in compliance-regulated environments.
+
 Available in two deployments:
 - **orbitQA.ai (CLI)** - In-repo deployment for developers
 - **orbitQA.ai (SaaS)** - External cloud platform with REST API + web dashboard
 
-> ✅ **Enterprise-Grade Security** • 🔐 **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 🎯 **Promptfoo LLM Validation** • 🔍 **Semgrep + Trivy Security** • 📈 **Prometheus + Jaeger Observability** • 🧪 **Mandatory Data Integrity Testing** • 📦 **6 Npm Packages** • 🎓 **Enterprise-Ready AI Training Program**
+> ✅ **Enterprise-Grade Security** • 🔐 **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 🎯 **Promptfoo LLM Validation** • 🔍 **Semgrep + Trivy Security** • 📈 **Prometheus + Jaeger Observability** • 🧪 **Mandatory Data Integrity Testing** • 📦 **6 Npm Packages**
 
 ---
 
