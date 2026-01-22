@@ -206,10 +206,48 @@ jobs:
       - name: Run ESLint
         run: npx eslint . --ext .js
 
+  # Phase 0.5: RAG Indexing & Validation
+  # Build semantic index of codebase for agent context retrieval
+  rag-indexing:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: "🤖 RAG Indexing & Verification"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: "📚 Index codebase with RAG"
+        run: |
+          echo "🤖 RAG Phase: Indexing codebase for semantic retrieval..."
+          node src/rag/indexing.js
+      - name: "✅ Verify RAG index integrity"
+        run: |
+          echo "🔍 RAG Phase: Verifying index and testing retrieval..."
+          node src/rag/verify-index.js
+      - name: "📊 Store RAG index as artifact"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-index
+          path: .rag-index/
+          retention-days: 30
+      - name: "📈 RAG completion summary"
+        if: success()
+        run: |
+          echo "✅ RAG indexing complete"
+          echo "📊 Index stored in .rag-index/"
+          echo "🚀 Ready for agent context retrieval"
+
   # Phase 1: Consolidated Testing
   # Runs all unit/integration tests in sequence within a single job
   phase-1-testing:
-    needs: [lint]
+    needs: [lint, rag-indexing]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     name: "Phase 1️⃣ Consolidated Testing"
