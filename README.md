@@ -1,4 +1,5 @@
 # 🤖 orbitQA.ai - Enterprise Autonomous QA & Compliance Platform
+**Built by Lead Agentic AI Technical Trainer @ Paychex**
 
 **⚠️ PROPRIETARY SOFTWARE - For Licensed Enterprise Use Only**
 
@@ -8,7 +9,7 @@ Available in two deployments:
 - **orbitQA.ai (CLI)** - In-repo deployment for developers
 - **orbitQA.ai (SaaS)** - External cloud platform with REST API + web dashboard
 
-> ✅ **Enterprise-Grade Security** • 🔐 **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 🎯 **Promptfoo LLM Validation** • 🔍 **Semgrep + Trivy Security** • 📈 **Prometheus + Jaeger Observability** • 🧪 **Mandatory Data Integrity Testing** • 📦 **6 Npm Packages**
+> ✅ **Enterprise-Grade Security** • 🔐 **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 🎯 **Promptfoo LLM Validation** • 🔍 **Semgrep + Trivy Security** • 📈 **Prometheus + Jaeger Observability** • 🧪 **Mandatory Data Integrity Testing** • 📦 **6 Npm Packages** • 🎓 **Enterprise-Ready AI Training Program**
 
 ---
 
@@ -88,10 +89,11 @@ We've spent decades:
 - **Building High-Tech Systems** for Fortune 500 companies, consulting groups, and multinational enterprises
 - **Leading Multi-National Teams** across EMEA, Asia-Pacific, and North America
 - **Scaling from 0-1** in multiple startups, taking products from concept to market leadership
-- **Training AI Agents Beyond Public Data** - Our autonomous agents are taught by experienced architects to become true domain experts
+- **Training AI Agents Beyond Public Data** - Currently developing comprehensive AI training program at Paychex for engineering teams covering vector databases, multi-agent orchestration, and workflow automation
+- **15+ Years of Production Excellence** - SRE expertise powering enterprise systems with incident recovery patterns and failure prevention strategies
 - **Solving Complex Compliance & Security** challenges that traditional approaches can't handle
 
-orbitQA.ai is an example of the sophisticated, intelligent systems our team builds. It's not just a tool—it's proof of how decades in architecture, combined with AI expertise, creates systems that rival senior engineers in capability.
+orbitQA.ai is an example of the sophisticated, intelligent systems our team builds. It's not just a tool—it's proof of how decades in architecture, combined with practical AI expertise, creates systems that rival senior engineers in capability.
 
 ---
 
