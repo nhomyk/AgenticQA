@@ -86,11 +86,10 @@ class AgentWithRAG {
       const embedding = await this.embedder.embed(query);
 
       // Retrieve relevant documents
-      const context = await this.vectorStore.retrieveContext(
-        embedding,
+      const context = await this.vectorStore.retrieveContext(embedding, {
         topK: 5,
         scoreThreshold: 0.5
-      );
+      });
 
       return context;
     } catch (err) {
