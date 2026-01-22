@@ -4,14 +4,17 @@
     "htmlcs"
   ],
   "standard": "WCAG2AA",
-  "timeout": 30000,
-  "wait": 5000,
+  "timeout": 60000,
+  "wait": 10000,
   "chromeLaunchConfig": {
     "args": [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--disable-gpu"
-    ]
+      "--disable-gpu",
+      "--disable-dev-shm-usage",
+      "--single-process"
+    ],
+    "headless": true
   },
   "urls": [
     "http://localhost:3000",
@@ -21,7 +24,7 @@
   "json": true,
   "level": "error",
   "ignore": [
-    "WCAG2AA.Principle1.Guideline1_4.1_4_3.G18.Fail",
+    "WCAG2AA.Principle1.Guideline1_4.3.G18.Fail",
     "WCAG2AA.Principle3.Guideline3_2_2.H32.2"
   ]
 }

@@ -308,6 +308,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Install system dependencies (for Puppeteer/Chromium)
+        if: matrix.check == 'accessibility'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-0 \
+            libgbm1 \
+            libx11-xcb1 \
+            libxcb-dri3-0 \
+            libxss1 \
+            libasound2 \
+            libxrender1 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libxkbcommon0
+      
       - name: Run Accessibility Scan (Pa11y)
         if: matrix.check == 'accessibility'
         id: pa11y
@@ -315,7 +331,20 @@ jobs:
           echo "Starting development server..."
           npm start > /tmp/server.log 2>&1 &
           SERVER_PID=$!
-          sleep 5
+          
+          # Wait up to 30 seconds for server to be ready
+          echo "Waiting for server to be ready..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3000 > /dev/null 2>&1; then
+              echo "✅ Server is ready"
+              break
+            fi
+            echo "⏳ Waiting... attempt $i/30"
+            sleep 1
+          done
+          
+          # Additional wait for stability
+          sleep 2
           
           echo "Running Pa11y accessibility tests..."
           npm run test:pa11y || true
@@ -323,7 +352,9 @@ jobs:
           kill $SERVER_PID 2>/dev/null || true
           
           if [ -f pa11y-report.json ]; then
-            echo "Pa11y report generated"
+            echo "✅ Pa11y report generated"
+          else
+            echo "⚠️  Pa11y report not found"
           fi
         continue-on-error: true
       
