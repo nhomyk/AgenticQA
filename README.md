@@ -6,11 +6,40 @@ orbitQA.ai is an enterprise-grade, closed-source Node.js platform combining AI-p
 
 **Unlike proprietary platforms (Lindy, n8n cloud), AgenticQA is fully open-sourced**, giving enterprises complete control, transparency, and the ability to self-host in compliance-regulated environments.
 
+**Architecture:** AgenticQA leverages Neo4j for compliance-driven workflow lineage and audit trails, Weaviate for semantic agent memory and context retrieval, and integrates with open-source vector/knowledge graph databases for enterprise data sovereignty.
+
 Available in two deployments:
 - **orbitQA.ai (CLI)** - In-repo deployment for developers
 - **orbitQA.ai (SaaS)** - External cloud platform with REST API + web dashboard
 
 > ✅ **Enterprise-Grade Security** • 🔐 **Autonomous Agent Safeguards** • ♿ **WCAG 2.1 AA Compliant** • 🚀 **Self-Healing Pipelines** • 📊 **SOC2/GDPR/HIPAA Ready** • 🏗️ **Shared Agent Architecture** • 🎯 **Promptfoo LLM Validation** • 🔍 **Semgrep + Trivy Security** • 📈 **Prometheus + Jaeger Observability** • 🧪 **Mandatory Data Integrity Testing** • 📦 **6 Npm Packages**
+
+---
+
+## 🏗️ Enterprise Data Layer Architecture
+
+AgenticQA integrates with production-grade open-source databases for complete data sovereignty and compliance:
+
+### Neo4j Compliance Graph
+- **Purpose:** Maps agent workflows, dependencies, and audit trails as an immutable graph
+- **Features:**
+  - Agent workflow lineage tracking (who did what, when)
+  - Compliance audit trail immutability (tamper-proof)
+  - Risk assessment scoring for automated decisions
+  - Remediation action tracking across all agents
+- **Compliance:** Audit trails for SOC2, GDPR, HIPAA, OWASP
+
+### Weaviate Semantic Agent Memory
+- **Purpose:** Provides semantic search and context retrieval for intelligent agent decision-making
+- **Features:**
+  - Agent memory persistence across executions
+  - Context-aware decision making with historical patterns
+  - Compliance pattern recognition (e.g., "similar GDPR violations from last week")
+  - Semantic similarity search for known issues and solutions
+- **Integrations:** Works with any LLM (Claude, GPT-4, local models)
+
+### Multi-Model Flexibility
+Optional integrations with ArangoDB for combined graph + document + search capabilities in single database.
 
 ---
 
