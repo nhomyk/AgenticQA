@@ -26,6 +26,7 @@ Transform how engineering teams approach QA, compliance, and DevOps by replacing
 - **🧠 Promptfoo** — LLM Agent Validation (validates prompts, tests outputs, detects edge cases)
 - **🔍 Semgrep + Trivy** — Advanced Security (OWASP, CWE, container CVEs)
 - **📈 Prometheus + Jaeger** — Production Observability (real-time metrics, distributed tracing)
+- **🧪 Data Integrity System** — Mandatory pre/post-deployment testing with automatic rollback
 - **🛡️ Autonomous Safeguards** — 3-component protection (PipelineGatekeeper, RollbackMonitor, AuditTrail)
 
 ### 🤖 6 Specialized Autonomous Agents
@@ -86,8 +87,10 @@ Transform how engineering teams approach QA, compliance, and DevOps by replacing
 ## Key Metrics
 
 - **175+** compliance checks across 7 standards
-- **6** specialized autonomous agents
-- **4,200+** lines of code eliminated through shared architecture
+- **6** specialized autonomous agents- **8+8** pre/post-deployment data validation phases (critical product feature)
+- **6** pre-built test suites + unlimited custom tests
+- **🧪 Mandatory Testing** - Tests block deployments, can't be skipped
+- **🔄 Automatic Rollback** - Post-deployment test failure triggers instant recovery- **4,200+** lines of code eliminated through shared architecture
 - **3x** faster CI/CD pipelines vs manual processes
 - **99.9%** uptime reliability
 - **∞** auto-updating test suite (unlimited generation)
@@ -191,6 +194,8 @@ Seamlessly integrates with industry standards: Jest, Vitest, Playwright, Cypress
 |---------|-----------|-------------|
 | **Shared Agent Architecture** | ✅ 6 NPM packages | ❌ Separate implementations |
 | **Dual Deployment** | ✅ CLI + SaaS | ⚠️ Usually one or the other |
+| **Data Integrity System** | ✅ Mandatory pre/post testing | ❌ None or optional |
+| **Automatic Rollback** | ✅ Built-in on test failure | ❌ Manual or complex |
 | **Autonomous Safeguards** | ✅ 3-component system | ❌ Manual gates |
 | **Compliance Automation** | ✅ 175+ checks + auto-fix | ❌ Limited or none |
 | **Advanced Observability** | ✅ Prometheus + Jaeger | ❌ Basic or external only |
