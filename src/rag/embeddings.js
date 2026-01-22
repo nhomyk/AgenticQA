@@ -1,6 +1,9 @@
 /**
  * Embeddings Integration
- * Supports OpenAI, local models, and mock embeddings for testing
+ * Supports three providers:
+ * 1. 'mock' - Free, instant, for development/testing
+ * 2. 'local' - Free, production-ready, uses HuggingFace sentence-transformers (default)
+ * 3. 'openai' - Paid ($0.02/1M tokens), highest quality
  */
 
 const https = require('https');
@@ -8,10 +11,10 @@ const https = require('https');
 class EmbeddingsProvider {
   constructor(config = {}) {
     this.config = {
-      provider: process.env.EMBEDDING_PROVIDER || 'mock', // 'openai', 'local', 'mock'
+      provider: process.env.EMBEDDING_PROVIDER || 'local', // 'openai', 'local', 'mock'
       apiKey: process.env.OPENAI_API_KEY || '',
-      model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-      dimension: config.dimension || 1536,
+      model: process.env.EMBEDDING_MODEL || 'Xenova/all-MiniLM-L6-v2',
+      dimension: config.dimension || 384,
       batchSize: config.batchSize || 10
     };
 
@@ -20,6 +23,9 @@ class EmbeddingsProvider {
       costEstimate: 0,
       queriesProcessed: 0
     };
+
+    this.localPipeline = null;
+    this.localInitPromise = null;
   }
 
   /**
@@ -109,17 +115,76 @@ class EmbeddingsProvider {
   }
 
   /**
-   * Local embedding model (mock - replace with actual implementation)
+   * Local embedding model using HuggingFace sentence-transformers
+   * Free, production-ready, runs locally (no API calls)
    */
   async embedLocal(text) {
-    // In production, you'd use something like:
-    // const { pipeline } = require('@xenova/transformers');
-    // const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    // const result = await extractor(text, { pooling: 'mean', normalize: true });
-    // return result.data;
+    try {
+      // Lazy-load transformers library on first use
+      if (!this.localPipeline) {
+        if (!this.localInitPromise) {
+          this.localInitPromise = this.initLocalPipeline();
+        }
+        await this.localInitPromise;
+      }
 
-    console.warn('⚠️  Local embeddings not fully implemented, using mock');
-    return this.embedMock(text);
+      // Use the loaded pipeline
+      if (!this.localPipeline) {
+        console.warn('⚠️  HuggingFace transformers not available, falling back to mock');
+        return this.embedMock(text);
+      }
+
+      // Generate embedding
+      const result = await this.localPipeline(text, {
+        pooling: 'mean',
+        normalize: true
+      });
+
+      // Convert to regular array and normalize
+      const embedding = Array.from(result.data);
+      this.stats.queriesProcessed++;
+      return embedding;
+
+    } catch (err) {
+      console.warn(`⚠️  Local embedding failed (${err.message}), using mock`);
+      return this.embedMock(text);
+    }
+  }
+
+  /**
+   * Initialize HuggingFace sentence-transformers pipeline
+   * Downloads model on first run (~22MB for all-MiniLM-L6-v2)
+   */
+  async initLocalPipeline() {
+    try {
+      // Try to load HuggingFace transformers
+      const { pipeline } = require('@xenova/transformers');
+
+      console.log(`📥 Loading HuggingFace model: ${this.config.model}...`);
+      this.localPipeline = await pipeline('feature-extraction', this.config.model);
+      console.log('✅ Model loaded successfully (will be cached for future runs)');
+
+      return this.localPipeline;
+
+    } catch (err) {
+      if (err.code === 'MODULE_NOT_FOUND') {
+        console.warn(`
+⚠️  HuggingFace transformers library not installed.
+
+To enable free local embeddings, install:
+  npm install @xenova/transformers
+
+Then set:
+  export EMBEDDING_PROVIDER=local
+
+For now, falling back to mock embeddings.
+        `);
+      } else {
+        console.warn(`⚠️  Failed to load local pipeline: ${err.message}`);
+      }
+      this.localPipeline = null;
+      return null;
+    }
   }
 
   /**
@@ -174,7 +239,8 @@ class EmbeddingsProvider {
     return {
       ...this.stats,
       provider: this.config.provider,
-      model: this.config.model
+      model: this.config.model,
+      costEstimate: this.config.provider === 'openai' ? this.stats.costEstimate : 0
     };
   }
 }
