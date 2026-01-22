@@ -86,7 +86,7 @@
     "jest": "^30.2.0",
     "pa11y": "^9.0.1",
     "pa11y-ci": "^4.0.1",
-    "promptfoo": "^0.82.0",
+    "promptfoo": "^0.120.16",
     "start-server-and-test": "^2.0.0",
     "vitest": "^4.0.17"
   },
