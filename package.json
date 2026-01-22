@@ -59,6 +59,9 @@
     "sdet:full": "npm run sdet && npm test && npm run test:cypress",
     "sdet:monitor": "watch -n 3 'npm run sdet' -- public unit-tests",
     "test:all": "npm run sdet:full && npm run test:compliance",
+    "git:health": "node scripts/git-health-check.js",
+    "git:commit": "node scripts/git-safe-commit.js",
+    "git:commit:push": "node scripts/git-safe-commit.js --push",
     "pre-commit": "bash .git/hooks/pre-commit"
   },
   "dependencies": {
