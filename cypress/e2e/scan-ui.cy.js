@@ -61,8 +61,8 @@ describe("orbitQA.ai Dashboard - UI Tests", () => {
     cy.contains("h3").should("have.length.at.least", 1);
   });
 
-  it("should display Technologies Detected section with proper styling", () => {
-    cy.contains("h3", "Technologies Detected").should("be.visible");
+  it("should display AgenticQA section with proper styling", () => {
+    cy.contains("h3", "AgenticQA").should("be.visible");
   });
 
   it("should have proper timeout for page loads", () => {
