@@ -2,6 +2,8 @@
 
 **⚠️ PROPRIETARY SOFTWARE - For Licensed Enterprise Use Only**
 
+**🔄 Recovery Status:** System crash recovery completed - dependencies simplified and stabilized for production deployment
+
 orbitQA.ai is an enterprise-grade, closed-source Node.js platform combining AI-powered autonomous agents, comprehensive testing infrastructure, production-ready compliance automation, self-healing CI/CD pipelines, and enterprise-grade safeguards for autonomous code protection. Purpose-built for Fortune 500 companies and enterprises requiring sophisticated QA orchestration, security scanning, compliance validation, and intelligent governance of autonomous agent changes.
 
 **Unlike proprietary platforms (Lindy, n8n cloud), AgenticQA is fully open-sourced**, giving enterprises complete control, transparency, and the ability to self-host in compliance-regulated environments.
