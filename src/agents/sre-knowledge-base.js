@@ -295,7 +295,73 @@ const knowledgeBase = {
       'Use Neo4j for workflow lineage',
       'Use Weaviate for semantic memory'
     ]
+  },
+
+  testFrameworkFixes: {
+    cypress: {
+      framework: 'Cypress E2E Testing',
+      commonFailures: [
+        {
+          error: 'Element not found: Technologies Detected',
+          cause: 'Test timeout or element not rendered',
+          fix: 'Add cy.visit("/", { timeout: 10000 }) and cy.contains("h3", "Technologies Detected").should("be.visible")',
+          autoFix: true,
+          file: 'cypress/e2e/scan-ui.cy.js'
+        },
+        {
+          error: 'Assertion failed on tab navigation',
+          cause: 'Tab not active after click',
+          fix: 'Add cy.wait(500) after tab click to ensure DOM update',
+          autoFix: true,
+          file: 'cypress/e2e/scan-ui.cy.js'
+        },
+        {
+          error: 'CTA button not visible',
+          cause: 'Hero section not loaded',
+          fix: 'Add beforeEach with cy.visit("/", { timeout: 10000 })',
+          autoFix: true,
+          file: 'cypress/e2e/scan-ui.cy.js'
+        }
+      ]
+    },
+
+    playwright: {
+      framework: 'Playwright Component Testing',
+      commonFailures: [
+        {
+          error: 'Playwright test timeout',
+          cause: 'Page not loading within default timeout',
+          fix: 'Add test.setTimeout(30000), page.setDefaultTimeout(30000), and waitUntil: "domcontentloaded"',
+          autoFix: true,
+          file: 'playwright-tests/scan-ui.spec.js'
+        },
+        {
+          error: 'Element not visible within timeout',
+          cause: 'Async render not completed',
+          fix: 'Add { timeout: 10000 } to each expect() call and await page.waitForLoadState("domcontentloaded")',
+          autoFix: true,
+          file: 'playwright-tests/scan-ui.spec.js'
+        },
+        {
+          error: 'Scanner.html page not found',
+          cause: 'Server not running or page not served',
+          fix: 'Ensure server is started before tests run; add waitUntil: "domcontentloaded" to goto()',
+          autoFix: true,
+          file: 'playwright-tests/scan-ui.spec.js'
+        }
+      ]
+    },
+
+    jest: {
+      framework: 'Jest Unit Testing',
+      commonFailures: [
+        {
+          error: 'Module not found or mocking issue',
+          cause: 'Missing package or incorrect mock setup',
+          fix: 'Check package.json dependencies; update jest.config.js moduleNameMapper',
+          autoFix: false
+        }
+      ]
+    }
   }
 };
-
-module.exports = knowledgeBase;
