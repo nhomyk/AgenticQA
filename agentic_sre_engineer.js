@@ -1308,6 +1308,18 @@ async function makeCodeChanges(failureAnalysis) {
 
   // Check for ESLint issues and handle them specifically
   let eslintOutput = "";
+  
+  // First, attempt to auto-fix all fixable ESLint issues
+  console.log("🔧 Attempting to auto-fix ESLint issues...");
+  try {
+    execSync("npx eslint . --ext .js --fix 2>&1", { stdio: "pipe" });
+    console.log("✅ ESLint auto-fix completed");
+  } catch (err) {
+    // Auto-fix may still fix issues even if it exits with error
+    console.log("⚠️ ESLint auto-fix ran (some issues may still remain)");
+  }
+  
+  // Now check for remaining issues
   try {
     execSync("npx eslint . --ext .js 2>&1", { stdio: "pipe" });
   } catch (err) {

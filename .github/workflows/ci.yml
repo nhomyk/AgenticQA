@@ -337,7 +337,7 @@ jobs:
             libx11-xcb1 \
             libxcb-dri3-0 \
             libxss1 \
-            libasound2 \
+            libasound2t64 \
             libxrender1 \
             libatk-bridge2.0-0 \
             libcups2 \
