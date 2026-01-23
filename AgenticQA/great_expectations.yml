@@ -1,0 +1,34 @@
+config_version: 3.0
+
+datasources:
+  agent_results_datasource:
+    execution_engine:
+      module_name: great_expectations.execution_engines
+      class_name: PandasExecutionEngine
+    data_connectors:
+      default_runtime_data_connector:
+        class_name: RuntimeDataConnector
+        batch_identifiers:
+          - run_id
+          - agent_name
+
+stores:
+  validations_store:
+    class_name: ValidationsStore
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      base_directory: .test-artifact-store/validations/
+
+expectations_store:
+  class_name: ExpectationsStore
+  store_backend:
+    class_name: TupleFilesystemStoreBackend
+    base_directory: great_expectations/expectations/
+
+data_docs_sites:
+  local_site:
+    class_name: SiteBuilder
+    show_how_to_buttons: true
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      base_directory: great_expectations/data_docs/local_site/
