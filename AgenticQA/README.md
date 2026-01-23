@@ -6,6 +6,14 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D14.0.0-brightgreen)]()
 [![Python](https://img.shields.io/badge/Python-%3E%3D3.8.0-blue)]()
 
+**📦 Quick Start:**
+- **Python SDK**: `pip install agenticqa` - Use agents in your Python code (coming soon on PyPI)
+- **TypeScript SDK**: `npm install agenticqa` - Integrate with JavaScript/React apps (coming soon on npm)
+- **REST API**: HTTP endpoints for distributed testing - Use from any programming language
+- **CLI**: Command-line tools for local development and CI/CD pipelines
+
+[📖 SDK Documentation](./SDK.md) | [🐍 Python Examples](./examples/) | [🎯 TypeScript Examples](./examples/)
+
 ## 🎯 What is AgenticQA?
 
 AgenticQA is an enterprise-grade autonomous QA platform powered by intelligent agents that learn from historical patterns and compiled data. Replace flaky manual testing with a self-improving system that automatically:
