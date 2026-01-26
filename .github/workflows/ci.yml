@@ -112,8 +112,14 @@ jobs:
     needs: [pipeline-rescue]
     runs-on: ubuntu-latest
     name: "🔧 Auto-Fix Linting Issues (SRE Agent)"
+    permissions:
+      contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -133,14 +139,20 @@ jobs:
           else
             echo "status=fixed" >> $GITHUB_OUTPUT
           fi
-      - name: Commit and push fixes
+      - name: Set up git credentials
         if: steps.verify.outputs.status == 'fixed'
         run: |
           git config --global user.name "sre-agent[bot]"
           git config --global user.email "sre-agent[bot]@users.noreply.github.com"
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Commit and push fixes
+        if: steps.verify.outputs.status == 'fixed'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           git add -A
           git commit -m "fix: Auto-fix linting errors via SRE Agent - Phase 0 early prevention" || echo "No changes to commit"
-          git push || echo "Already up to date"
+          git push origin HEAD:${{ github.ref }} || echo "Already up to date"
 
   lint:
     needs: [linting-fix]
