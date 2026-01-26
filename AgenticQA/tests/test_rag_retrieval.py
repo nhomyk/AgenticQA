@@ -74,6 +74,7 @@ def mock_weaviate_store():
     return store
 
 
+@pytest.mark.unit
 class TestEmbeddings:
     """Tests for embedding generation"""
 
@@ -136,6 +137,7 @@ class TestEmbeddings:
         assert len(embedding) == 768
 
 
+@pytest.mark.unit
 class TestRAGRetrieverWithMock:
     """Tests for RAG retrieval using mocked Weaviate"""
 
@@ -167,6 +169,7 @@ class TestRAGRetrieverWithMock:
         assert isinstance(recommendations, list)
 
 
+@pytest.mark.unit
 class TestMultiAgentRAG:
     """Tests for multi-agent RAG integration"""
 
@@ -228,6 +231,7 @@ class TestMultiAgentRAG:
         assert "rag_recommendations" in augmented
 
 
+@pytest.mark.integration
 class TestRAGIntegration:
     """Integration tests for RAG with agents"""
 
