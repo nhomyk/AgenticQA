@@ -7,7 +7,6 @@ on:
     branches: [main, develop]
 
 jobs:
-  # Phase 1: Critical Health Check (must pass first)
   pipeline-framework-health:
     runs-on: ubuntu-latest
     name: Pipeline Framework Health Check
@@ -30,7 +29,6 @@ jobs:
       - name: Run critical pipeline framework health checks
         run: pytest tests/test_pipeline_framework.py -m critical -v
 
-  # Phase 2: Auto-Fix Linting (waits for health check)
   auto-fix-linting:
     needs: [pipeline-framework-health]
     runs-on: ubuntu-latest
@@ -63,7 +61,6 @@ jobs:
       - name: Auto-fix formatting
         run: black src/ tests/
 
-  # Phase 3: Parallel Test Jobs (wait for linting)
   test:
     needs: [auto-fix-linting]
     runs-on: ubuntu-latest
@@ -90,7 +87,7 @@ jobs:
       - name: Run unit tests
         run: pytest tests/ -m unit -v
       
-      - name: Run integration tests (with mocks)
+      - name: Run integration tests
         run: pytest tests/ -m integration -v
       
       - name: Run all tests with coverage
@@ -101,13 +98,12 @@ jobs:
         with:
           file: ./coverage.xml
           flags: unittests
-          name: codecov-umbrella
           fail_ci_if_error: false
 
   rag-tests:
     needs: [auto-fix-linting]
     runs-on: ubuntu-latest
-    name: RAG Tests (Vector Store & Retrieval)
+    name: RAG Tests
     steps:
       - uses: actions/checkout@v3
       
@@ -124,40 +120,19 @@ jobs:
           pip install -e .
           pip install pytest pytest-cov weaviate-client
       
-      - name: Run RAG unit tests
-        run: pytest tests/test_rag_retrieval.py::TestEmbeddings -v
-      
-      - name: Run RAG retriever tests
-        run: pytest tests/test_rag_retrieval.py::TestRAGRetrieverWithMock -v
-      
-      - name: Run multi-agent RAG tests
-        run: pytest tests/test_rag_retrieval.py::TestMultiAgentRAG -v
-      
-      - name: Run RAG integration tests (mocks)
-        run: pytest tests/test_rag_retrieval.py::TestRAGIntegration -v
-      
-      - name: Run all RAG tests with coverage
-        run: pytest tests/test_rag_retrieval.py -v --cov=src/agenticqa.rag --cov-report=xml
-      
-      - name: Upload RAG test coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: rag-tests
-          name: rag-coverage
-          fail_ci_if_error: false
+      - name: Run RAG tests
+        run: pytest tests/test_rag_retrieval.py -v
 
   weaviate-integration:
     needs: [auto-fix-linting]
     runs-on: ubuntu-latest
-    name: Weaviate Integration Tests
+    name: Weaviate Integration
     services:
       weaviate:
         image: semitechnologies/weaviate:latest
         env:
           QUERY_DEFAULTS_LIMIT: 25
           AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
-          PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
         options: >-
           --health-cmd='curl --fail http://localhost:8080/v1/.well-known/ready'
           --health-interval=5s
@@ -181,18 +156,6 @@ jobs:
           pip install -e .
           pip install pytest weaviate-client
       
-      - name: Wait for Weaviate to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:8080/v1/.well-known/ready; then
-              echo "Weaviate is ready!"
-              exit 0
-            fi
-            echo "Waiting for Weaviate... ($i/30)"
-            sleep 2
-          done
-          exit 1
-      
       - name: Run Weaviate integration tests
         run: pytest tests/test_rag_retrieval.py::TestWeaviateIntegration -v
         continue-on-error: true
@@ -200,7 +163,7 @@ jobs:
   data-validation:
     needs: [auto-fix-linting]
     runs-on: ubuntu-latest
-    name: Data Validation & Quality Tests
+    name: Data Validation
     steps:
       - uses: actions/checkout@v3
       
@@ -217,45 +180,5 @@ jobs:
           pip install -e .
           pip install pytest pytest-cov pandas numpy
       
-      - name: Run data integrity tests
-        run: pytest tests/test_data_validation.py::TestDataIntegrity -v
-      
-      - name: Run data quality tests
-        run: pytest tests/test_data_validation.py::TestDataQuality -v
-      
-      - name: Run snapshot & change detection tests
-        run: pytest tests/test_data_validation.py::TestDataSnapshots -v
-      
-      - name: Run duplicate & similarity detection tests
-        run: pytest tests/test_data_validation.py::TestDuplicateDetection -v
-      
-      - name: Run data security & PII tests
-        run: pytest tests/test_data_validation.py::TestDataSecurity -v
-      
-      - name: Run data consistency & referential integrity tests
-        run: pytest tests/test_data_validation.py::TestDataConsistency -v
-      
-      - name: Run comprehensive data validation reports
-        run: pytest tests/test_data_validation.py::TestDataValidationReport -v
-      
-      - name: Run all data validation tests with coverage
-        run: pytest tests/test_data_validation.py -v --cov=src/agenticqa --cov-report=xml
-      
-      - name: Upload data validation coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: data-validation
-          name: data-validation-coverage
-          fail_ci_if_error: false
-      
-      - name: Generate data quality summary
-        if: always()
-        run: |
-          echo "## 📊 Data Validation Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Data Integrity (Schema, Types, Structure)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Data Quality (Content Validation)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Snapshots & Change Detection" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Duplicate Detection (Exact, Fuzzy, Phonetic)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Data Security (PII, Encryption, Access)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Data Consistency (Referential Integrity)" >> $GITHUB_STEP_SUMMARY
+      - name: Run data validation tests
+        run: pytest tests/test_data_validation.py -v
