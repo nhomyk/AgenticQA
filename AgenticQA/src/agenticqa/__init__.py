@@ -31,6 +31,9 @@ from agenticqa.data_store import (
     DataQualityValidatedPipeline,
 )
 
+from agenticqa.data_store.snapshot_manager import SnapshotManager
+from agenticqa.data_store.snapshot_pipeline import SnapshotValidatingPipeline
+
 __version__ = "1.0.0"
 __author__ = "Nicholas Homyk"
 __license__ = "MIT"
@@ -47,4 +50,6 @@ __all__ = [
     "PatternAnalyzer",
     "DataQualityTester",
     "DataQualityValidatedPipeline",
+    "SnapshotManager",
+    "SnapshotValidatingPipeline",
 ]
