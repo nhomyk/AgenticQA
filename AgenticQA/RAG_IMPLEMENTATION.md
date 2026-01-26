@@ -2,7 +2,14 @@
 
 ## Overview
 
-AgenticQA now implements a **hybrid RAG approach** that combines deterministic validation gates with semantic retrieval for intelligent recommendations. This enables agents to learn from historical data and provide context-aware insights while maintaining the reliability guarantees of deterministic validation.
+AgenticQA now implements **Weaviate-backed RAG** that combines deterministic validation gates with semantic retrieval for intelligent recommendations. Weaviate provides enterprise-grade vector search with persistence, scalability, and production-ready performance.
+
+**Key Upgrade:** Replaced in-memory vector store with Weaviate for:
+- ✅ **Persistence** - Survives restarts
+- ✅ **Scalability** - Handles millions of documents
+- ✅ **Performance** - O(1) approximate nearest neighbor search
+- ✅ **Enterprise-Ready** - Used by Fortune 500 companies
+- ✅ **Open Source** - No vendor lock-in
 
 ## Architecture
 
@@ -27,43 +34,78 @@ Agent Decision Making:
 
 ## Components
 
-### 1. Vector Store (`vector_store.py`)
+### 1. Vector Store (`weaviate_store.py`)
 
-In-memory vector database for storing document embeddings.
+**WeaviateVectorStore** provides persistent, scalable vector storage using Weaviate.
 
 **Features:**
-- Stores embeddings with metadata
-- O(n) cosine similarity search
-- Filtering by document type
-- Automatic eviction when exceeding max documents
-- JSON serialization for persistence
+- ✅ **Persistent Storage** - Data survives restarts
+- ✅ **Scalable** - Handles millions of documents  
+- ✅ **Hybrid Search** - BM25 + Vector similarity
+- ✅ **Auto-Collection** - Schemas created automatically
+- ✅ **Local + Cloud** - Docker for dev, Weaviate Cloud for production
+- ✅ **Performance Monitoring** - Stats and metrics built-in
 
-**Document Types:**
-- `test_result` - Test execution results
-- `error` - Errors and exceptions
-- `compliance_rule` - Regulatory requirements
-- `performance_pattern` - Performance optimizations
+**Collection Types:**
+- `test_results` - Test execution history
+- `errors` - Error patterns and resolutions
+- `compliance_rules` - Regulatory requirements
+- `performance_patterns` - Performance optimizations
+- `agent_decisions` - Agent decision history
 
 ```python
-from agenticqa.rag import VectorStore, VectorDocument
+from agenticqa.rag import WeaviateVectorStore, VectorDocument
 
-store = VectorStore(max_documents=10000)
+# Connect to local or cloud Weaviate
+store = WeaviateVectorStore(
+    url="http://localhost:8080",  # Local Docker
+    api_key=None,  # Not needed for local
+    collection_name="test_results"
+)
 
-# Add document
-doc_id = store.add_document(
+# Add document with embedding
+doc = VectorDocument(
+    id="doc_123",
     content="Test timeout in payment flow",
     embedding=[...],  # 768-dimensional
-    metadata={"test_name": "checkout", "error": "timeout"},
+    metadata={"test_name": "checkout", "duration_ms": 5000},
     doc_type="test_result"
 )
+store.add_document(doc)
 
 # Search similar documents
 results = store.search(
-    embedding=query_embedding,
-    doc_type="test_result",
-    k=5,
-    threshold=0.7
+    query_embedding=query_embedding,
+    limit=5,
+    threshold=0.7,
+    where_filter={"test_name": "checkout"}  # Optional BM25 filtering
 )
+
+# Get statistics
+stats = store.stats()
+print(f"Collection: {stats['name']}, Docs: {stats['doc_count']}")
+```
+
+**Connection Methods:**
+
+```python
+# Local Docker (development)
+store = WeaviateVectorStore(
+    url="http://localhost:8080",
+    collection_name="test_results"
+)
+
+# Weaviate Cloud (production)
+store = WeaviateVectorStore(
+    url="https://cluster-name.weaviate.network",
+    api_key="YOUR_API_KEY",
+    collection_name="test_results"
+)
+
+# Auto-cleanup with context manager
+with WeaviateVectorStore(...) as store:
+    store.add_document(doc)
+    results = store.search(...)
 ```
 
 ### 2. Embeddings (`embeddings.py`)
