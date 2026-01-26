@@ -1,6 +1,6 @@
 # Data Quality Testing - Ensuring Consistency Across Deployments
 
-Comprehensive data quality testing suite ensuring data integrity, consistency, and reliability across all Shelf deployments.
+Comprehensive data quality testing suite ensuring data integrity, consistency, and reliability across all deployments.
 
 ## 🎯 Overview
 
@@ -122,7 +122,7 @@ if "post_execution_quality" in result:
 # 3. Deployment validation
 deployment = pipeline.run_deployment_validation()
 if deployment["ready_for_deployment"]:
-    print("✓ Ready for deployment to Shelf production")
+    print("✓ Ready for deployment to production")
 else:
     print("✗ Not ready for deployment")
 ```
@@ -184,7 +184,7 @@ else:
     print(deployment_result["checks"]["data_quality"]["tests"])
 ```
 
-## 🎯 For Shelf Production
+## 🎯 For Production
 
 This quality testing suite ensures:
 - 🔒 **Data Integrity**: SHA256 checksums prevent tampering

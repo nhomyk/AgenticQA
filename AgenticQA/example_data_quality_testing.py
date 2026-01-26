@@ -138,7 +138,7 @@ def example_orchestrator_with_quality():
 
 
 if __name__ == "__main__":
-    print("Data Quality Testing Examples for Shelf")
+    print("Data Quality Testing Examples")
     print(f"Started at: {datetime.utcnow().isoformat()}")
 
     # Run examples

@@ -8,7 +8,7 @@ and use it for distributed QA testing.
 from agenticqa.client import RemoteClient
 
 # Connect to remote AgenticQA server
-client = RemoteClient("http://shelf-qa-server.example.com:8000")
+client = RemoteClient("http://agenticqa-server.example.com:8000")
 
 # Check if server is healthy
 if not client.health_check():

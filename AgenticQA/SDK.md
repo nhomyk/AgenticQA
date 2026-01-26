@@ -38,7 +38,7 @@ Connect to a remote AgenticQA server:
 ```python
 from agenticqa.client import RemoteClient
 
-client = RemoteClient("http://shelf-server.example.com:8000")
+client = RemoteClient("http://agenticqa-server.example.com:8000")
 results = client.execute_agents({"code": "...", "tests": "..."})
 patterns = client.get_patterns()
 ```
