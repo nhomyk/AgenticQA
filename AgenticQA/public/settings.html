@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgenticQA - Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        nav .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            transition: opacity 0.3s;
+        }
+
+        nav a:hover {
+            opacity: 0.8;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .settings-wrapper {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 30px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: fit-content;
+            overflow: hidden;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+        }
+
+        .sidebar-nav li {
+            border-bottom: 1px solid #eee;
+        }
+
+        .sidebar-nav li:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-nav a {
+            display: block;
+            padding: 15px 20px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.3s, color 0.3s;
+            cursor: pointer;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
+            background: #f0f2f5;
+            color: #667eea;
+            border-left: 3px solid #667eea;
+            padding-left: 17px;
+        }
+
+        .content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 30px;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .section-description {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .setting-group {
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .setting-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .setting-label {
+            flex: 1;
+        }
+
+        .setting-label h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .setting-label p {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .setting-control {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 28px;
+            background: #ddd;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle.active {
+            background: #667eea;
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 12px;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s;
+        }
+
+        .toggle.active::after {
+            left: 24px;
+        }
+
+        select,
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        textarea {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        select:focus,
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="number"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 10px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        button.secondary:hover {
+            background: #e4e6eb;
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        button.danger:hover {
+            background: #c82333;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .credential-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .credential-item button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        footer {
+            background: #f8f9fa;
+            border-top: 1px solid #ddd;
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .settings-wrapper {
+                grid-template-columns: 1fr;
+            }
+
+            .setting-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .setting-control {
+                margin-top: 15px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">🤖 AgenticQA</div>
+            <div>
+                <a href="/">Dashboard</a>
+                <a href="/settings.html">Settings</a>
+                <a href="/login.html" onclick="logout()">Logout</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="settings-wrapper">
+            <aside class="sidebar">
+                <ul class="sidebar-nav">
+                    <li><a class="nav-item active" data-section="general">General</a></li>
+                    <li><a class="nav-item" data-section="appearance">Appearance</a></li>
+                    <li><a class="nav-item" data-section="notifications">Notifications</a></li>
+                    <li><a class="nav-item" data-section="rag-config">RAG Configuration</a></li>
+                    <li><a class="nav-item" data-section="api-keys">API Keys</a></li>
+                    <li><a class="nav-item" data-section="security">Security</a></li>
+                </ul>
+            </aside>
+
+            <main class="content">
+                <!-- General Settings -->
+                <section id="general" class="content-section active">
+                    <h1>General Settings</h1>
+                    <p class="section-description">Manage your general account settings and preferences.</p>
+
+                    <div class="setting-group">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Display Name</h3>
+                                <p>Your public display name in AgenticQA</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="text" id="displayName" placeholder="Your name" value="QA Engineer">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Email Address</h3>
+                                <p>Your contact email</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="email" id="email" placeholder="your@email.com" value="qa@example.com">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Language</h3>
+                                <p>Preferred language for the interface</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="language">
+                                    <option value="en">English</option>
+                                    <option value="es">Español</option>
+                                    <option value="fr">Français</option>
+                                    <option value="de">Deutsch</option>
+                                    <option value="ja">日本語</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button onclick="saveSettings('general')">Save Changes</button>
+                            <button class="secondary" onclick="resetSettings('general')">Reset</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Appearance Settings -->
+                <section id="appearance" class="content-section">
+                    <h1>Appearance</h1>
+                    <p class="section-description">Customize how AgenticQA looks and feels.</p>
+
+                    <div class="setting-group">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Theme</h3>
+                                <p>Light or dark theme</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="theme">
+                                    <option value="light">Light</option>
+                                    <option value="dark" selected>Dark</option>
+                                    <option value="auto">Auto (System)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Compact Mode</h3>
+                                <p>Use a more compact layout</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="toggle" id="compactMode" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button onclick="saveSettings('appearance')">Save Changes</button>
+                            <button class="secondary" onclick="resetSettings('appearance')">Reset</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Notifications -->
+                <section id="notifications" class="content-section">
+                    <h1>Notifications</h1>
+                    <p class="section-description">Manage your notification preferences.</p>
+
+                    <div class="setting-group">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Test Results</h3>
+                                <p>Notify when test runs complete</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="toggle active" id="testNotif" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Performance Alerts</h3>
+                                <p>Alert on performance degradation</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="toggle active" id="perfNotif" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Compliance Issues</h3>
+                                <p>Alert on compliance violations</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="toggle active" id="complianceNotif" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Email Digest</h3>
+                                <p>Daily summary email</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="emailDigest">
+                                    <option value="none">Disabled</option>
+                                    <option value="daily" selected>Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button onclick="saveSettings('notifications')">Save Changes</button>
+                            <button class="secondary" onclick="resetSettings('notifications')">Reset</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- RAG Configuration -->
+                <section id="rag-config" class="content-section">
+                    <h1>RAG Configuration</h1>
+                    <p class="section-description">Configure Weaviate vector database settings for agent learning.</p>
+
+                    <div class="setting-group">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>RAG Mode</h3>
+                                <p>Local Docker or Weaviate Cloud</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="ragMode">
+                                    <option value="local">Local (Docker)</option>
+                                    <option value="cloud">Weaviate Cloud</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Weaviate Host</h3>
+                                <p>Server URL or IP address</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="text" id="weaviateHost" placeholder="http://localhost:8080" value="http://localhost:8080">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>API Key</h3>
+                                <p>Weaviate Cloud API key (leave blank for local)</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="password" id="apiKey" placeholder="Your API key">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Auto-Ingestion</h3>
+                                <p>Automatically ingest test results to Weaviate</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="toggle active" id="autoIngest" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button onclick="testRAGConnection()">Test Connection</button>
+                            <button onclick="saveSettings('rag-config')">Save Changes</button>
+                            <button class="secondary" onclick="resetSettings('rag-config')">Reset</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- API Keys -->
+                <section id="api-keys" class="content-section">
+                    <h1>API Keys</h1>
+                    <p class="section-description">Manage your API keys for programmatic access.</p>
+
+                    <div class="setting-group">
+                        <h3>Your API Keys</h3>
+                        <div id="apiKeysList" style="margin-top: 15px;">
+                            <div class="credential-item">
+                                <div>
+                                    <strong>Default API Key</strong><br>
+                                    <small style="color: #999;">Created Jan 1, 2026</small>
+                                </div>
+                                <button class="secondary" onclick="copyToClipboard('test-api-key-123')">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="button-group" style="margin-top: 20px;">
+                            <button onclick="generateNewKey()">Generate New Key</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Security -->
+                <section id="security" class="content-section">
+                    <h1>Security</h1>
+                    <p class="section-description">Manage your account security and privacy settings.</p>
+
+                    <div class="setting-group">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Two-Factor Authentication</h3>
+                                <p>Add an extra layer of security</p>
+                            </div>
+                            <div class="setting-control">
+                                <button onclick="enable2FA()">Enable 2FA</button>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Change Password</h3>
+                                <p>Update your account password</p>
+                            </div>
+                            <div class="setting-control">
+                                <button onclick="changePassword()">Change Password</button>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Active Sessions</h3>
+                                <p>Manage your active sessions</p>
+                            </div>
+                            <div class="setting-control">
+                                <button onclick="manageSessions()">View Sessions</button>
+                            </div>
+                        </div>
+
+                        <div class="setting-row" style="border-top: 2px solid #faa; padding-top: 20px; margin-top: 20px;">
+                            <div class="setting-label">
+                                <h3>Delete Account</h3>
+                                <p>Permanently delete your account and data</p>
+                            </div>
+                            <div class="setting-control">
+                                <button class="danger" onclick="deleteAccount()">Delete Account</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 AgenticQA. All rights reserved. <a href="#privacy" style="color: #667eea;">Privacy Policy</a> | <a href="#terms" style="color: #667eea;">Terms of Service</a></p>
+    </footer>
+
+    <script>
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const section = e.target.dataset.section;
+                
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                
+                e.target.classList.add('active');
+                document.getElementById(section).classList.add('active');
+            });
+        });
+
+        // Settings management
+        function saveSettings(section) {
+            alert(`Settings for ${section} saved successfully!`);
+            console.log(`Saving settings for section: ${section}`);
+        }
+
+        function resetSettings(section) {
+            if (confirm(`Reset ${section} settings to defaults?`)) {
+                alert(`${section} settings reset to defaults`);
+            }
+        }
+
+        function toggleSetting(element) {
+            element.classList.toggle('active');
+        }
+
+        // RAG Configuration
+        function testRAGConnection() {
+            alert('Testing RAG connection...');
+            fetch('/api/health')
+                .then(r => r.json())
+                .then(data => alert('✓ RAG connection successful!'))
+                .catch(e => alert('✗ Failed to connect to RAG system'));
+        }
+
+        // API Keys
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert('API key copied to clipboard');
+        }
+
+        function generateNewKey() {
+            const newKey = 'agenticqa_' + Math.random().toString(36).substring(2, 15);
+            alert(`New API key generated:\n\n${newKey}\n\nSave this key in a safe place. You won't be able to see it again!`);
+        }
+
+        // Security
+        function enable2FA() {
+            alert('Two-factor authentication setup initiated');
+        }
+
+        function changePassword() {
+            const newPassword = prompt('Enter new password:');
+            if (newPassword) {
+                alert('Password changed successfully!');
+            }
+        }
+
+        function manageSessions() {
+            alert('Active Sessions:\n\n1. Current Session (macOS Chrome)\n2. Friday 1:30 PM (iPhone Safari)\n\nYou can revoke sessions to sign out on other devices.');
+        }
+
+        function deleteAccount() {
+            if (confirm('Are you absolutely sure? This action cannot be undone.')) {
+                if (confirm('Type "DELETE" to confirm permanent deletion')) {
+                    alert('Account deletion initiated. You will receive a confirmation email.');
+                }
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            sessionStorage.removeItem('authToken');
+            window.location.href = '/login.html';
+        }
+
+        // Check authentication on page load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = '/login.html';
+            }
+        });
+    </script>
+</body>
+</html>

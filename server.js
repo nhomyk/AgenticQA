@@ -815,6 +815,49 @@ app.post("/api/trigger-workflow", async (req, res) => {
   }
 });
 
+// Login route
+app.get("/login.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+// Settings route
+app.get("/settings.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "settings.html"));
+});
+
+// Authentication API endpoint
+app.post("/api/auth/login", (req, res) => {
+  const { username, password } = req.body;
+  
+  // Mock authentication - in production, validate against a real database
+  if (username && password) {
+    res.json({
+      success: true,
+      token: 'mock_jwt_token_' + Date.now(),
+      user: { username }
+    });
+  } else {
+    res.status(401).json({ error: "Invalid credentials" });
+  }
+});
+
+// Settings API endpoints
+app.get("/api/settings", (req, res) => {
+  res.json({
+    theme: 'dark',
+    notifications: true,
+    autorun: true,
+    weaviateMode: 'local'
+  });
+});
+
+app.put("/api/settings", (req, res) => {
+  res.json({
+    success: true,
+    settings: req.body
+  });
+});
+
 // 404 handler
 app.use((req, res) => {
   log("warn", "404 Not Found", { path: req.path, method: req.method });
