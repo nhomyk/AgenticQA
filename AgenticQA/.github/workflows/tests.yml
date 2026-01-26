@@ -7,8 +7,92 @@ on:
     branches: [main, develop]
 
 jobs:
+  # 🔴 PHASE 1: CRITICAL HEALTH CHECK (must pass before proceeding)
+  pipeline-framework-health:
+    runs-on: ubuntu-latest
+    name: Pipeline Framework Health Check
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov
+      
+      - name: Run critical pipeline framework health checks
+        run: pytest tests/test_pipeline_framework.py -m critical -v
+        continue-on-error: false
+      
+      - name: Verify pipeline infrastructure
+        run: |
+          echo "✅ Pipeline framework health check passed"
+          echo "✅ All critical checks passed"
+          echo "✅ Ready for linting and test phases"
+
+  # 🟡 PHASE 2: AUTO-FIX LINTING (depends on health check)
+  auto-fix-linting:
+    runs-on: ubuntu-latest
+    name: Auto-Fix Linting Issues
+    needs: pipeline-framework-health
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install black flake8 mypy
+      
+      - name: Format with Black
+        run: black src/ tests/ --check --verbose
+        continue-on-error: true
+      
+      - name: Lint with Flake8
+        run: flake8 src/ tests/ --count --verbose
+        continue-on-error: true
+      
+      - name: Type check with Mypy
+        run: mypy src/ --ignore-missing-imports
+        continue-on-error: true
+      
+      - name: Auto-fix formatting
+        run: black src/ tests/
+      
+      - name: Create or update PR with fixes
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "✅ No formatting changes needed"
+          else
+            echo "⚠️  Auto-fixed formatting issues"
+            git add -A
+            git diff --cached --stat
+          fi
+
+  # �� PHASE 3: PARALLEL TEST JOBS (all run simultaneously after linting)
   test:
     runs-on: ubuntu-latest
+    name: Unit & Integration Tests
+    needs: auto-fix-linting
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11']
@@ -49,6 +133,7 @@ jobs:
   rag-tests:
     runs-on: ubuntu-latest
     name: RAG Tests (Vector Store & Retrieval)
+    needs: auto-fix-linting
     
     steps:
       - uses: actions/checkout@v3
@@ -68,7 +153,7 @@ jobs:
       
       - name: Run RAG unit tests
         run: pytest tests/test_rag_retrieval.py::TestEmbeddings -v
-        
+      
       - name: Run RAG retriever tests
         run: pytest tests/test_rag_retrieval.py::TestRAGRetrieverWithMock -v
       
@@ -92,6 +177,7 @@ jobs:
   weaviate-integration:
     runs-on: ubuntu-latest
     name: Weaviate Integration Tests
+    needs: auto-fix-linting
     
     services:
       weaviate:
@@ -144,6 +230,7 @@ jobs:
   data-validation:
     runs-on: ubuntu-latest
     name: Data Validation & Quality Tests
+    needs: auto-fix-linting
     
     steps:
       - uses: actions/checkout@v3
