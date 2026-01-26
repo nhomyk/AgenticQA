@@ -7,11 +7,10 @@ on:
     branches: [main, develop]
 
 jobs:
-  # 🔴 PHASE 1: CRITICAL HEALTH CHECK (must pass before proceeding)
+  # Phase 1: Critical Health Check (must pass first)
   pipeline-framework-health:
     runs-on: ubuntu-latest
     name: Pipeline Framework Health Check
-    
     steps:
       - uses: actions/checkout@v3
       
@@ -30,20 +29,12 @@ jobs:
       
       - name: Run critical pipeline framework health checks
         run: pytest tests/test_pipeline_framework.py -m critical -v
-        continue-on-error: false
-      
-      - name: Verify pipeline infrastructure
-        run: |
-          echo "✅ Pipeline framework health check passed"
-          echo "✅ All critical checks passed"
-          echo "✅ Ready for linting and test phases"
 
-  # 🟡 PHASE 2: AUTO-FIX LINTING (depends on health check)
+  # Phase 2: Auto-Fix Linting (waits for health check)
   auto-fix-linting:
+    needs: [pipeline-framework-health]
     runs-on: ubuntu-latest
     name: Auto-Fix Linting Issues
-    needs: pipeline-framework-health
-    
     steps:
       - uses: actions/checkout@v3
       
@@ -61,42 +52,25 @@ jobs:
           pip install black flake8 mypy
       
       - name: Format with Black
-        run: black src/ tests/ --check --verbose
-        continue-on-error: true
+        run: black src/ tests/ --check --verbose || true
       
       - name: Lint with Flake8
-        run: flake8 src/ tests/ --count --verbose
-        continue-on-error: true
+        run: flake8 src/ tests/ --count --verbose || true
       
       - name: Type check with Mypy
-        run: mypy src/ --ignore-missing-imports
-        continue-on-error: true
+        run: mypy src/ --ignore-missing-imports || true
       
       - name: Auto-fix formatting
         run: black src/ tests/
-      
-      - name: Create or update PR with fixes
-        if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
-            echo "✅ No formatting changes needed"
-          else
-            echo "⚠️  Auto-fixed formatting issues"
-            git add -A
-            git diff --cached --stat
-          fi
 
-  # �� PHASE 3: PARALLEL TEST JOBS (all run simultaneously after linting)
+  # Phase 3: Parallel Test Jobs (wait for linting)
   test:
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: Unit & Integration Tests
-    needs: auto-fix-linting
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11']
-    
     steps:
       - uses: actions/checkout@v3
       
@@ -131,10 +105,9 @@ jobs:
           fail_ci_if_error: false
 
   rag-tests:
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: RAG Tests (Vector Store & Retrieval)
-    needs: auto-fix-linting
-    
     steps:
       - uses: actions/checkout@v3
       
@@ -175,10 +148,9 @@ jobs:
           fail_ci_if_error: false
 
   weaviate-integration:
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: Weaviate Integration Tests
-    needs: auto-fix-linting
-    
     services:
       weaviate:
         image: semitechnologies/weaviate:latest
@@ -193,7 +165,6 @@ jobs:
           --health-retries=5
         ports:
           - 8080:8080
-    
     steps:
       - uses: actions/checkout@v3
       
@@ -220,7 +191,6 @@ jobs:
             echo "Waiting for Weaviate... ($i/30)"
             sleep 2
           done
-          echo "Weaviate did not start in time"
           exit 1
       
       - name: Run Weaviate integration tests
@@ -228,10 +198,9 @@ jobs:
         continue-on-error: true
 
   data-validation:
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: Data Validation & Quality Tests
-    needs: auto-fix-linting
-    
     steps:
       - uses: actions/checkout@v3
       
@@ -284,22 +253,9 @@ jobs:
         if: always()
         run: |
           echo "## 📊 Data Validation Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Test Coverage" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Data Integrity (Schema, Types, Structure)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Data Quality (Content Validation)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Snapshots & Change Detection (Before/After)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Snapshots & Change Detection" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Duplicate Detection (Exact, Fuzzy, Phonetic)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Data Security (PII, Encryption, Access)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Data Consistency (Referential Integrity)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Validation Checks" >> $GITHUB_STEP_SUMMARY
-          echo "- Schema consistency verified" >> $GITHUB_STEP_SUMMARY
-          echo "- Data types validated" >> $GITHUB_STEP_SUMMARY
-          echo "- Duplicates detected (exact, fuzzy, phonetic)" >> $GITHUB_STEP_SUMMARY
-          echo "- Change snapshots compared (before/after)" >> $GITHUB_STEP_SUMMARY
-          echo "- Null values checked in critical fields" >> $GITHUB_STEP_SUMMARY
-          echo "- Data security and PII handling verified" >> $GITHUB_STEP_SUMMARY
-          echo "- Referential integrity confirmed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Result**: Data accuracy and integrity validated for code changes"
