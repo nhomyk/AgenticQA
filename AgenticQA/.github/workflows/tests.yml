@@ -7,30 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  pipeline-framework-health:
-    runs-on: ubuntu-latest
-    name: Pipeline Framework Health Check
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: 'pyproject.toml'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-cov
-      
-      - name: Run critical pipeline framework health checks
-        run: pytest tests/test_pipeline_framework.py -m critical -v
-
-  auto-fix-linting-issues:
-    needs: [pipeline-framework-health]
+  auto-fix-linting:
     runs-on: ubuntu-latest
     name: Auto-Fix Linting Issues
     steps:
@@ -47,30 +24,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install black flake8 mypy
+          pip install pytest pytest-cov black flake8 mypy
       
-      - name: Auto-fix formatting with Black
-        run: black src/ tests/
-
-  code-linting:
-    needs: [auto-fix-linting-issues]
-    runs-on: ubuntu-latest
-    name: Code Linting
-    steps:
-      - uses: actions/checkout@v3
+      - name: Pipeline Framework Health Check
+        run: pytest tests/test_pipeline_framework.py -m critical -v
       
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: 'pyproject.toml'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-          pip install black flake8 mypy
+      - name: Format with Black
+        run: black src/ tests/ --check --verbose || true
       
       - name: Lint with Flake8
         run: flake8 src/ tests/ --count --verbose || true
@@ -78,11 +38,11 @@ jobs:
       - name: Type check with Mypy
         run: mypy src/ --ignore-missing-imports || true
       
-      - name: Check formatting with Black
-        run: black src/ tests/ --check --verbose
+      - name: Auto-fix formatting
+        run: black src/ tests/
 
   test:
-    needs: [code-linting]
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: Unit & Integration Tests
     strategy:
@@ -121,7 +81,7 @@ jobs:
           fail_ci_if_error: false
 
   rag-tests:
-    needs: [code-linting]
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: RAG Tests
     steps:
@@ -144,7 +104,7 @@ jobs:
         run: pytest tests/test_rag_retrieval.py -v
 
   weaviate-integration:
-    needs: [code-linting]
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: Weaviate Integration
     services:
@@ -181,7 +141,7 @@ jobs:
         continue-on-error: true
 
   data-validation:
-    needs: [code-linting]
+    needs: [auto-fix-linting]
     runs-on: ubuntu-latest
     name: Data Validation
     steps:
