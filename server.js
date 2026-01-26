@@ -833,7 +833,7 @@ app.post("/api/auth/login", (req, res) => {
   if (username && password) {
     res.json({
       success: true,
-      token: 'mock_jwt_token_' + Date.now(),
+      token: "mock_jwt_token_" + Date.now(),
       user: { username }
     });
   } else {
@@ -844,10 +844,10 @@ app.post("/api/auth/login", (req, res) => {
 // Settings API endpoints
 app.get("/api/settings", (req, res) => {
   res.json({
-    theme: 'dark',
+    theme: "dark",
     notifications: true,
     autorun: true,
-    weaviateMode: 'local'
+    weaviateMode: "local"
   });
 });
 
