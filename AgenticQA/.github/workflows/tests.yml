@@ -7,30 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  pipeline-framework-health:
-    runs-on: ubuntu-latest
-    name: Pipeline Framework Health Check
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: 'pyproject.toml'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-cov
-      
-      - name: Run critical pipeline framework health checks
-        run: pytest tests/test_pipeline_framework.py -m critical -v
-
   auto-fix-linting:
-    needs: [pipeline-framework-health]
     runs-on: ubuntu-latest
     name: Auto-Fix Linting Issues
     steps:
@@ -47,7 +24,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install black flake8 mypy
+          pip install pytest pytest-cov black flake8 mypy
+      
+      - name: Pipeline Framework Health Check
+        run: pytest tests/test_pipeline_framework.py -m critical -v
       
       - name: Format with Black
         run: black src/ tests/ --check --verbose || true
