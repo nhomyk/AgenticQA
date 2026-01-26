@@ -24,11 +24,14 @@ from .embeddings import (
     PerformancePatternEmbedder,
 )
 from .retriever import RAGRetriever, RetrievalResult, MultiAgentRAG
+from .config import RAGConfig, WeaviateConfig, DeploymentMode, create_rag_system
 
 __all__ = [
+    # Vector Store
     "VectorStore",
     "WeaviateVectorStore",
     "VectorDocument",
+    # Embeddings
     "Embedder",
     "SimpleHashEmbedder",
     "SemanticEmbedder",
@@ -37,8 +40,13 @@ __all__ = [
     "ErrorEmbedder",
     "ComplianceRuleEmbedder",
     "PerformancePatternEmbedder",
+    # Retrieval
     "RAGRetriever",
     "RetrievalResult",
     "MultiAgentRAG",
+    # Configuration
+    "RAGConfig",
+    "WeaviateConfig",
+    "DeploymentMode",
+    "create_rag_system",
 ]
-

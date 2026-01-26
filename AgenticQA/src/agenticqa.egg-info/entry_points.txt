@@ -1,0 +1,2 @@
+[console_scripts]
+agenticqa = agenticqa.cli:main

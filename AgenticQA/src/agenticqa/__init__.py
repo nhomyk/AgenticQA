@@ -1,40 +1,71 @@
 """
-AgenticQA - Intelligent Autonomous QA Platform
+AgenticQA - Agentic Quality Assurance Platform
 
-A comprehensive QA platform powered by specialized agents that learn from historical patterns,
-analyze real-time data, and make intelligent deployment decisions with RAG-enhanced insights.
+RAG-enhanced multi-agent system for intelligent code quality and testing insights.
+Supports both local development and cloud production deployments.
 
-Example:
+Quick Start (Local):
     >>> from agenticqa.rag import VectorStore, MultiAgentRAG
-    >>> 
-    >>> vector_store = VectorStore(max_documents=10000)
+    >>> vector_store = VectorStore(host="localhost", port=8080)
     >>> rag = MultiAgentRAG(vector_store)
-    >>> 
-    >>> augmented = rag.augment_agent_context("qa", context)
-    >>> rag.log_agent_execution("qa", result)
+
+Quick Start (Cloud):
+    >>> from agenticqa.rag import create_rag_system
+    >>> # Set environment variables:
+    >>> # export AGENTICQA_RAG_MODE=cloud
+    >>> # export WEAVIATE_HOST=cluster.weaviate.network
+    >>> # export WEAVIATE_API_KEY=your-api-key
+    >>> rag = create_rag_system()
 """
 
-from agenticqa.rag import (
+from .rag import (
+    # Vector Store
     VectorStore,
+    WeaviateVectorStore,
     VectorDocument,
+    # Embeddings
+    Embedder,
     SimpleHashEmbedder,
     SemanticEmbedder,
     EmbedderFactory,
+    TestResultEmbedder,
+    ErrorEmbedder,
+    ComplianceRuleEmbedder,
+    PerformancePatternEmbedder,
+    # Retrieval & Orchestration
     RAGRetriever,
+    RetrievalResult,
     MultiAgentRAG,
+    # Configuration (for cloud/pipeline deployments)
+    RAGConfig,
+    WeaviateConfig,
+    DeploymentMode,
+    create_rag_system,
 )
 
 __version__ = "2.0.0"
-__author__ = "Nicholas Homyk"
-__license__ = "MIT"
 
 __all__ = [
+    # Vector Store
     "VectorStore",
+    "WeaviateVectorStore",
     "VectorDocument",
+    # Embeddings
+    "Embedder",
     "SimpleHashEmbedder",
     "SemanticEmbedder",
     "EmbedderFactory",
+    "TestResultEmbedder",
+    "ErrorEmbedder",
+    "ComplianceRuleEmbedder",
+    "PerformancePatternEmbedder",
+    # Retrieval & Orchestration
     "RAGRetriever",
+    "RetrievalResult",
     "MultiAgentRAG",
+    # Configuration
+    "RAGConfig",
+    "WeaviateConfig",
+    "DeploymentMode",
+    "create_rag_system",
 ]
-
