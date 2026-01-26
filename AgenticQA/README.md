@@ -316,3 +316,4 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 ---
 
 **Made with ❤️ for QA teams who want to ship faster with higher confidence**
+# Force workflow refresh
