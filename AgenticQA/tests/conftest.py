@@ -116,6 +116,21 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "fast: mark test as fast execution (<1 sec)"
     )
+    config.addinivalue_line(
+        "markers", "data_integrity: mark test as data structure and type validation"
+    )
+    config.addinivalue_line(
+        "markers", "data_quality: mark test as data content quality check"
+    )
+    config.addinivalue_line(
+        "markers", "data_security: mark test as security and PII validation"
+    )
+    config.addinivalue_line(
+        "markers", "data_snapshot: mark test as before/after comparison"
+    )
+    config.addinivalue_line(
+        "markers", "data_duplication: mark test as duplicate and similarity detection"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
