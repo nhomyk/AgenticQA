@@ -33,6 +33,8 @@ from agenticqa.data_store import (
 
 from agenticqa.data_store.snapshot_manager import SnapshotManager
 from agenticqa.data_store.snapshot_pipeline import SnapshotValidatingPipeline
+from agenticqa.data_store.code_change_tracker import CodeChangeTracker, BeforeAfterMetrics, ChangeImpactReport
+from agenticqa.data_store.change_executor import SafeCodeChangeExecutor, ChangeHistoryAnalyzer
 
 __version__ = "1.0.0"
 __author__ = "Nicholas Homyk"
@@ -52,4 +54,9 @@ __all__ = [
     "DataQualityValidatedPipeline",
     "SnapshotManager",
     "SnapshotValidatingPipeline",
+    "CodeChangeTracker",
+    "BeforeAfterMetrics",
+    "ChangeImpactReport",
+    "SafeCodeChangeExecutor",
+    "ChangeHistoryAnalyzer",
 ]
