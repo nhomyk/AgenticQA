@@ -1,0 +1,10 @@
+{
+  "name": "agenticqa-workflow-tools",
+  "version": "1.0.0",
+  "description": "Node.js tools for workflow validation and repair.",
+  "main": "index.js",
+  "scripts": {},
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
