@@ -346,6 +346,7 @@
                     <li><a class="nav-item active" data-section="general">General</a></li>
                     <li><a class="nav-item" data-section="appearance">Appearance</a></li>
                     <li><a class="nav-item" data-section="notifications">Notifications</a></li>
+                    <li><a class="nav-item" data-section="github-integration">GitHub Integration</a></li>
                     <li><a class="nav-item" data-section="rag-config">RAG Configuration</a></li>
                     <li><a class="nav-item" data-section="api-keys">API Keys</a></li>
                     <li><a class="nav-item" data-section="security">Security</a></li>
@@ -493,6 +494,153 @@
                         <div class="button-group">
                             <button onclick="saveSettings('notifications')">Save Changes</button>
                             <button class="secondary" onclick="resetSettings('notifications')">Reset</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- GitHub Integration -->
+                <section id="github-integration" class="content-section">
+                    <h1>GitHub Integration</h1>
+                    <p class="section-description">Connect your GitHub repository to enable automated CI/CD pipeline management.</p>
+
+                    <div class="setting-group">
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Required:</strong> You need a GitHub Personal Access Token (PAT) with workflow permissions to use this feature.
+                        </div>
+
+                        <h3 style="margin-bottom: 15px;">Step 1: Create a GitHub Personal Access Token</h3>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                            <ol style="line-height: 1.8; color: #333;">
+                                <li>Go to <a href="https://github.com/settings/tokens" target="_blank" style="color: #667eea; text-decoration: underline;">GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)</a></li>
+                                <li>Click "<strong>Generate new token (classic)</strong>"</li>
+                                <li>Give your token a descriptive name (e.g., "AgenticQA Pipeline")</li>
+                                <li>Select the following scopes:
+                                    <ul style="margin-top: 10px;">
+                                        <li><code>repo</code> - Full control of private repositories</li>
+                                        <li><code>workflow</code> - Update GitHub Action workflows</li>
+                                        <li><code>read:org</code> - Read organization data</li>
+                                    </ul>
+                                </li>
+                                <li>Click "<strong>Generate token</strong>" and copy it immediately</li>
+                            </ol>
+                        </div>
+
+                        <h3 style="margin-bottom: 15px;">Step 2: Configure GitHub Connection</h3>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>GitHub Personal Access Token</h3>
+                                <p>Paste your PAT here (it will be encrypted)</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="password" id="githubPAT" placeholder="ghp_xxxxxxxxxxxx" style="width: 300px;">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Repository Owner</h3>
+                                <p>Your GitHub username or organization</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="text" id="githubOwner" placeholder="username" style="width: 200px;">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Repository Name</h3>
+                                <p>The repository name (e.g., AgenticQA)</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="text" id="githubRepo" placeholder="repo-name" style="width: 200px;">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Workflow Name</h3>
+                                <p>The workflow file name (e.g., ci.yml)</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="text" id="githubWorkflow" placeholder="ci.yml" value="ci.yml" style="width: 200px;">
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Branch</h3>
+                                <p>Default branch to run workflow on</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="githubBranch" style="width: 200px;">
+                                    <option value="main" selected>main</option>
+                                    <option value="master">master</option>
+                                    <option value="develop">develop</option>
+                                    <option value="staging">staging</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button onclick="testGitHubConnection()">Test Connection</button>
+                            <button onclick="saveSettings('github-integration')">Save Configuration</button>
+                            <button class="secondary" onclick="resetSettings('github-integration')">Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3 style="margin-bottom: 15px;">Workflow Management</h3>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Workflow Status</h3>
+                                <p>Current status of your CI/CD workflow</p>
+                            </div>
+                            <div class="setting-control">
+                                <span id="workflowStatus" style="padding: 8px 16px; background: #f0f2f5; border-radius: 6px; font-weight: 600;">Not Connected</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Last Run</h3>
+                                <p>Most recent workflow execution</p>
+                            </div>
+                            <div class="setting-control">
+                                <span id="lastRun" style="color: #999;">—</span>
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button onclick="triggerWorkflow()">🚀 Trigger Workflow</button>
+                            <button class="secondary" onclick="refreshWorkflowStatus()">🔄 Refresh Status</button>
+                            <button class="secondary" onclick="viewWorkflowRuns()">📋 View Run History</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3 style="margin-bottom: 15px;">Webhook Configuration</h3>
+                        <p style="color: #666; margin-bottom: 15px;">Automatically receive pipeline updates via webhooks</p>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Webhook URL</h3>
+                                <p>AgenticQA webhook endpoint</p>
+                            </div>
+                            <div class="setting-control">
+                                <input type="text" id="webhookURL" value="https://api.agenticqa.com/webhook" readonly style="width: 300px; background: #f8f9fa;">
+                                <button class="secondary" onclick="copyToClipboard(document.getElementById('webhookURL').value)">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <h3>Auto-sync Workflow Updates</h3>
+                                <p>Automatically update workflow status on each run</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="toggle active" id="autoSync" onclick="toggleSetting(this)"></div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -711,6 +859,158 @@
             localStorage.removeItem('authToken');
             sessionStorage.removeItem('authToken');
             window.location.href = '/login.html';
+        }
+
+        // GitHub Integration Functions
+        function testGitHubConnection() {
+            const pat = document.getElementById('githubPAT').value;
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+
+            if (!pat || !owner || !repo) {
+                alert('Please fill in PAT, Owner, and Repository fields');
+                return;
+            }
+
+            console.log('Testing GitHub connection...');
+            alert('Testing connection to GitHub...');
+
+            // Simulate API call to GitHub
+            fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+                headers: {
+                    'Authorization': `token ${pat}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.id) {
+                    alert('✓ GitHub connection successful!\n\nRepository: ' + data.full_name);
+                    document.getElementById('workflowStatus').textContent = 'Connected';
+                    document.getElementById('workflowStatus').style.background = '#d4edda';
+                    document.getElementById('workflowStatus').style.color = '#155724';
+                } else {
+                    alert('✗ Failed to connect. Please check your credentials.');
+                }
+            })
+            .catch(e => {
+                console.error('GitHub connection error:', e);
+                alert('✗ Failed to connect to GitHub. Please verify your credentials and try again.');
+            });
+        }
+
+        function triggerWorkflow() {
+            const pat = document.getElementById('githubPAT').value;
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+            const workflow = document.getElementById('githubWorkflow').value;
+            const branch = document.getElementById('githubBranch').value;
+
+            if (!pat || !owner || !repo) {
+                alert('Please configure GitHub connection first');
+                return;
+            }
+
+            console.log('Triggering workflow:', workflow);
+            alert(`Triggering workflow: ${workflow} on branch ${branch}...`);
+
+            // Simulate triggering GitHub workflow
+            fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${pat}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ref: branch
+                })
+            })
+            .then(r => {
+                if (r.status === 204) {
+                    alert('✓ Workflow triggered successfully!\n\nCheck the dashboard for pipeline status updates.');
+                    refreshWorkflowStatus();
+                } else {
+                    alert('✗ Failed to trigger workflow. Check your permissions.');
+                }
+            })
+            .catch(e => {
+                console.error('Workflow trigger error:', e);
+                alert('Workflow trigger request sent. Check dashboard for updates.');
+            });
+        }
+
+        function refreshWorkflowStatus() {
+            const pat = document.getElementById('githubPAT').value;
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+
+            if (!pat || !owner || !repo) {
+                alert('Please configure GitHub connection first');
+                return;
+            }
+
+            console.log('Refreshing workflow status...');
+
+            fetch(`https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=1`, {
+                headers: {
+                    'Authorization': `token ${pat}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.workflow_runs && data.workflow_runs.length > 0) {
+                    const lastRun = data.workflow_runs[0];
+                    const status = lastRun.status;
+                    const conclusion = lastRun.conclusion;
+                    const updatedAt = new Date(lastRun.updated_at).toLocaleString();
+
+                    let statusText = status;
+                    let statusColor = '#f0f2f5';
+                    let textColor = '#333';
+
+                    if (conclusion === 'success') {
+                        statusText = '✓ Success';
+                        statusColor = '#d4edda';
+                        textColor = '#155724';
+                    } else if (conclusion === 'failure') {
+                        statusText = '✗ Failed';
+                        statusColor = '#f8d7da';
+                        textColor = '#721c24';
+                    } else if (status === 'in_progress') {
+                        statusText = '⟳ Running';
+                        statusColor = '#fff3cd';
+                        textColor = '#856404';
+                    }
+
+                    document.getElementById('workflowStatus').textContent = statusText;
+                    document.getElementById('workflowStatus').style.background = statusColor;
+                    document.getElementById('workflowStatus').style.color = textColor;
+                    document.getElementById('lastRun').textContent = updatedAt;
+
+                    alert('✓ Workflow status updated!');
+                } else {
+                    alert('No workflow runs found');
+                }
+            })
+            .catch(e => {
+                console.error('Failed to refresh status:', e);
+                alert('Failed to refresh workflow status. Please try again.');
+            });
+        }
+
+        function viewWorkflowRuns() {
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+
+            if (!owner || !repo) {
+                alert('Please configure GitHub repository first');
+                return;
+            }
+
+            const url = `https://github.com/${owner}/${repo}/actions`;
+            window.open(url, '_blank');
         }
 
         // Check authentication on page load
