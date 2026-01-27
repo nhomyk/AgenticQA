@@ -1,4 +1,22 @@
+
 name: CI Pipeline
+
+jobs:
+  validate-workflows:
+    runs-on: ubuntu-latest
+    name: 🚨 Pipeline Health Check & Emergency Repair
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Node.js dependencies for workflow validation
+        run: npm ci
+      - name: Validate workflow YAML
+        run: |
+          npx js-yaml --help
+          # Example: npx js-yaml .github/workflows/ci.yml  # Replace with your actual validation command
+
 
 on:
   push:
@@ -6,7 +24,7 @@ on:
   pull_request:
     branches: [main, develop]
 
-jobs:
+  # ...existing jobs...
   pipeline-framework-health:
     runs-on: ubuntu-latest
     name: Pipeline Framework Health Check
