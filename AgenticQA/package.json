@@ -6,5 +6,8 @@
   "scripts": {},
   "devDependencies": {
     "js-yaml": "^4.1.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
   }
 }
