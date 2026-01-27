@@ -147,6 +147,69 @@ jobs:
       - run: pytest tests/test_rag_retrieval.py::TestWeaviateIntegration -v
         continue-on-error: true
 
+  agent-rag-integration:
+    needs: code-linting
+    runs-on: ubuntu-latest
+    name: Agent RAG Integration Tests
+    services:
+      weaviate:
+        image: semitechnologies/weaviate:latest
+        env:
+          QUERY_DEFAULTS_LIMIT: 25
+          AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+        options: >-
+          --health-cmd='curl -f http://localhost:8080/v1/.well-known/ready || exit 1'
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 8080:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest weaviate-client
+      - name: Set Weaviate environment
+        run: |
+          echo "WEAVIATE_HOST=localhost" >> $GITHUB_ENV
+          echo "WEAVIATE_PORT=8080" >> $GITHUB_ENV
+          echo "AGENTICQA_RAG_MODE=local" >> $GITHUB_ENV
+      - name: Run Agent RAG Integration Tests
+        run: pytest tests/test_agent_rag_integration.py -v -s
+        continue-on-error: false
+
+  agent-error-handling:
+    needs: code-linting
+    runs-on: ubuntu-latest
+    name: Agent Error Handling & Self-Healing Tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest
+      - name: Test SRE Agent Linting Fixes
+        run: pytest tests/test_agent_error_handling.py::TestSREAgentLintingFixes -v
+      - name: Test Fullstack Agent Code Generation
+        run: pytest tests/test_agent_error_handling.py::TestFullstackAgentCodeGeneration -v
+      - name: Test SDET Agent Coverage Analysis
+        run: pytest tests/test_agent_error_handling.py::TestSDETAgentCoverageAnalysis -v
+      - name: Test Agent Error Recovery
+        run: pytest tests/test_agent_error_handling.py::TestAgentErrorRecovery -v
+      - name: Test Agent Integration Workflows
+        run: pytest tests/test_agent_error_handling.py::TestAgentIntegration -v
+
   data-validation:
     needs: code-linting
     runs-on: ubuntu-latest
@@ -259,7 +322,7 @@ jobs:
           retention-days: 30
 
   final-deployment-gate:
-    needs: [deployment-validation, ui-tests, rag-tests, weaviate-integration]
+    needs: [deployment-validation, ui-tests, rag-tests, weaviate-integration, agent-rag-integration, agent-error-handling]
     runs-on: ubuntu-latest
     name: Final Deployment Gate
     steps:
@@ -272,6 +335,8 @@ jobs:
           echo "✓ Unit & integration tests passed"
           echo "✓ RAG tests passed"
           echo "✓ Weaviate integration passed"
+          echo "✓ Agent RAG integration passed"
+          echo "✓ Agent error handling & self-healing passed"
           echo "✓ Data validation passed"
           echo "✓ Data quality integration passed"
           echo "✓ Deployment validation passed"
