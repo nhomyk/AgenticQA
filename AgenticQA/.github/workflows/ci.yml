@@ -147,3 +147,28 @@ jobs:
           pip install -e .
           pip install pytest pytest-cov pandas numpy
       - run: pytest tests/test_data_validation.py -v
+
+  data-quality-integration:
+    needs: data-validation
+    runs-on: ubuntu-latest
+    name: Data Quality & Integration Verification
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - run: |
+          pip install -e .
+          pip install pytest pandas numpy
+      - name: Run Data Quality Integration Tests
+        run: |
+          pytest tests/test_integration_verification.py -v
+          echo "---"
+          pytest tests/test_data_validation.py -m data_quality -v
+      - name: Upload Integration Report
+        if: always()
+        run: |
+          python tests/test_integration_verification.py > integration_report.txt
+          cat integration_report.txt
