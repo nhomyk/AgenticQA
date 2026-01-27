@@ -3,664 +3,1632 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgenticQA - Autonomous QA with Intelligent Agents & Real-Time Data Analysis</title>
-    <meta name="description" content="Enterprise autonomous QA powered by intelligent agents that learn from historical patterns. Secure data store with pattern analysis, compliance automation, and real-time performance monitoring.">
+    <meta name="description" content="orbitQA.ai - Enterprise-Grade AI-Powered QA & Compliance Platform">
+    <title>orbitQA.ai - Autonomous QA Dashboard</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #1a1a1a;
-            background: #ffffff;
+
+        html {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            scroll-behavior: smooth;
         }
-        
-        header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 16px 0;
+
+        body {
+            line-height: 1.6;
+            color: #1f2937;
+            background: #ffffff;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        .navbar {
             position: sticky;
             top: 0;
             z-index: 1000;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 0;
         }
-        
-        .header-container {
+
+        .nav-container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 30px;
+            padding: 0 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .logo {
-            font-size: 1.6em;
+            font-size: 1.5rem;
             font-weight: 700;
-            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        
-        nav {
+
+        .nav-links {
             display: flex;
-            gap: 40px;
-            align-items: center;
+            gap: 2rem;
+            list-style: none;
         }
-        
-        nav a {
-            color: rgba(255,255,255,0.9);
+
+        .nav-links a {
+            color: #6b7280;
             text-decoration: none;
             font-weight: 500;
-            font-size: 0.95em;
             transition: color 0.3s;
         }
-        
-        nav a:hover {
-            color: white;
+
+        .nav-links a:hover {
+            color: #3b82f6;
         }
-        
-        .nav-button {
-            background: white;
-            color: #667eea;
-            padding: 10px 24px;
-            border-radius: 6px;
-            font-weight: 600;
-            transition: all 0.3s;
+
+        /* Dropdown Menu */
+        .dropdown {
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        .dropdown-btn {
+            background: none;
             border: none;
+            color: #6b7280;
             cursor: pointer;
-            font-size: 0.95em;
+            font-weight: 500;
+            font-size: 1rem;
+            transition: color 0.3s;
         }
-        
-        .nav-button:hover {
+
+        .dropdown-btn:hover {
+            color: #3b82f6;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            min-width: 200px;
+            margin-top: 0;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+        }
+
+        .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+
+        .dropdown-menu a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: #6b7280;
+            text-decoration: none;
+            transition: all 0.3s;
+            border-radius: 8px;
+            margin: 0.25rem;
+        }
+
+        .dropdown-menu a:hover {
+            background: #f3f4f6;
+            color: #3b82f6;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: #e0e7ff;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .hero-description {
+            font-size: 1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            line-height: 1.8;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4);
         }
-        
-        main {
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Features Grid */
+        .features {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 30px;
+            padding: 6rem 2rem;
         }
-        
-        .hero {
-            padding: 120px 0 80px;
+
+        .section-header {
             text-align: center;
+            margin-bottom: 4rem;
         }
-        
-        .hero h1 {
-            font-size: 3.8em;
-            margin-bottom: 24px;
-            color: #1a1a1a;
-            line-height: 1.2;
-            font-weight: 700;
+
+        .section-title {
+            font-size: clamp(1.875rem, 4vw, 2.5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #0f172a;
         }
-        
-        .hero .subtitle {
-            font-size: 1.4em;
-            color: #667eea;
-            margin-bottom: 16px;
-            font-weight: 600;
+
+        .section-description {
+            font-size: 1.1rem;
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
         }
-        
-        .hero p {
-            font-size: 1.2em;
-            color: #555;
-            margin-bottom: 40px;
-            max-width: 900px;
-            margin-left: auto;
-            margin-right: auto;
-            line-height: 1.8;
-        }
-        
-        .hero-highlight {
-            background: linear-gradient(120deg, #667eea15, #764ba215);
-            padding: 30px;
-            border-radius: 12px;
-            margin: 40px 0;
-            border-left: 4px solid #667eea;
-        }
-        
-        .cta-container {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            margin-bottom: 60px;
-            flex-wrap: wrap;
-        }
-        
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 16px 40px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.05em;
-            transition: all 0.3s;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-        }
-        
-        .cta-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
-        }
-        
-        .cta-button-secondary {
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
-        }
-        
-        .cta-button-secondary:hover {
-            background: #f9f9f9;
-        }
-        
-        .features {
+
+        .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 30px;
-            margin: 100px 0;
+            gap: 2rem;
         }
-        
+
         .feature-card {
             background: white;
-            padding: 40px;
+            padding: 2rem;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border: 1px solid #f0f0f0;
+            border: 1px solid #e5e7eb;
             transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s;
+        }
+
         .feature-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
             transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.12);
-            border-color: #667eea;
         }
-        
-        .feature-card h3 {
-            font-size: 1.4em;
-            color: #667eea;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
         }
-        
-        .feature-card p {
-            color: #555;
-            line-height: 1.8;
-            margin-bottom: 16px;
-        }
-        
+
         .feature-icon {
-            font-size: 1.8em;
+            font-size: 3rem;
+            margin-bottom: 1rem;
         }
-        
-        .agents-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin: 60px 0;
-        }
-        
-        .agent-card {
-            background: linear-gradient(135deg, #667eea08 0%, #764ba208 100%);
-            border: 2px solid #667eea20;
-            padding: 30px;
-            border-radius: 10px;
-            transition: all 0.3s;
-        }
-        
-        .agent-card:hover {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-        }
-        
-        .agent-card h4 {
-            color: #667eea;
-            font-size: 1.3em;
-            margin-bottom: 12px;
-        }
-        
-        .agent-card ul {
-            list-style: none;
-            margin: 16px 0;
-        }
-        
-        .agent-card li {
-            padding: 6px 0;
-            color: #555;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .agent-card li:before {
-            content: "✓";
-            color: #667eea;
-            font-weight: bold;
-            margin-right: 4px;
-        }
-        
-        .section {
-            margin: 100px 0;
-            padding: 60px 0;
-            border-top: 1px solid #f0f0f0;
-        }
-        
-        .section h2 {
-            font-size: 2.8em;
-            color: #1a1a1a;
-            margin-bottom: 40px;
-            text-align: center;
-        }
-        
-        .section-subtitle {
-            font-size: 1.2em;
-            color: #667eea;
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        
-        .data-flow {
-            background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
-            padding: 40px;
-            border-radius: 12px;
-            margin: 40px 0;
-            border: 2px solid #667eea30;
-        }
-        
-        .data-flow h4 {
-            color: #667eea;
-            margin-bottom: 20px;
-            font-size: 1.2em;
-        }
-        
-        .flow-diagram {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            margin: 20px 0;
-            flex-wrap: wrap;
-            font-weight: 600;
-        }
-        
-        .flow-step {
-            background: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            border: 2px solid #667eea;
-            color: #667eea;
-            min-width: 120px;
-            text-align: center;
-        }
-        
-        .flow-arrow {
-            color: #667eea;
-            font-size: 1.4em;
-            flex-shrink: 0;
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 30px;
-            text-align: center;
-            margin: 60px 0;
-        }
-        
-        .stat {
-            padding: 30px;
-            background: linear-gradient(135deg, #667eea08 0%, #764ba208 100%);
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .stat-number {
-            font-size: 2.5em;
-            color: #667eea;
+
+        .feature-card h3 {
+            font-size: 1.25rem;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 0.75rem;
+            color: #0f172a;
         }
-        
+
+        .feature-card p {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        /* Stats Section */
+        .stats {
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            padding: 4rem 2rem;
+        }
+
+        .stats-grid {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
         .stat-label {
-            color: #555;
-            font-size: 1.05em;
-        }
-        
-        .compliance-badges {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin: 40px 0;
-        }
-        
-        .badge {
-            background: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            border: 2px solid #667eea;
-            color: #667eea;
+            font-size: 1rem;
+            color: #6b7280;
             font-weight: 600;
+        }
+
+        /* Tabs Section */
+        .tabs-section {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 6rem 2rem;
+        }
+
+        .tab-buttons {
             display: flex;
-            align-items: center;
-            gap: 8px;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #e5e7eb;
         }
-        
-        .badge:before {
-            content: "✓";
-            font-size: 1.3em;
-            font-weight: bold;
+
+        .tab-button {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s;
+            font-size: 1rem;
         }
-        
-        footer {
-            background: #1a1a1a;
+
+        .tab-button:hover {
+            color: #3b82f6;
+        }
+
+        .tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .content-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .content-card h3 {
+            color: #0f172a;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .content-card p {
+            color: #6b7280;
+            line-height: 1.8;
+        }
+
+        .content-card ul {
+            list-style: none;
+            color: #6b7280;
+        }
+
+        .content-card li {
+            margin-bottom: 0.75rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .content-card li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: 700;
+        }
+
+        /* Scanner Section */
+        .scanner-section {
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            margin-top: 2rem;
+        }
+
+        .scanner-header {
+            margin-bottom: 2rem;
+        }
+
+        .scanner-header h2 {
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .scanner-header p {
+            color: #6b7280;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        #urlInput {
+            flex: 1;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        #urlInput:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background-color: white;
+        }
+
+        #scanBtn {
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             color: white;
-            padding: 60px 0 30px;
-            margin-top: 100px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
         }
-        
+
+        #scanBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .results-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .result-box {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .result-box h3 {
+            color: #0f172a;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+            min-height: 150px;
+            color: #1f2937;
+            line-height: 1.5;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        /* Scanner Tabs */
+        .scanner-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .tab-button:hover {
+            color: #3b82f6;
+        }
+
+        .tab-button.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Footer */
+        .footer {
+            background: #0f172a;
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
         .footer-content {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 30px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 40px;
-            margin-bottom: 40px;
         }
-        
-        .footer-section h4 {
-            color: #667eea;
-            margin-bottom: 16px;
-            font-size: 1.1em;
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
         }
-        
-        .footer-section a {
-            display: block;
-            color: rgba(255,255,255,0.7);
+
+        .footer-links a {
+            color: #cbd5e1;
             text-decoration: none;
-            margin-bottom: 12px;
             transition: color 0.3s;
         }
-        
-        .footer-section a:hover {
+
+        .footer-links a:hover {
             color: white;
         }
-        
+
         .footer-bottom {
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding-top: 30px;
-            text-align: center;
-            color: rgba(255,255,255,0.6);
+            color: #94a3b8;
+            font-size: 0.9rem;
         }
-        
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.4em;
+            .nav-links {
+                gap: 1rem;
+                font-size: 0.9rem;
             }
-            
-            .hero p {
-                font-size: 1em;
-            }
-            
-            nav {
-                gap: 20px;
-            }
-            
-            .cta-container {
+
+            .input-group {
                 flex-direction: column;
             }
-            
-            .cta-button {
+
+            #urlInput, #scanBtn {
                 width: 100%;
-                text-align: center;
+            }
+
+            .tab-buttons {
+                border-bottom: 1px solid #e5e7eb;
+            }
+
+            .tab-button {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .stats-grid {
+                gap: 2rem;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Utility */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-4 {
+            margin-top: 2rem;
+        }
+
+        /* Who We Are Section */
+        .who-we-are-container {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .who-we-are-hero {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 1rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border-radius: 12px;
+        }
+
+        .who-we-are-hero h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .who-we-are-tagline {
+            font-size: 1.25rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .who-we-are-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .who-we-are-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .who-we-are-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+            transform: translateY(-6px);
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .who-we-are-card h3 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .who-we-are-card p {
+            color: #6b7280;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+
+        .expertise-list {
+            list-style: none;
+        }
+
+        .expertise-list li {
+            color: #6b7280;
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .expertise-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .expertise-list strong {
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        .who-we-are-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 3rem;
+        }
+
+        .who-we-are-stats .stat {
+            text-align: center;
+        }
+
+        .who-we-are-stats .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .who-we-are-stats .stat-title {
+            font-size: 1rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .who-we-are-cta {
+            text-align: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .who-we-are-cta h3 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .who-we-are-cta p {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Consulting Section */
+        .consulting-container {
+            padding: 0;
+        }
+
+        .consulting-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+
+        .consulting-hero h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .consulting-hero p {
+            font-size: 1.2rem;
+            color: #cbd5e1;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .consulting-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .consulting-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 2.5rem 2rem;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .consulting-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .consulting-card-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .consulting-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1rem;
+        }
+
+        .consulting-card p {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+            flex-grow: 1;
+            line-height: 1.8;
+        }
+
+        .consulting-features {
+            list-style: none;
+            color: #6b7280;
+        }
+
+        .consulting-features li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .consulting-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .consulting-cta {
+            margin-top: 3rem;
+            text-align: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .consulting-cta h3 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .consulting-cta p {
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (max-width: 768px) {
+            .who-we-are-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .who-we-are-hero h2 {
+                font-size: 2rem;
+            }
+
+            .who-we-are-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .who-we-are-cta h3 {
+                font-size: 1.5rem;
             }
         }
     </style>
 </head>
 <body>
-    <header>
-        <div class="header-container">
-            <div class="logo">🤖 AgenticQA</div>
-            <nav>
-                <a href="#features">Features</a>
-                <a href="#agents">Agents</a>
-                <a href="#datastore">Data Store</a>
-                <a href="#security">Security</a>
-                <button class="nav-button">Get Started</button>
-            </nav>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">🤖 orbitQA.ai</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#tabs">Capabilities</a></li>
+                <li class="dropdown">
+                    <button class="dropdown-btn">Products ▼</button>
+                    <div class="dropdown-menu">
+                        <a href="/product-orbitqa.html">orbitQA</a>
+                    </div>
+                </li>
+                <li><a href="#scanner">Scanner</a></li>
+                <li><a href="/scanner.html">Full Scanner →</a></li>
+                <li><a href="/dashboard.html">📊 Dashboard</a></li>
+                <li><a href="/settings.html">Settings</a></li>
+            </ul>
         </div>
-    </header>
+    </nav>
 
-    <main>
-        <section class="hero">
-            <div class="subtitle">Enterprise Autonomous QA</div>
-            <h1>Intelligent Agents That Learn & Improve</h1>
-            <p>
-                Experience QA powered by four specialized agents that learn from historical patterns, analyze real-time data, 
-                and make intelligent decisions. Secure data store with pattern analysis, compliance automation, and performance optimization.
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>High-Tech Autonomous QA Built by Expert Architects</h1>
+            <p class="hero-subtitle">Enterprise-Grade Self-Healing CI/CD • 175+ Compliance Checks • Any Test Framework • 99.9% Uptime</p>
+            <p class="hero-description">
+                Built by a team with decades of experience in tech architecture, orbitQA.ai demonstrates what's possible with unlimited autonomous AI agents, 
+                comprehensive testing infrastructure, WCAG 2.1 accessibility compliance, and automated security scanning. 
+                This is how the world's most demanding organizations ensure code quality.
             </p>
-            
-            <div class="hero-highlight">
-                <strong>✨ New:</strong> All agents now have integrated knowledge of and utilization of a secure data store with 
-                Great Expectations validation, pattern analysis, and real-time insights from compiled execution data.
+            <div class="badge-row">
+                <div class="badge">✅ Production Ready</div>
+                <div class="badge">🔐 Security Focused</div>
+                <div class="badge">♿ Accessibility First</div>
+                <div class="badge">📊 Compliance Certified</div>
             </div>
-            
-            <div class="cta-container">
-                <button class="cta-button">Try Dashboard →</button>
-                <button class="cta-button cta-button-secondary">View Docs</button>
+            <div class="cta-buttons" role="button" aria-label="button" role="button" aria-label="button">
+                <button class="btn-primary">Start Free Trial</button>
+                <button class="btn-secondary">View Documentation</button>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <section class="section" id="features">
-            <h2>Powerful Capabilities</h2>
-            <p class="section-subtitle">Everything you need for enterprise-grade autonomous QA</p>
-            
-            <div class="features">
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🤖</span> Intelligent Agents</h3>
-                    <p>Four specialized agents (QA, Performance, Compliance, DevOps) that work together to automate testing, monitoring, and deployment decisions.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📊</span> Data-Driven Analysis</h3>
-                    <p>Secure data store that analyzes patterns in test failures, performance metrics, and compliance requirements across all executions.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔍</span> Pattern Recognition</h3>
-                    <p>Automatically discovers failure patterns, performance trends, and flaky tests. Learns from historical data to make smarter recommendations.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🛡️</span> Enterprise Security</h3>
-                    <p>SHA256 integrity verification, PII detection, schema validation, and immutable audit logs. SOC2, GDPR, HIPAA ready.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">⚡</span> Real-Time Monitoring</h3>
-                    <p>Live performance monitoring, health checks, and metrics. Detect issues and anomalies as they happen.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔄</span> Self-Improving</h3>
-                    <p>As more data accumulates, agents become smarter. System learns from patterns and optimizes continuously.</p>
-                </div>
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <h2 class="section-title">High-Tech Capabilities Our Team Built</h2>
+            <p class="section-description">The sophisticated systems we create demonstrate decades of expertise in tech architecture and innovation</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">♿</div>
+                <h3>Accessibility Compliance</h3>
+                <p>Automated WCAG 2.1 Level AA testing with Pa11y integration. Ensure your product is accessible to all users.</p>
             </div>
-        </section>
 
-        <section class="section" id="agents">
-            <h2>Meet Your Agents</h2>
-            <p class="section-subtitle">Four specialized intelligences working in harmony</p>
-            
-            <div class="agents-grid">
-                <div class="agent-card">
-                    <h4>🧪 QA Assistant Agent</h4>
-                    <p>Intelligent test analysis powered by historical patterns.</p>
+            <div class="feature-card">
+                <div class="feature-icon">🔐</div>
+                <h3>Security Scanning</h3>
+                <p>Continuous vulnerability scanning with npm audit. Automatic remediation of security issues before they reach production.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>Unlimited AI Agents</h3>
+                <p>Deploy autonomous agents for any capability: compliance, QA, SRE, SDET, security, and beyond. Scale agents to match your needs.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Self-Healing Pipelines</h3>
+                <p>Automatically detects and fixes linting errors, test failures, and compliance violations with zero human intervention.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Auto-Updating Test Suite</h3>
+                <p>Auto-updating tests that continuously expand and cover your codebase. ESLint, Jest, Vitest, Playwright, Cypress, and Pa11y with complete coverage.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Enterprise Compliance</h3>
+                <p>175+ compliance checks for GDPR, CCPA, WCAG, ADA, OWASP, and more. Automatic audit reports for regulators.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Real-Time Monitoring</h3>
+                <p>10-second polling intervals with intelligent 5-stage failure recovery. Know instantly when something breaks.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3>3x Faster Deployments</h3>
+                <p>Parallel test execution across any framework or ecosystem. Full CI/CD pipeline in under 3 minutes instead of 30+.</p>
+            </div>
+
+            <div class="feature-card" style="grid-column: 1 / 2; border: 2px solid #3b82f6; background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);">
+                <div class="feature-icon">🛠️</div>
+                <h3>⭐ Autonomous Compliance Auto-Fix</h3>
+                <p><strong>NEW:</strong> Intelligent system that reads compliance reports, identifies issues, and applies targeted fixes across 4 specialized domains. GDPR, CCPA, accessibility, security—all automated with re-validation.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">175+</div>
+                <div class="stat-label">Compliance Checks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">Auto-Updating Tests</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">Continuous Platform Auto-Fixes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">99.9%</div>
+                <div class="stat-label">Uptime SLA</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tabs Section -->
+    <section class="tabs-section" id="tabs">
+        <div class="section-header">
+            <h2 class="section-title">Platform Capabilities</h2>
+            <p class="section-description">Deep dive into what makes orbitQA.ai enterprise-ready</p>
+        </div>
+
+        <div class="tab-buttons" role="tablist" aria-label="documentation-tabs">
+            <button class="tab-button active" onclick="switchTab(this, 'overview')" role="tab" aria-selected="true" aria-controls="overview">Overview</button>
+            <button class="tab-button" onclick="switchTab(this, 'who-we-are')" role="tab" aria-selected="false" aria-controls="who-we-are">Who We Are</button>
+            <button class="tab-button" onclick="switchTab(this, 'consulting')" role="tab" aria-selected="false" aria-controls="consulting">Consulting Services</button>
+            <button class="tab-button" onclick="switchTab(this, 'architecture')" role="tab" aria-selected="false" aria-controls="architecture">Architecture</button>
+            <button class="tab-button" onclick="switchTab(this, 'compliance')" role="tab" aria-selected="false" aria-controls="compliance">Compliance</button>
+            <button class="tab-button" onclick="switchTab(this, 'testing')" role="tab" aria-selected="false" aria-controls="testing">Testing</button>
+        </div>
+
+        <div id="overview" class="tab-content active">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>🤖 Purpose-built Agentic AI Agents</h3>
                     <ul>
-                        <li>Analyzes test results and failure trends</li>
-                        <li>Provides smart recommendations</li>
-                        <li>Detects high-risk patterns</li>
-                        <li>Suggests coverage improvements</li>
+                        <li>Compliance Agent - 175+ checks</li>
+                        <li>QA Agent - Manual UI testing</li>
+                        <li>SRE Agent - Real-time monitoring</li>
+                        <li>SDET Agent - Test generation</li>
+                        <li>Fullstack Agent - Code fixing + Compliance Auto-Fix ⭐</li>
+                        <li style="font-weight: 500; color: #3b82f6;">NEW: Autonomous compliance remediation</li>
                     </ul>
                 </div>
-                
-                <div class="agent-card">
-                    <h4>⚡ Performance Agent</h4>
-                    <p>Real-time performance monitoring and optimization.</p>
+
+                <div class="content-card">
+                    <h3>♻️ Circular Development</h3>
                     <ul>
-                        <li>Tracks execution latency</li>
-                        <li>Identifies degradation trends</li>
-                        <li>Suggests optimizations</li>
-                        <li>Generates roadmaps</li>
+                        <li>Agents test agents</li>
+                        <li>Self-validating system</li>
+                        <li>Continuous improvement</li>
+                        <li>Zero manual intervention</li>
+                        <li>99.9% reliability</li>
                     </ul>
                 </div>
-                
-                <div class="agent-card">
-                    <h4>✅ Compliance Agent</h4>
-                    <p>Regulatory compliance automation and verification.</p>
+
+                <div class="content-card">
+                    <h3>📊 Smart Concurrency</h3>
                     <ul>
-                        <li>Validates SOC2/GDPR/HIPAA</li>
-                        <li>Ensures data encryption</li>
-                        <li>Maintains audit logs</li>
-                        <li>Generates reports</li>
+                        <li>Parallel test chains</li>
+                        <li>Serial reruns</li>
+                        <li>Run type classification</li>
+                        <li>Dashboard optimization</li>
+                        <li>3x faster pipelines</li>
                     </ul>
                 </div>
-                
-                <div class="agent-card">
-                    <h4>🚀 DevOps Agent</h4>
-                    <p>Deployment and infrastructure management.</p>
+
+                <div class="content-card" style="border: 2px solid #3b82f6; grid-column: 1 / -1;">
+                    <h3>🛠️ ⭐ Compliance Auto-Fix System (NEW)</h3>
+                    <p style="margin-bottom: 1rem; font-size: 0.95rem; color: #4b5563;">Enterprise-grade autonomous remediation that fixes compliance issues automatically</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <strong style="color: #3b82f6;">Compliance Fixer:</strong>
+                            <ul style="font-size: 0.9rem; margin-top: 0.5rem;">
+                                <li>GDPR rights information</li>
+                                <li>CCPA/California rights</li>
+                                <li>Privacy policy enhancement</li>
+                                <li>Third-party licenses</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <strong style="color: #3b82f6;">Multi-Domain Fixers:</strong>
+                            <ul style="font-size: 0.9rem; margin-top: 0.5rem;">
+                                <li>Accessibility (6 fix types)</li>
+                                <li>Security (npm audit, docs)</li>
+                                <li>Documentation (README, guides)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p style="margin-top: 1rem; font-size: 0.85rem; color: #6b7280;"><strong>How it works:</strong> Reads compliance reports → Parses issues by severity → Routes to specialized fixers → Applies targeted code changes → Re-validates with compliance agent</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="who-we-are" class="tab-content">
+            <div class="who-we-are-container">
+                <!-- Hero Section -->
+                <div class="who-we-are-hero">
+                    <h2>Who We Are</h2>
+                    <p class="who-we-are-tagline">Architects of Intelligent Systems • Builders of Enterprise Innovation</p>
+                </div>
+
+                <!-- Main Grid -->
+                <div class="who-we-are-grid">
+                    <!-- Our Expertise -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🏗️</div>
+                        <h3>Decades of Tech Architecture Excellence</h3>
+                        <p>Our team has spent decades architecting high-tech systems for Fortune 500 companies, multinational enterprises, and fast-scaling startups. We've designed infrastructure that powers millions of users, managed complex deployments across global teams, and built products from zero to billions in value.</p>
+                        <ul class="expertise-list">
+                            <li><strong>Enterprise Architecture:</strong> Large-scale distributed systems, microservices, cloud infrastructure</li>
+                            <li><strong>Team Leadership:</strong> Multi-national teams across EMEA, Asia-Pacific, North America</li>
+                            <li><strong>Startup Scaling:</strong> 0-1 and 1-100 growth stages, product-market fit, rapid iteration</li>
+                        </ul>
+                    </div>
+
+                    <!-- Agentic AI Expertise -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🤖</div>
+                        <h3>AI Agents Beyond Public Data</h3>
+                        <p>We don't use commodity AI. Our deep expertise in tech architecture allows us to train and teach agentic systems that become true experts—not just pattern matchers on public training data.</p>
+                        <ul class="expertise-list">
+                            <li><strong>Domain-Specific Training:</strong> Agents trained on decades of real-world architecture patterns and engineering expertise</li>
+                            <li><strong>Expert-Level Reasoning:</strong> Our agents understand not just what works, but why</li>
+                            <li><strong>Self-Healing Intelligence:</strong> Autonomous agents that learn from every pipeline failure, every compliance issue, every security vulnerability</li>
+                            <li><strong>Human-Level Expertise:</strong> Agents that fix code like senior engineers, audit compliance like legal consultants, and secure systems like ethical hackers</li>
+                        </ul>
+                    </div>
+
+                    <!-- Tech Stack -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">⚙️</div>
+                        <h3>Mastery Across Technology Ecosystems</h3>
+                        <p>Our expertise spans multiple tool stacks and technology domains, enabling us to modernize any system and optimize your entire SDLC:</p>
+                        <ul class="expertise-list">
+                            <li><strong>AI & Transformation:</strong> OpenAI, Anthropic, autonomous agents - AI transformation projects that redefine your processes</li>
+                            <li><strong>Legacy Modernization:</strong> System migrations, monolith-to-microservices, cloud-native transformations</li>
+                            <li><strong>Database Evolution:</strong> PostgreSQL, MongoDB, Redis, data migration strategies, performance optimization</li>
+                            <li><strong>IoT & Embedded Systems:</strong> Hardware-software integration, embedded testing, sensor networks, device firmware - unique expertise in bridging hardware and software QA</li>
+                            <li><strong>Frontend Ecosystems:</strong> React, Vue, Angular, Next.js, mobile (React Native, Swift, Kotlin)</li>
+                            <li><strong>Backend & Cloud:</strong> Node.js, Python, Java, Go; AWS, GCP, Azure, on-premise infrastructure</li>
+                            <li><strong>Testing & QA Excellence:</strong> Any framework - Playwright, Cypress, Vitest, Jest, Selenium, custom solutions</li>
+                            <li><strong>DevOps & Platform:</strong> GitHub Actions, Jenkins, ArgoCD, Terraform, Kubernetes, monitoring at scale</li>
+                            <li><strong>Security & Compliance:</strong> Zero-trust architecture, WCAG 2.1, GDPR, CCPA, OWASP, SOC 2, ISO 27001</li>
+                        </ul>
+                        <p style="margin-top: 1rem; font-size: 0.95rem; color: #3b82f6; font-weight: 600;">This breadth of expertise means we don't just implement—we strategically improve your entire software development lifecycle.</p>
+                    </div>
+
+                    <!-- Global Experience -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🌍</div>
+                        <h3>Global & Enterprise Experience</h3>
+                        <p>We've built systems trusted by the world's most demanding organizations:</p>
+                        <ul class="expertise-list">
+                            <li><strong>Fortune 500:</strong> Multi-year engagements delivering enterprise-scale solutions</li>
+                            <li><strong>Multinational Teams:</strong> Led distributed teams across timezones, cultures, and regulatory frameworks</li>
+                            <li><strong>Consulting Groups:</strong> Worked with top-tier consulting firms on strategic technology initiatives</li>
+                            <li><strong>High-Growth Startups:</strong> 0-1 experience founding and scaling technology products</li>
+                        </ul>
+                    </div>
+
+                    <!-- What We Build -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">🚀</div>
+                        <h3>High-Tech Systems</h3>
+                        <p>orbitQA.ai is an example of the sophisticated, intelligent systems our team builds:</p>
+                        <ul class="expertise-list">
+                            <li><strong>Multi-Agent Orchestration:</strong> Autonomous agents collaborating across compliance, QA, security, and DevOps</li>
+                            <li><strong>Self-Healing Pipelines:</strong> Systems that detect, diagnose, and fix their own failures</li>
+                            <li><strong>Enterprise Compliance:</strong> 175+ compliance checks across GDPR, CCPA, WCAG, ADA, OWASP standards</li>
+                            <li><strong>AI-Powered Insights:</strong> Real-time recommendations, security scanning, accessibility verification</li>
+                        </ul>
+                    </div>
+
+                    <!-- Why Choose Us -->
+                    <div class="who-we-are-card">
+                        <div class="card-icon">✨</div>
+                        <h3>Why Work With Us</h3>
+                        <p>We don't just build software—we build strategic technology advantages for organizations that matter:</p>
+                        <ul class="expertise-list">
+                            <li><strong>Proven Excellence:</strong> Track record with F500 companies, scale-ups, and enterprise teams</li>
+                            <li><strong>Deep Expertise:</strong> Decades of architecture expertise means we see patterns others miss</li>
+                            <li><strong>Future-Ready:</strong> AI agents that improve over time, not outdated systems that degrade</li>
+                            <li><strong>Custom Solutions:</strong> Every system we build is tailored to your specific domain and challenges</li>
+                            <li><strong>Trusted Partner:</strong> We share your commitment to quality, security, and compliance</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="who-we-are-stats">
+                    <div class="stat">
+                        <div class="stat-value">15+</div>
+                        <div class="stat-title">Years in Tech</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">50+</div>
+                        <div class="stat-title">Fortune 500 Projects</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">100+</div>
+                        <div class="stat-title">Global Team Members</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">∞</div>
+                        <div class="stat-title">AI Agent Expertise</div>
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="who-we-are-cta">
+                    <h3>Ready to Build Intelligent Systems Together?</h3>
+                    <p>Let's create technology that matters. Contact our team to discuss how we can architect high-tech solutions for your organization.</p>
+                    <button class="btn-primary" onclick="document.location.href='#contact'">Start a Conversation</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="consulting" class="tab-content">
+            <div class="consulting-container">
+                <!-- Hero Section -->
+                <div class="consulting-hero">
+                    <h2>Consulting Services</h2>
+                    <p>Leverage our decades of tech architecture expertise. We deliver strategic consulting across a wide range of high-impact projects—from AI transformations to system modernization to custom development.</p>
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <p style="margin: 0; font-size: 1rem; line-height: 1.8;"><strong>Why Work With Us?</strong> We don't operate like traditional consulting groups. Our team has deep startup experience scaling from 0-1, working with teams of all sizes—from scrappy 3-person teams to multinational enterprises. We execute alongside your team, maintain codebases, implement processes, and ensure your organization succeeds long after we're done. We work <em>with</em> you, not just for you.</p>
+                    </div>
+                </div>
+
+                <!-- Services Grid -->
+                <div class="consulting-grid">
+                    <!-- AI Transformations -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">🤖</div>
+                        <h3>AI Transformations</h3>
+                        <p>Reimagine your development, operations, and compliance processes with autonomous AI agents. We design and implement intelligent systems that reduce manual work and improve quality.</p>
+                        <ul class="consulting-features">
+                            <li>Agent architecture design and implementation</li>
+                            <li>Custom domain training for your business</li>
+                            <li>End-to-end AI transformation roadmap</li>
+                            <li>Integration with existing tools and workflows</li>
+                            <li>Ongoing optimization and scaling</li>
+                        </ul>
+                    </div>
+
+                    <!-- Custom Education & Upskilling -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">📚</div>
+                        <h3>Custom Education & Upskilling</h3>
+                        <p>Build technical expertise across your organization with tailored training programs. We deliver live sessions and on-demand video content on any technology your team needs to master.</p>
+                        <ul class="consulting-features">
+                            <li>Custom curriculum design for your team</li>
+                            <li>Advanced topics: vector databases, agents, automation</li>
+                            <li>Live workshop sessions with hands-on labs</li>
+                            <li>Video content library for ongoing reference</li>
+                            <li>Certification and skill validation</li>
+                        </ul>
+                    </div>
+
+                    <!-- Custom Automated Builds -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">⚙️</div>
+                        <h3>Custom Automated Builds</h3>
+                        <p>Streamline your development workflow with intelligent build automation. We design systems that compile, test, and deploy your code with zero manual intervention.</p>
+                        <ul class="consulting-features">
+                            <li>Build pipeline architecture and optimization</li>
+                            <li>Multi-framework and multi-language support</li>
+                            <li>Parallel execution for 3x faster builds</li>
+                            <li>Integration with your existing tools</li>
+                            <li>Continuous performance monitoring</li>
+                        </ul>
+                    </div>
+
+                    <!-- CI/CD Pipeline Design -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">🚀</div>
+                        <h3>Custom CI/CD Pipelines</h3>
+                        <p>Design and implement enterprise-grade CI/CD systems that scale with your organization. From simple deployments to complex multi-stage pipelines, we build what you need.</p>
+                        <ul class="consulting-features">
+                            <li>End-to-end pipeline architecture</li>
+                            <li>Multi-environment deployment strategies</li>
+                            <li>Blue-green, canary, and rolling deployments</li>
+                            <li>Automated rollback and recovery</li>
+                            <li>Integration with GitHub Actions, Jenkins, ArgoCD, and more</li>
+                        </ul>
+                    </div>
+
+                    <!-- Architecture Modernization -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">🏗️</div>
+                        <h3>Architecture Modernization</h3>
+                        <p>Transform legacy systems into modern, scalable architectures. We design and execute strategic system migrations—from monoliths to microservices, on-premise to cloud, and everything in between.</p>
+                        <ul class="consulting-features">
+                            <li>System assessment and roadmap planning</li>
+                            <li>Monolith-to-microservices migration</li>
+                            <li>On-premise to cloud transitions</li>
+                            <li>Database evolution and optimization</li>
+                            <li>Zero-downtime deployment strategies</li>
+                        </ul>
+                    </div>
+
+                    <!-- Custom Development Projects -->
+                    <div class="consulting-card">
+                        <div class="consulting-card-icon">💻</div>
+                        <h3>Strategic Development Projects</h3>
+                        <p>When you need more than consulting—when you need execution. Our architects lead implementation of complex projects, from proof-of-concepts to full-scale production systems.</p>
+                        <ul class="consulting-features">
+                            <li>Full-stack application development</li>
+                            <li>Performance optimization and scaling</li>
+                            <li>Security hardening and compliance implementation</li>
+                            <li>Integration with third-party systems</li>
+                            <li>Dedicated project leadership and delivery</li>
+                        </ul>
+                    </div>
+
+                    <!-- Our Approach - Differentiator -->
+                    <div class="consulting-card" style="background: linear-gradient(135deg, #f0f9ff 0%, #f3e8ff 100%); border-color: #3b82f6;">
+                        <div class="consulting-card-icon">🤝</div>
+                        <h3>Our Approach: Built Different</h3>
+                        <p>Unlike large, bureaucratic consulting groups, we combine startup agility with enterprise expertise. We execute quickly, adapt to your needs, and ensure long-term success.</p>
+                        <ul class="consulting-features">
+                            <li><strong>Agile Execution:</strong> Move fast without sacrificing quality. We've shipped everything from 3-person teams to global organizations</li>
+                            <li><strong>Team-First Mentorship:</strong> Work alongside your team, not over them. Transfer knowledge and build capability, not dependency</li>
+                            <li><strong>Codebase Ownership:</strong> We maintain code quality, document processes, and ensure handoff is seamless</li>
+                            <li><strong>Process Implementation:</strong> Build sustainable practices that outlast our engagement. Your team succeeds independently</li>
+                            <li><strong>Startup to Scale:</strong> Deep experience across company stages—early-stage chaos to enterprise complexity</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- CTA Section -->
+                <div class="consulting-cta">
+                    <h3>Ready to Transform Your Organization?</h3>
+                    <p>Let's discuss how our consulting services can address your specific challenges and accelerate your technical roadmap.</p>
+                    <div class="cta-buttons">
+                        <button class="btn-primary">Schedule Consultation</button>
+                        <button class="btn-secondary">View Case Studies</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="architecture" class="tab-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>Modern Tech Stack</h3>
+                    <p>Flexible, language-agnostic platform with unlimited extensibility:</p>
                     <ul>
-                        <li>Orchestrates deployments</li>
-                        <li>Runs health checks</li>
-                        <li>Manages environments</li>
-                        <li>Provides intelligence</li>
+                        <li><strong>Any Language:</strong> Build with Python, Go, Java, Rust, or your preferred language</li>
+                        <li><strong>Any Framework:</strong> React, Vue, Angular, Django, FastAPI, Spring - no limits</li>
+                        <li><strong>Any LLM:</strong> Claude, GPT-4, Gemini, LLaMA, or custom models - full control</li>
+                        <li><strong>Any Agent Service:</strong> LangGraph, LangChain, CrewAI, AutoGen, or proprietary solutions</li>
+                        <li>Scalable infrastructure with intelligent orchestration</li>
+                        <li>Git-based workflow with automated CI/CD</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>Self-Healing Architecture</h3>
+                    <ul>
+                        <li>Automatic error detection</li>
+                        <li>5-stage recovery process</li>
+                        <li>Intelligent fix validation</li>
+                        <li>Pattern-based solutions</li>
+                        <li>No downtime required</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>Enterprise Ready</h3>
+                    <p>Seamless integration into any organization's ecosystem:</p>
+                    <ul>
+                        <li><strong>Ecosystem Integration:</strong> Connect to Jira, Azure, Jenkins, GitHub, or any platform</li>
+                        <li><strong>Universal Connectors:</strong> REST APIs, webhooks, and SDKs for custom integrations</li>
+                        <li><strong>Enterprise Features:</strong> 100% code coverage, audit logging, role-based access</li>
+                        <li><strong>API-first Design:</strong> Built for extensibility and third-party integrations</li>
+                        <li><strong>Deployment Flexibility:</strong> Cloud, on-premise, or hybrid deployment options</li>
                     </ul>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <section class="section" id="datastore">
-            <h2>Secure Data Store</h2>
-            <p class="section-subtitle">Central repository for intelligent decision-making</p>
-            
-            <div class="data-flow">
-                <h4>How Data Flows Through AgenticQA</h4>
-                <div class="flow-diagram">
-                    <div class="flow-step">Agent Execution</div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-step">Validation</div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-step">Storage</div>
+        <div id="compliance" class="tab-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>🛡️ Legal Compliance</h3>
+                    <ul>
+                        <li>GDPR compliance verification</li>
+                        <li>CCPA data protection</li>
+                        <li>Open source license audit</li>
+                        <li>Auto-generated policies</li>
+                        <li>Compliance reporting</li>
+                    </ul>
                 </div>
-                <div class="flow-diagram">
-                    <div class="flow-step">Analysis</div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-step">Pattern Recognition</div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-step">Smart Decisions</div>
+
+                <div class="content-card">
+                    <h3>♿ Accessibility (WCAG 2.1 AA)</h3>
+                    <ul>
+                        <li>Automated Pa11y scanning</li>
+                        <li>Color contrast validation</li>
+                        <li>Alt text verification</li>
+                        <li>Keyboard navigation tests</li>
+                        <li>ARIA label checking</li>
+                    </ul>
+                </div>
+
+                <div class="content-card">
+                    <h3>🔐 Security Compliance</h3>
+                    <ul>
+                        <li>CVE vulnerability scanning</li>
+                        <li>npm audit integration</li>
+                        <li>OWASP Top 10 checks</li>
+                        <li>Auto-remediation</li>
+                        <li>Security reporting</li>
+                    </ul>
                 </div>
             </div>
-            
-            <div class="features">
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📦</span> Test Artifact Repository</h3>
-                    <p>UUID-tracked execution artifacts with searchable master index, metadata envelopes, and pattern analysis storage.</p>
+        </div>
+
+        <div id="testing" class="tab-content">
+            <div class="content-grid">
+                <div class="content-card">
+                    <h3>📋 Testing Frameworks</h3>
+                    <ul>
+                        <li>ESLint code linting</li>
+                        <li>Jest unit testing</li>
+                        <li>Vitest modern tests</li>
+                        <li>Playwright E2E</li>
+                        <li>Cypress accessibility</li>
+                        <li>Pa11y compliance</li>
+                    </ul>
                 </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔐</span> Great Expectations</h3>
-                    <p>Data quality validation with schema checking, constraint validation, and automated quality gates.</p>
+
+                <div class="content-card">
+                    <h3>🧪 Test Coverage</h3>
+                    <ul>
+                        <li>Auto-updating test suite (unlimited)</li>
+                        <li>Unit test generation</li>
+                        <li>Integration testing</li>
+                        <li>E2E workflows</li>
+                        <li>Accessibility audit</li>
+                        <li>Performance testing</li>
+                    </ul>
                 </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🧠</span> Pattern Analysis</h3>
-                    <p>Failure patterns, performance trends, and flakiness detection. Analyze 100K+ executions instantly.</p>
+
+                <div class="content-card">
+                    <h3>✅ Quality Metrics</h3>
+                    <ul>
+                        <li>Code coverage reports</li>
+                        <li>Test execution time</li>
+                        <li>Failure analysis</li>
+                        <li>Trend tracking</li>
+                        <li>Performance metrics</li>
+                        <li>Compliance scores</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Scanner Section -->
+    <section class="container mt-4" id="scanner">
+        <div class="scanner-section">
+            <div class="scanner-header">
+                <h2>🔍 Advanced Technology Scanner</h2>
+                <p>Analyze any website for technologies, issues, performance, APIs, and get AI-generated test cases across multiple frameworks</p>
+            </div>
+
+            <div class="input-group">
+                <label for="urlInput"></label>
+                <input type="url" id="urlInput" placeholder="Enter website URL (e.g., https://example.com)" />
+                <button id="scanBtn" aria-label="Scan Website">Scan</button>
+            </div>
+
+            <div class="results-container">
+                <!-- Issues Found -->
+                <div class="result-box">
+                    <h3>🔴 Issues Found</h3>
+                    <textarea id="results" readonly placeholder="Scan results will appear here"></textarea>
+                </div>
+
+                <!-- Technologies Detected -->
+                <div class="result-box">
+                    <h3>🛠️ Technologies Detected</h3>
+                    <textarea id="technologies" readonly placeholder="Technologies will appear here"></textarea>
+                </div>
+
+                <!-- Performance Results -->
+                <div class="result-box">
+                    <h3>⚡ Performance Metrics</h3>
+                    <textarea id="performance" readonly placeholder="Performance data will appear here"></textarea>
                 </div>
             </div>
 
-            <div class="stats">
-                <div class="stat">
-                    <div class="stat-number">∞</div>
-                    <div class="stat-label">Artifacts Stored</div>
+            <!-- Test Case Generation with Tabs -->
+            <div class="result-box" style="margin-top: 2rem;">
+                <h3>🧪 Generated Test Cases</h3>
+                <div class="scanner-tabs">
+                    <button class="tab-button active" data-tab="playwright" onclick="switchTestTab(event, 'playwright')">▶ Playwright</button>
+                    <button class="tab-button" data-tab="cypress" onclick="switchTestTab(event, 'cypress')">🌳 Cypress</button>
+                    <button class="tab-button" data-tab="vitest" onclick="switchTestTab(event, 'vitest')">⚡ Vitest</button>
                 </div>
-                <div class="stat">
-                    <div class="stat-number">100%</div>
-                    <div class="stat-label">Data Integrity</div>
+                <div id="playwright" class="tab-pane active">
+                    <textarea id="playwright-content" readonly placeholder="Playwright test cases will appear here"></textarea>
                 </div>
-                <div class="stat">
-                    <div class="stat-number">ms</div>
-                    <div class="stat-label">Query Speed</div>
+                <div id="cypress" class="tab-pane">
+                    <textarea id="cypress-content" readonly placeholder="Cypress test cases will appear here"></textarea>
+                </div>
+                <div id="vitest" class="tab-pane">
+                    <textarea id="vitest-content" readonly placeholder="Vitest test cases will appear here"></textarea>
                 </div>
             </div>
-        </section>
 
-        <section class="section" id="security">
-            <h2>Enterprise Security & Compliance</h2>
-            <p class="section-subtitle">Built for regulated industries</p>
-            
-            <div class="compliance-badges">
-                <div class="badge">SOC2 Type II</div>
-                <div class="badge">GDPR</div>
-                <div class="badge">HIPAA</div>
-                <div class="badge">CCPA</div>
-                <div class="badge">ISO 27001</div>
-            </div>
-            
-            <div class="features">
-                <div class="feature-card">
-                    <h3><span class="feature-icon">🔒</span> Data Protection</h3>
-                    <p>SHA256 checksums on all artifacts, PII detection and masking, schema validation, encryption-ready format.</p>
+            <div class="results-container">
+                <!-- APIs Used -->
+                <div class="result-box">
+                    <h3>🔌 APIs Detected</h3>
+                    <textarea id="apis" readonly placeholder="API calls will appear here"></textarea>
                 </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">📋</span> Audit & Compliance</h3>
-                    <p>Immutable execution logs, artifact retrieval verification, tamper detection, comprehensive metrics.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <h3><span class="feature-icon">✓</span> Integrity Verification</h3>
-                    <p>All data validated on storage and retrieval. Detect tampering, ensure compliance, maintain trust.</p>
-                </div>
-            </div>
-        </section>
-    </main>
 
-    <footer>
+                <!-- Recommendations -->
+                <div class="result-box">
+                    <h3>💡 AI-Powered Recommendations</h3>
+                    <textarea id="recommendations" readonly placeholder="Recommendations will appear here"></textarea>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
         <div class="footer-content">
-            <div class="footer-section">
-                <h4>Product</h4>
-                <a href="#">Dashboard</a>
-                <a href="#">Agents</a>
-                <a href="#">Data Store</a>
-                <a href="#">API</a>
-            </div>
-            <div class="footer-section">
-                <h4>Resources</h4>
+            <div class="footer-links">
                 <a href="#">Documentation</a>
                 <a href="#">GitHub</a>
-                <a href="#">Examples</a>
-                <a href="#">Support</a>
-            </div>
-            <div class="footer-section">
-                <h4>Company</h4>
-                <a href="#">About</a>
-                <a href="#">Security</a>
-                <a href="#">Privacy</a>
+                <a href="#">Community</a>
                 <a href="#">Contact</a>
             </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2026 AgenticQA. All rights reserved. | Enterprise Autonomous QA Platform</p>
+            <div class="footer-bottom">
+                <p>&copy; 2024 orbitQA.ai. Built for teams that care about quality, compliance, and security.</p>
+            </div>
         </div>
     </footer>
+
+    <script>
+        // Tab switching for main content
+        function switchTab(event, tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+
+            // Remove active class from all buttons
+            const buttons = document.querySelectorAll('.tab-button:not([data-tab])');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // Tab switching for test framework tabs in scanner
+        function switchTestTab(event, framework) {
+            // Hide all test panes
+            const panes = document.querySelectorAll('[id="playwright"], [id="cypress"], [id="vitest"]');
+            panes.forEach(pane => pane.classList.remove('active'));
+
+            // Remove active class from all test tab buttons
+            const buttons = document.querySelectorAll('[data-tab]');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            // Show selected test framework pane
+            document.getElementById(framework).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+                // No extra click handler needed for Dashboard button; anchor tag handles navigation.
+    </script>
 </body>
 </html>
