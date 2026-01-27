@@ -3,9 +3,16 @@
   "version": "1.0.0",
   "description": "Node.js tools for workflow validation and repair.",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test:ui": "playwright test",
+    "test:ui:headed": "playwright test --headed",
+    "test:ui:debug": "playwright test --debug",
+    "test:ui:report": "playwright show-report",
+    "start:server": "node start-all.js"
+  },
   "devDependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "@playwright/test": "^1.40.0"
   },
   "dependencies": {
     "express": "^5.2.1"
