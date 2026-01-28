@@ -184,8 +184,30 @@ jobs:
         run: pytest tests/test_agent_rag_integration.py -v -s
         continue-on-error: false
 
-  agent-error-handling:
+  local-pipeline-validation:
     needs: code-linting
+    runs-on: ubuntu-latest
+    name: Local Pipeline Validation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest pytest-cov
+          npm install -g eslint
+      - name: Run Local Pipeline Validation Tests
+        run: pytest tests/test_local_pipeline_validation.py -v --tb=short
+
+  agent-error-handling:
+    needs: local-pipeline-validation
     runs-on: ubuntu-latest
     name: Agent Error Handling & Self-Healing Tests
     steps:
@@ -322,7 +344,7 @@ jobs:
           retention-days: 30
 
   final-deployment-gate:
-    needs: [deployment-validation, ui-tests, rag-tests, weaviate-integration, agent-rag-integration, agent-error-handling]
+    needs: [deployment-validation, ui-tests, rag-tests, weaviate-integration, agent-rag-integration, agent-error-handling, local-pipeline-validation]
     runs-on: ubuntu-latest
     name: Final Deployment Gate
     steps:
@@ -335,6 +357,7 @@ jobs:
           echo "✓ Unit & integration tests passed"
           echo "✓ RAG tests passed"
           echo "✓ Weaviate integration passed"
+          echo "✓ Local pipeline validation passed"
           echo "✓ Agent RAG integration passed"
           echo "✓ Agent error handling & self-healing passed"
           echo "✓ Data validation passed"
