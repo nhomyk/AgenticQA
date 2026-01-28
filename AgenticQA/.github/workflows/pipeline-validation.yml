@@ -1,7 +1,7 @@
 name: Pipeline Self-Validation
 
 # This workflow tests the CI/CD pipeline ITSELF
-# Runs nightly and on-demand to ensure the pipeline stays healthy
+# Runs nightly at 2 AM UTC and on-demand to ensure the pipeline stays healthy
 
 on:
   schedule:
