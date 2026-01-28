@@ -1,0 +1,105 @@
+name: Pipeline Validation (Simple)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_level:
+        description: 'Test level to run'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - comprehensive
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  test-sre-agent:
+    runs-on: ubuntu-latest
+    name: Test SRE Agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest
+      - name: Test SRE Agent
+        run: |
+          pytest tests/test_agent_error_handling.py::TestSREAgentLintingFixes -v
+
+  test-weaviate-etl:
+    runs-on: ubuntu-latest
+    name: Test Weaviate ETL Pipeline
+    services:
+      weaviate:
+        image: semitechnologies/weaviate:latest
+        env:
+          AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+          PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+        ports:
+          - 8080:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest weaviate-client
+      - name: Set Weaviate Environment
+        run: |
+          echo "WEAVIATE_HOST=localhost" >> $GITHUB_ENV
+          echo "WEAVIATE_PORT=8080" >> $GITHUB_ENV
+          echo "AGENTICQA_RAG_MODE=local" >> $GITHUB_ENV
+      - name: Test ETL Process - Before State
+        run: |
+          echo "Testing data BEFORE ETL process..."
+          python -c "
+          import weaviate
+          client = weaviate.Client('http://localhost:8080')
+          print(f'Weaviate is ready: {client.is_ready()}')
+          print(f'Schema before ETL: {client.schema.get()}')
+          "
+      - name: Run ETL Pipeline
+        run: |
+          echo "Running ETL pipeline to load test data into Weaviate..."
+          pytest tests/test_agent_rag_integration.py::TestRealWeaviateConnection -v
+      - name: Test ETL Process - After State
+        run: |
+          echo "Testing data AFTER ETL process..."
+          python -c "
+          import weaviate
+          client = weaviate.Client('http://localhost:8080')
+          schema = client.schema.get()
+          print(f'Schema after ETL: {schema}')
+          classes = [c['class'] for c in schema.get('classes', [])]
+          print(f'Classes created: {classes}')
+          if classes:
+              for cls in classes:
+                  result = client.query.get(cls, ['*']).do()
+                  count = len(result.get('data', {}).get('Get', {}).get(cls, []))
+                  print(f'{cls} object count: {count}')
+          "
+      - name: Validate Data Quality
+        run: |
+          echo "Validating data quality in Weaviate..."
+          pytest tests/test_agent_rag_integration.py::TestAgentLearningOverTime::test_full_learning_cycle -v
+
+  generate-report:
+    needs: [test-sre-agent, test-weaviate-etl]
+    if: always()
+    runs-on: ubuntu-latest
+    name: Generate Health Report
+    steps:
+      - name: Generate Report
+        run: |
+          echo "# Pipeline Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- SRE Agent: ${{ needs.test-sre-agent.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Weaviate ETL: ${{ needs.test-weaviate-etl.result }}" >> $GITHUB_STEP_SUMMARY
