@@ -327,6 +327,7 @@ jobs:
         options: --health-cmd "wget --no-verbose --tries=3 --spider http://localhost:8080/v1/.well-known/ready || exit 1" --health-interval=10s --health-timeout=5s --health-retries=10
         ports:
           - 8080:8080
+          - 50051:50051
     steps:
       - uses: actions/checkout@v4
 
