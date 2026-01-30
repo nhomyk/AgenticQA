@@ -2,19 +2,26 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import json
 import os
 from src.data_store import SecureDataPipeline
 
+if TYPE_CHECKING:
+    from src.agenticqa.collaboration import AgentRegistry
+
 
 class BaseAgent(ABC):
-    """Base class for all agents with data store integration and RAG learning"""
+    """Base class for all agents with data store integration, RAG learning, and collaboration"""
 
     def __init__(self, agent_name: str, use_data_store: bool = True, use_rag: bool = True):
         self.agent_name = agent_name
         self.use_data_store = use_data_store
         self.use_rag = use_rag
+
+        # Initialize collaboration (injected by registry)
+        self.agent_registry: Optional['AgentRegistry'] = None
+        self._delegation_depth = 0
 
         # Initialize data store pipeline
         if use_data_store:
@@ -172,6 +179,81 @@ class BaseAgent(ABC):
             artifacts = [a for a in artifacts if status in a.get("tags", [])]
 
         return artifacts[:limit]
+
+    def delegate_to_agent(self, agent_name: str, task: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Delegate a task to another specialized agent.
+
+        This enables true agent collaboration where agents leverage each other's
+        expertise rather than working in isolation.
+
+        Args:
+            agent_name: Name of target agent (e.g., "SRE_Agent", "Compliance_Agent")
+            task: Task data to pass to the agent
+
+        Returns:
+            Result from the delegated agent
+
+        Raises:
+            DelegationError: If delegation is not allowed or fails
+
+        Example:
+            # SDET delegates test generation to SRE
+            tests = self.delegate_to_agent("SRE_Agent", {
+                "task": "generate_tests",
+                "files": ["src/api.py"],
+                "coverage_gaps": [10, 20, 30]
+            })
+        """
+        if not self.agent_registry:
+            raise Exception(f"{self.agent_name} cannot delegate: No agent registry configured")
+
+        self.log(f"Delegating task to {agent_name}", "INFO")
+
+        result = self.agent_registry.delegate_task(
+            from_agent=self.agent_name,
+            to_agent=agent_name,
+            task=task,
+            depth=self._delegation_depth + 1
+        )
+
+        self.log(f"Delegation to {agent_name} completed", "INFO")
+        return result
+
+    def query_agent_expertise(self, agent_name: str, question: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Query another agent for expertise without full task delegation.
+
+        Use this for consultation/advice rather than delegating work.
+
+        Example:
+            # Compliance asks DevOps if deployment config is secure
+            advice = self.query_agent_expertise("DevOps_Agent", {
+                "question": "Is this deployment config secure?",
+                "config": deployment_config
+            })
+        """
+        if not self.agent_registry:
+            raise Exception(f"{self.agent_name} cannot query: No agent registry configured")
+
+        return self.agent_registry.query_agent(
+            from_agent=self.agent_name,
+            to_agent=agent_name,
+            question=question,
+            depth=self._delegation_depth + 1
+        )
+
+    def can_delegate_to(self, agent_name: str) -> bool:
+        """Check if this agent can delegate to another agent"""
+        if not self.agent_registry:
+            return False
+        return self.agent_registry.can_agent_delegate_to(self.agent_name, agent_name)
+
+    def get_available_collaborators(self) -> List[str]:
+        """Get list of agents available for collaboration"""
+        if not self.agent_registry:
+            return []
+        return self.agent_registry.get_available_agents()
 
     def log(self, message: str, level: str = "INFO"):
         """Log message with timestamp"""

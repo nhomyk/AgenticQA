@@ -108,7 +108,7 @@
 
             <!-- GitHub Pipeline Steps Visualization -->
             <div class="pipeline-container">
-                <h2>🔄 CI/CD Pipeline Flow</h2>
+                <h2>🔄 CI/CD Pipeline Flow (7 Components with Agent Collaboration)</h2>
                 <div class="pipeline-steps" id="pipelineSteps">
                     <div class="pipeline-step">
                         <div class="pipeline-step-header">
@@ -131,7 +131,7 @@
                     <div class="pipeline-step">
                         <div class="pipeline-step-header">
                             <div class="pipeline-step-icon">🔧</div>
-                            <div class="pipeline-step-title">Auto-Fix Linting</div>
+                            <div class="pipeline-step-title">Auto-Fix Linting (SRE Agent)</div>
                         </div>
                         <div class="pipeline-step-status">
                             <span class="status-badge status-running">⟳ Running</span>
@@ -158,7 +158,16 @@
                     <div class="pipeline-step">
                         <div class="pipeline-step-header">
                             <div class="pipeline-step-icon">🤖</div>
-                            <div class="pipeline-step-title">RAG Tests</div>
+                            <div class="pipeline-step-title">RAG Tests (Ragas)</div>
+                        </div>
+                        <div class="pipeline-step-status">
+                            <span class="status-badge status-pending">⏸ Pending</span>
+                        </div>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-step-header">
+                            <div class="pipeline-step-icon">🤝</div>
+                            <div class="pipeline-step-title">Agent Collaboration</div>
                         </div>
                         <div class="pipeline-step-status">
                             <span class="status-badge status-pending">⏸ Pending</span>
@@ -182,6 +191,24 @@
                             <span class="status-badge status-pending">⏸ Pending</span>
                         </div>
                     </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-step-header">
+                            <div class="pipeline-step-icon">🎭</div>
+                            <div class="pipeline-step-title">UI Tests (Playwright)</div>
+                        </div>
+                        <div class="pipeline-step-status">
+                            <span class="status-badge status-pending">⏸ Pending</span>
+                        </div>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-step-header">
+                            <div class="pipeline-step-icon">🚀</div>
+                            <div class="pipeline-step-title">Deployment Ready</div>
+                        </div>
+                        <div class="pipeline-step-status">
+                            <span class="status-badge status-pending">⏸ Pending</span>
+                        </div>
+                    </div>
                 </div>
                 <div style="text-align: right; margin-top: 15px;">
                     <button onclick="refreshPipelineStatus()" style="background: rgba(255,255,255,0.9); color: #667eea; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Status</button>
@@ -190,8 +217,8 @@
 
             <!-- Langgraph Agent Interaction -->
             <div class="dashboard-section">
-                <h2>🤖 Langgraph Agents</h2>
-                <p style="color: #666; margin-bottom: 15px;">Interact with the intelligent agents embedded in the pipeline</p>
+                <h2>🤝 Collaborative AI Agents (7 Specialists)</h2>
+                <p style="color: #666; margin-bottom: 15px;">Interact with autonomous agents that collaborate to improve your codebase</p>
                 <div class="agent-grid">
                     <div class="agent-card" onclick="selectAgent('qa')">
                         <div class="agent-card-header">
@@ -242,8 +269,47 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="agent-description">Pre-deployment validation, rollback mechanisms, and issue prediction</div>
+                        <div class="agent-description">Pre-deployment validation, rollback mechanisms, and security consultation</div>
                         <button class="agent-interact-btn" onclick="event.stopPropagation(); interactWithAgent('devops')">Interact</button>
+                    </div>
+                    <div class="agent-card" onclick="selectAgent('sre')" style="border-color: #3b82f6; background: #f0f4ff;">
+                        <div class="agent-card-header">
+                            <div class="agent-icon">🔧</div>
+                            <div>
+                                <div class="agent-name">SRE Agent ⭐</div>
+                                <div style="font-size: 12px; color: #999;">
+                                    <span class="agent-status-indicator active"></span>Active
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agent-description">Auto-fixes linting errors, generates tests for coverage gaps (delegated by SDET)</div>
+                        <button class="agent-interact-btn" onclick="event.stopPropagation(); interactWithAgent('sre')">Interact</button>
+                    </div>
+                    <div class="agent-card" onclick="selectAgent('sdet')" style="border-color: #3b82f6; background: #f0f4ff;">
+                        <div class="agent-card-header">
+                            <div class="agent-icon">📊</div>
+                            <div>
+                                <div class="agent-name">SDET Agent ⭐</div>
+                                <div style="font-size: 12px; color: #999;">
+                                    <span class="agent-status-indicator active"></span>Active
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agent-description">Coverage analysis, identifies gaps, delegates test generation to SRE specialist</div>
+                        <button class="agent-interact-btn" onclick="event.stopPropagation(); interactWithAgent('sdet')">Interact</button>
+                    </div>
+                    <div class="agent-card" onclick="selectAgent('fullstack')" style="border-color: #3b82f6; background: #f0f4ff;">
+                        <div class="agent-card-header">
+                            <div class="agent-icon">💻</div>
+                            <div>
+                                <div class="agent-name">Fullstack Agent ⭐</div>
+                                <div style="font-size: 12px; color: #999;">
+                                    <span class="agent-status-indicator active"></span>Active
+                                </div>
+                            </div>
+                        </div>
+                        <div class="agent-description">Generates production-ready code, validates with Compliance agent before delivery</div>
+                        <button class="agent-interact-btn" onclick="event.stopPropagation(); interactWithAgent('fullstack')">Interact</button>
                     </div>
                 </div>
             </div>
@@ -433,11 +499,14 @@
                 'qa': 'QA Assistant',
                 'performance': 'Performance Agent',
                 'compliance': 'Compliance Agent',
-                'devops': 'DevOps Agent'
+                'devops': 'DevOps Agent',
+                'sre': 'SRE Agent',
+                'sdet': 'SDET Agent',
+                'fullstack': 'Fullstack Agent'
             };
             const message = prompt(`Send a message to ${agentNames[agentName]}:`);
             if (message) {
-                alert(`Message sent to ${agentNames[agentName]}!\n\nAgent will process your request and respond via the pipeline.`);
+                alert(`Message sent to ${agentNames[agentName]}!\n\nAgent will process your request and respond via the pipeline. Agents may collaborate with other specialists if needed.`);
                 // In production, this would send to the agent via API
                 fetch('/api/agent-interact', {
                     method: 'POST',
