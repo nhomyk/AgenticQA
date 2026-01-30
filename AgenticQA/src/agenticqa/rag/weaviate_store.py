@@ -14,6 +14,7 @@ try:
     import weaviate
     from weaviate.connect import ConnectionParams
     from weaviate.classes.query import MetadataQuery
+    from weaviate.classes.config import DataType
     WEAVIATE_AVAILABLE = True
 except ImportError:
     WEAVIATE_AVAILABLE = False
@@ -107,22 +108,22 @@ class WeaviateVectorStore:
                 properties=[
                     {
                         "name": "content",
-                        "data_type": "text",
+                        "data_type": DataType.TEXT,
                         "description": "Document content"
                     },
                     {
                         "name": "doc_type",
-                        "data_type": "text",
+                        "data_type": DataType.TEXT,
                         "description": "Document type (test_result, error, compliance_rule, performance_pattern)"
                     },
                     {
                         "name": "metadata",
-                        "data_type": "text",
+                        "data_type": DataType.TEXT,
                         "description": "JSON metadata"
                     },
                     {
                         "name": "timestamp",
-                        "data_type": "text",
+                        "data_type": DataType.TEXT,
                         "description": "ISO timestamp"
                     }
                 ],
