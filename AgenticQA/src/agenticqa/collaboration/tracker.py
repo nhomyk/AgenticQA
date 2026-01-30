@@ -85,8 +85,8 @@ class DelegationTracker:
             "total_delegations": len(self.events),
             "successful": len(successful),
             "failed": len(failed),
-            "max_depth": max([e.depth for e in self.events], default=0),
-            "total_duration_ms": sum([e.duration_ms for e in self.events if e.duration_ms], default=0),
+            "max_depth": max([e.depth for e in self.events]) if self.events else 0,
+            "total_duration_ms": sum([e.duration_ms for e in self.events if e.duration_ms]) if self.events else 0,
             "delegation_path": self._build_delegation_tree(),
             "events": [self._event_to_dict(e) for e in self.events]
         }

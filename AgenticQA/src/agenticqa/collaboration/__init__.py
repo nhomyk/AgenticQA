@@ -1,7 +1,13 @@
 """Agent collaboration and delegation system"""
 
 from .registry import AgentRegistry
-from .delegation import DelegationGuardrails, DelegationError, CircularDelegationError, MaxDelegationDepthError
+from .delegation import (
+    DelegationGuardrails,
+    DelegationError,
+    CircularDelegationError,
+    MaxDelegationDepthError,
+    UnauthorizedDelegationError
+)
 from .tracker import DelegationTracker
 
 __all__ = [
@@ -10,5 +16,6 @@ __all__ = [
     "DelegationError",
     "CircularDelegationError",
     "MaxDelegationDepthError",
+    "UnauthorizedDelegationError",
     "DelegationTracker",
 ]
