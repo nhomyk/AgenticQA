@@ -67,9 +67,6 @@ jobs:
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
     name: 🔧 Test SRE Agent Self-Healing
-    defaults:
-      run:
-        working-directory: AgenticQA
     steps:
       - uses: actions/checkout@v4
 
@@ -81,12 +78,14 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest
 
       - name: Test SRE Agent Detects and Fixes Linting Errors
         id: sre_test
         run: |
+          cd AgenticQA
           echo "Testing SRE Agent self-healing capabilities..."
 
           # Run SRE Agent tests
@@ -96,6 +95,7 @@ jobs:
 
       - name: Verify SRE Agent Fixes Multiple Error Types
         run: |
+          cd AgenticQA
           # Test that SRE Agent can handle various linting errors
           pytest tests/test_agent_error_handling.py::TestSREAgentLintingFixes::test_sre_agent_handles_multiple_error_types -v
 
@@ -115,9 +115,6 @@ jobs:
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
     name: 📊 Test SDET Agent Coverage Analysis
-    defaults:
-      run:
-        working-directory: AgenticQA
     steps:
       - uses: actions/checkout@v4
 
@@ -129,17 +126,20 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest
 
       - name: Test SDET Agent Coverage Gap Detection
         run: |
+          cd AgenticQA
           echo "Testing SDET Agent coverage analysis..."
 
           pytest tests/test_agent_error_handling.py::TestSDETAgentCoverageAnalysis -v --tb=short
 
       - name: Test SDET Agent Prioritization
         run: |
+          cd AgenticQA
           # Verify SDET Agent correctly prioritizes high-risk untested code
           pytest tests/test_agent_error_handling.py::TestSDETAgentCoverageAnalysis::test_sdet_agent_identifies_high_priority_gaps -v
 
@@ -159,9 +159,6 @@ jobs:
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
     name: 💻 Test Fullstack Agent Code Generation
-    defaults:
-      run:
-        working-directory: AgenticQA
     steps:
       - uses: actions/checkout@v4
 
@@ -173,21 +170,25 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest
 
       - name: Test Fullstack Agent API Generation
         run: |
+          cd AgenticQA
           echo "Testing Fullstack Agent code generation..."
 
           pytest tests/test_agent_error_handling.py::TestFullstackAgentCodeGeneration::test_fullstack_agent_generates_api_code -v
 
       - name: Test Fullstack Agent UI Generation
         run: |
+          cd AgenticQA
           pytest tests/test_agent_error_handling.py::TestFullstackAgentCodeGeneration::test_fullstack_agent_generates_ui_code -v
 
       - name: Test Fullstack Agent Complex Features
         run: |
+          cd AgenticQA
           pytest tests/test_agent_error_handling.py::TestFullstackAgentCodeGeneration::test_fullstack_agent_handles_complex_requests -v
 
       - name: Report Fullstack Agent Status
@@ -205,9 +206,6 @@ jobs:
     needs: [test-sre-agent-self-healing, test-sdet-agent-coverage, test-fullstack-agent-generation]
     runs-on: ubuntu-latest
     name: 🔗 Test Agent Integration Workflows
-    defaults:
-      run:
-        working-directory: AgenticQA
     steps:
       - uses: actions/checkout@v4
 
@@ -219,17 +217,20 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest
 
       - name: Test SRE → SDET Workflow
         run: |
+          cd AgenticQA
           echo "Testing agent workflow integration..."
 
           pytest tests/test_agent_error_handling.py::TestAgentIntegration::test_sre_then_sdet_workflow -v
 
       - name: Test Fullstack → SDET Workflow
         run: |
+          cd AgenticQA
           pytest tests/test_agent_error_handling.py::TestAgentIntegration::test_fullstack_then_sdet_workflow -v
 
       - name: Report Integration Status
@@ -247,9 +248,6 @@ jobs:
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
     name: 🤝 Test Agent Collaboration (Tier 3)
-    defaults:
-      run:
-        working-directory: AgenticQA
     steps:
       - uses: actions/checkout@v4
 
@@ -261,26 +259,31 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest
 
       - name: Test Delegation Guardrails
         run: |
+          cd AgenticQA
           echo "Testing delegation safety guardrails..."
           pytest tests/test_agent_delegation.py::TestDelegationGuardrails -v --tb=short
 
       - name: Test Collaboration Workflows
         run: |
+          cd AgenticQA
           echo "Testing real-world agent collaboration workflows..."
           pytest tests/test_agent_delegation.py::TestDelegationWorkflows -v --tb=short
 
       - name: Test Delegation Tracking
         run: |
+          cd AgenticQA
           echo "Testing delegation observability..."
           pytest tests/test_agent_delegation.py::TestDelegationTracking -v --tb=short
 
       - name: Test Collaboration Discovery
         run: |
+          cd AgenticQA
           echo "Testing agent collaboration discovery..."
           pytest tests/test_agent_delegation.py::TestCollaborationAvailability -v --tb=short
 
@@ -312,9 +315,6 @@ jobs:
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
     name: 🧠 Test RAG Learning System
-    defaults:
-      run:
-        working-directory: AgenticQA
     services:
       weaviate:
         image: semitechnologies/weaviate:latest
@@ -339,6 +339,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest weaviate-client ragas datasets
 
@@ -350,24 +351,29 @@ jobs:
 
       - name: Test Weaviate Connection
         run: |
+          cd AgenticQA
           pytest tests/test_agent_rag_integration.py::TestRealWeaviateConnection -v
 
       - name: Test Agent Learning Cycle
         run: |
+          cd AgenticQA
           pytest tests/test_agent_rag_integration.py::TestAgentLearningOverTime::test_full_learning_cycle -v
 
       - name: Evaluate Centralized RAG System Health
         run: |
+          cd AgenticQA
           echo "Evaluating overall RAG system health..."
           pytest tests/test_ragas_evaluation.py::TestCentralizedRAGHealth -v --tb=short
 
       - name: Evaluate Core Ragas Metrics
         run: |
+          cd AgenticQA
           echo "Running core Ragas metrics (faithfulness, relevancy, precision, recall)..."
           pytest tests/test_ragas_evaluation.py::TestRagasMetrics -v --tb=short
 
       - name: Evaluate All 7 Agent RAG Quality
         run: |
+          cd AgenticQA
           echo "Evaluating RAG quality for all agents..."
           echo "  - QA Assistant Agent"
           echo "  - Performance Agent"
@@ -380,11 +386,13 @@ jobs:
 
       - name: Track Agent Learning Over Time
         run: |
+          cd AgenticQA
           echo "Tracking learning trajectories for agents..."
           pytest tests/test_ragas_evaluation.py::TestRagasSystemImprovement -v --tb=short
 
       - name: Evaluate Delegation Quality with Ragas
         run: |
+          cd AgenticQA
           echo "Evaluating agent collaboration quality..."
           pytest tests/test_ragas_evaluation.py::TestRagasDelegationQuality -v --tb=short
 
@@ -426,9 +434,6 @@ jobs:
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
     name: 🛠️ Test Pipeline Tools
-    defaults:
-      run:
-        working-directory: AgenticQA
     steps:
       - uses: actions/checkout@v4
 
@@ -444,22 +449,26 @@ jobs:
 
       - name: Install dependencies
         run: |
+          cd AgenticQA
           pip install -e .
           pip install pytest pytest-cov black flake8
           npm install -g eslint
 
       - name: Test Linting Tools
         run: |
+          cd AgenticQA
           echo "Testing linting tools..."
           pytest tests/test_local_pipeline_validation.py::TestLintingToolValidation -v
 
       - name: Test Coverage Tools
         run: |
+          cd AgenticQA
           echo "Testing coverage measurement..."
           pytest tests/test_local_pipeline_validation.py::TestCoverageToolValidation -v
 
       - name: Test Deployment Gates
         run: |
+          cd AgenticQA
           echo "Testing deployment gates..."
           pytest tests/test_local_pipeline_validation.py::TestDeploymentReadiness -v
 
