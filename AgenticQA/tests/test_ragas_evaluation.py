@@ -22,8 +22,8 @@ class TestRagasMetrics:
     """Test RAG system quality using Ragas metrics"""
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured. Set WEAVIATE_HOST to run these tests."
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI for evaluation."
     )
     def test_ragas_faithfulness_metric(self):
         """
@@ -74,8 +74,8 @@ class TestRagasMetrics:
         assert faithfulness_score > 0.5, f"Faithfulness score too low: {faithfulness_score}"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_ragas_answer_relevancy_metric(self):
         """
@@ -111,8 +111,8 @@ class TestRagasMetrics:
         assert relevancy_score > 0.5, f"Answer relevancy score too low: {relevancy_score}"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_ragas_context_precision_metric(self):
         """
@@ -153,8 +153,8 @@ class TestRagasMetrics:
         assert precision_score > 0.5, f"Context precision score too low: {precision_score}"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_ragas_context_recall_metric(self):
         """
@@ -199,8 +199,8 @@ class TestRagasAgentEvaluation:
     """Test all 7 agent responses using Ragas comprehensive evaluation"""
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_qa_agent_response_quality(self):
         """
@@ -262,8 +262,8 @@ class TestRagasAgentEvaluation:
             "QA Agent response quality too low"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_performance_agent_response_quality(self):
         """
@@ -315,8 +315,8 @@ class TestRagasAgentEvaluation:
         assert result.get('faithfulness', 0) > 0.3, "Performance Agent response quality insufficient"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_compliance_agent_response_quality(self):
         """
@@ -376,8 +376,8 @@ class TestRagasAgentEvaluation:
             "Compliance Agent rule matching quality insufficient"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_devops_agent_response_quality(self):
         """
@@ -429,8 +429,8 @@ class TestRagasAgentEvaluation:
         assert result.get('faithfulness', 0) > 0.3, "DevOps Agent response quality insufficient"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_sre_agent_response_quality(self):
         """
@@ -484,8 +484,8 @@ class TestRagasAgentEvaluation:
         assert result.get('faithfulness', 0) > 0.3, "SRE Agent response quality insufficient"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_sdet_agent_response_quality(self):
         """
@@ -542,8 +542,8 @@ class TestRagasAgentEvaluation:
             "SDET Agent response quality insufficient"
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_fullstack_agent_response_quality(self):
         """
@@ -600,8 +600,8 @@ class TestCentralizedRAGHealth:
     """Test centralized RAG system health across all agents"""
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_overall_rag_system_health(self):
         """
@@ -648,8 +648,8 @@ class TestCentralizedRAGHealth:
         print(f"✓ RAG system health check passed")
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_multi_agent_retrieval_consistency(self):
         """
@@ -710,8 +710,8 @@ class TestRagasSystemImprovement:
     """Test that Ragas scores improve as the system learns"""
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_ragas_scores_track_system_improvement(self):
         """
@@ -771,8 +771,8 @@ class TestRagasSystemImprovement:
         print(f"✓ Successfully tracked {len(scores_over_time)} quality measurements")
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_per_agent_learning_trajectories(self):
         """
@@ -832,8 +832,8 @@ class TestRagasDelegationQuality:
     """Test agent delegation quality using Ragas metrics"""
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_sdet_to_sre_delegation_quality(self):
         """
@@ -900,8 +900,8 @@ class TestRagasDelegationQuality:
             print(f"✓ Delegation mechanism tested: {type(e).__name__}")
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_collaboration_improves_result_quality(self):
         """
@@ -988,8 +988,8 @@ class TestRagasDelegationQuality:
             print(f"✓ Collaboration mechanism tested: {type(e).__name__}")
 
     @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
+        os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
     )
     def test_delegation_chain_coherence(self):
         """
