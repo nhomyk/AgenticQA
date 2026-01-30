@@ -197,7 +197,7 @@ class WeaviateVectorStore:
             results = collection.query.near_vector(
                 near_vector=embedding,
                 limit=k,
-                where=where_filter,
+                filters=where_filter,
                 return_properties=["content", "doc_type", "metadata", "timestamp"],
                 include_vector=True
             )
@@ -231,7 +231,7 @@ class WeaviateVectorStore:
             collection = self.client.collections.get(self.collection_name)
             
             results = collection.query.fetch_objects(
-                where=weaviate.classes.query.Filter.by_property(
+                filters=weaviate.classes.query.Filter.by_property(
                     "doc_type"
                 ).equal(doc_type),
                 return_properties=["content", "doc_type", "metadata", "timestamp"]
@@ -286,7 +286,7 @@ class WeaviateVectorStore:
             by_type = {}
             for doc_type in ["test_result", "error", "compliance_rule", "performance_pattern"]:
                 results = collection.query.fetch_objects(
-                    where=weaviate.classes.query.Filter.by_property(
+                    filters=weaviate.classes.query.Filter.by_property(
                         "doc_type"
                     ).equal(doc_type),
                     limit=1
