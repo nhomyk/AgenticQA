@@ -357,7 +357,7 @@ jobs:
       - name: Test Agent Learning Cycle
         run: |
           cd AgenticQA
-          pytest tests/test_agent_rag_integration.py::TestAgentLearningOverTime::test_full_learning_cycle -v
+          pytest tests/test_agent_rag_integration.py::TestAutonomousLearning::test_full_learning_cycle -v
 
       - name: Evaluate Centralized RAG System Health
         run: |
