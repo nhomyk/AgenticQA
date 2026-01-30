@@ -199,15 +199,16 @@ class WeaviateVectorStore:
                 limit=k,
                 filters=where_filter,
                 return_properties=["content", "doc_type", "metadata", "timestamp"],
+                return_metadata=MetadataQuery(distance=True),
                 include_vector=True
             )
-            
+
             # Convert to our format
             documents = []
             for item in results.objects:
                 # Weaviate returns distance (0-2), convert to similarity (0-1)
-                distance = item.metadata.distance if hasattr(item.metadata, 'distance') else 0
-                similarity = 1 - (distance / 2)  # Normalize to 0-1
+                distance = item.metadata.distance if (hasattr(item.metadata, 'distance') and item.metadata.distance is not None) else 0.0
+                similarity = 1.0 - (distance / 2.0)  # Normalize to 0-1
                 
                 # Only include if above threshold
                 if similarity >= threshold:
