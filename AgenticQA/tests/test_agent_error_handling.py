@@ -43,21 +43,16 @@ class TestSREAgentLintingFixes:
                     "rule": "quotes",
                     "message": "Strings must use doublequote",
                     "line": 10,
-                    "severity": "error"
+                    "severity": "error",
                 },
-                {
-                    "rule": "semi",
-                    "message": "Missing semicolon",
-                    "line": 15,
-                    "severity": "error"
-                },
+                {"rule": "semi", "message": "Missing semicolon", "line": 15, "severity": "error"},
                 {
                     "rule": "no-unused-vars",
                     "message": "Unused variable 'foo'",
                     "line": 20,
-                    "severity": "warning"
-                }
-            ]
+                    "severity": "warning",
+                },
+            ],
         }
 
         result = agent.execute(linting_data)
@@ -66,7 +61,9 @@ class TestSREAgentLintingFixes:
         assert result["total_errors"] == 3
         assert result["fixes_applied"] >= 0  # Should attempt to fix
         assert result["status"] in ["success", "partial"]
-        print(f"✓ SRE Agent detected {result['total_errors']} errors and applied {result['fixes_applied']} fixes")
+        print(
+            f"✓ SRE Agent detected {result['total_errors']} errors and applied {result['fixes_applied']} fixes"
+        )
 
     def test_sre_agent_applies_quote_fix(self):
         """Test SRE Agent fixes quote-related linting errors"""
@@ -76,13 +73,7 @@ class TestSREAgentLintingFixes:
 
         linting_data = {
             "file_path": "src/test.js",
-            "errors": [
-                {
-                    "rule": "quotes",
-                    "message": "Strings must use doublequote",
-                    "line": 5
-                }
-            ]
+            "errors": [{"rule": "quotes", "message": "Strings must use doublequote", "line": 5}],
         }
 
         result = agent.execute(linting_data)
@@ -99,13 +90,7 @@ class TestSREAgentLintingFixes:
 
         linting_data = {
             "file_path": "src/test.js",
-            "errors": [
-                {
-                    "rule": "semi",
-                    "message": "Missing semicolon",
-                    "line": 10
-                }
-            ]
+            "errors": [{"rule": "semi", "message": "Missing semicolon", "line": 10}],
         }
 
         result = agent.execute(linting_data)
@@ -127,12 +112,8 @@ class TestSREAgentLintingFixes:
         linting_data = {
             "file_path": "src/test.js",
             "errors": [
-                {
-                    "rule": "indent",
-                    "message": "Expected indentation of 2 spaces",
-                    "line": 15
-                }
-            ]
+                {"rule": "indent", "message": "Expected indentation of 2 spaces", "line": 15}
+            ],
         }
 
         result = agent.execute(linting_data)
@@ -154,14 +135,16 @@ class TestSREAgentLintingFixes:
                 {"rule": "semi", "message": "Missing semicolon", "line": 2},
                 {"rule": "indent", "message": "Bad indentation", "line": 3},
                 {"rule": "no-unused-vars", "message": "Unused var", "line": 4},
-            ]
+            ],
         }
 
         result = agent.execute(linting_data)
 
         assert result["total_errors"] == 4
         assert result["fixes_applied"] >= 3  # Should fix most common errors
-        print(f"✓ SRE Agent handled {result['total_errors']} errors, applied {result['fixes_applied']} fixes")
+        print(
+            f"✓ SRE Agent handled {result['total_errors']} errors, applied {result['fixes_applied']} fixes"
+        )
 
 
 class TestFullstackAgentCodeGeneration:
@@ -185,7 +168,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "Create User Profile",
             "category": "api",
-            "description": "API endpoint to create user profile with name and email"
+            "description": "API endpoint to create user profile with name and email",
         }
 
         result = agent.execute(feature_request)
@@ -205,7 +188,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "User Dashboard Widget",
             "category": "ui",
-            "description": "Dashboard widget showing user statistics and activity"
+            "description": "Dashboard widget showing user statistics and activity",
         }
 
         result = agent.execute(feature_request)
@@ -224,7 +207,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "Data Validation Utility",
             "category": "utility",
-            "description": "Utility to validate email addresses and phone numbers"
+            "description": "Utility to validate email addresses and phone numbers",
         }
 
         result = agent.execute(feature_request)
@@ -246,7 +229,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "Authentication Middleware",
             "category": "api",
-            "description": "Middleware to verify JWT tokens"
+            "description": "Middleware to verify JWT tokens",
         }
 
         result = agent.execute(feature_request)
@@ -263,7 +246,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "Multi-Step Form with Validation",
             "category": "ui",
-            "description": "Three-step form with validation, progress indicator, and data persistence"
+            "description": "Three-step form with validation, progress indicator, and data persistence",
         }
 
         result = agent.execute(feature_request)
@@ -296,9 +279,9 @@ class TestSDETAgentCoverageAnalysis:
             "uncovered_files": [
                 "src/api/users.js",
                 "src/services/auth.js",
-                "src/utils/validation.js"
+                "src/utils/validation.js",
             ],
-            "test_type": "unit"
+            "test_type": "unit",
         }
 
         result = agent.execute(coverage_data)
@@ -314,11 +297,7 @@ class TestSDETAgentCoverageAnalysis:
 
         agent = SDETAgent()
 
-        coverage_data = {
-            "coverage_percent": 92,
-            "uncovered_files": [],
-            "test_type": "unit"
-        }
+        coverage_data = {"coverage_percent": 92, "uncovered_files": [], "test_type": "unit"}
 
         result = agent.execute(coverage_data)
 
@@ -337,9 +316,9 @@ class TestSDETAgentCoverageAnalysis:
             "uncovered_files": [
                 "src/api/payment.js",  # Should be high priority
                 "src/services/billing.js",  # Should be high priority
-                "src/utils/logger.js"  # Lower priority
+                "src/utils/logger.js",  # Lower priority
             ],
-            "test_type": "integration"
+            "test_type": "integration",
         }
 
         result = agent.execute(coverage_data)
@@ -362,9 +341,9 @@ class TestSDETAgentCoverageAnalysis:
             "uncovered_files": [
                 "src/api/orders.js",
                 "src/api/products.js",
-                "src/services/inventory.js"
+                "src/services/inventory.js",
             ],
-            "test_type": "unit"
+            "test_type": "unit",
         }
 
         result = agent.execute(coverage_data)
@@ -386,7 +365,7 @@ class TestSDETAgentCoverageAnalysis:
         coverage_data = {
             "coverage_percent": 75,
             "uncovered_files": ["src/api/analytics.js"],
-            "test_type": "integration"
+            "test_type": "integration",
         }
 
         result = agent.execute(coverage_data)
@@ -404,10 +383,7 @@ class TestAgentErrorRecovery:
 
         agent = SREAgent()
 
-        linting_data = {
-            "file_path": "src/clean_file.js",
-            "errors": []
-        }
+        linting_data = {"file_path": "src/clean_file.js", "errors": []}
 
         result = agent.execute(linting_data)
 
@@ -425,7 +401,7 @@ class TestAgentErrorRecovery:
         feature_request = {
             "title": "Unknown Feature",
             "category": "unknown_category",
-            "description": "Test unknown category handling"
+            "description": "Test unknown category handling",
         }
 
         result = agent.execute(feature_request)
@@ -441,11 +417,7 @@ class TestAgentErrorRecovery:
 
         agent = SDETAgent()
 
-        coverage_data = {
-            "coverage_percent": 100,
-            "uncovered_files": [],
-            "test_type": "unit"
-        }
+        coverage_data = {"coverage_percent": 100, "uncovered_files": [], "test_type": "unit"}
 
         result = agent.execute(coverage_data)
 
@@ -467,8 +439,8 @@ class TestAgentIntegration:
             "file_path": "src/feature.js",
             "errors": [
                 {"rule": "quotes", "message": "Use doublequotes", "line": 1},
-                {"rule": "semi", "message": "Missing semicolon", "line": 2}
-            ]
+                {"rule": "semi", "message": "Missing semicolon", "line": 2},
+            ],
         }
 
         sre_result = sre.execute(linting_data)
@@ -476,11 +448,7 @@ class TestAgentIntegration:
 
         # Step 2: SDET checks coverage after fixes
         sdet = SDETAgent()
-        coverage_data = {
-            "coverage_percent": 88,
-            "uncovered_files": [],
-            "test_type": "unit"
-        }
+        coverage_data = {"coverage_percent": 88, "uncovered_files": [], "test_type": "unit"}
 
         sdet_result = sdet.execute(coverage_data)
         assert sdet_result["coverage_status"] == "adequate"
@@ -496,7 +464,7 @@ class TestAgentIntegration:
         feature_request = {
             "title": "New API Endpoint",
             "category": "api",
-            "description": "Create new endpoint"
+            "description": "Create new endpoint",
         }
 
         fullstack_result = fullstack.execute(feature_request)
@@ -507,7 +475,7 @@ class TestAgentIntegration:
         coverage_data = {
             "coverage_percent": 75,  # Dropped due to new code
             "uncovered_files": ["routes/feature.js"],
-            "test_type": "integration"
+            "test_type": "integration",
         }
 
         sdet_result = sdet.execute(coverage_data)

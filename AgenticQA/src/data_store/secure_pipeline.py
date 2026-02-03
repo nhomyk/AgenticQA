@@ -8,6 +8,7 @@ from .pattern_analyzer import PatternAnalyzer
 
 try:
     from .great_expectations_validator import AgentDataValidator
+
     GREAT_EXPECTATIONS_AVAILABLE = True
 except ImportError:
     GREAT_EXPECTATIONS_AVAILABLE = False
@@ -49,27 +50,21 @@ class SecureDataPipeline:
             return False, pipeline_result
 
         # Stage 2: PII check
-        pii_valid, pii_found = self.security_validator.validate_no_pii_leakage(
-            execution_result
-        )
+        pii_valid, pii_found = self.security_validator.validate_no_pii_leakage(execution_result)
         pipeline_result["stages"]["pii_check"] = pii_valid
         if not pii_valid:
             pipeline_result["pii_warnings"] = pii_found
             return False, pipeline_result
 
         # Stage 3: Encryption readiness
-        encrypt_valid, msg = self.security_validator.validate_encryption_ready(
-            execution_result
-        )
+        encrypt_valid, msg = self.security_validator.validate_encryption_ready(execution_result)
         pipeline_result["stages"]["encryption_ready"] = encrypt_valid
 
         # Stage 4: Great Expectations validation
         ge_success = True
         if self.ge_validator:
             try:
-                ge_result = self.ge_validator.validate_agent_execution(
-                    agent_name, execution_result
-                )
+                ge_result = self.ge_validator.validate_agent_execution(agent_name, execution_result)
                 ge_success = ge_result.get("success", True)
                 pipeline_result["stages"]["great_expectations"] = ge_success
             except Exception as e:

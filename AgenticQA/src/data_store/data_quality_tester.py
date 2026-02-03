@@ -75,7 +75,9 @@ class DataQualityTester:
         }
 
         print("\n" + "=" * 80)
-        print(f"SUMMARY: {passed}/{len(tests)} tests passed ({results['summary']['success_rate']:.1f}%)")
+        print(
+            f"SUMMARY: {passed}/{len(tests)} tests passed ({results['summary']['success_rate']:.1f}%)"
+        )
         print("=" * 80 + "\n")
 
         return results
@@ -149,7 +151,9 @@ class DataQualityTester:
         for artifact_meta in all_artifacts:
             for field, field_type in required_metadata_fields.items():
                 if field not in artifact_meta:
-                    failures.append(f"Missing field '{field}' in {artifact_meta.get('artifact_id')}")
+                    failures.append(
+                        f"Missing field '{field}' in {artifact_meta.get('artifact_id')}"
+                    )
                 elif not isinstance(artifact_meta.get(field), field_type):
                     failures.append(
                         f"Type mismatch for '{field}' in {artifact_meta.get('artifact_id')}"
@@ -349,7 +353,9 @@ class DataQualityTester:
             for artifact_meta in artifacts:
                 is_valid = self.store.verify_artifact_integrity(artifact_meta["artifact_id"])
                 if not is_valid:
-                    failures.append(f"Invalid artifact from {source}: {artifact_meta['artifact_id']}")
+                    failures.append(
+                        f"Invalid artifact from {source}: {artifact_meta['artifact_id']}"
+                    )
 
         return {
             "passed": len(failures) == 0,

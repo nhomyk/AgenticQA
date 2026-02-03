@@ -37,12 +37,7 @@ class GitHubWorkflowManager:
     def _check_gh_cli(self) -> bool:
         """Check if gh CLI is available"""
         try:
-            result = subprocess.run(
-                ["gh", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run(["gh", "--version"], capture_output=True, text=True, timeout=5)
             return result.returncode == 0
         except Exception:
             return False
@@ -67,7 +62,7 @@ class GitHubWorkflowManager:
                 ["gh", "workflow", "run", workflow, "--ref", ref],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             if result.returncode != 0:
@@ -79,10 +74,20 @@ class GitHubWorkflowManager:
 
             # Get latest workflow run ID
             result = subprocess.run(
-                ["gh", "run", "list", "--workflow", workflow, "--limit", "1", "--json", "databaseId"],
+                [
+                    "gh",
+                    "run",
+                    "list",
+                    "--workflow",
+                    workflow,
+                    "--limit",
+                    "1",
+                    "--json",
+                    "databaseId",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             if result.returncode == 0:
@@ -111,7 +116,7 @@ class GitHubWorkflowManager:
                 ["gh", "run", "view", run_id, "--json", "status,conclusion,jobs"],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             if result.returncode == 0:
@@ -124,10 +129,7 @@ class GitHubWorkflowManager:
             return None
 
     def wait_for_workflow_completion(
-        self,
-        run_id: str,
-        timeout_minutes: int = 30,
-        poll_interval: int = 30
+        self, run_id: str, timeout_minutes: int = 30, poll_interval: int = 30
     ) -> Optional[str]:
         """
         Wait for workflow to complete.
@@ -175,24 +177,18 @@ class TestBranchManager:
         """Create a test branch"""
         try:
             subprocess.run(
-                ["git", "checkout", base],
-                cwd=self.repo_path,
-                capture_output=True,
-                timeout=30
+                ["git", "checkout", base], cwd=self.repo_path, capture_output=True, timeout=30
             )
 
             subprocess.run(
-                ["git", "pull", "origin", base],
-                cwd=self.repo_path,
-                capture_output=True,
-                timeout=30
+                ["git", "pull", "origin", base], cwd=self.repo_path, capture_output=True, timeout=30
             )
 
             result = subprocess.run(
                 ["git", "checkout", "-b", branch_name],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=30
+                timeout=30,
             )
 
             return result.returncode == 0
@@ -294,13 +290,13 @@ module.exports = { PaymentProcessor };
                 "POST /api/auth/login - Authenticate user with email/password",
                 "POST /api/auth/logout - Invalidate user session",
                 "POST /api/auth/refresh - Refresh JWT token",
-                "GET /api/auth/me - Get current user info"
+                "GET /api/auth/me - Get current user info",
             ],
             "expected_files": [
                 "routes/auth.js",
                 "controllers/auth.controller.js",
-                "middleware/auth.middleware.js"
-            ]
+                "middleware/auth.middleware.js",
+            ],
         }
 
         try:
@@ -314,24 +310,21 @@ module.exports = { PaymentProcessor };
         """Commit changes and push to remote"""
         try:
             subprocess.run(
-                ["git", "add", "-A"],
-                cwd=self.repo_path,
-                capture_output=True,
-                timeout=30
+                ["git", "add", "-A"], cwd=self.repo_path, capture_output=True, timeout=30
             )
 
             subprocess.run(
                 ["git", "commit", "-m", message],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=30
+                timeout=30,
             )
 
             result = subprocess.run(
                 ["git", "push", "origin", branch_name],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=60
+                timeout=60,
             )
 
             return result.returncode == 0
@@ -345,10 +338,7 @@ module.exports = { PaymentProcessor };
         try:
             # Switch back to main
             subprocess.run(
-                ["git", "checkout", "main"],
-                cwd=self.repo_path,
-                capture_output=True,
-                timeout=30
+                ["git", "checkout", "main"], cwd=self.repo_path, capture_output=True, timeout=30
             )
 
             # Delete local branch
@@ -356,7 +346,7 @@ module.exports = { PaymentProcessor };
                 ["git", "branch", "-D", branch_name],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=30
+                timeout=30,
             )
 
             # Delete remote branch
@@ -364,7 +354,7 @@ module.exports = { PaymentProcessor };
                 ["git", "push", "origin", "--delete", branch_name],
                 cwd=self.repo_path,
                 capture_output=True,
-                timeout=60
+                timeout=60,
             )
 
             return True
@@ -407,8 +397,7 @@ class TestPipelineMetaValidation:
             assert branch_mgr.create_test_branch(test_branch), "Failed to create test branch"
             assert branch_mgr.introduce_linting_error(), "Failed to introduce linting errors"
             assert branch_mgr.commit_and_push(
-                test_branch,
-                "test: introduce intentional linting errors for SRE Agent validation"
+                test_branch, "test: introduce intentional linting errors for SRE Agent validation"
             ), "Failed to push changes"
 
             print(f"✓ Created test branch '{test_branch}' with linting errors")
@@ -433,8 +422,10 @@ class TestPipelineMetaValidation:
             # After auto-fix commits, a new workflow should be triggered
 
             # For now, mark as successful if auto-fix job completed
-            assert job_status.get("conclusion") in ["success", "failure"], \
-                f"Unexpected job conclusion: {job_status.get('conclusion')}"
+            assert job_status.get("conclusion") in [
+                "success",
+                "failure",
+            ], f"Unexpected job conclusion: {job_status.get('conclusion')}"
 
             print("✓ SRE Agent end-to-end validation complete")
 
@@ -464,8 +455,7 @@ class TestPipelineMetaValidation:
             assert branch_mgr.create_test_branch(test_branch), "Failed to create test branch"
             assert branch_mgr.introduce_coverage_gap(), "Failed to introduce coverage gap"
             assert branch_mgr.commit_and_push(
-                test_branch,
-                "test: introduce untested code for SDET Agent validation"
+                test_branch, "test: introduce untested code for SDET Agent validation"
             ), "Failed to push changes"
 
             print(f"✓ Created test branch '{test_branch}' with coverage gaps")
@@ -512,8 +502,7 @@ class TestPipelineMetaValidation:
             assert branch_mgr.create_test_branch(test_branch), "Failed to create test branch"
             assert branch_mgr.introduce_feature_request(), "Failed to create feature request"
             assert branch_mgr.commit_and_push(
-                test_branch,
-                "feat: feature request for Fullstack Agent code generation"
+                test_branch, "feat: feature request for Fullstack Agent code generation"
             ), "Failed to push changes"
 
             print(f"✓ Created test branch '{test_branch}' with feature request")

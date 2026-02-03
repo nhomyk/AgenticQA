@@ -94,21 +94,21 @@ DECISION_METADATA = {
     "patterns": [
         "No file matched to requirements.txt or pyproject.toml",
         "setup-python cache failure",
-        "pip cache miss in GitHub Actions"
+        "pip cache miss in GitHub Actions",
     ],
     "resolution_steps": [
         "Create pyproject.toml with PEP 517/518 compliance",
         "Add cache-dependency-path to setup-python actions",
         "Verify all dependency declarations are present",
-        "Test workflow execution with new cache configuration"
+        "Test workflow execution with new cache configuration",
     ],
     "preventative_measures": [
         "Always include pyproject.toml in Python projects",
         "Document CI/CD dependency requirements",
         "Use cache-dependency-path explicitly in workflows",
-        "Monitor workflow logs for cache-related errors"
+        "Monitor workflow logs for cache-related errors",
     ],
     "related_issues": [],
     "success_rate": 1.0,
-    "applicable_to": ["Python projects", "GitHub Actions", "pip-based projects"]
+    "applicable_to": ["Python projects", "GitHub Actions", "pip-based projects"],
 }

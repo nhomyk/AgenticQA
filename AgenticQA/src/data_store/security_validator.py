@@ -11,25 +11,17 @@ class DataSecurityValidator:
     """Deep security validation for stored data"""
 
     @staticmethod
-    def validate_data_immutability(
-        original: Dict, current: Dict
-    ) -> Tuple[bool, str]:
+    def validate_data_immutability(original: Dict, current: Dict) -> Tuple[bool, str]:
         """Ensure data hasn't been modified"""
-        orig_hash = hashlib.sha256(
-            json.dumps(original, sort_keys=True).encode()
-        ).hexdigest()
-        curr_hash = hashlib.sha256(
-            json.dumps(current, sort_keys=True).encode()
-        ).hexdigest()
+        orig_hash = hashlib.sha256(json.dumps(original, sort_keys=True).encode()).hexdigest()
+        curr_hash = hashlib.sha256(json.dumps(current, sort_keys=True).encode()).hexdigest()
 
         if orig_hash == curr_hash:
             return True, "Data integrity verified"
         return False, f"Data mismatch: {orig_hash} != {curr_hash}"
 
     @staticmethod
-    def validate_schema_compliance(
-        data: Dict, schema: Dict
-    ) -> Tuple[bool, List[str]]:
+    def validate_schema_compliance(data: Dict, schema: Dict) -> Tuple[bool, List[str]]:
         """Validate data conforms to schema"""
         errors = []
 

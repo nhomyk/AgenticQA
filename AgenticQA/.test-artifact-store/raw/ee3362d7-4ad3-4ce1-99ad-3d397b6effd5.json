@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-02-03T18:53:23.181613",
+  "agent_name": "SDET_Agent",
+  "status": "success",
+  "output": {
+    "current_coverage": 70,
+    "coverage_status": "insufficient",
+    "gaps_identified": 3,
+    "gaps": [
+      {
+        "file": "src/api/payment.js",
+        "type": "untested_file",
+        "priority": "high"
+      },
+      {
+        "file": "src/services/billing.js",
+        "type": "untested_file",
+        "priority": "high"
+      },
+      {
+        "file": "src/utils/logger.js",
+        "type": "untested_file",
+        "priority": "medium"
+      }
+    ],
+    "recommendations": [
+      "Add tests for 2 high-priority untested files",
+      "Add tests for 1 medium-priority untested files"
+    ],
+    "rag_insights_used": 0
+  },
+  "metadata": {}
+}

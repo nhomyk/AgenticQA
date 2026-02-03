@@ -6,6 +6,7 @@ import pandas as pd
 try:
     from great_expectations.data_context import DataContext
     from great_expectations.core.batch import RuntimeBatchRequest
+
     GREAT_EXPECTATIONS_AVAILABLE = True
 except ImportError:
     GREAT_EXPECTATIONS_AVAILABLE = False
@@ -17,8 +18,7 @@ class AgentDataValidator:
     def __init__(self, context_root_dir: str = "great_expectations"):
         if not GREAT_EXPECTATIONS_AVAILABLE:
             raise ImportError(
-                "great_expectations not installed. "
-                "Install with: pip install great_expectations"
+                "great_expectations not installed. " "Install with: pip install great_expectations"
             )
         self.context = DataContext(context_root_dir=context_root_dir)
 
@@ -54,9 +54,7 @@ class AgentDataValidator:
 
         return validation_result.to_dict()
 
-    def validate_data_schema(
-        self, df: pd.DataFrame, expectation_suite: str
-    ) -> Dict:
+    def validate_data_schema(self, df: pd.DataFrame, expectation_suite: str) -> Dict:
         """Validate DataFrame against expectation suite"""
         batch_request = RuntimeBatchRequest(
             datasource_name="agent_results_datasource",

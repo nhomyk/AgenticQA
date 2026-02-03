@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-01-30T18:31:26.497468",
+  "agent_name": "Compliance_Agent",
+  "status": "success",
+  "output": {
+    "data_encryption": false,
+    "pii_protection": false,
+    "audit_logs": false,
+    "violations": [
+      "Data encryption required but not enabled",
+      "PII masking required but not enabled"
+    ],
+    "rag_insights_used": 0
+  },
+  "metadata": {}
+}

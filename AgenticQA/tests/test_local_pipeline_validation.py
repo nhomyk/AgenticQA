@@ -27,10 +27,12 @@ class TestLintingToolValidation:
     def test_eslint_detects_quote_violations(self, tmp_path):
         """Test ESLint detects incorrect quote usage"""
         test_file = tmp_path / "test.js"
-        test_file.write_text("""
+        test_file.write_text(
+            """
 const message = 'wrong quotes';
 console.log(message)
-""")
+"""
+        )
 
         # Run ESLint (if available)
         try:
@@ -38,7 +40,7 @@ console.log(message)
                 ["npx", "eslint", str(test_file), "--format", "json"],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             if result.returncode != 0:
@@ -58,17 +60,17 @@ console.log(message)
     def test_python_linting_works(self, tmp_path):
         """Test Python linting tools (black, flake8) work"""
         test_file = tmp_path / "test.py"
-        test_file.write_text("""
+        test_file.write_text(
+            """
 def  bad_function( x,y ):
     return x+y
-""")
+"""
+        )
 
         # Test black
         try:
             result = subprocess.run(
-                ["black", "--check", str(test_file)],
-                capture_output=True,
-                timeout=30
+                ["black", "--check", str(test_file)], capture_output=True, timeout=30
             )
 
             # Black should fail on poorly formatted code
@@ -89,7 +91,7 @@ def  bad_function( x,y ):
             "errors": [
                 {"rule": "quotes", "message": "Use doublequotes", "line": 1},
                 {"rule": "semi", "message": "Missing semicolon", "line": 2},
-            ]
+            ],
         }
 
         result = agent.execute(linting_data)
@@ -108,7 +110,8 @@ class TestCoverageToolValidation:
         """Test pytest-cov measures coverage accurately"""
         # Create a simple module
         module_file = tmp_path / "calculator.py"
-        module_file.write_text("""
+        module_file.write_text(
+            """
 def add(a, b):
     return a + b
 
@@ -117,11 +120,13 @@ def subtract(a, b):
 
 def multiply(a, b):  # Not tested
     return a * b
-""")
+"""
+        )
 
         # Create a test file (only tests 2/3 functions)
         test_file = tmp_path / "test_calculator.py"
-        test_file.write_text("""
+        test_file.write_text(
+            """
 from calculator import add, subtract
 
 def test_add():
@@ -129,22 +134,17 @@ def test_add():
 
 def test_subtract():
     assert subtract(5, 3) == 2
-""")
+"""
+        )
 
         # Run pytest with coverage
         try:
             result = subprocess.run(
-                [
-                    "pytest",
-                    str(test_file),
-                    f"--cov={tmp_path}",
-                    "--cov-report=json",
-                    "-v"
-                ],
+                ["pytest", str(test_file), f"--cov={tmp_path}", "--cov-report=json", "-v"],
                 cwd=tmp_path,
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
             )
 
             # Check if coverage report was generated
@@ -171,11 +171,8 @@ def test_subtract():
 
         coverage_data = {
             "coverage_percent": 65,
-            "uncovered_files": [
-                "src/api/payment.js",
-                "src/services/billing.js"
-            ],
-            "test_type": "unit"
+            "uncovered_files": ["src/api/payment.js", "src/services/billing.js"],
+            "test_type": "unit",
         }
 
         result = agent.execute(coverage_data)
@@ -207,7 +204,7 @@ class TestAgentToolIntegration:
             "passed": 8,
             "failed": 2,
             "coverage": 85,
-            "error_message": "AssertionError: Expected 200, got 401"
+            "error_message": "AssertionError: Expected 200, got 401",
         }
 
         result = agent.execute(test_results)
@@ -229,7 +226,7 @@ class TestAgentToolIntegration:
             "operation": "database_query",
             "duration_ms": 8500,
             "memory_mb": 512,
-            "baseline_ms": 2000
+            "baseline_ms": 2000,
         }
 
         result = agent.execute(execution_data)
@@ -252,7 +249,7 @@ class TestAgentToolIntegration:
             "regulations": ["GDPR", "HIPAA"],
             "encrypted": False,  # Violation!
             "pii_masked": False,  # Violation!
-            "audit_enabled": True
+            "audit_enabled": True,
         }
 
         result = agent.execute(compliance_data)
@@ -276,7 +273,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "Get User Profile",
             "category": "api",
-            "description": "API endpoint to retrieve user profile by ID"
+            "description": "API endpoint to retrieve user profile by ID",
         }
 
         result = agent.execute(feature_request)
@@ -298,7 +295,7 @@ class TestFullstackAgentCodeGeneration:
         feature_request = {
             "title": "User Profile Card",
             "category": "ui",
-            "description": "Card component displaying user avatar, name, and bio"
+            "description": "Card component displaying user avatar, name, and bio",
         }
 
         result = agent.execute(feature_request)
@@ -320,7 +317,7 @@ class TestDeploymentReadiness:
             "coverage_minimum": True,
             "security_scan_passed": True,
             "rag_integration_working": True,
-            "agents_functioning": True
+            "agents_functioning": True,
         }
 
         # All gates must be True for deployment
@@ -334,8 +331,7 @@ class TestDeploymentReadiness:
         from src.data_store.data_quality_pipeline import DataQualityValidatedPipeline
 
         pipeline = DataQualityValidatedPipeline(
-            use_great_expectations=False,
-            run_quality_tests=True
+            use_great_expectations=False, run_quality_tests=True
         )
 
         # Run validation
@@ -386,7 +382,7 @@ class TestPipelineHealthChecks:
             DevOpsAgent,
             SREAgent,
             SDETAgent,
-            FullstackAgent
+            FullstackAgent,
         )
 
         agents = [
@@ -396,7 +392,7 @@ class TestPipelineHealthChecks:
             DevOpsAgent(),
             SREAgent(),
             SDETAgent(),
-            FullstackAgent()
+            FullstackAgent(),
         ]
 
         for agent in agents:
@@ -416,7 +412,7 @@ class TestToolChainValidation:
         # Simulate linting output
         linting_errors = [
             {"rule": "quotes", "message": "Use double quotes", "line": 1},
-            {"rule": "semi", "message": "Missing semicolon", "line": 5}
+            {"rule": "semi", "message": "Missing semicolon", "line": 5},
         ]
 
         # Pass to SRE Agent
@@ -436,7 +432,7 @@ class TestToolChainValidation:
         coverage_report = {
             "coverage_percent": 72,
             "uncovered_files": ["src/api/orders.js", "src/services/payment.js"],
-            "test_type": "unit"
+            "test_type": "unit",
         }
 
         # Pass to SDET Agent
@@ -457,7 +453,7 @@ class TestToolChainValidation:
         feature_request = {
             "title": "Password Reset API",
             "category": "api",
-            "description": "Endpoint to handle password reset requests"
+            "description": "Endpoint to handle password reset requests",
         }
 
         # Pass to Fullstack Agent

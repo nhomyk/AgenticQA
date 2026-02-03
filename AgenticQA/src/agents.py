@@ -20,7 +20,7 @@ class BaseAgent(ABC):
         self.use_rag = use_rag
 
         # Initialize collaboration (injected by registry)
-        self.agent_registry: Optional['AgentRegistry'] = None
+        self.agent_registry: Optional["AgentRegistry"] = None
         self._delegation_depth = 0
 
         # Initialize data store pipeline
@@ -32,10 +32,17 @@ class BaseAgent(ABC):
         if use_rag:
             try:
                 from src.agenticqa.rag.config import create_rag_system
+
                 self.rag = create_rag_system()
-                self.log(f"RAG system initialized for {agent_name} - agent will learn from Weaviate", "INFO")
+                self.log(
+                    f"RAG system initialized for {agent_name} - agent will learn from Weaviate",
+                    "INFO",
+                )
             except Exception as e:
-                self.log(f"RAG initialization failed: {e}. Agent will use basic pattern analysis only.", "WARNING")
+                self.log(
+                    f"RAG initialization failed: {e}. Agent will use basic pattern analysis only.",
+                    "WARNING",
+                )
                 self.use_rag = False
 
         self.execution_history: List[Dict] = []
@@ -50,7 +57,7 @@ class BaseAgent(ABC):
             "DevOps_Agent": "devops",
             "SDET_Agent": "qa",
             "SRE_Agent": "devops",
-            "Fullstack_Agent": "devops"
+            "Fullstack_Agent": "devops",
         }
         return agent_type_map.get(self.agent_name, "qa")
 
@@ -214,7 +221,7 @@ class BaseAgent(ABC):
             from_agent=self.agent_name,
             to_agent=agent_name,
             task=task,
-            depth=self._delegation_depth + 1
+            depth=self._delegation_depth + 1,
         )
 
         self.log(f"Delegation to {agent_name} completed", "INFO")
@@ -240,7 +247,7 @@ class BaseAgent(ABC):
             from_agent=self.agent_name,
             to_agent=agent_name,
             question=question,
-            depth=self._delegation_depth + 1
+            depth=self._delegation_depth + 1,
         )
 
     def can_delegate_to(self, agent_name: str) -> bool:
@@ -274,15 +281,17 @@ class QAAssistantAgent(BaseAgent):
 
         try:
             # Augment test results with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "test_name": test_results.get("test_name", ""),
-                "test_type": test_results.get("test_type", "unit"),
-                "status": test_results.get("status", "unknown"),
-                "failed": test_results.get("failed", 0),
-                "passed": test_results.get("passed", 0),
-                "total": test_results.get("total", 0),
-                "coverage": test_results.get("coverage", 0),
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "test_name": test_results.get("test_name", ""),
+                    "test_type": test_results.get("test_type", "unit"),
+                    "status": test_results.get("status", "unknown"),
+                    "failed": test_results.get("failed", 0),
+                    "passed": test_results.get("passed", 0),
+                    "total": test_results.get("total", 0),
+                    "coverage": test_results.get("coverage", 0),
+                }
+            )
 
             analysis = {
                 "total_tests": test_results.get("total", 0),
@@ -307,7 +316,9 @@ class QAAssistantAgent(BaseAgent):
             self.log(f"QA analysis failed: {str(e)}", "ERROR")
             raise
 
-    def _generate_recommendations(self, test_results: Dict, augmented_context: Optional[Dict] = None) -> List[str]:
+    def _generate_recommendations(
+        self, test_results: Dict, augmented_context: Optional[Dict] = None
+    ) -> List[str]:
         """
         Generate recommendations based on patterns and RAG insights.
 
@@ -359,14 +370,13 @@ class PerformanceAgent(BaseAgent):
             memory = execution_data.get("memory_mb", 0)
 
             # Augment context with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "operation": execution_data.get("operation", "unknown"),
-                "current_metrics": {
-                    "duration_ms": duration,
-                    "memory_mb": memory
-                },
-                "baseline_ms": execution_data.get("baseline_ms", 0)
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "operation": execution_data.get("operation", "unknown"),
+                    "current_metrics": {"duration_ms": duration, "memory_mb": memory},
+                    "baseline_ms": execution_data.get("baseline_ms", 0),
+                }
+            )
 
             analysis = {
                 "duration_ms": duration,
@@ -381,13 +391,13 @@ class PerformanceAgent(BaseAgent):
             return analysis
 
         except Exception as e:
-            self._record_execution(
-                "error", {"error": str(e)}, tags=["error"]
-            )
+            self._record_execution("error", {"error": str(e)}, tags=["error"])
             self.log(f"Performance analysis failed: {str(e)}", "ERROR")
             raise
 
-    def _suggest_optimizations(self, data: Dict, augmented_context: Optional[Dict] = None) -> List[str]:
+    def _suggest_optimizations(
+        self, data: Dict, augmented_context: Optional[Dict] = None
+    ) -> List[str]:
         """
         Suggest optimizations based on patterns and RAG insights.
 
@@ -428,13 +438,15 @@ class ComplianceAgent(BaseAgent):
 
         try:
             # Augment context with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "context": compliance_data.get("context", ""),
-                "regulations": compliance_data.get("regulations", []),
-                "encrypted": compliance_data.get("encrypted", False),
-                "pii_masked": compliance_data.get("pii_masked", False),
-                "audit_enabled": compliance_data.get("audit_enabled", False),
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "context": compliance_data.get("context", ""),
+                    "regulations": compliance_data.get("regulations", []),
+                    "encrypted": compliance_data.get("encrypted", False),
+                    "pii_masked": compliance_data.get("pii_masked", False),
+                    "audit_enabled": compliance_data.get("audit_enabled", False),
+                }
+            )
 
             checks = {
                 "data_encryption": compliance_data.get("encrypted", False),
@@ -493,12 +505,14 @@ class DevOpsAgent(BaseAgent):
 
         try:
             # Augment context with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "error_type": deployment_config.get("error_type", ""),
-                "message": deployment_config.get("message", ""),
-                "version": deployment_config.get("version", ""),
-                "environment": deployment_config.get("environment", ""),
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "error_type": deployment_config.get("error_type", ""),
+                    "message": deployment_config.get("message", ""),
+                    "version": deployment_config.get("version", ""),
+                    "environment": deployment_config.get("environment", ""),
+                }
+            )
 
             result = {
                 "deployment_status": "success",
@@ -508,9 +522,7 @@ class DevOpsAgent(BaseAgent):
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
 
-            self._record_execution(
-                "success", result, tags=["deployment"]
-            )
+            self._record_execution("success", result, tags=["deployment"])
             self.log("Deployment complete")
             return result
 
@@ -558,11 +570,13 @@ class SREAgent(BaseAgent):
 
         try:
             # Augment context with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "error_type": "linting",
-                "message": linting_data.get("errors", []),
-                "file_path": linting_data.get("file_path", ""),
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "error_type": "linting",
+                    "message": linting_data.get("errors", []),
+                    "file_path": linting_data.get("file_path", ""),
+                }
+            )
 
             errors = linting_data.get("errors", [])
             fixes_applied = []
@@ -590,7 +604,9 @@ class SREAgent(BaseAgent):
             self.log(f"Linting fix failed: {str(e)}", "ERROR")
             raise
 
-    def _apply_linting_fix(self, error: Dict, augmented_context: Optional[Dict] = None) -> Optional[Dict]:
+    def _apply_linting_fix(
+        self, error: Dict, augmented_context: Optional[Dict] = None
+    ) -> Optional[Dict]:
         """
         Apply linting fix with RAG insights.
 
@@ -609,7 +625,7 @@ class SREAgent(BaseAgent):
                         "rule": rule,
                         "fix_applied": rec.get("insight", ""),
                         "source": "RAG",
-                        "confidence": rec.get("confidence")
+                        "confidence": rec.get("confidence"),
                     }
 
         # Basic fix patterns
@@ -625,7 +641,7 @@ class SREAgent(BaseAgent):
                 "rule": rule,
                 "fix_applied": fix_map[rule],
                 "source": "basic",
-                "confidence": 0.8
+                "confidence": 0.8,
             }
 
         return None
@@ -647,11 +663,13 @@ class SDETAgent(BaseAgent):
 
         try:
             # Augment context with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "coverage_percent": coverage_data.get("coverage_percent", 0),
-                "uncovered_files": coverage_data.get("uncovered_files", []),
-                "test_type": coverage_data.get("test_type", "unit"),
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "coverage_percent": coverage_data.get("coverage_percent", 0),
+                    "uncovered_files": coverage_data.get("uncovered_files", []),
+                    "test_type": coverage_data.get("test_type", "unit"),
+                }
+            )
 
             coverage_percent = coverage_data.get("coverage_percent", 0)
             uncovered_files = coverage_data.get("uncovered_files", [])
@@ -680,7 +698,9 @@ class SDETAgent(BaseAgent):
             self.log(f"Coverage analysis failed: {str(e)}", "ERROR")
             raise
 
-    def _identify_coverage_gaps(self, coverage_data: Dict, augmented_context: Optional[Dict] = None) -> List[Dict]:
+    def _identify_coverage_gaps(
+        self, coverage_data: Dict, augmented_context: Optional[Dict] = None
+    ) -> List[Dict]:
         """Identify test coverage gaps using RAG insights"""
         gaps = []
         uncovered_files = coverage_data.get("uncovered_files", [])
@@ -689,7 +709,7 @@ class SDETAgent(BaseAgent):
             gap = {
                 "file": file_path,
                 "type": "untested_file",
-                "priority": "high" if "api" in file_path or "service" in file_path else "medium"
+                "priority": "high" if "api" in file_path or "service" in file_path else "medium",
             }
             gaps.append(gap)
 
@@ -698,28 +718,36 @@ class SDETAgent(BaseAgent):
             rag_recommendations = augmented_context.get("rag_recommendations", [])
             for rec in rag_recommendations:
                 if rec.get("confidence", 0) > 0.7:
-                    gaps.append({
-                        "file": "RAG-identified",
-                        "type": rec.get("type", "coverage_gap"),
-                        "priority": "high",
-                        "insight": rec.get("insight", "")
-                    })
+                    gaps.append(
+                        {
+                            "file": "RAG-identified",
+                            "type": rec.get("type", "coverage_gap"),
+                            "priority": "high",
+                            "insight": rec.get("insight", ""),
+                        }
+                    )
 
         return gaps
 
-    def _generate_test_recommendations(self, gaps: List[Dict], augmented_context: Optional[Dict] = None) -> List[str]:
+    def _generate_test_recommendations(
+        self, gaps: List[Dict], augmented_context: Optional[Dict] = None
+    ) -> List[str]:
         """Generate test recommendations with RAG insights"""
         recommendations = []
 
         # Basic recommendations
         high_priority_gaps = [g for g in gaps if g.get("priority") == "high"]
         if high_priority_gaps:
-            recommendations.append(f"Add tests for {len(high_priority_gaps)} high-priority untested files")
+            recommendations.append(
+                f"Add tests for {len(high_priority_gaps)} high-priority untested files"
+            )
 
         # Add recommendations for medium priority gaps
         medium_priority_gaps = [g for g in gaps if g.get("priority") == "medium"]
         if medium_priority_gaps:
-            recommendations.append(f"Add tests for {len(medium_priority_gaps)} medium-priority untested files")
+            recommendations.append(
+                f"Add tests for {len(medium_priority_gaps)} medium-priority untested files"
+            )
 
         # Add general recommendation if there are any gaps
         if gaps and not recommendations:
@@ -753,11 +781,13 @@ class FullstackAgent(BaseAgent):
 
         try:
             # Augment context with RAG insights from Weaviate
-            augmented_context = self._augment_with_rag({
-                "feature_title": feature_request.get("title", ""),
-                "feature_category": feature_request.get("category", ""),
-                "description": feature_request.get("description", ""),
-            })
+            augmented_context = self._augment_with_rag(
+                {
+                    "feature_title": feature_request.get("title", ""),
+                    "feature_category": feature_request.get("category", ""),
+                    "description": feature_request.get("description", ""),
+                }
+            )
 
             title = feature_request.get("title", "")
             category = feature_request.get("category", "general")
@@ -785,7 +815,9 @@ class FullstackAgent(BaseAgent):
             self.log(f"Code generation failed: {str(e)}", "ERROR")
             raise
 
-    def _generate_code(self, title: str, category: str, description: str, augmented_context: Optional[Dict] = None) -> Optional[str]:
+    def _generate_code(
+        self, title: str, category: str, description: str, augmented_context: Optional[Dict] = None
+    ) -> Optional[str]:
         """
         Generate code with RAG insights.
 
@@ -883,17 +915,11 @@ class AgentOrchestrator:
                 if agent_name == "qa":
                     results[agent_name] = agent.execute(data.get("test_results", {}))
                 elif agent_name == "performance":
-                    results[agent_name] = agent.execute(
-                        data.get("execution_data", {})
-                    )
+                    results[agent_name] = agent.execute(data.get("execution_data", {}))
                 elif agent_name == "compliance":
-                    results[agent_name] = agent.execute(
-                        data.get("compliance_data", {})
-                    )
+                    results[agent_name] = agent.execute(data.get("compliance_data", {}))
                 elif agent_name == "devops":
-                    results[agent_name] = agent.execute(
-                        data.get("deployment_config", {})
-                    )
+                    results[agent_name] = agent.execute(data.get("deployment_config", {}))
             except Exception as e:
                 results[agent_name] = {"error": str(e), "status": "failed"}
 

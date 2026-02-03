@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class DelegationEvent:
     """Represents a single delegation event"""
+
     from_agent: str
     to_agent: str
     task: Dict[str, Any]
@@ -36,29 +37,15 @@ class DelegationTracker:
         self.events = []
 
     def record_delegation(
-        self,
-        from_agent: str,
-        to_agent: str,
-        task: Dict[str, Any],
-        depth: int
+        self, from_agent: str, to_agent: str, task: Dict[str, Any], depth: int
     ) -> DelegationEvent:
         """Record the start of a delegation"""
-        event = DelegationEvent(
-            from_agent=from_agent,
-            to_agent=to_agent,
-            task=task,
-            depth=depth
-        )
+        event = DelegationEvent(from_agent=from_agent, to_agent=to_agent, task=task, depth=depth)
         self.events.append(event)
         self.current_chain.append(to_agent)
         return event
 
-    def record_result(
-        self,
-        event: DelegationEvent,
-        result: Dict[str, Any],
-        duration_ms: float
-    ):
+    def record_result(self, event: DelegationEvent, result: Dict[str, Any], duration_ms: float):
         """Record the completion of a delegation"""
         event.result = result
         event.duration_ms = duration_ms
@@ -86,9 +73,11 @@ class DelegationTracker:
             "successful": len(successful),
             "failed": len(failed),
             "max_depth": max([e.depth for e in self.events]) if self.events else 0,
-            "total_duration_ms": sum([e.duration_ms for e in self.events if e.duration_ms]) if self.events else 0,
+            "total_duration_ms": sum([e.duration_ms for e in self.events if e.duration_ms])
+            if self.events
+            else 0,
             "delegation_path": self._build_delegation_tree(),
-            "events": [self._event_to_dict(e) for e in self.events]
+            "events": [self._event_to_dict(e) for e in self.events],
         }
 
     def _build_delegation_tree(self) -> str:
@@ -113,5 +102,5 @@ class DelegationTracker:
             "duration_ms": event.duration_ms,
             "depth": event.depth,
             "success": event.result is not None,
-            "error": event.error
+            "error": event.error,
         }

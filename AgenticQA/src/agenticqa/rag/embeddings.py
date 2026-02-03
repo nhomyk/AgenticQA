@@ -25,7 +25,7 @@ class SimpleHashEmbedder(Embedder):
     """
     Lightweight embedder using hash-based features.
     Fast and deterministic, suitable for agent orchestration.
-    
+
     Creates 768-dimensional vectors from text features:
     - Character n-grams
     - Word frequencies
@@ -39,13 +39,13 @@ class SimpleHashEmbedder(Embedder):
         """Generate embedding from text"""
         # Normalize text
         text = text.lower().strip()
-        
+
         # Extract features
         features = self._extract_features(text)
-        
+
         # Convert to embedding
         embedding = self._features_to_embedding(features)
-        
+
         return embedding
 
     def _extract_features(self, text: str) -> Dict[str, float]:
@@ -55,7 +55,7 @@ class SimpleHashEmbedder(Embedder):
         # Character n-grams
         for n in [2, 3, 4]:
             for i in range(len(text) - n + 1):
-                ngram = text[i:i+n]
+                ngram = text[i : i + n]
                 features[f"char_{n}_{ngram}"] = features.get(f"char_{n}_{ngram}", 0) + 1
 
         # Word frequencies
@@ -86,7 +86,7 @@ class SimpleHashEmbedder(Embedder):
             # Hash feature to bucket
             hash_val = int(hashlib.md5(feature_name.encode()).hexdigest(), 16)
             bucket = hash_val % self.embedding_dim
-            
+
             # Add count to bucket
             embedding[bucket] += count
 
@@ -100,7 +100,7 @@ class SimpleHashEmbedder(Embedder):
 class SemanticEmbedder(Embedder):
     """
     ML-based embedder for semantic understanding.
-    
+
     Can use sentence-transformers for better semantic similarity.
     Falls back to SimpleHashEmbedder if transformers unavailable.
     """
@@ -130,6 +130,7 @@ class SemanticEmbedder(Embedder):
         """Try to load sentence-transformers model"""
         try:
             from sentence_transformers import SentenceTransformer
+
             self.model = SentenceTransformer(self.model_name)
         except ImportError:
             # Silently fall back if transformers not available
@@ -179,7 +180,7 @@ class TestResultEmbedder:
             test_result.get("error_message", ""),
             test_result.get("test_type", ""),
         ]
-        
+
         text = " ".join([str(p) for p in text_parts if p])
         return self.embedder.embed(text)
 

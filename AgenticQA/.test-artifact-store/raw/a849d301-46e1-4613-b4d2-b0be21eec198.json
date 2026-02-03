@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-02-03T18:53:23.192372",
+  "agent_name": "SDET_Agent",
+  "status": "success",
+  "output": {
+    "current_coverage": 75,
+    "coverage_status": "insufficient",
+    "gaps_identified": 1,
+    "gaps": [
+      {
+        "file": "routes/feature.js",
+        "type": "untested_file",
+        "priority": "medium"
+      }
+    ],
+    "recommendations": [
+      "Add tests for 1 medium-priority untested files"
+    ],
+    "rag_insights_used": 0
+  },
+  "metadata": {}
+}

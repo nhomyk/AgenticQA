@@ -6,26 +6,31 @@ from datetime import datetime
 
 class DelegationError(Exception):
     """Base exception for delegation errors"""
+
     pass
 
 
 class CircularDelegationError(DelegationError):
     """Raised when circular delegation is detected"""
+
     pass
 
 
 class MaxDelegationDepthError(DelegationError):
     """Raised when delegation chain exceeds maximum depth"""
+
     pass
 
 
 class DelegationBudgetExceededError(DelegationError):
     """Raised when delegation budget is exceeded"""
+
     pass
 
 
 class UnauthorizedDelegationError(DelegationError):
     """Raised when agent tries to delegate to unauthorized agent"""
+
     pass
 
 
@@ -49,13 +54,13 @@ class DelegationGuardrails:
     # Whitelisted delegation paths (source_agent -> allowed_targets)
     # Conservative start: Only high-value, low-risk delegations
     ALLOWED_DELEGATIONS: Dict[str, List[str]] = {
-        "SDET_Agent": ["SRE_Agent"],           # SDET can delegate test generation to SRE
+        "SDET_Agent": ["SRE_Agent"],  # SDET can delegate test generation to SRE
         "Fullstack_Agent": ["Compliance_Agent"],  # Fullstack can validate code with Compliance
         "Compliance_Agent": ["DevOps_Agent"],  # Compliance can consult DevOps on deployment
-        "SRE_Agent": [],                       # SRE can't delegate (prevents loops)
-        "DevOps_Agent": [],                    # DevOps can't delegate (prevents loops)
-        "QA_Assistant": [],                    # QA doesn't delegate (analysis only)
-        "Performance_Agent": [],               # Performance doesn't delegate (analysis only)
+        "SRE_Agent": [],  # SRE can't delegate (prevents loops)
+        "DevOps_Agent": [],  # DevOps can't delegate (prevents loops)
+        "QA_Assistant": [],  # QA doesn't delegate (analysis only)
+        "Performance_Agent": [],  # Performance doesn't delegate (analysis only)
     }
 
     def __init__(self):
@@ -68,11 +73,7 @@ class DelegationGuardrails:
         self.start_time = datetime.utcnow()
 
     def can_delegate(
-        self,
-        from_agent: str,
-        to_agent: str,
-        current_depth: int,
-        delegation_stack: List[str]
+        self, from_agent: str, to_agent: str, current_depth: int, delegation_stack: List[str]
     ) -> tuple[bool, Optional[str]]:
         """
         Check if delegation is allowed.
@@ -97,7 +98,10 @@ class DelegationGuardrails:
         # Check whitelist
         allowed_targets = self.ALLOWED_DELEGATIONS.get(from_agent, [])
         if to_agent not in allowed_targets:
-            return False, f"{from_agent} not authorized to delegate to {to_agent}. Allowed: {allowed_targets}"
+            return (
+                False,
+                f"{from_agent} not authorized to delegate to {to_agent}. Allowed: {allowed_targets}",
+            )
 
         return True, None
 

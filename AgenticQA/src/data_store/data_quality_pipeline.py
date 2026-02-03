@@ -17,9 +17,7 @@ class DataQualityValidatedPipeline(SecureDataPipeline):
         self.run_quality_tests = run_quality_tests
         self.quality_test_results = None
 
-    def validate_input_data(
-        self, agent_name: str, input_data: Dict[str, Any]
-    ) -> Tuple[bool, Dict]:
+    def validate_input_data(self, agent_name: str, input_data: Dict[str, Any]) -> Tuple[bool, Dict]:
         """Pre-execution validation with data quality checks"""
         # Run standard validation
         is_valid, validation_result = super().validate_input_data(agent_name, input_data)
@@ -57,7 +55,9 @@ class DataQualityValidatedPipeline(SecureDataPipeline):
             self.quality_test_results = quality_result
 
             pipeline_result["post_execution_quality"] = quality_result
-            pipeline_result["stages"]["data_quality_tests"] = quality_result["summary"]["all_passed"]
+            pipeline_result["stages"]["data_quality_tests"] = quality_result["summary"][
+                "all_passed"
+            ]
 
             # Export results for audit trail
             export_path = self.quality_tester.export_test_results(quality_result)
@@ -133,9 +133,7 @@ class DataQualityValidatedPipeline(SecureDataPipeline):
         # Overall deployment readiness
         print("\n4. Computing deployment readiness...")
         data_quality_passed = quality_results["summary"]["all_passed"]
-        accessibility_ok = (
-            len(accessibility_check["inaccessible"]) == 0
-        )
+        accessibility_ok = len(accessibility_check["inaccessible"]) == 0
         patterns_ok = deployment_result["checks"]["pattern_analysis"]["status"] == "success"
 
         deployment_result["ready_for_deployment"] = (

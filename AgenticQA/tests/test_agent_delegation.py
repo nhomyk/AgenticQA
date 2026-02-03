@@ -15,7 +15,7 @@ from src.agenticqa.collaboration import (
     CircularDelegationError,
     MaxDelegationDepthError,
     UnauthorizedDelegationError,
-    DelegationError
+    DelegationError,
 )
 
 pytestmark = pytest.mark.integration
@@ -52,8 +52,9 @@ class TestDelegationGuardrails:
 
         # Try to create circular delegation
         # Since SRE can't delegate back (whitelist), this is prevented at authorization level
-        assert not sre.can_delegate_to("SDET_Agent"), \
-            "SRE should not be allowed to delegate to SDET (prevents loops)"
+        assert not sre.can_delegate_to(
+            "SDET_Agent"
+        ), "SRE should not be allowed to delegate to SDET (prevents loops)"
 
         print("✓ Circular delegation prevented by whitelist")
 
@@ -99,8 +100,9 @@ class TestDelegationGuardrails:
 
         # SDET can delegate to SRE, but NOT to Fullstack
         assert sdet.can_delegate_to("SRE_Agent"), "SDET should be able to delegate to SRE"
-        assert not sdet.can_delegate_to("Fullstack_Agent"), \
-            "SDET should NOT be able to delegate to Fullstack"
+        assert not sdet.can_delegate_to(
+            "Fullstack_Agent"
+        ), "SDET should NOT be able to delegate to Fullstack"
 
         # Try unauthorized delegation
         with pytest.raises(UnauthorizedDelegationError):
@@ -133,16 +135,19 @@ class TestDelegationWorkflows:
             "file": "src/api.py",
             "coverage_percentage": 45,
             "uncovered_lines": [10, 15, 20],
-            "high_risk": True
+            "high_risk": True,
         }
 
         # SDET analyzes and decides to delegate test generation
         try:
-            test_result = sdet.delegate_to_agent("SRE_Agent", {
-                "task": "generate_tests",
-                "file": coverage_data["file"],
-                "lines": coverage_data["uncovered_lines"]
-            })
+            test_result = sdet.delegate_to_agent(
+                "SRE_Agent",
+                {
+                    "task": "generate_tests",
+                    "file": coverage_data["file"],
+                    "lines": coverage_data["uncovered_lines"],
+                },
+            )
 
             # Verify delegation succeeded
             assert test_result is not None
@@ -183,18 +188,21 @@ class TestDelegationWorkflows:
         feature_request = {
             "feature": "user_authentication",
             "requirements": ["JWT tokens", "password hashing"],
-            "tech_stack": "Python Flask"
+            "tech_stack": "Python Flask",
         }
 
         try:
             # Fullstack can delegate to Compliance for validation
-            validation = fullstack.delegate_to_agent("Compliance_Agent", {
-                "context": "code_validation",
-                "regulations": ["GDPR", "PCI_DSS"],
-                "encrypted": True,
-                "pii_masked": True,
-                "audit_enabled": True
-            })
+            validation = fullstack.delegate_to_agent(
+                "Compliance_Agent",
+                {
+                    "context": "code_validation",
+                    "regulations": ["GDPR", "PCI_DSS"],
+                    "encrypted": True,
+                    "pii_masked": True,
+                    "audit_enabled": True,
+                },
+            )
 
             assert validation is not None
             assert "_delegation" in validation
@@ -224,11 +232,14 @@ class TestDelegationWorkflows:
 
         try:
             # Compliance queries DevOps expertise
-            advice = compliance.query_agent_expertise("DevOps_Agent", {
-                "question": "deployment_security_check",
-                "version": "v2.0.0",
-                "environment": "production"
-            })
+            advice = compliance.query_agent_expertise(
+                "DevOps_Agent",
+                {
+                    "question": "deployment_security_check",
+                    "version": "v2.0.0",
+                    "environment": "production",
+                },
+            )
 
             assert advice is not None
             assert "_delegation" in advice

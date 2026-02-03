@@ -6,7 +6,7 @@ from .delegation import (
     DelegationError,
     CircularDelegationError,
     MaxDelegationDepthError,
-    UnauthorizedDelegationError
+    UnauthorizedDelegationError,
 )
 from .tracker import DelegationTracker
 

@@ -25,7 +25,7 @@ class TestRealWeaviateConnection:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured. Set WEAVIATE_HOST to run these tests."
+        reason="Weaviate not configured. Set WEAVIATE_HOST to run these tests.",
     )
     def test_weaviate_connection_established(self):
         """Verify we can connect to real Weaviate instance"""
@@ -44,10 +44,7 @@ class TestRealWeaviateConnection:
         except Exception as e:
             pytest.fail(f"Failed to connect to Weaviate: {e}")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_weaviate_store_and_retrieve_document(self):
         """Verify we can store and retrieve documents from Weaviate"""
         from src.agenticqa.rag.config import create_rag_system
@@ -64,16 +61,13 @@ class TestRealWeaviateConnection:
             content=test_content,
             embedding=embedding,
             metadata={"test": True, "error_type": "timeout"},
-            doc_type="error"
+            doc_type="error",
         )
 
         # Retrieve similar documents
         query_embedding = embedder.embed("Connection timeout error")
         similar_docs = rag.vector_store.search(
-            query_embedding,
-            doc_type="error",
-            k=5,
-            threshold=0.3
+            query_embedding, doc_type="error", k=5, threshold=0.3
         )
 
         assert len(similar_docs) > 0, "Should retrieve similar documents"
@@ -83,10 +77,7 @@ class TestRealWeaviateConnection:
 class TestAgentRAGIntegration:
     """Test agents use RAG for learning and improvement"""
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_qa_agent_uses_rag_insights(self):
         """Verify QA Agent uses RAG insights in recommendations"""
         from src.agents import QAAssistantAgent
@@ -121,10 +112,7 @@ class TestAgentRAGIntegration:
         assert len(analysis["recommendations"]) > 0
         print(f"✓ Generated {len(analysis['recommendations'])} recommendations")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_performance_agent_uses_rag_insights(self):
         """Verify Performance Agent uses RAG insights for optimizations"""
         from src.agents import PerformanceAgent
@@ -140,7 +128,7 @@ class TestAgentRAGIntegration:
             "operation": "database_query",
             "duration_ms": 8500,
             "memory_mb": 512,
-            "baseline_ms": 2000
+            "baseline_ms": 2000,
         }
 
         analysis = agent.execute(execution_data)
@@ -153,10 +141,7 @@ class TestAgentRAGIntegration:
         assert analysis["status"] == "degraded"
         print(f"✓ Detected performance degradation (8500ms > 5000ms threshold)")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_compliance_agent_uses_rag_insights(self):
         """Verify Compliance Agent uses RAG insights for rules"""
         from src.agents import ComplianceAgent
@@ -172,7 +157,7 @@ class TestAgentRAGIntegration:
             "regulations": ["PCI_DSS", "GDPR"],
             "encrypted": False,
             "pii_masked": False,
-            "audit_enabled": True
+            "audit_enabled": True,
         }
 
         checks = agent.execute(compliance_data)
@@ -185,10 +170,7 @@ class TestAgentRAGIntegration:
         assert len(checks["violations"]) >= 2  # At least encryption and PII masking
         print(f"✓ Detected {len(checks['violations'])} compliance violations")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_devops_agent_uses_rag_insights(self):
         """Verify DevOps Agent uses RAG insights for deployments"""
         from src.agents import DevOpsAgent
@@ -203,7 +185,7 @@ class TestAgentRAGIntegration:
             "version": "v2.1.0",
             "environment": "production",
             "error_type": "",
-            "message": ""
+            "message": "",
         }
 
         result = agent.execute(deployment_config)
@@ -220,10 +202,7 @@ class TestAgentRAGIntegration:
 class TestAgentLearningOverTime:
     """Test agents improve decision quality over multiple executions"""
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_agent_stores_execution_in_weaviate(self):
         """Verify agent executions are stored in Weaviate"""
         from src.agents import QAAssistantAgent
@@ -242,7 +221,7 @@ class TestAgentLearningOverTime:
                 "total": 10,
                 "passed": 8 if i % 2 == 0 else 6,
                 "failed": 2 if i % 2 == 0 else 4,
-                "coverage": 85
+                "coverage": 85,
             }
 
             agent.execute(test_results)
@@ -251,10 +230,7 @@ class TestAgentLearningOverTime:
         assert len(agent.execution_history) >= 3
         print(f"✓ Stored {len(agent.execution_history)} executions")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_agent_retrieves_similar_executions(self):
         """Verify agents can retrieve similar past executions"""
         from src.agents import QAAssistantAgent
@@ -271,10 +247,7 @@ class TestAgentLearningOverTime:
         assert isinstance(similar, list)
         print(f"✓ Retrieved {len(similar)} similar executions from history")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_agent_pattern_insights_improve_over_time(self):
         """Verify pattern insights accumulate and improve"""
         from src.agents import PerformanceAgent
@@ -301,10 +274,7 @@ class TestAgentLearningOverTime:
 class TestAutonomousLearning:
     """Test end-to-end autonomous learning without intervention"""
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_full_learning_cycle(self):
         """
         Test complete learning cycle:
@@ -328,7 +298,7 @@ class TestAutonomousLearning:
             "total": 5,
             "passed": 3,
             "failed": 2,
-            "coverage": 70
+            "coverage": 70,
         }
 
         analysis_1 = agent.execute(test_results_1)
@@ -346,7 +316,7 @@ class TestAutonomousLearning:
             "total": 5,
             "passed": 3,
             "failed": 2,
-            "coverage": 70
+            "coverage": 70,
         }
 
         analysis_2 = agent.execute(test_results_2)
@@ -354,8 +324,9 @@ class TestAutonomousLearning:
         print(f"✓ Second execution: {rec_count_2} recommendations")
 
         # Verify learning occurred (recommendations count should be equal or greater)
-        assert rec_count_2 >= rec_count_1, \
-            f"Agent should maintain or improve recommendations ({rec_count_2} >= {rec_count_1})"
+        assert (
+            rec_count_2 >= rec_count_1
+        ), f"Agent should maintain or improve recommendations ({rec_count_2} >= {rec_count_1})"
 
         print(f"✓ Agent maintained recommendation quality across executions")
 
@@ -363,10 +334,7 @@ class TestAutonomousLearning:
 class TestRealWorldScenarios:
     """Test real-world learning scenarios"""
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_flaky_test_detection_and_learning(self):
         """Test agent learns to detect and handle flaky tests"""
         from src.agents import QAAssistantAgent
@@ -385,7 +353,7 @@ class TestRealWorldScenarios:
                 "total": 10,
                 "passed": 9 if i % 2 == 0 else 7,
                 "failed": 1 if i % 2 == 0 else 3,
-                "coverage": 85
+                "coverage": 85,
             }
 
             agent.execute(test_results)
@@ -396,10 +364,7 @@ class TestRealWorldScenarios:
         print(f"✓ Executed flaky test 5 times, pattern analysis available")
         print(f"  - Flakiness data: {insights.get('flakiness', {})}")
 
-    @pytest.mark.skipif(
-        os.getenv("WEAVIATE_HOST") is None,
-        reason="Weaviate not configured"
-    )
+    @pytest.mark.skipif(os.getenv("WEAVIATE_HOST") is None, reason="Weaviate not configured")
     def test_performance_regression_learning(self):
         """Test agent learns performance regression patterns"""
         from src.agents import PerformanceAgent
@@ -416,7 +381,7 @@ class TestRealWorldScenarios:
                 "operation": "api_request",
                 "duration_ms": baseline + (i * 1000),  # Gradual slowdown
                 "memory_mb": 256,
-                "baseline_ms": baseline
+                "baseline_ms": baseline,
             }
 
             analysis = agent.execute(execution_data)

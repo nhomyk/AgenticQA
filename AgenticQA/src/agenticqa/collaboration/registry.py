@@ -9,7 +9,7 @@ from .delegation import (
     DelegationError,
     CircularDelegationError,
     MaxDelegationDepthError,
-    UnauthorizedDelegationError
+    UnauthorizedDelegationError,
 )
 from .tracker import DelegationTracker, DelegationEvent
 
@@ -28,23 +28,19 @@ class AgentRegistry:
     """
 
     def __init__(self, enable_delegation: bool = True):
-        self.agents: Dict[str, 'BaseAgent'] = {}
+        self.agents: Dict[str, "BaseAgent"] = {}
         self.guardrails = DelegationGuardrails()
         self.tracker = DelegationTracker()
         self.enable_delegation = enable_delegation
         self._delegation_stack: list[str] = []
 
-    def register_agent(self, agent: 'BaseAgent'):
+    def register_agent(self, agent: "BaseAgent"):
         """Register an agent for collaboration"""
         self.agents[agent.agent_name] = agent
         agent.agent_registry = self  # Inject registry into agent
 
     def delegate_task(
-        self,
-        from_agent: str,
-        to_agent: str,
-        task: Dict[str, Any],
-        depth: int = 0
+        self, from_agent: str, to_agent: str, task: Dict[str, Any], depth: int = 0
     ) -> Dict[str, Any]:
         """
         Delegate a task from one agent to another with safety guardrails.
@@ -102,7 +98,7 @@ class AgentRegistry:
             result["_delegation"] = {
                 "delegated_by": from_agent,
                 "depth": depth,
-                "duration_ms": duration_ms
+                "duration_ms": duration_ms,
             }
 
             return result
@@ -110,18 +106,16 @@ class AgentRegistry:
         except Exception as e:
             error_msg = f"{type(e).__name__}: {str(e)}"
             self.tracker.record_error(event, error_msg)
-            raise DelegationError(f"Delegation from {from_agent} to {to_agent} failed: {error_msg}") from e
+            raise DelegationError(
+                f"Delegation from {from_agent} to {to_agent} failed: {error_msg}"
+            ) from e
 
         finally:
             if self._delegation_stack and self._delegation_stack[-1] == to_agent:
                 self._delegation_stack.pop()
 
     def query_agent(
-        self,
-        from_agent: str,
-        to_agent: str,
-        question: Dict[str, Any],
-        depth: int = 0
+        self, from_agent: str, to_agent: str, question: Dict[str, Any], depth: int = 0
     ) -> Dict[str, Any]:
         """
         Query another agent for expertise (read-only, no state changes).
@@ -137,17 +131,12 @@ class AgentRegistry:
 
     def can_agent_delegate_to(self, from_agent: str, to_agent: str) -> bool:
         """Check if one agent can delegate to another"""
-        allowed, _ = self.guardrails.can_delegate(
-            from_agent, to_agent, 0, []
-        )
+        allowed, _ = self.guardrails.can_delegate(from_agent, to_agent, 0, [])
         return allowed
 
     def get_delegation_summary(self) -> Dict[str, Any]:
         """Get summary of delegations for current request"""
-        return {
-            **self.tracker.get_summary(),
-            **self.guardrails.get_delegation_stats()
-        }
+        return {**self.tracker.get_summary(), **self.guardrails.get_delegation_stats()}
 
     def reset_for_new_request(self, root_agent: str):
         """Reset state for a new root request"""

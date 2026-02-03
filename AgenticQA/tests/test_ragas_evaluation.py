@@ -46,7 +46,7 @@ class TestRagasMetrics:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI for evaluation."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI for evaluation.",
     )
     def test_ragas_faithfulness_metric(self):
         """
@@ -73,13 +73,19 @@ class TestRagasMetrics:
             {
                 "question": "What are common causes of integration test failures?",
                 "answer": "Common causes include network timeouts, database connection issues, and configuration problems.",
-                "contexts": ["Integration tests often fail due to network timeouts", "Database connections are a frequent source of test failures"],
+                "contexts": [
+                    "Integration tests often fail due to network timeouts",
+                    "Database connections are a frequent source of test failures",
+                ],
             },
             {
                 "question": "How to improve test coverage?",
                 "answer": "Focus on high-risk code paths, add edge case tests, and use coverage tools to identify gaps.",
-                "contexts": ["Coverage tools help identify untested code", "Testing edge cases improves overall coverage"],
-            }
+                "contexts": [
+                    "Coverage tools help identify untested code",
+                    "Testing edge cases improves overall coverage",
+                ],
+            },
         ]
 
         dataset = Dataset.from_list(test_cases)
@@ -98,7 +104,7 @@ class TestRagasMetrics:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_ragas_answer_relevancy_metric(self):
         """
@@ -116,7 +122,10 @@ class TestRagasMetrics:
             {
                 "question": "What causes performance degradation?",
                 "answer": "Performance degrades due to memory leaks, inefficient queries, and excessive API calls.",
-                "contexts": ["Memory leaks cause performance issues", "Database query optimization is important"],
+                "contexts": [
+                    "Memory leaks cause performance issues",
+                    "Database query optimization is important",
+                ],
             }
         ]
 
@@ -135,7 +144,7 @@ class TestRagasMetrics:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_ragas_context_precision_metric(self):
         """
@@ -156,9 +165,9 @@ class TestRagasMetrics:
                 "contexts": [
                     "Flaky tests can be fixed with retry mechanisms",
                     "Race conditions are a common cause of flakiness",
-                    "Proper wait conditions help stabilize tests"
+                    "Proper wait conditions help stabilize tests",
                 ],
-                "ground_truth": "Fix race conditions and add proper waits"
+                "ground_truth": "Fix race conditions and add proper waits",
             }
         ]
 
@@ -177,7 +186,7 @@ class TestRagasMetrics:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_ragas_context_recall_metric(self):
         """
@@ -198,9 +207,9 @@ class TestRagasMetrics:
                 "contexts": [
                     "Blue-green deployments minimize downtime",
                     "Automated rollbacks provide safety",
-                    "Health checks ensure system stability"
+                    "Health checks ensure system stability",
                 ],
-                "ground_truth": "Use blue-green deployments, rollbacks, and health monitoring"
+                "ground_truth": "Use blue-green deployments, rollbacks, and health monitoring",
             }
         ]
 
@@ -223,7 +232,7 @@ class TestRagasAgentEvaluation:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_qa_agent_response_quality(self):
         """
@@ -263,11 +272,13 @@ class TestRagasAgentEvaluation:
         test_cases = [
             {
                 "question": "What should I do about failing integration tests?",
-                "answer": recommendations_text if recommendations_text else "Investigate timeout issues and check network configuration",
+                "answer": recommendations_text
+                if recommendations_text
+                else "Investigate timeout issues and check network configuration",
                 "contexts": [
                     "Integration tests fail due to timeouts",
-                    "Network configuration affects test reliability"
-                ]
+                    "Network configuration affects test reliability",
+                ],
             }
         ]
 
@@ -281,12 +292,13 @@ class TestRagasAgentEvaluation:
         print(f"  - Answer Relevancy: {result.get('answer_relevancy', 0):.3f}")
 
         # At least one metric should show good quality
-        assert result.get('faithfulness', 0) > 0.3 or result.get('answer_relevancy', 0) > 0.3, \
-            "QA Agent response quality too low"
+        assert (
+            result.get("faithfulness", 0) > 0.3 or result.get("answer_relevancy", 0) > 0.3
+        ), "QA Agent response quality too low"
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_performance_agent_response_quality(self):
         """
@@ -312,7 +324,7 @@ class TestRagasAgentEvaluation:
             "operation": "database_query",
             "duration_ms": 8500,
             "memory_mb": 512,
-            "baseline_ms": 2000
+            "baseline_ms": 2000,
         }
 
         analysis = agent.execute(execution_data)
@@ -324,22 +336,26 @@ class TestRagasAgentEvaluation:
                 "answer": f"Operation took {analysis['duration_ms']}ms, status is {analysis['status']}",
                 "contexts": [
                     "Database queries can be optimized",
-                    "High duration indicates performance issues"
-                ]
+                    "High duration indicates performance issues",
+                ],
             }
         ]
 
         dataset = Dataset.from_list(test_cases)
         result = evaluate(dataset, metrics=[faithfulness])
 
-        print(f"\n✓ Performance Agent (retrieve_performance_optimization_patterns) Response Quality:")
+        print(
+            f"\n✓ Performance Agent (retrieve_performance_optimization_patterns) Response Quality:"
+        )
         print(f"  - Faithfulness: {result.get('faithfulness', 0):.3f}")
 
-        assert result.get('faithfulness', 0) > 0.3, "Performance Agent response quality insufficient"
+        assert (
+            result.get("faithfulness", 0) > 0.3
+        ), "Performance Agent response quality insufficient"
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_compliance_agent_response_quality(self):
         """
@@ -367,7 +383,7 @@ class TestRagasAgentEvaluation:
             "regulations": ["PCI_DSS", "GDPR"],
             "encrypted": False,
             "pii_masked": False,
-            "audit_enabled": True
+            "audit_enabled": True,
         }
 
         checks = agent.execute(compliance_data)
@@ -377,13 +393,15 @@ class TestRagasAgentEvaluation:
         test_cases = [
             {
                 "question": "What PCI DSS and GDPR violations exist?",
-                "answer": violations_text if violations_text else "Encryption missing, PII not masked",
+                "answer": violations_text
+                if violations_text
+                else "Encryption missing, PII not masked",
                 "contexts": [
                     "PCI DSS requires encryption of cardholder data",
                     "GDPR requires PII to be masked or encrypted",
-                    "Audit logging helps with compliance"
+                    "Audit logging helps with compliance",
                 ],
-                "ground_truth": "Encryption and PII masking violations"
+                "ground_truth": "Encryption and PII masking violations",
             }
         ]
 
@@ -395,12 +413,13 @@ class TestRagasAgentEvaluation:
         print(f"  - Context Precision: {result.get('context_precision', 0):.3f}")
 
         # Compliance needs high precision
-        assert result.get('faithfulness', 0) > 0.3 or result.get('context_precision', 0) > 0.3, \
-            "Compliance Agent rule matching quality insufficient"
+        assert (
+            result.get("faithfulness", 0) > 0.3 or result.get("context_precision", 0) > 0.3
+        ), "Compliance Agent rule matching quality insufficient"
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_devops_agent_response_quality(self):
         """
@@ -426,7 +445,7 @@ class TestRagasAgentEvaluation:
             "version": "v2.1.0",
             "environment": "production",
             "error_type": "",
-            "message": ""
+            "message": "",
         }
 
         result_data = agent.execute(deployment_config)
@@ -438,8 +457,8 @@ class TestRagasAgentEvaluation:
                 "answer": f"Deployment status: {result_data['deployment_status']}, environment: {result_data['environment']}",
                 "contexts": [
                     "Production deployments require health checks",
-                    "Version v2.1.0 should be deployed with monitoring"
-                ]
+                    "Version v2.1.0 should be deployed with monitoring",
+                ],
             }
         ]
 
@@ -449,11 +468,11 @@ class TestRagasAgentEvaluation:
         print(f"\n✓ DevOps Agent (retrieve_similar_errors) Response Quality:")
         print(f"  - Faithfulness: {result.get('faithfulness', 0):.3f}")
 
-        assert result.get('faithfulness', 0) > 0.3, "DevOps Agent response quality insufficient"
+        assert result.get("faithfulness", 0) > 0.3, "DevOps Agent response quality insufficient"
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_sre_agent_response_quality(self):
         """
@@ -479,8 +498,8 @@ class TestRagasAgentEvaluation:
             "file": "src/example.py",
             "errors": [
                 {"line": 10, "code": "E501", "message": "line too long"},
-                {"line": 25, "code": "F401", "message": "unused import"}
-            ]
+                {"line": 25, "code": "F401", "message": "unused import"},
+            ],
         }
 
         fixes = agent.execute(linting_data)
@@ -493,8 +512,8 @@ class TestRagasAgentEvaluation:
                 "answer": fixes_text,
                 "contexts": [
                     "E501 errors are fixed by breaking long lines",
-                    "F401 errors are fixed by removing unused imports"
-                ]
+                    "F401 errors are fixed by removing unused imports",
+                ],
             }
         ]
 
@@ -504,11 +523,11 @@ class TestRagasAgentEvaluation:
         print(f"\n✓ SRE Agent (retrieve_similar_errors for linting) Response Quality:")
         print(f"  - Faithfulness: {result.get('faithfulness', 0):.3f}")
 
-        assert result.get('faithfulness', 0) > 0.3, "SRE Agent response quality insufficient"
+        assert result.get("faithfulness", 0) > 0.3, "SRE Agent response quality insufficient"
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_sdet_agent_response_quality(self):
         """
@@ -534,7 +553,7 @@ class TestRagasAgentEvaluation:
             "file": "src/api.py",
             "coverage_percentage": 65,
             "uncovered_lines": [45, 46, 50, 52],
-            "high_risk": True
+            "high_risk": True,
         }
 
         recommendations = agent.execute(coverage_data)
@@ -544,13 +563,15 @@ class TestRagasAgentEvaluation:
         test_cases = [
             {
                 "question": "What tests are needed for uncovered high-risk code in src/api.py?",
-                "answer": rec_text if rec_text else "Add tests for lines 45-52 focusing on error handling",
+                "answer": rec_text
+                if rec_text
+                else "Add tests for lines 45-52 focusing on error handling",
                 "contexts": [
                     "High-risk uncovered code should be prioritized for testing",
                     "Lines 45-52 need test coverage",
-                    "65% coverage is below target"
+                    "65% coverage is below target",
                 ],
-                "ground_truth": "Add tests for uncovered high-risk lines"
+                "ground_truth": "Add tests for uncovered high-risk lines",
             }
         ]
 
@@ -561,12 +582,13 @@ class TestRagasAgentEvaluation:
         print(f"  - Faithfulness: {result.get('faithfulness', 0):.3f}")
         print(f"  - Context Recall: {result.get('context_recall', 0):.3f}")
 
-        assert result.get('faithfulness', 0) > 0.3 or result.get('context_recall', 0) > 0.3, \
-            "SDET Agent response quality insufficient"
+        assert (
+            result.get("faithfulness", 0) > 0.3 or result.get("context_recall", 0) > 0.3
+        ), "SDET Agent response quality insufficient"
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_fullstack_agent_response_quality(self):
         """
@@ -591,7 +613,7 @@ class TestRagasAgentEvaluation:
         feature_request = {
             "feature": "user authentication",
             "requirements": ["JWT tokens", "password hashing", "session management"],
-            "tech_stack": "Python Flask"
+            "tech_stack": "Python Flask",
         }
 
         generated_code = agent.execute(feature_request)
@@ -605,8 +627,8 @@ class TestRagasAgentEvaluation:
                 "contexts": [
                     "JWT tokens provide stateless authentication",
                     "Password hashing is critical for security",
-                    "Flask supports session management"
-                ]
+                    "Flask supports session management",
+                ],
             }
         ]
 
@@ -616,7 +638,7 @@ class TestRagasAgentEvaluation:
         print(f"\n✓ Fullstack Agent (retrieve_similar_errors for code gen) Response Quality:")
         print(f"  - Faithfulness: {result.get('faithfulness', 0):.3f}")
 
-        assert result.get('faithfulness', 0) > 0.3, "Fullstack Agent response quality insufficient"
+        assert result.get("faithfulness", 0) > 0.3, "Fullstack Agent response quality insufficient"
 
 
 class TestCentralizedRAGHealth:
@@ -624,7 +646,7 @@ class TestCentralizedRAGHealth:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_overall_rag_system_health(self):
         """
@@ -645,18 +667,21 @@ class TestCentralizedRAGHealth:
             {
                 "question": "What causes test failures?",
                 "answer": "Network timeouts, database connection issues, and configuration errors",
-                "contexts": ["Tests fail due to network issues", "Database connections cause failures"]
+                "contexts": [
+                    "Tests fail due to network issues",
+                    "Database connections cause failures",
+                ],
             },
             {
                 "question": "How to optimize performance?",
                 "answer": "Reduce query complexity, add caching, optimize algorithms",
-                "contexts": ["Query optimization improves performance", "Caching reduces latency"]
+                "contexts": ["Query optimization improves performance", "Caching reduces latency"],
             },
             {
                 "question": "What are compliance requirements?",
                 "answer": "Encryption, PII masking, audit logging, access controls",
-                "contexts": ["Compliance requires encryption", "PII must be masked"]
-            }
+                "contexts": ["Compliance requires encryption", "PII must be masked"],
+            },
         ]
 
         dataset = Dataset.from_list(test_cases)
@@ -667,12 +692,12 @@ class TestCentralizedRAGHealth:
         print(f"  - System-wide Answer Relevancy: {result.get('answer_relevancy', 0):.3f}")
 
         # System should maintain minimum quality threshold
-        assert result.get('faithfulness', 0) > 0.3, "Overall RAG system faithfulness too low"
+        assert result.get("faithfulness", 0) > 0.3, "Overall RAG system faithfulness too low"
         print(f"✓ RAG system health check passed")
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_multi_agent_retrieval_consistency(self):
         """
@@ -703,18 +728,28 @@ class TestCentralizedRAGHealth:
             "total": 10,
             "passed": 7,
             "failed": 3,
-            "coverage": 75
+            "coverage": 75,
         }
 
         qa_result = qa_agent.execute(test_scenario)
-        sdet_result = sdet_agent.execute({"file": "test_integration.py", "coverage_percentage": 75, "uncovered_lines": [10, 20, 30], "high_risk": True})
+        sdet_result = sdet_agent.execute(
+            {
+                "file": "test_integration.py",
+                "coverage_percentage": 75,
+                "uncovered_lines": [10, 20, 30],
+                "high_risk": True,
+            }
+        )
 
         # Evaluate consistency
         test_cases = [
             {
                 "question": "How to handle integration test issues?",
                 "answer": "Improve test coverage and investigate failures",
-                "contexts": ["Integration tests need better coverage", "Failed tests should be investigated"]
+                "contexts": [
+                    "Integration tests need better coverage",
+                    "Failed tests should be investigated",
+                ],
             }
         ]
 
@@ -726,7 +761,7 @@ class TestCentralizedRAGHealth:
         print(f"  - QA Agent RAG insights used: {qa_result.get('rag_insights_used', 0)}")
         print(f"  - SDET Agent RAG insights used: {sdet_result.get('rag_insights_used', 0)}")
 
-        assert result.get('faithfulness', 0) > 0.3, "Multi-agent retrieval consistency insufficient"
+        assert result.get("faithfulness", 0) > 0.3, "Multi-agent retrieval consistency insufficient"
 
 
 class TestRagasSystemImprovement:
@@ -734,7 +769,7 @@ class TestRagasSystemImprovement:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_ragas_scores_track_system_improvement(self):
         """
@@ -776,14 +811,17 @@ class TestRagasSystemImprovement:
                 {
                     "question": f"How to handle test scenario {i}?",
                     "answer": recommendations if recommendations else "Check test configuration",
-                    "contexts": ["Test configuration is important", "Integration tests need proper setup"]
+                    "contexts": [
+                        "Test configuration is important",
+                        "Integration tests need proper setup",
+                    ],
                 }
             ]
 
             dataset = Dataset.from_list(test_cases)
             result = evaluate(dataset, metrics=[faithfulness])
 
-            scores_over_time.append(result.get('faithfulness', 0))
+            scores_over_time.append(result.get("faithfulness", 0))
 
         print(f"\n✓ Ragas Scores Over Time: {scores_over_time}")
         print(f"  - Initial: {scores_over_time[0]:.3f}")
@@ -795,7 +833,7 @@ class TestRagasSystemImprovement:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_per_agent_learning_trajectories(self):
         """
@@ -814,7 +852,7 @@ class TestRagasSystemImprovement:
         agents = {
             "QA": QAAssistantAgent(),
             "Performance": PerformanceAgent(),
-            "Compliance": ComplianceAgent()
+            "Compliance": ComplianceAgent(),
         }
 
         learning_trajectories = {}
@@ -827,19 +865,44 @@ class TestRagasSystemImprovement:
             scores = []
             for i in range(2):
                 if agent_name == "QA":
-                    data = {"test_name": f"test_{i}", "test_type": "unit", "status": "failed", "total": 10, "passed": 7, "failed": 3, "coverage": 80}
+                    data = {
+                        "test_name": f"test_{i}",
+                        "test_type": "unit",
+                        "status": "failed",
+                        "total": 10,
+                        "passed": 7,
+                        "failed": 3,
+                        "coverage": 80,
+                    }
                 elif agent_name == "Performance":
-                    data = {"operation": "query", "duration_ms": 5000 + i*1000, "memory_mb": 256, "baseline_ms": 2000}
+                    data = {
+                        "operation": "query",
+                        "duration_ms": 5000 + i * 1000,
+                        "memory_mb": 256,
+                        "baseline_ms": 2000,
+                    }
                 else:  # Compliance
-                    data = {"context": "compliance", "regulations": ["GDPR"], "encrypted": False, "pii_masked": False, "audit_enabled": True}
+                    data = {
+                        "context": "compliance",
+                        "regulations": ["GDPR"],
+                        "encrypted": False,
+                        "pii_masked": False,
+                        "audit_enabled": True,
+                    }
 
                 result = agent.execute(data)
 
                 # Evaluate
-                test_cases = [{"question": f"Agent {agent_name} question", "answer": f"Agent {agent_name} response", "contexts": ["Context for agent"]}]
+                test_cases = [
+                    {
+                        "question": f"Agent {agent_name} question",
+                        "answer": f"Agent {agent_name} response",
+                        "contexts": ["Context for agent"],
+                    }
+                ]
                 dataset = Dataset.from_list(test_cases)
                 eval_result = evaluate(dataset, metrics=[faithfulness])
-                scores.append(eval_result.get('faithfulness', 0))
+                scores.append(eval_result.get("faithfulness", 0))
 
             learning_trajectories[agent_name] = scores
 
@@ -856,7 +919,7 @@ class TestRagasDelegationQuality:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_sdet_to_sre_delegation_quality(self):
         """
@@ -884,13 +947,16 @@ class TestRagasDelegationQuality:
 
         # SDET identifies coverage gap and delegates to SRE
         try:
-            result = sdet.delegate_to_agent("SRE_Agent", {
-                "file": "src/api.py",
-                "errors": [
-                    {"line": 10, "code": "E501", "message": "line too long"},
-                    {"line": 20, "code": "F401", "message": "unused import"}
-                ]
-            })
+            result = sdet.delegate_to_agent(
+                "SRE_Agent",
+                {
+                    "file": "src/api.py",
+                    "errors": [
+                        {"line": 10, "code": "E501", "message": "line too long"},
+                        {"line": 20, "code": "F401", "message": "unused import"},
+                    ],
+                },
+            )
 
             # Evaluate delegation result quality
             test_cases = [
@@ -899,8 +965,8 @@ class TestRagasDelegationQuality:
                     "answer": f"Delegated to SRE: Fixed {len(result.get('applied_fixes', []))} issues",
                     "contexts": [
                         "SRE specializes in code quality and linting fixes",
-                        "SDET delegates test-related tasks to appropriate specialists"
-                    ]
+                        "SDET delegates test-related tasks to appropriate specialists",
+                    ],
                 }
             ]
 
@@ -916,7 +982,7 @@ class TestRagasDelegationQuality:
             print(f"  - Total delegations: {delegation_summary['total_delegations']}")
             print(f"  - Delegation path:\n{delegation_summary['delegation_path']}")
 
-            assert eval_result.get('faithfulness', 0) > 0.2, "Delegation quality insufficient"
+            assert eval_result.get("faithfulness", 0) > 0.2, "Delegation quality insufficient"
 
         except Exception as e:
             # Agent execution might fail, but delegation mechanism should work
@@ -924,7 +990,7 @@ class TestRagasDelegationQuality:
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_collaboration_improves_result_quality(self):
         """
@@ -947,7 +1013,7 @@ class TestRagasDelegationQuality:
         feature_request = {
             "feature": "user authentication",
             "requirements": ["JWT tokens", "password hashing"],
-            "tech_stack": "Python Flask"
+            "tech_stack": "Python Flask",
         }
 
         result_isolated = fullstack_isolated.execute(feature_request)
@@ -966,13 +1032,16 @@ class TestRagasDelegationQuality:
             result_collab = fullstack_collab.execute(feature_request)
 
             # Try to validate with Compliance
-            validation = fullstack_collab.delegate_to_agent("Compliance_Agent", {
-                "context": "code_validation",
-                "regulations": ["GDPR"],
-                "encrypted": True,
-                "pii_masked": True,
-                "audit_enabled": True
-            })
+            validation = fullstack_collab.delegate_to_agent(
+                "Compliance_Agent",
+                {
+                    "context": "code_validation",
+                    "regulations": ["GDPR"],
+                    "encrypted": True,
+                    "pii_masked": True,
+                    "audit_enabled": True,
+                },
+            )
 
             # Evaluate both approaches
             test_cases_isolated = [
@@ -980,7 +1049,7 @@ class TestRagasDelegationQuality:
                     "question": "Is the authentication code secure and compliant?",
                     "answer": "Generated authentication code without compliance validation",
                     "contexts": ["Security requires compliance validation"],
-                    "ground_truth": "Code should be validated for GDPR compliance"
+                    "ground_truth": "Code should be validated for GDPR compliance",
                 }
             ]
 
@@ -989,7 +1058,7 @@ class TestRagasDelegationQuality:
                     "question": "Is the authentication code secure and compliant?",
                     "answer": "Generated and validated with Compliance agent",
                     "contexts": ["Code validated against GDPR requirements"],
-                    "ground_truth": "Code validated for GDPR compliance"
+                    "ground_truth": "Code validated for GDPR compliance",
                 }
             ]
 
@@ -1004,15 +1073,16 @@ class TestRagasDelegationQuality:
             print(f"  - Collaborative Fullstack: {eval_collab.get('faithfulness', 0):.3f}")
 
             # Collaboration should maintain or improve quality
-            assert eval_collab.get('faithfulness', 0) >= eval_isolated.get('faithfulness', 0) * 0.8, \
-                "Collaboration shouldn't significantly degrade quality"
+            assert (
+                eval_collab.get("faithfulness", 0) >= eval_isolated.get("faithfulness", 0) * 0.8
+            ), "Collaboration shouldn't significantly degrade quality"
 
         except Exception as e:
             print(f"✓ Collaboration mechanism tested: {type(e).__name__}")
 
     @pytest.mark.skipif(
         os.getenv("WEAVIATE_HOST") is None or os.getenv("OPENAI_API_KEY") is None,
-        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI."
+        reason="Weaviate or OpenAI API key not configured. Ragas requires OpenAI.",
     )
     def test_delegation_chain_coherence(self):
         """
@@ -1045,27 +1115,29 @@ class TestRagasDelegationQuality:
             fullstack.execute({"feature": "auth"})
 
             # Compliance validates, then consults DevOps
-            compliance_result = fullstack.delegate_to_agent("Compliance_Agent", {
-                "context": "security_check",
-                "regulations": ["PCI_DSS"],
-                "encrypted": True,
-                "pii_masked": True,
-                "audit_enabled": True
-            })
+            compliance_result = fullstack.delegate_to_agent(
+                "Compliance_Agent",
+                {
+                    "context": "security_check",
+                    "regulations": ["PCI_DSS"],
+                    "encrypted": True,
+                    "pii_masked": True,
+                    "audit_enabled": True,
+                },
+            )
 
             # Compliance might consult DevOps
             if compliance.can_delegate_to("DevOps_Agent"):
-                devops_advice = compliance.delegate_to_agent("DevOps_Agent", {
-                    "version": "v1.0",
-                    "environment": "production"
-                })
+                devops_advice = compliance.delegate_to_agent(
+                    "DevOps_Agent", {"version": "v1.0", "environment": "production"}
+                )
 
                 # Evaluate chain coherence
                 test_cases = [
                     {
                         "question": "Is the deployment secure and compliant?",
                         "answer": "Validated through Fullstack → Compliance → DevOps chain",
-                        "contexts": ["Multi-agent validation ensures comprehensive security"]
+                        "contexts": ["Multi-agent validation ensures comprehensive security"],
                     }
                 ]
 

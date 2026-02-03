@@ -62,11 +62,7 @@ class PatternAnalyzer:
             "analyzed_at": datetime.utcnow().isoformat(),
             "total_executions": len(executions),
             "avg_latency_ms": sum(latencies) / len(latencies) if latencies else 0,
-            "p95_latency_ms": (
-                sorted(latencies)[int(len(latencies) * 0.95)]
-                if latencies
-                else 0
-            ),
+            "p95_latency_ms": (sorted(latencies)[int(len(latencies) * 0.95)] if latencies else 0),
             "agent_performance": {
                 agent: {"avg_ms": sum(times) / len(times), "executions": len(times)}
                 for agent, times in agent_performance.items()
@@ -83,11 +79,7 @@ class PatternAnalyzer:
         cutoff = datetime.utcnow() - timedelta(days=window_days)
         all_artifacts = self.store.search_artifacts()
 
-        recent = [
-            a
-            for a in all_artifacts
-            if datetime.fromisoformat(a["timestamp"]) > cutoff
-        ]
+        recent = [a for a in all_artifacts if datetime.fromisoformat(a["timestamp"]) > cutoff]
 
         agent_results = defaultdict(lambda: {"pass": 0, "fail": 0})
 
