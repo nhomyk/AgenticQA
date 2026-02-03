@@ -716,6 +716,15 @@ class SDETAgent(BaseAgent):
         if high_priority_gaps:
             recommendations.append(f"Add tests for {len(high_priority_gaps)} high-priority untested files")
 
+        # Add recommendations for medium priority gaps
+        medium_priority_gaps = [g for g in gaps if g.get("priority") == "medium"]
+        if medium_priority_gaps:
+            recommendations.append(f"Add tests for {len(medium_priority_gaps)} medium-priority untested files")
+
+        # Add general recommendation if there are any gaps
+        if gaps and not recommendations:
+            recommendations.append(f"Add tests for {len(gaps)} untested files")
+
         # RAG-enhanced recommendations
         if augmented_context:
             rag_recommendations = augmented_context.get("rag_recommendations", [])
