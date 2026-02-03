@@ -1,13 +1,33 @@
 """
 Ragas Evaluation Tests for RAG System Quality
 
-These tests use Ragas metrics to evaluate the quality of the RAG system:
+These tests evaluate the quality of the RAG system using Ragas metrics:
 - Faithfulness: Accuracy of generated answers based on retrieved context
 - Answer Relevancy: How well answers address the query
 - Context Precision: Quality of retrieved context
 - Context Recall: Completeness of context retrieval
 
-Ragas provides automated evaluation for RAG pipelines without needing ground truth.
+⚠️  IMPORTANT: These are OPTIONAL quality evaluation tests ⚠️
+
+Requirements:
+  • OPENAI_API_KEY environment variable (for Ragas LLM-based evaluation)
+  • WEAVIATE_HOST environment variable (for RAG system connection)
+
+Behavior:
+  • If requirements are NOT met: Tests skip gracefully (expected in CI)
+  • If requirements ARE met: Full quality evaluation runs (incurs OpenAI API costs)
+
+Running locally with evaluation:
+  $ export OPENAI_API_KEY="your-key-here"
+  $ export WEAVIATE_HOST="localhost"
+  $ pytest tests/test_ragas_evaluation.py -v
+
+CI Behavior:
+  • Tests will SKIP unless OPENAI_API_KEY secret is configured
+  • Skipped tests are NORMAL and do not indicate failure
+  • To enable in CI: Add OPENAI_API_KEY to GitHub repository secrets
+
+Ragas provides automated RAG evaluation without requiring ground truth labels.
 """
 
 import pytest
@@ -16,6 +36,9 @@ from typing import List, Dict, Any
 
 # Mark all tests as integration tests
 pytestmark = pytest.mark.integration
+
+# Note: Tests in this file require OpenAI API key and will skip without it
+# This is expected behavior and not a test failure
 
 
 class TestRagasMetrics:
