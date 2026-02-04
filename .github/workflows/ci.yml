@@ -183,7 +183,7 @@ jobs:
           echo "╚════════════════════════════════════════════════════════════╝"
           echo ""
           python -c "
-          from src.agenticqa.rag.config import RAGConfig
+          from agenticqa.rag.config import RAGConfig
           print(RAGConfig.print_config_summary())
           print()
           if RAGConfig.is_hybrid_rag_enabled():
