@@ -159,6 +159,38 @@ jobs:
             echo "This is normal if test framework not yet initialized." >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Set up Python (for health log ingestion)
+        if: always()
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA Python package
+        if: always()
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+        continue-on-error: true
+
+      - name: Ingest Pipeline Health to Weaviate
+        if: always()
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+        run: |
+          echo "🧠 Ingesting pipeline health log to Weaviate..."
+
+          if [ -f pipeline-health.log ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --pipeline-health pipeline-health.log \
+              --run-id ${{ github.run_id }} || echo "⚠️  Pipeline health ingestion skipped"
+          fi
+
+          echo "✅ Pipeline health metrics ingested"
+        continue-on-error: true
+
   # Phase 0: Linting Fix (SRE Agent - Early Prevention)
   # Auto-fixes linting errors before the lint job runs
   linting-fix:
@@ -369,6 +401,24 @@ jobs:
           echo "✅ Test result ingestion complete"
         continue-on-error: true
 
+      - name: Ingest Test Failures to Weaviate
+        if: failure()
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+        run: |
+          echo "🧠 Ingesting test failure details to Weaviate..."
+
+          if [ -d test-failures ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --test-failures test-failures/ \
+              --run-id ${{ github.run_id }} || echo "⚠️  Test failures ingestion skipped"
+          fi
+
+          echo "✅ Test failure patterns ingested"
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## 🧪 Phase 1 Testing Summary" >> $GITHUB_STEP_SUMMARY
@@ -475,10 +525,19 @@ jobs:
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
           AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
         run: |
-          echo "🧠 Ingesting Pa11y report to Weaviate for agent learning..."
+          echo "🧠 Ingesting Pa11y reports to Weaviate for agent learning..."
+
+          # Ingest text report
           python ingest_ci_artifacts.py \
             --pa11y-report pa11y-report.txt \
-            --run-id ${{ github.run_id }} || echo "⚠️  Weaviate ingestion skipped (not configured)"
+            --run-id ${{ github.run_id }} || echo "⚠️  Text report ingestion skipped"
+
+          # Ingest JSON report
+          if [ -f pa11y-report.json ]; then
+            python ingest_ci_artifacts.py \
+              --pa11y-json pa11y-report.json \
+              --run-id ${{ github.run_id }} || echo "⚠️  JSON report ingestion skipped"
+          fi
         continue-on-error: true
 
       - name: Store Success Patterns to Weaviate (Every Run)
@@ -520,6 +579,24 @@ jobs:
           else
             echo "fixes_applied=false" >> "$GITHUB_OUTPUT"
             echo "⚠️  No auto-fixes applied"
+          fi
+        continue-on-error: true
+
+      - name: Ingest Auto-Fix Log to Weaviate
+        if: matrix.check == 'accessibility' && steps.pa11y.outputs.error_count > 0
+        working-directory: AgenticQA
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+        run: |
+          echo "🧠 Ingesting auto-fix execution log to Weaviate..."
+
+          if [ -f autofix-output.txt ]; then
+            python ingest_ci_artifacts.py \
+              --agent-log autofix-output.txt \
+              --agent-type compliance \
+              --run-id ${{ github.run_id }} || echo "⚠️  Auto-fix log ingestion skipped"
           fi
         continue-on-error: true
 
@@ -567,9 +644,19 @@ jobs:
           kill $SERVER_PID 2>/dev/null || true
 
           # Ingest revalidation results to Weaviate
+          echo "🧠 Ingesting revalidation reports to Weaviate..."
+
+          # Ingest text report
           python ingest_ci_artifacts.py \
             --pa11y-report pa11y-revalidate.txt \
-            --run-id "${{ github.run_id }}-revalidate" || echo "⚠️  Weaviate ingestion skipped"
+            --run-id "${{ github.run_id }}-revalidate" || echo "⚠️  Text report ingestion skipped"
+
+          # Ingest JSON report
+          if [ -f pa11y-revalidate.json ]; then
+            python ingest_ci_artifacts.py \
+              --pa11y-json pa11y-revalidate.json \
+              --run-id "${{ github.run_id }}-revalidate" || echo "⚠️  JSON report ingestion skipped"
+          fi
 
           # LEARNING: Store fix results for pattern learning
           echo "🧠 Storing fix results for learning..."
