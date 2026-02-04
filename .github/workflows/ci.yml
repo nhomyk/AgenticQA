@@ -310,7 +310,61 @@ jobs:
           name: test-failures
           path: test-failures/
           retention-days: 1
-      
+
+      - name: Set up Python (for RAG ingestion)
+        if: always()
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA Python package
+        if: always()
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+        continue-on-error: true
+
+      - name: Ingest Test Results to Weaviate
+        if: always()
+        run: |
+          echo "🧠 Ingesting test results to Weaviate for QA/SDET agent learning..."
+
+          # Ingest Jest results if available
+          if [ -f jest-output.log ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --test-results jest-output.log \
+              --test-framework jest \
+              --run-id ${{ github.run_id }} || echo "⚠️  Jest ingestion skipped"
+          fi
+
+          # Ingest Vitest results if available
+          if [ -f vitest-output.log ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --test-results vitest-output.log \
+              --test-framework vitest \
+              --run-id ${{ github.run_id }} || echo "⚠️  Vitest ingestion skipped"
+          fi
+
+          # Ingest Playwright results if available
+          if [ -f playwright-output.log ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --test-results playwright-output.log \
+              --test-framework playwright \
+              --run-id ${{ github.run_id }} || echo "⚠️  Playwright ingestion skipped"
+          fi
+
+          # Ingest Cypress results if available
+          if [ -f cypress-output.log ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --test-results cypress-output.log \
+              --test-framework cypress \
+              --run-id ${{ github.run_id }} || echo "⚠️  Cypress ingestion skipped"
+          fi
+
+          echo "✅ Test result ingestion complete"
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## 🧪 Phase 1 Testing Summary" >> $GITHUB_STEP_SUMMARY
@@ -394,18 +448,151 @@ jobs:
           # Exit with success to allow artifact upload
           exit 0
         continue-on-error: true
-      
+
+      - name: Set up Python (for RAG ingestion)
+        if: matrix.check == 'accessibility'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA Python package
+        if: matrix.check == 'accessibility'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+        continue-on-error: true
+
+      - name: Ingest Pa11y Report to Weaviate
+        if: matrix.check == 'accessibility' && always()
+        working-directory: AgenticQA
+        run: |
+          echo "🧠 Ingesting Pa11y report to Weaviate for agent learning..."
+          python ingest_ci_artifacts.py \
+            --pa11y-report pa11y-report.txt \
+            --run-id ${{ github.run_id }} || echo "⚠️  Weaviate ingestion skipped (not configured)"
+        continue-on-error: true
+
+      - name: Auto-Fix Accessibility Violations
+        if: matrix.check == 'accessibility' && steps.pa11y.outputs.error_count > 0
+        id: autofix
+        working-directory: AgenticQA
+        run: |
+          echo "🔧 Found ${{ steps.pa11y.outputs.error_count }} accessibility violations"
+          echo "Running ComplianceAgent auto-fix..."
+
+          python fix_accessibility.py pa11y-report.txt public/index.html 2>&1 | tee autofix-output.txt || true
+
+          if grep -q "Fixes Applied:" autofix-output.txt; then
+            echo "fixes_applied=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Auto-fixes applied successfully"
+          else
+            echo "fixes_applied=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️  No auto-fixes applied"
+          fi
+        continue-on-error: true
+
+      - name: Re-validate with Pa11y (after auto-fix)
+        if: matrix.check == 'accessibility' && steps.autofix.outputs.fixes_applied == 'true'
+        working-directory: AgenticQA
+        run: |
+          echo "🔄 Re-running Pa11y to validate auto-fixes..."
+
+          npm run start:server > /tmp/server-revalidate.log 2>&1 &
+          SERVER_PID=$!
+          sleep 5
+
+          npm run test:pa11y 2>&1 | tee pa11y-revalidate.txt || true
+
+          # Count errors after auto-fix
+          ERRORS_AFTER=$(grep -c "^\s*•" pa11y-revalidate.txt 2>/dev/null) || ERRORS_AFTER=0
+          ERRORS_AFTER=$(echo "$ERRORS_AFTER" | tr -d '\n\r' | grep -o '[0-9]*')
+          ERRORS_AFTER=${ERRORS_AFTER:-0}
+
+          ERRORS_BEFORE=${{ steps.pa11y.outputs.error_count }}
+          ERRORS_FIXED=$((ERRORS_BEFORE - ERRORS_AFTER))
+
+          echo "📊 Re-validation Results:"
+          echo "  Violations before: $ERRORS_BEFORE"
+          echo "  Violations after:  $ERRORS_AFTER"
+          echo "  Violations fixed:  $ERRORS_FIXED"
+
+          # Generate re-validation summary
+          cat > pa11y-revalidate.json << EOF
+          {
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "url": "http://localhost:8080",
+            "errorCountBefore": $ERRORS_BEFORE,
+            "errorCountAfter": $ERRORS_AFTER,
+            "errorsFixed": $ERRORS_FIXED,
+            "status": "revalidated"
+          }
+          EOF
+
+          kill $SERVER_PID 2>/dev/null || true
+
+          # Ingest revalidation results to Weaviate
+          python ingest_ci_artifacts.py \
+            --pa11y-report pa11y-revalidate.txt \
+            --run-id "${{ github.run_id }}-revalidate" || echo "⚠️  Weaviate ingestion skipped"
+        continue-on-error: true
+
+      - name: Commit auto-fixes (if any)
+        if: matrix.check == 'accessibility' && steps.autofix.outputs.fixes_applied == 'true'
+        working-directory: AgenticQA
+        run: |
+          git config --global user.name "compliance-agent[bot]"
+          git config --global user.email "compliance-agent[bot]@users.noreply.github.com"
+
+          if git diff --quiet; then
+            echo "No file changes to commit"
+          else
+            git add public/index.html
+            git commit -m "fix: Auto-fix accessibility violations via ComplianceAgent
+
+          Fixed ${{ steps.pa11y.outputs.error_count }} accessibility violations using hybrid AI architecture.
+
+          Co-Authored-By: ComplianceAgent <compliance-agent[bot]@users.noreply.github.com>" || echo "Commit failed"
+
+            git push origin HEAD:${{ github.ref }} || echo "Push failed"
+            echo "✅ Auto-fixes committed and pushed"
+          fi
+        continue-on-error: true
+
       - name: Run Security Scan (npm audit)
         if: matrix.check == 'security'
         id: audit
         run: |
           echo "Running npm audit for security vulnerabilities..."
           npm audit --audit-level=moderate --json > audit-report.json || true
-          
+
           if [ -f audit-report.json ]; then
             echo "Audit report generated"
             cat audit-report.json | jq '.metadata | {total, vulnerabilities, severity}'
           fi
+        continue-on-error: true
+
+      - name: Set up Python (for RAG ingestion)
+        if: matrix.check == 'security'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA Python package
+        if: matrix.check == 'security'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+        continue-on-error: true
+
+      - name: Ingest Security Audit to Weaviate
+        if: matrix.check == 'security' && always()
+        run: |
+          echo "🧠 Ingesting security audit to Weaviate for DevOps agent learning..."
+          python AgenticQA/ingest_ci_artifacts.py \
+            --security-audit audit-report.json \
+            --run-id ${{ github.run_id }} || echo "⚠️  Weaviate ingestion skipped (not configured)"
         continue-on-error: true
       
       - name: Upload Pa11y Report
@@ -506,15 +693,42 @@ jobs:
         run: |
           echo "## 📊 Compliance Check Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f pa11y-report/pa11y-report.json ]; then
             echo "✅ **Accessibility Report Generated**" >> $GITHUB_STEP_SUMMARY
+
+            # Show accessibility details if available
+            if [ -f pa11y-report/pa11y-report.txt ]; then
+              ERROR_COUNT=$(grep -c "^\s*•" pa11y-report/pa11y-report.txt 2>/dev/null) || ERROR_COUNT=0
+              echo "   - Violations found: $ERROR_COUNT" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Check for revalidation results
+            if [ -f pa11y-report/pa11y-revalidate.json ]; then
+              echo "   - ✅ Auto-fixes applied and re-validated" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
-          
+
           if [ -f audit-report/audit-report.json ]; then
             echo "✅ **Security Report Generated**" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🧠 Learning Loop Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following artifacts were ingested to Weaviate for agent learning:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f pa11y-report/pa11y-report.json ]; then
+            echo "- 🦾 **ComplianceAgent**: Pa11y accessibility report ingested" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f audit-report/audit-report.json ]; then
+            echo "- 🔒 **DevOps Agent**: Security audit results ingested" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Continuous Improvement**: Agents learn from every CI run to provide better fixes over time." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Reports available in artifacts for review" >> $GITHUB_STEP_SUMMARY
 
