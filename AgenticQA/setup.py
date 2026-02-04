@@ -31,6 +31,7 @@ setup(
         "great-expectations>=0.14.0",
         "pydantic>=1.8.0",
         "requests>=2.25.0",
+        "weaviate-client>=4.0.0",
     ],
     extras_require={
         "dev": [
