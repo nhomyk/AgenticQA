@@ -7,6 +7,13 @@
         "--disable-dev-shm-usage"
       ]
     },
+    "launchOptions": {
+      "args": [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage"
+      ]
+    },
     "timeout": 30000,
     "wait": 1000
   },
