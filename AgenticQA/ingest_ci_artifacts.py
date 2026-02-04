@@ -80,7 +80,7 @@ class CIArtifactIngestion:
             }
 
             # Store in Weaviate
-            self.rag.store_execution_result("compliance", document)
+            self.rag.log_agent_execution("compliance", document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested Pa11y report: {len(violations)} violations")
@@ -122,7 +122,7 @@ class CIArtifactIngestion:
                 "tags": ["testing", test_framework, "results"]
             }
 
-            self.rag.store_execution_result("qa", document)
+            self.rag.log_agent_execution("qa", document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested {test_framework} test results")
@@ -159,7 +159,7 @@ class CIArtifactIngestion:
                 "tags": ["coverage", "testing", "sdet"]
             }
 
-            self.rag.store_execution_result("qa", document)
+            self.rag.log_agent_execution("qa", document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested coverage report")
@@ -197,7 +197,7 @@ class CIArtifactIngestion:
                 "tags": ["security", "audit", "npm"]
             }
 
-            self.rag.store_execution_result("devops", document)
+            self.rag.log_agent_execution("devops", document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested security audit")
@@ -243,7 +243,7 @@ class CIArtifactIngestion:
                 document["errors_fixed"] = data.get("errorsFixed")
                 document["artifact_type"] = "pa11y_revalidation"
 
-            self.rag.store_execution_result("compliance", document)
+            self.rag.log_agent_execution("compliance", document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested Pa11y JSON: {document['error_count']} errors")
@@ -287,7 +287,7 @@ class CIArtifactIngestion:
                 "tags": [agent_type, "execution", "log"]
             }
 
-            self.rag.store_execution_result(agent_type, document)
+            self.rag.log_agent_execution(agent_type, document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested {agent_type} agent log: {fixes_applied} fixes")
@@ -338,7 +338,7 @@ class CIArtifactIngestion:
                     "tags": ["test", "failure", framework]
                 }
 
-                self.rag.store_execution_result("qa", document)
+                self.rag.log_agent_execution("qa", document)
                 failures_ingested += 1
 
             self.ingested_count += failures_ingested
@@ -382,7 +382,7 @@ class CIArtifactIngestion:
                 "tags": ["pipeline", "health", "validation"]
             }
 
-            self.rag.store_execution_result("sre", document)
+            self.rag.log_agent_execution("sre", document)
             self.ingested_count += 1
 
             print(f"  ✅ Ingested pipeline health: {passed_count} passed, {failed_count} failed")
