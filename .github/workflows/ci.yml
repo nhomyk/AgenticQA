@@ -175,8 +175,10 @@ jobs:
       - name: Verify Hybrid RAG Configuration
         if: always()
         env:
-          AGENTICQA_HYBRID_RAG: true
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
           AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+          AGENTICQA_HYBRID_RAG: true
         run: |
           echo "╔════════════════════════════════════════════════════════════╗"
           echo "║          HYBRID RAG CONFIGURATION CHECK                   ║"
