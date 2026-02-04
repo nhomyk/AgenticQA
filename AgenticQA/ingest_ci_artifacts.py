@@ -46,10 +46,15 @@ class CIArtifactIngestion:
             self.rag = None
 
     def close(self):
-        """Close Weaviate connection"""
-        if self.rag and hasattr(self.rag, 'vector_store'):
+        """Close RAG connections (vector store and/or relational store)"""
+        if self.rag:
             try:
-                self.rag.vector_store.close()
+                # HybridRAG has its own close() method
+                if hasattr(self.rag, 'close'):
+                    self.rag.close()
+                # Fallback for MultiAgentRAG
+                elif hasattr(self.rag, 'vector_store'):
+                    self.rag.vector_store.close()
             except Exception:
                 pass
 

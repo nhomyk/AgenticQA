@@ -63,6 +63,8 @@ class RAGConfig:
     ENV_WEAVIATE_PORT = "WEAVIATE_PORT"
     ENV_WEAVIATE_API_KEY = "WEAVIATE_API_KEY"
     ENV_WEAVIATE_COLLECTION = "WEAVIATE_COLLECTION"
+    ENV_HYBRID_RAG = "AGENTICQA_HYBRID_RAG"
+    ENV_USE_POSTGRESQL = "AGENTICQA_USE_POSTGRESQL"
 
     @staticmethod
     def get_deployment_mode() -> DeploymentMode:
@@ -171,6 +173,16 @@ class RAGConfig:
         return True
 
     @staticmethod
+    def is_hybrid_rag_enabled() -> bool:
+        """Check if hybrid RAG mode is enabled"""
+        return os.getenv(RAGConfig.ENV_HYBRID_RAG, "false").lower() in ["true", "1", "yes"]
+
+    @staticmethod
+    def use_postgresql() -> bool:
+        """Check if PostgreSQL should be used instead of SQLite"""
+        return os.getenv(RAGConfig.ENV_USE_POSTGRESQL, "false").lower() in ["true", "1", "yes"]
+
+    @staticmethod
     def print_config_summary() -> str:
         """
         Print configuration summary (safe, no secrets).
@@ -180,11 +192,14 @@ class RAGConfig:
         """
         mode = RAGConfig.get_deployment_mode()
         config = RAGConfig.get_weaviate_config()
+        hybrid_enabled = RAGConfig.is_hybrid_rag_enabled()
+        use_pg = RAGConfig.use_postgresql()
 
         summary = f"""
 RAG Configuration Summary
 ========================
 Mode: {mode.value.upper()}
+Hybrid RAG: {'ENABLED' if hybrid_enabled else 'DISABLED'}
 Collection: {config.collection_name}
 
 """
@@ -195,6 +210,9 @@ Collection: {config.collection_name}
             summary += f"Host: {config.host}\n"
             summary += f"API Key: {'***' if config.api_key else 'Not Set'}\n"
 
+        if hybrid_enabled:
+            summary += f"\nRelational DB: {'PostgreSQL' if use_pg else 'SQLite'}\n"
+
         return summary
 
 
@@ -203,7 +221,7 @@ def create_rag_system():
     Factory function to create RAG system with environment-based configuration.
 
     Returns:
-        MultiAgentRAG instance configured for current deployment mode
+        MultiAgentRAG or HybridRAG instance configured for current deployment mode
 
     Example:
         ```python
@@ -216,21 +234,62 @@ def create_rag_system():
         export WEAVIATE_HOST=cluster-name.weaviate.network
         export WEAVIATE_API_KEY=your-api-key
         rag = create_rag_system()
+
+        # For hybrid RAG (vector + relational)
+        export AGENTICQA_HYBRID_RAG=true
+        rag = create_rag_system()
+
+        # For hybrid RAG with PostgreSQL
+        export AGENTICQA_HYBRID_RAG=true
+        export AGENTICQA_USE_POSTGRESQL=true
+        rag = create_rag_system()
         ```
     """
     from .weaviate_store import WeaviateVectorStore
     from .embeddings import EmbedderFactory
-    from .retriever import MultiAgentRAG
 
     # Validate and get configuration
     RAGConfig.validate_cloud_config()
     config = RAGConfig.get_weaviate_config()
 
-    # Create vector store
-    vector_store = WeaviateVectorStore(**config.to_dict())
-
     # Create embedder (defaults to SimpleHashEmbedder)
     embedder = EmbedderFactory.get_default()
 
-    # Create and return RAG system
-    return MultiAgentRAG(vector_store, embedder)
+    # Check if hybrid RAG is enabled
+    if RAGConfig.is_hybrid_rag_enabled():
+        from .hybrid_retriever import HybridRAG
+        from .relational_store import RelationalStore, PostgreSQLStore
+
+        # Create vector store (optional - can be None if Weaviate unavailable)
+        try:
+            vector_store = WeaviateVectorStore(**config.to_dict())
+        except Exception as e:
+            print(f"Warning: Vector store unavailable: {e}. Using relational DB only.")
+            vector_store = None
+
+        # Create relational store
+        if RAGConfig.use_postgresql():
+            try:
+                relational_store = PostgreSQLStore()
+            except Exception as e:
+                print(f"Warning: PostgreSQL unavailable: {e}. Falling back to SQLite.")
+                relational_store = RelationalStore()
+        else:
+            relational_store = RelationalStore()
+
+        # Create and return hybrid RAG system
+        return HybridRAG(
+            vector_store=vector_store,
+            relational_store=relational_store,
+            embedder=embedder,
+            use_postgresql=RAGConfig.use_postgresql()
+        )
+    else:
+        # Standard RAG with vector store only
+        from .retriever import MultiAgentRAG
+
+        # Create vector store
+        vector_store = WeaviateVectorStore(**config.to_dict())
+
+        # Create and return standard RAG system
+        return MultiAgentRAG(vector_store, embedder)
