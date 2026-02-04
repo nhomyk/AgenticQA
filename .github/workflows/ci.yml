@@ -327,6 +327,10 @@ jobs:
 
       - name: Ingest Test Results to Weaviate
         if: always()
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
         run: |
           echo "🧠 Ingesting test results to Weaviate for QA/SDET agent learning..."
 
@@ -466,6 +470,10 @@ jobs:
       - name: Ingest Pa11y Report to Weaviate
         if: matrix.check == 'accessibility' && always()
         working-directory: AgenticQA
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
         run: |
           echo "🧠 Ingesting Pa11y report to Weaviate for agent learning..."
           python ingest_ci_artifacts.py \
@@ -476,6 +484,10 @@ jobs:
       - name: Store Success Patterns to Weaviate (Every Run)
         if: matrix.check == 'accessibility' && always()
         working-directory: AgenticQA
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
         run: |
           echo "🧠 Storing patterns to Weaviate (success or failure data)..."
 
@@ -514,6 +526,10 @@ jobs:
       - name: Re-validate with Pa11y (after auto-fix)
         if: matrix.check == 'accessibility' && steps.autofix.outputs.fixes_applied == 'true'
         working-directory: AgenticQA
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
         run: |
           echo "🔄 Re-running Pa11y to validate auto-fixes..."
 
@@ -617,6 +633,10 @@ jobs:
 
       - name: Ingest Security Audit to Weaviate
         if: matrix.check == 'security' && always()
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
         run: |
           echo "🧠 Ingesting security audit to Weaviate for DevOps agent learning..."
           python AgenticQA/ingest_ci_artifacts.py \
