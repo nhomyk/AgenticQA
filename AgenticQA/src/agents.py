@@ -535,7 +535,10 @@ class ComplianceAgent(BaseAgent):
                             fixes_applied.append({
                                 "file": file_path,
                                 "type": "color_contrast",
-                                "fix": violation.get("recommended_color")
+                                "fix": violation.get("recommended_color"),
+                                "original_color": "#3b82f6",  # TODO: Extract from content
+                                "fixed_color": violation.get("recommended_color"),
+                                "required_ratio": violation.get("required_ratio", "4.5")
                             })
 
                     elif violation_type == "missing_label":
@@ -621,13 +624,30 @@ class ComplianceAgent(BaseAgent):
             return []
 
     def _fix_color_contrast(self, content: str, violation: Dict) -> tuple:
-        """Fix color contrast issues by replacing colors"""
+        """
+        Fix color contrast issues by replacing colors.
+
+        Hybrid approach:
+        1. Query Weaviate for similar historical fixes (learned patterns)
+        2. If high-confidence match found, use learned solution
+        3. Otherwise, fall back to core patterns (hard-coded)
+        """
         import re
 
         recommended_color = violation.get("recommended_color", "#2b72e6")
 
-        # Find and replace old color with recommended color
-        # This is a simplified example - in production you'd use the actual violation color
+        # LEARNING: Query Weaviate for similar color contrast fixes
+        if self.rag:
+            try:
+                learned_fix = self._query_learned_color_fix(violation, content)
+                if learned_fix and learned_fix['confidence'] > 0.75:
+                    # Apply learned pattern with high confidence
+                    self.log(f"Using learned color fix: {learned_fix['fix']} (confidence: {learned_fix['confidence']:.2f})")
+                    recommended_color = learned_fix['fix']
+            except Exception as e:
+                self.log(f"RAG query failed, using core patterns: {e}", "WARNING")
+
+        # Core patterns (fast path) - always apply as fallback
         patterns = [
             (r'#3b82f6', recommended_color),  # Example: replace specific hex color
             (r'color:\s*rgb\(59,\s*130,\s*246\)', f'color: {recommended_color}'),
@@ -701,6 +721,186 @@ class ComplianceAgent(BaseAgent):
         modified = new_content != content
 
         return new_content, modified
+
+    def _query_learned_color_fix(self, violation: Dict, content: str) -> Optional[Dict]:
+        """
+        Query Weaviate for similar color contrast fixes from historical data.
+
+        Returns learned fix with confidence score if found, None otherwise.
+        """
+        try:
+            required_ratio = violation.get("required_ratio", "4.5")
+
+            # Search for similar fixes in Weaviate
+            query = f"color contrast ratio {required_ratio}:1 wcag accessibility fix"
+
+            # Use vector store search directly
+            embedding = self.rag.embedder.embed(query)
+            similar_docs = self.rag.vector_store.search(
+                embedding,
+                doc_type="accessibility_fix",
+                k=5,
+                threshold=0.6
+            )
+
+            if not similar_docs:
+                return None
+
+            # Find best match with highest success rate
+            best_fix = None
+            best_score = 0.0
+
+            for doc, similarity in similar_docs:
+                metadata = doc.metadata
+                fix_type = metadata.get("fix_type", "")
+
+                if fix_type == "color_contrast":
+                    success_rate = metadata.get("success_rate", 0.0)
+                    validation_passed = metadata.get("validation_passed", False)
+
+                    # Calculate confidence: similarity * success_rate
+                    confidence = similarity * (success_rate if validation_passed else 0.5)
+
+                    if confidence > best_score:
+                        best_score = confidence
+                        best_fix = {
+                            "fix": metadata.get("fixed_color", "#2b72e6"),
+                            "confidence": confidence,
+                            "original_color": metadata.get("original_color"),
+                            "attempts": metadata.get("attempts", 1),
+                            "successes": metadata.get("successes", 0)
+                        }
+
+            return best_fix
+
+        except Exception as e:
+            self.log(f"Error querying learned fixes: {e}", "WARNING")
+            return None
+
+    def store_fix_success(self, fix_type: str, fix_details: Dict, validation_passed: bool):
+        """
+        Store successful fix to Weaviate for future learning.
+
+        Args:
+            fix_type: Type of fix (color_contrast, missing_label, etc.)
+            fix_details: Details about the fix applied
+            validation_passed: Whether the fix passed re-validation
+        """
+        if not self.rag:
+            return
+
+        try:
+            # Create document for storage
+            document = {
+                "fix_type": fix_type,
+                "timestamp": datetime.utcnow().isoformat(),
+                "validation_passed": validation_passed,
+                "agent_type": "compliance",
+                **fix_details
+            }
+
+            # Calculate success rate if we have historical data
+            success_rate = 1.0 if validation_passed else 0.0
+
+            # Query for existing similar fixes to update success rate
+            if fix_type == "color_contrast":
+                query = f"color contrast {fix_details.get('original_color')} to {fix_details.get('fixed_color')}"
+                embedding = self.rag.embedder.embed(query)
+                existing = self.rag.vector_store.search(
+                    embedding,
+                    doc_type="accessibility_fix",
+                    k=1,
+                    threshold=0.9
+                )
+
+                if existing:
+                    # Update success rate based on history
+                    existing_meta = existing[0][0].metadata
+                    attempts = existing_meta.get("attempts", 0) + 1
+                    successes = existing_meta.get("successes", 0) + (1 if validation_passed else 0)
+                    success_rate = successes / attempts
+
+                    document["attempts"] = attempts
+                    document["successes"] = successes
+                    document["success_rate"] = success_rate
+                else:
+                    document["attempts"] = 1
+                    document["successes"] = 1 if validation_passed else 0
+                    document["success_rate"] = success_rate
+
+            # Store to Weaviate
+            content = f"{fix_type} accessibility fix"
+            embedding = self.rag.embedder.embed(content)
+
+            self.rag.vector_store.add_document(
+                content=content,
+                embedding=embedding,
+                metadata=document,
+                doc_type="accessibility_fix"
+            )
+
+            self.log(f"Stored {fix_type} fix to Weaviate (success_rate: {success_rate:.2%})")
+
+        except Exception as e:
+            self.log(f"Failed to store fix to Weaviate: {e}", "WARNING")
+
+    def store_revalidation_results(
+        self,
+        fixes_applied: List[Dict],
+        errors_before: int,
+        errors_after: int,
+        run_id: str = None
+    ):
+        """
+        Store revalidation results to enable learning from successful fixes.
+
+        Should be called after re-running Pa11y to validate fixes.
+
+        Args:
+            fixes_applied: List of fixes that were applied
+            errors_before: Number of errors before fixes
+            errors_after: Number of errors after fixes
+            run_id: CI run ID for tracking
+        """
+        if not self.rag:
+            self.log("RAG not available, skipping revalidation storage")
+            return
+
+        errors_fixed = errors_before - errors_after
+        overall_success = errors_after < errors_before
+
+        self.log(f"Storing revalidation results: {errors_fixed} errors fixed, {errors_after} remaining")
+
+        # Store each fix with its validation result
+        for fix in fixes_applied:
+            fix_type = fix.get("type")
+
+            # Determine if this specific fix type succeeded
+            # For now, we consider a fix successful if overall errors decreased
+            validation_passed = overall_success
+
+            fix_details = {
+                "original_color": fix.get("original_color"),
+                "fixed_color": fix.get("fixed_color"),
+                "required_ratio": fix.get("required_ratio"),
+                "file": fix.get("file"),
+                "run_id": run_id,
+                "errors_before": errors_before,
+                "errors_after": errors_after
+            }
+
+            self.store_fix_success(fix_type, fix_details, validation_passed)
+
+        # Store overall metrics
+        overall_result = {
+            "fixes_applied": len(fixes_applied),
+            "errors_fixed": errors_fixed,
+            "success_rate": (errors_fixed / errors_before) if errors_before > 0 else 0.0,
+            "timestamp": datetime.utcnow().isoformat(),
+            "run_id": run_id
+        }
+
+        self._record_execution("revalidation", overall_result, tags=["learning", "validation"])
 
 
 class DevOpsAgent(BaseAgent):

@@ -535,6 +535,16 @@ jobs:
           python ingest_ci_artifacts.py \
             --pa11y-report pa11y-revalidate.txt \
             --run-id "${{ github.run_id }}-revalidate" || echo "⚠️  Weaviate ingestion skipped"
+
+          # LEARNING: Store fix results for pattern learning
+          echo "🧠 Storing fix results for learning..."
+          python store_fix_results.py \
+            --errors-before $ERRORS_BEFORE \
+            --errors-after $ERRORS_AFTER \
+            --fixes-applied ${{ steps.pa11y.outputs.error_count }} \
+            --run-id "${{ github.run_id }}" || echo "⚠️  Learning storage skipped"
+
+          echo "✅ Learning loop complete: Fixes stored for future improvement"
         continue-on-error: true
 
       - name: Commit auto-fixes (if any)
