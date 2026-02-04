@@ -292,17 +292,32 @@ class RelationalStore:
             LIMIT ?
         """, (agent_type, metric_name, limit))
 
-        trend = [
+        recent_values = [
             {'value': row['metric_value'], 'timestamp': row['timestamp']}
             for row in cursor.fetchall()
         ]
+
+        # Calculate trend direction (increasing, stable, decreasing)
+        trend_direction = 'stable'
+        if len(recent_values) >= 2:
+            # Compare first half vs second half
+            values = [v['value'] for v in reversed(recent_values)]  # Oldest to newest
+            mid = len(values) // 2
+            first_half_avg = sum(values[:mid]) / mid if mid > 0 else 0
+            second_half_avg = sum(values[mid:]) / (len(values) - mid) if len(values) > mid else 0
+
+            if second_half_avg > first_half_avg * 1.05:  # 5% threshold
+                trend_direction = 'increasing'
+            elif second_half_avg < first_half_avg * 0.95:
+                trend_direction = 'decreasing'
 
         return {
             'avg': stats['avg_value'],
             'min': stats['min_value'],
             'max': stats['max_value'],
             'count': stats['count'],
-            'recent_trend': trend
+            'recent_trend': recent_values,
+            'trend': trend_direction
         }
 
     def get_success_rate(
