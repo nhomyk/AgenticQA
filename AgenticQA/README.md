@@ -781,3 +781,4 @@ If AgenticQA helps you ship faster, safer, and smarter - give us a star! ⭐
 ---
 
 **Built with ❤️ by developers who believe CI/CD should be intelligent, autonomous, and continuously improving.**
+# Weaviate Cloud Connected! 🚀
