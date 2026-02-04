@@ -19,8 +19,23 @@ jobs:
         run: npm ci
       - name: Validate workflow YAML
         run: |
-          npx js-yaml --help
-          # Example: npx js-yaml .github/workflows/ci.yml
+          echo "🔍 Validating all workflow files..."
+          for file in .github/workflows/*.yml; do
+            echo "Checking: $file"
+            node -e "
+              const fs = require('fs');
+              const yaml = require('js-yaml');
+              try {
+                const content = fs.readFileSync('$file', 'utf8');
+                yaml.load(content);
+                console.log('✓ Valid YAML syntax');
+              } catch (e) {
+                console.error('✗ Invalid YAML:', e.message);
+                process.exit(1);
+              }
+            "
+          done
+          echo "✅ All workflow files are valid"
 
   pipeline-framework-health:
     runs-on: ubuntu-latest
