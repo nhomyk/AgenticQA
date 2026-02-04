@@ -40,9 +40,11 @@ class WeaviateConfig:
                 "api_key": None,
             }
         else:
-            # Cloud or custom - use full URL
+            # Cloud or custom - pass host and API key
+            # WeaviateVectorStore._connect() will handle building the URL
             return {
-                "url": f"https://{self.host}" if self.use_https else f"http://{self.host}",
+                "host": self.host,
+                "port": None,  # Not used for cloud
                 "collection_name": self.collection_name,
                 "api_key": self.api_key,
             }

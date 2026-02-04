@@ -44,7 +44,7 @@ class WeaviateVectorStore:
     def __init__(
         self,
         host: str = "localhost",
-        port: int = 8080,
+        port: Optional[int] = 8080,
         collection_name: str = "AgenticQADocuments",
         api_key: Optional[str] = None,
     ):
@@ -52,8 +52,8 @@ class WeaviateVectorStore:
         Initialize Weaviate vector store.
 
         Args:
-            host: Weaviate server host
-            port: Weaviate server port
+            host: Weaviate server host (or cloud hostname)
+            port: Weaviate server port (None for cloud)
             collection_name: Name of collection to use
             api_key: API key if using Weaviate Cloud (optional)
         """
@@ -83,15 +83,21 @@ class WeaviateVectorStore:
             else:
                 # Local Weaviate
                 client = weaviate.connect_to_local(
-                    host=self.host, port=self.port, skip_init_checks=False
+                    host=self.host, port=self.port or 8080, skip_init_checks=False
                 )
 
             return client
         except Exception as e:
-            raise ConnectionError(
-                f"Failed to connect to Weaviate at {self.host}:{self.port}. "
-                f"Make sure Weaviate is running. Error: {e}"
-            )
+            if self.api_key:
+                raise ConnectionError(
+                    f"Failed to connect to Weaviate Cloud at {self.host}. "
+                    f"Check cluster status and API key. Error: {e}"
+                )
+            else:
+                raise ConnectionError(
+                    f"Failed to connect to Weaviate at {self.host}:{self.port}. "
+                    f"Make sure Weaviate is running. Error: {e}"
+                )
 
     def _ensure_collection_exists(self):
         """Ensure collection exists, create if not"""
