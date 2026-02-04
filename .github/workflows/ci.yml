@@ -508,14 +508,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install AgenticQA Python package
         if: matrix.check == 'accessibility'
         run: |
           python -m pip install --upgrade pip
-          pip install -e ./AgenticQA
-        continue-on-error: true
+          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir -e ./AgenticQA
 
       - name: Ingest Pa11y Report to Weaviate
         if: matrix.check == 'accessibility' && always()
@@ -709,14 +708,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install AgenticQA Python package
         if: matrix.check == 'security'
         run: |
           python -m pip install --upgrade pip
-          pip install -e ./AgenticQA
-        continue-on-error: true
+          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir -e ./AgenticQA
 
       - name: Ingest Security Audit to Weaviate
         if: matrix.check == 'security' && always()
