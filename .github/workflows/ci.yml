@@ -336,7 +336,15 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      
+
+      - name: Cache Puppeteer Chromium
+        uses: actions/cache@v4
+        with:
+          path: AgenticQA/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('AgenticQA/package-lock.json') }}
+          restore-keys: |
+            puppeteer-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           cd AgenticQA
