@@ -340,12 +340,17 @@ jobs:
       - name: Install dependencies
         run: |
           cd AgenticQA
-          npm ci
+          PUPPETEER_SKIP_DOWNLOAD=true npm ci
+
+      - name: Install Chrome for Testing
+        run: npx --yes @puppeteer/browsers install chrome@stable
 
       - name: Run Accessibility Scan (Pa11y)
         if: matrix.check == 'accessibility'
         id: pa11y
         working-directory: AgenticQA
+        env:
+          PUPPETEER_EXECUTABLE_PATH: ${{ github.workspace }}/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome
         run: |
           echo "Starting development server..."
           npm run start:server > /tmp/server.log 2>&1 &
