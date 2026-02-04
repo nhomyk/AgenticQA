@@ -779,6 +779,46 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
+      - name: Set up Python (for coverage ingestion)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install AgenticQA Python package
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir -e ./AgenticQA
+
+      - name: Ingest Coverage to Weaviate
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+        run: |
+          echo "🧠 Ingesting coverage data to Weaviate for SDET agent learning..."
+
+          # Ingest coverage if available
+          if [ -d coverage ]; then
+            # Look for coverage summary file
+            if [ -f coverage/coverage-summary.json ]; then
+              python AgenticQA/ingest_ci_artifacts.py \
+                --coverage coverage/coverage-summary.json \
+                --run-id ${{ github.run_id }} || echo "⚠️  Coverage ingestion skipped"
+            elif [ -f coverage/coverage-final.json ]; then
+              python AgenticQA/ingest_ci_artifacts.py \
+                --coverage coverage/coverage-final.json \
+                --run-id ${{ github.run_id }} || echo "⚠️  Coverage ingestion skipped"
+            else
+              echo "⚠️  No coverage summary file found"
+            fi
+          else
+            echo "⚠️  Coverage directory not found"
+          fi
+
+          echo "✅ SDET agent artifacts ingested"
+        continue-on-error: true
+
   # Phase 1: Compliance Agent
   compliance-agent:
     needs: [phase-1-testing, phase-1-compliance-scans]
@@ -802,6 +842,38 @@ jobs:
           name: compliance-audit-report
           path: compliance-audit-report.md
           retention-days: 90
+
+      - name: Set up Python (for compliance report ingestion)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install AgenticQA Python package
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir -e ./AgenticQA
+
+      - name: Ingest Compliance Report to Weaviate
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+        run: |
+          echo "🧠 Ingesting compliance agent report to Weaviate..."
+
+          if [ -f compliance-audit-report.md ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --agent-log compliance-audit-report.md \
+              --agent-type compliance \
+              --run-id ${{ github.run_id }} || echo "⚠️  Compliance report ingestion skipped"
+
+            echo "✅ Compliance agent report ingested"
+          else
+            echo "⚠️  Compliance report not found"
+          fi
+        continue-on-error: true
+
       - name: Check for compliance critical issues
         run: |
           if grep -q "🔴 Critical Issues.*must be resolved" compliance-audit-report.md; then
