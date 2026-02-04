@@ -366,8 +366,14 @@ jobs:
           # Generate report files
           cp pa11y-output.txt pa11y-report.txt
 
+          # Count errors safely (grep returns exit 1 when no matches found)
+          ERROR_COUNT=$(grep -c "^\s*•" pa11y-output.txt 2>/dev/null) || ERROR_COUNT=0
+
+          # Ensure ERROR_COUNT is a clean integer
+          ERROR_COUNT=$(echo "$ERROR_COUNT" | tr -d '\n\r' | grep -o '[0-9]*')
+          ERROR_COUNT=${ERROR_COUNT:-0}
+
           # Create a simple JSON summary
-          ERROR_COUNT=$(grep -c "^\s*•" pa11y-output.txt || echo "0")
           cat > pa11y-report.json << EOF
           {
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -382,8 +388,8 @@ jobs:
           echo "Pa11y scan completed"
           echo "Found $ERROR_COUNT accessibility issues"
 
-          # Set output for next steps
-          echo "error_count=$ERROR_COUNT" >> $GITHUB_OUTPUT
+          # Set output for next steps (use proper format)
+          echo "error_count=$ERROR_COUNT" >> "$GITHUB_OUTPUT"
 
           # Exit with success to allow artifact upload
           exit 0
