@@ -62,7 +62,7 @@ jobs:
       - name: Validate workflow YAML
         id: validate
         run: |
-          npm install -g js-yaml
+          npm install js-yaml
           echo "🔍 Validating all workflow files..."
           
           VALID=true
