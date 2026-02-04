@@ -844,6 +844,47 @@ class ComplianceAgent(BaseAgent):
         except Exception as e:
             self.log(f"Failed to store fix to Weaviate: {e}", "WARNING")
 
+    def _store_success_pattern(self, run_id: str = None):
+        """
+        Store success pattern when 0 violations are found.
+
+        This creates a baseline "known good" configuration that agents can learn from.
+        These patterns help the system understand what works well and maintain it.
+
+        Args:
+            run_id: CI run ID for tracking
+        """
+        if not self.rag:
+            return
+
+        try:
+            # Create success pattern document
+            document = {
+                "pattern_type": "accessibility_success",
+                "violations_found": 0,
+                "timestamp": datetime.utcnow().isoformat(),
+                "run_id": run_id,
+                "files_checked": ["public/index.html"],  # Could be parameterized
+                "wcag_level": "AA",
+                "status": "compliant"
+            }
+
+            # Store to Weaviate
+            content = "accessibility success no violations wcag compliant"
+            embedding = self.rag.embedder.embed(content)
+
+            self.rag.vector_store.add_document(
+                content=content,
+                embedding=embedding,
+                metadata=document,
+                doc_type="accessibility_success_pattern"
+            )
+
+            self.log("Stored success pattern baseline to Weaviate")
+
+        except Exception as e:
+            self.log(f"Failed to store success pattern to Weaviate: {e}", "WARNING")
+
     def store_revalidation_results(
         self,
         fixes_applied: List[Dict],
@@ -856,6 +897,10 @@ class ComplianceAgent(BaseAgent):
 
         Should be called after re-running Pa11y to validate fixes.
 
+        Handles two scenarios:
+        1. Fixes Applied: Store fix patterns with success metrics
+        2. Success Pattern (0 violations): Store baseline "known good" configurations
+
         Args:
             fixes_applied: List of fixes that were applied
             errors_before: Number of errors before fixes
@@ -866,6 +911,13 @@ class ComplianceAgent(BaseAgent):
             self.log("RAG not available, skipping revalidation storage")
             return
 
+        # Case 1: Success Pattern - No violations found (baseline)
+        if errors_before == 0 and errors_after == 0:
+            self.log("No violations found - storing success pattern baseline")
+            self._store_success_pattern(run_id)
+            return
+
+        # Case 2: Fix Pattern - Violations were found and fixed
         errors_fixed = errors_before - errors_after
         overall_success = errors_after < errors_before
 

@@ -56,12 +56,21 @@ def main():
                 "file": "public/index.html"
             })
 
-    # Store revalidation results
+    # Store revalidation results (handles both fix patterns and success patterns)
     print(f"\n📊 Validation Results:")
-    print(f"  Fixes applied: {len(fixes_applied)}")
-    print(f"  Errors before: {args.errors_before}")
-    print(f"  Errors after:  {args.errors_after}")
-    print(f"  Errors fixed:  {args.errors_before - args.errors_after}")
+
+    if args.errors_before == 0 and args.errors_after == 0:
+        # Success pattern - no violations
+        print(f"  Pattern Type: ✅ SUCCESS BASELINE")
+        print(f"  Violations:   0 (compliant)")
+        print(f"  Status:       Known good configuration")
+    else:
+        # Fix pattern - violations found and addressed
+        print(f"  Pattern Type: 🔧 FIX PATTERN")
+        print(f"  Fixes applied: {len(fixes_applied)}")
+        print(f"  Errors before: {args.errors_before}")
+        print(f"  Errors after:  {args.errors_after}")
+        print(f"  Errors fixed:  {args.errors_before - args.errors_after}")
     print()
 
     agent.store_revalidation_results(
@@ -71,8 +80,13 @@ def main():
         run_id=args.run_id
     )
 
-    print("\n✅ Fix results stored to Weaviate!")
-    print("\n💡 Next runs will query these patterns for improved fixes.")
+    if args.errors_before == 0 and args.errors_after == 0:
+        print("\n✅ Success pattern stored to Weaviate!")
+        print("\n💡 This baseline helps agents learn what 'good' looks like.")
+        print("   Future runs will maintain these working patterns.")
+    else:
+        print("\n✅ Fix results stored to Weaviate!")
+        print("\n💡 Next runs will query these patterns for improved fixes.")
     print(f"   Run ID: {args.run_id}")
 
     return 0

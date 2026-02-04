@@ -473,6 +473,25 @@ jobs:
             --run-id ${{ github.run_id }} || echo "⚠️  Weaviate ingestion skipped (not configured)"
         continue-on-error: true
 
+      - name: Store Success Patterns to Weaviate (Every Run)
+        if: matrix.check == 'accessibility' && always()
+        working-directory: AgenticQA
+        run: |
+          echo "🧠 Storing patterns to Weaviate (success or failure data)..."
+
+          ERROR_COUNT=${{ steps.pa11y.outputs.error_count }}
+
+          # Store success patterns even when error_count = 0
+          # This creates baseline "known good" patterns for agents to learn from
+          python store_fix_results.py \
+            --errors-before ${ERROR_COUNT:-0} \
+            --errors-after ${ERROR_COUNT:-0} \
+            --fixes-applied 0 \
+            --run-id "${{ github.run_id }}" || echo "⚠️  Learning storage skipped"
+
+          echo "✅ Pattern storage complete: Every run contributes to learning"
+        continue-on-error: true
+
       - name: Auto-Fix Accessibility Violations
         if: matrix.check == 'accessibility' && steps.pa11y.outputs.error_count > 0
         id: autofix
