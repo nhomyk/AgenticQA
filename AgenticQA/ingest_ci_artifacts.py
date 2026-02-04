@@ -45,6 +45,14 @@ class CIArtifactIngestion:
             print("   Artifacts will not be ingested. Enable Weaviate for learning.")
             self.rag = None
 
+    def close(self):
+        """Close Weaviate connection"""
+        if self.rag and hasattr(self.rag, 'vector_store'):
+            try:
+                self.rag.vector_store.close()
+            except Exception:
+                pass
+
     def ingest_pa11y_report(self, report_path: str, run_id: str = None) -> bool:
         """
         Ingest Pa11y accessibility report into Weaviate.
@@ -544,6 +552,9 @@ def main():
     print("   - QA/SDET Agents: Test results & failure patterns")
     print("   - DevOps Agent: Security vulnerabilities")
     print("   - SRE Agent: Pipeline health metrics")
+
+    # Clean up
+    ingestion.close()
 
     return 0
 
