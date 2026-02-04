@@ -982,7 +982,7 @@ jobs:
   pipeline-failure-ingestion:
     needs: [
       linting-fix,
-      code-linting,
+      lint,
       phase-1-testing,
       phase-1-compliance-scans,
       sdet-agent,
@@ -1024,7 +1024,7 @@ jobs:
             "triggered_by": "${{ github.actor }}",
             "job_statuses": {
               "linting-fix": "${{ needs.linting-fix.result }}",
-              "code-linting": "${{ needs.code-linting.result }}",
+              "lint": "${{ needs.lint.result }}",
               "phase-1-testing": "${{ needs.phase-1-testing.result }}",
               "phase-1-compliance-scans": "${{ needs.phase-1-compliance-scans.result }}",
               "sdet-agent": "${{ needs.sdet-agent.result }}",
