@@ -60,6 +60,8 @@ jobs:
     needs: pipeline-framework-health
     runs-on: ubuntu-latest
     name: Auto-Fix Linting Issues (SRE Agent)
+    outputs:
+      auto_fixed: ${{ steps.commit-fixes.outputs.auto_fixed }}
     permissions:
       contents: write
     steps:
@@ -82,24 +84,25 @@ jobs:
       - name: Run Mypy (non-blocking)
         run: mypy src/ --ignore-missing-imports || true
       - name: Commit and push auto-fixes
+        id: commit-fixes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --staged --quiet; then
             echo "No changes to commit"
-            echo "AUTO_FIXED=false" >> $GITHUB_ENV
+            echo "auto_fixed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "$(cat <<'EOF'
-          style: auto-fix linting issues [skip ci]
+          style: auto-format Python files with Black
 
-          Auto-formatted Python code with Black
+          Auto-formatted Python code with Black formatter
 
           Co-Authored-By: GitHub Actions <github-actions[bot]@users.noreply.github.com>
           EOF
           )"
             git push
-            echo "AUTO_FIXED=true" >> $GITHUB_ENV
+            echo "auto_fixed=true" >> $GITHUB_OUTPUT
             echo "⚠️ Auto-fixes were committed and pushed. A new CI run will be triggered to verify the fixes."
           fi
 
@@ -108,6 +111,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Code Linting
     steps:
+      - name: Check if auto-fixes were applied
+        if: needs.auto-fix-linting-issues.outputs.auto_fixed == 'true'
+        run: |
+          echo "⚠️ Auto-fixes were applied and pushed. Skipping strict linting on this run."
+          echo "A new CI run will validate the auto-fixed code."
+          exit 0
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
