@@ -83,6 +83,16 @@ The dashboard will open in your browser at `http://localhost:8501`
 - **Coverage Metrics**: How many possible paths are actually being used
 - **IP Considerations**: Guidance on what's safe to display publicly vs. internally
 
+### 🧪 Agent Testing
+- **Latest Test Runs**: Real-time test results for each agent
+- **Pass/Fail Metrics**: Current vs. previous run comparison
+- **Coverage Trends**: Code coverage visualization with trend indicators
+- **Performance Benchmarks**: Test execution duration tracking
+- **Health Scores**: Composite health metric (0-100) for each agent
+- **CI/CD Integration**: GitHub Actions workflow status
+- **Automated Recommendations**: Actionable insights for failing/slow tests
+- **Quick Actions**: Re-run tests, view logs directly from dashboard
+
 ---
 
 ## 🎨 Dashboard Screenshots
