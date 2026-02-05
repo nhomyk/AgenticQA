@@ -588,3 +588,284 @@ class DelegationGraphStore:
 
             record = result.single()
             return dict(record) if record else {}
+
+    # ==================== Advanced Analytics ====================
+
+    def predict_delegation_failure_risk(
+        self,
+        from_agent: str,
+        to_agent: str,
+        task_type: str
+    ) -> Dict:
+        """
+        Predict the risk of delegation failure based on historical patterns.
+
+        Uses historical failure rates and recent trends to assess risk.
+
+        Args:
+            from_agent: Source agent
+            to_agent: Target agent
+            task_type: Type of task
+
+        Returns:
+            Risk assessment with probability and factors
+        """
+        with self.session() as session:
+            # Get historical performance for this agent pair
+            result = session.run("""
+                MATCH (from:Agent {name: $from_agent})-[d:DELEGATES_TO]->(to:Agent {name: $to_agent})
+                WHERE d.task.task_type = $task_type
+                WITH count(d) as total,
+                     sum(CASE WHEN d.status = 'failed' THEN 1 ELSE 0 END) as failures,
+                     avg(d.duration_ms) as avg_duration,
+                     collect(d.status ORDER BY d.timestamp DESC)[0..10] as recent_statuses
+                RETURN total,
+                       failures,
+                       (toFloat(failures) / total) as failure_rate,
+                       avg_duration,
+                       recent_statuses
+            """, from_agent=from_agent, to_agent=to_agent, task_type=task_type)
+
+            record = result.single()
+
+            if not record or record["total"] == 0:
+                return {
+                    "risk_level": "unknown",
+                    "failure_probability": None,
+                    "confidence": 0.0,
+                    "recommendation": "Insufficient historical data"
+                }
+
+            total = record["total"]
+            failures = record["failures"]
+            failure_rate = record["failure_rate"]
+            recent_statuses = record["recent_statuses"]
+
+            # Calculate recent failure trend
+            recent_failures = sum(1 for s in recent_statuses if s == "failed")
+            recent_trend = recent_failures / len(recent_statuses) if recent_statuses else 0
+
+            # Weighted risk: 70% historical, 30% recent trend
+            risk_score = (failure_rate * 0.7) + (recent_trend * 0.3)
+
+            # Determine risk level
+            if risk_score < 0.1:
+                risk_level = "low"
+            elif risk_score < 0.3:
+                risk_level = "medium"
+            else:
+                risk_level = "high"
+
+            # Confidence based on sample size
+            confidence = min(1.0, total / 20.0)  # Full confidence at 20+ samples
+
+            recommendation = "Safe to delegate" if risk_level == "low" else \
+                           "Monitor delegation" if risk_level == "medium" else \
+                           "Consider alternative agent"
+
+            return {
+                "risk_level": risk_level,
+                "failure_probability": risk_score,
+                "historical_failure_rate": failure_rate,
+                "recent_trend": recent_trend,
+                "sample_size": total,
+                "confidence": confidence,
+                "recommendation": recommendation
+            }
+
+    def find_optimal_delegation_path(
+        self,
+        from_agent: str,
+        target_capability: str,
+        max_hops: int = 3
+    ) -> Optional[Dict]:
+        """
+        Find the optimal delegation path to reach a target capability.
+
+        Uses graph algorithms to find the best path considering:
+        - Success rates
+        - Duration
+        - Number of hops
+
+        Args:
+            from_agent: Starting agent
+            target_capability: Desired capability/task type
+            max_hops: Maximum delegation chain length
+
+        Returns:
+            Optimal path with metrics, or None
+        """
+        with self.session() as session:
+            # Find all paths to agents that handle this capability
+            result = session.run("""
+                MATCH path = (start:Agent {name: $from_agent})-[:DELEGATES_TO*1..$max_hops]->(end:Agent)
+                MATCH (end)-[d:DELEGATES_TO]->()
+                WHERE d.task.task_type = $target_capability
+                  AND d.status = 'success'
+                WITH path,
+                     end,
+                     [r in relationships(path) | r.duration_ms] as durations,
+                     [r in relationships(path) | r.status] as statuses,
+                     reduce(total = 0.0, dur in [r in relationships(path) | r.duration_ms] | total + dur) as total_duration
+                WITH path,
+                     end,
+                     length(path) as hops,
+                     total_duration,
+                     reduce(success = 0, s in statuses | success + CASE WHEN s = 'success' THEN 1 ELSE 0 END) as successes,
+                     size(statuses) as total_edges
+                WHERE successes = total_edges  // All hops must be successful
+                RETURN [n in nodes(path) | n.name] as path_agents,
+                       hops,
+                       total_duration,
+                       end.name as endpoint,
+                       (1000000.0 / (total_duration + 100.0)) as efficiency_score  // Prefer faster paths
+                ORDER BY hops ASC, efficiency_score DESC
+                LIMIT 1
+            """, from_agent=from_agent, target_capability=target_capability, max_hops=max_hops)
+
+            record = result.single()
+
+            if not record:
+                return None
+
+            return {
+                "path": record["path_agents"],
+                "hops": record["hops"],
+                "endpoint": record["endpoint"],
+                "total_duration_ms": record["total_duration"],
+                "efficiency_score": record["efficiency_score"]
+            }
+
+    def calculate_cost_optimization(
+        self,
+        time_window_hours: int = 24,
+        cost_per_second: float = 0.001
+    ) -> Dict:
+        """
+        Calculate cost optimization opportunities based on delegation duration.
+
+        Identifies expensive delegations and suggests optimization opportunities.
+
+        Args:
+            time_window_hours: Time window to analyze
+            cost_per_second: Cost per second of execution
+
+        Returns:
+            Cost analysis with optimization opportunities
+        """
+        with self.session() as session:
+            result = session.run("""
+                MATCH ()-[d:DELEGATES_TO]->()
+                WHERE d.timestamp > datetime() - duration({hours: $hours})
+                WITH count(d) as total_delegations,
+                     sum(d.duration_ms) / 1000.0 as total_seconds,
+                     avg(d.duration_ms) as avg_duration_ms,
+                     max(d.duration_ms) as max_duration_ms,
+                     percentileCont(d.duration_ms, 0.95) as p95_duration_ms
+                RETURN total_delegations,
+                       total_seconds,
+                       avg_duration_ms,
+                       max_duration_ms,
+                       p95_duration_ms
+            """, hours=time_window_hours)
+
+            record = result.single()
+
+            if not record:
+                return {
+                    "total_cost": 0.0,
+                    "potential_savings": 0.0,
+                    "optimization_opportunities": []
+                }
+
+            total_seconds = record["total_seconds"]
+            total_cost = total_seconds * cost_per_second
+
+            # Get expensive delegations
+            expensive = session.run("""
+                MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
+                WHERE d.timestamp > datetime() - duration({hours: $hours})
+                  AND d.duration_ms > $threshold
+                RETURN from.name as from_agent,
+                       to.name as to_agent,
+                       count(d) as count,
+                       avg(d.duration_ms) as avg_duration_ms,
+                       sum(d.duration_ms) / 1000.0 as total_seconds
+                ORDER BY total_seconds DESC
+                LIMIT 10
+            """, hours=time_window_hours, threshold=record["p95_duration_ms"])
+
+            opportunities = []
+            potential_savings = 0.0
+
+            for exp_record in expensive:
+                # Assume 30% improvement is achievable through optimization
+                current_cost = exp_record["total_seconds"] * cost_per_second
+                optimized_cost = current_cost * 0.7
+                savings = current_cost - optimized_cost
+
+                potential_savings += savings
+
+                opportunities.append({
+                    "from_agent": exp_record["from_agent"],
+                    "to_agent": exp_record["to_agent"],
+                    "delegation_count": exp_record["count"],
+                    "avg_duration_ms": exp_record["avg_duration_ms"],
+                    "current_cost": current_cost,
+                    "potential_savings": savings,
+                    "optimization_suggestion": "Consider caching, parallelization, or delegation to faster agent"
+                })
+
+            return {
+                "time_window_hours": time_window_hours,
+                "total_delegations": record["total_delegations"],
+                "total_duration_seconds": total_seconds,
+                "total_cost": total_cost,
+                "avg_duration_ms": record["avg_duration_ms"],
+                "p95_duration_ms": record["p95_duration_ms"],
+                "potential_savings": potential_savings,
+                "roi_percentage": (potential_savings / total_cost * 100) if total_cost > 0 else 0,
+                "optimization_opportunities": opportunities
+            }
+
+    def get_delegation_trends(
+        self,
+        days: int = 7,
+        granularity: str = "day"
+    ) -> List[Dict]:
+        """
+        Get delegation trends over time.
+
+        Args:
+            days: Number of days to analyze
+            granularity: "hour", "day", or "week"
+
+        Returns:
+            Time series data of delegation metrics
+        """
+        with self.session() as session:
+            # Map granularity to Cypher date truncation
+            trunc_map = {
+                "hour": "hour",
+                "day": "day",
+                "week": "week"
+            }
+
+            trunc_fn = trunc_map.get(granularity, "day")
+
+            result = session.run(f"""
+                MATCH ()-[d:DELEGATES_TO]->()
+                WHERE d.timestamp > datetime() - duration({{days: $days}})
+                WITH date.truncate('{trunc_fn}', d.timestamp) as period,
+                     count(d) as delegations,
+                     avg(d.duration_ms) as avg_duration,
+                     sum(CASE WHEN d.status = 'success' THEN 1 ELSE 0 END) as successes
+                RETURN toString(period) as period,
+                       delegations,
+                       avg_duration,
+                       successes,
+                       (toFloat(successes) / delegations) as success_rate
+                ORDER BY period
+            """, days=days)
+
+            return [dict(record) for record in result]
