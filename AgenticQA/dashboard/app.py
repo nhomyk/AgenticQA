@@ -459,6 +459,282 @@ def render_live_activity(store: DelegationGraphStore):
     st.plotly_chart(fig, use_container_width=True)
 
 
+def render_ontology(store: DelegationGraphStore):
+    """Render workflow ontology and compare with actual collaboration"""
+    st.subheader("🏗️ Workflow Ontology & Design vs. Reality")
+
+    st.markdown("""
+    This page shows the **designed ontology** (what the system is supposed to do)
+    vs. the **actual collaboration patterns** (what's really happening).
+    """)
+
+    # Ontology Definition
+    st.markdown("---")
+    st.markdown("### 📐 Designed Ontology")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Agent Types (Roles)")
+        st.markdown("""
+        - **SDET_Agent** (QA): Test generation, validation
+        - **SRE_Agent** (DevOps): Deployment, monitoring, rollback
+        - **Fullstack_Agent** (Dev): Feature implementation, code review
+        - **Compliance_Agent** (Security): Security scans, audits
+        - **DevOps_Agent** (DevOps): CI/CD, infrastructure
+        - **QA_Agent** (QA): Manual testing, validation
+        - **Performance_Agent** (QA): Load testing, benchmarks
+        """)
+
+    with col2:
+        st.markdown("#### Task Types (Capabilities)")
+
+        # Get actual task types from database
+        with store.session() as session:
+            result = session.run("""
+                MATCH ()-[d:DELEGATES_TO]->()
+                WHERE d.task IS NOT NULL
+                RETURN DISTINCT d.task as task
+                LIMIT 50
+            """)
+
+            task_types = set()
+            for record in result:
+                try:
+                    import json
+                    task_data = json.loads(record["task"]) if isinstance(record["task"], str) else record["task"]
+                    if isinstance(task_data, dict):
+                        task_types.add(task_data.get("type", "unknown"))
+                except:
+                    pass
+
+        if task_types:
+            for task_type in sorted(task_types):
+                st.markdown(f"- `{task_type}`")
+        else:
+            st.info("No task data available yet")
+
+    # Designed vs Actual Comparison
+    st.markdown("---")
+    st.markdown("### 🔍 Design vs. Reality Analysis")
+
+    # Get actual agent types and their activity
+    with store.session() as session:
+        result = session.run("""
+            MATCH (a:Agent)
+            RETURN a.name as agent,
+                   a.type as type,
+                   a.total_delegations_made as made,
+                   a.total_delegations_received as received
+            ORDER BY a.total_delegations_made DESC
+        """)
+
+        agents_data = []
+        for record in result:
+            agents_data.append({
+                "Agent": record["agent"],
+                "Type": record["type"] or "unknown",
+                "Delegations Made": record["made"] or 0,
+                "Delegations Received": record["received"] or 0,
+                "Net Activity": (record["made"] or 0) - (record["received"] or 0)
+            })
+
+    if agents_data:
+        df = pd.DataFrame(agents_data)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("#### Agent Activity Profile")
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+            # Classify agents by behavior
+            st.markdown("**Agent Classification:**")
+            orchestrators = df[df["Net Activity"] > 5]["Agent"].tolist()
+            workers = df[df["Net Activity"] < -5]["Agent"].tolist()
+            balanced = df[(df["Net Activity"] >= -5) & (df["Net Activity"] <= 5)]["Agent"].tolist()
+
+            if orchestrators:
+                st.success(f"🎯 **Orchestrators** (delegate more): {', '.join(orchestrators)}")
+            if workers:
+                st.info(f"⚙️ **Workers** (receive more): {', '.join(workers)}")
+            if balanced:
+                st.warning(f"⚖️ **Balanced**: {', '.join(balanced)}")
+
+        with col2:
+            st.markdown("#### Delegation Heatmap by Type")
+
+            # Get delegation patterns by agent type
+            with store.session() as session:
+                result = session.run("""
+                    MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
+                    RETURN from.type as from_type,
+                           to.type as to_type,
+                           count(d) as count
+                """)
+
+                heatmap_data = []
+                for record in result:
+                    heatmap_data.append({
+                        "From Type": record["from_type"] or "unknown",
+                        "To Type": record["to_type"] or "unknown",
+                        "Count": record["count"]
+                    })
+
+            if heatmap_data:
+                df_heatmap = pd.DataFrame(heatmap_data)
+                pivot = df_heatmap.pivot(index="From Type", columns="To Type", values="Count").fillna(0)
+
+                fig = px.imshow(pivot,
+                               labels=dict(x="To Agent Type", y="From Agent Type", color="Delegations"),
+                               title="Cross-Type Delegation Patterns",
+                               color_continuous_scale="Blues")
+                st.plotly_chart(fig, use_container_width=True)
+
+    # Correlation Analysis
+    st.markdown("---")
+    st.markdown("### 📊 Correlation: Design vs. Actual Behavior")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Expected Patterns (Ontology)")
+        st.markdown("""
+        **Designed workflows:**
+        - SDET → Fullstack (test generation)
+        - SDET → SRE (deployment validation)
+        - Fullstack → QA (code validation)
+        - DevOps → SRE (deployment execution)
+        - Compliance → SDET (security scans)
+        - Performance → DevOps (load testing)
+        """)
+
+    with col2:
+        st.markdown("#### Actual Patterns (Reality)")
+
+        # Get top delegation pairs
+        with store.session() as session:
+            result = session.run("""
+                MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
+                RETURN from.name as from_agent,
+                       to.name as to_agent,
+                       count(d) as count,
+                       avg(d.duration_ms) as avg_duration
+                ORDER BY count DESC
+                LIMIT 10
+            """)
+
+            st.markdown("**Top 10 actual delegation paths:**")
+            for i, record in enumerate(result, 1):
+                st.markdown(f"{i}. **{record['from_agent']}** → **{record['to_agent']}** ({record['count']} times, avg {record['avg_duration']:.0f}ms)")
+
+    # Anomaly Detection
+    st.markdown("---")
+    st.markdown("### ⚠️ Anomalies & Insights")
+
+    insights = []
+
+    # Check for unexpected patterns
+    with store.session() as session:
+        # Find agents delegating to themselves
+        result = session.run("""
+            MATCH (a:Agent)-[d:DELEGATES_TO]->(a)
+            RETURN a.name as agent, count(d) as count
+        """)
+        self_delegations = list(result)
+
+        # Find very deep chains
+        result = session.run("""
+            MATCH ()-[d:DELEGATES_TO]->()
+            WHERE d.depth > 3
+            RETURN d.depth as depth, count(*) as count
+            ORDER BY depth DESC
+            LIMIT 5
+        """)
+        deep_chains = list(result)
+
+        # Find high-latency delegations
+        result = session.run("""
+            MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
+            WHERE d.duration_ms > 4000
+            RETURN from.name as from_agent,
+                   to.name as to_agent,
+                   avg(d.duration_ms) as avg_duration,
+                   count(d) as count
+            ORDER BY avg_duration DESC
+            LIMIT 5
+        """)
+        slow_delegations = list(result)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Design Violations")
+
+        if self_delegations:
+            st.warning("⚠️ **Self-delegations detected** (not in ontology):")
+            for rec in self_delegations:
+                st.markdown(f"- {rec['agent']}: {rec['count']} times")
+        else:
+            st.success("✅ No self-delegations")
+
+        if deep_chains:
+            st.warning("⚠️ **Deep delegation chains** (may indicate inefficiency):")
+            for rec in deep_chains:
+                st.markdown(f"- Depth {rec['depth']}: {rec['count']} occurrences")
+        else:
+            st.success("✅ All chains are shallow (< 4 hops)")
+
+    with col2:
+        st.markdown("#### Performance Insights")
+
+        if slow_delegations:
+            st.info("🐌 **Slowest delegation paths:**")
+            for rec in slow_delegations:
+                st.markdown(f"- {rec['from_agent']} → {rec['to_agent']}: {rec['avg_duration']:.0f}ms avg ({rec['count']} times)")
+        else:
+            st.success("✅ All delegations are fast")
+
+    # Ontology Completeness
+    st.markdown("---")
+    st.markdown("### 📈 Ontology Coverage")
+
+    col1, col2, col3 = st.columns(3)
+
+    # Calculate coverage metrics
+    total_possible_edges = len(agents_data) * (len(agents_data) - 1)  # All possible directed edges
+
+    with store.session() as session:
+        result = session.run("""
+            MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
+            RETURN count(DISTINCT from.name + '->' + to.name) as actual_edges
+        """)
+        actual_edges = result.single()["actual_edges"]
+
+    coverage = (actual_edges / total_possible_edges * 100) if total_possible_edges > 0 else 0
+
+    col1.metric("Possible Paths", total_possible_edges)
+    col2.metric("Active Paths", actual_edges)
+    col3.metric("Coverage", f"{coverage:.1f}%")
+
+    # IP Considerations
+    st.markdown("---")
+    st.markdown("### 🔒 IP & Visibility Considerations")
+
+    st.info("""
+    **For AgenticQA (Open Source):**
+    - ✅ Ontology is public (part of documentation)
+    - ✅ Task types are generic and shareable
+    - ✅ Safe to display in demos and documentation
+
+    **For Enterprise Systems:**
+    - ⚠️ May contain proprietary workflows
+    - ⚠️ Custom task types could reveal business logic
+    - ⚠️ Consider access controls for ontology viewer
+    - ✅ Useful for internal teams (engineering, product, support)
+    """)
+
+
 def render_pipeline_flow(store: DelegationGraphStore):
     """Render data flow pipeline visualization"""
     st.subheader("🔄 Pipeline Data Flow")
@@ -600,7 +876,7 @@ def main():
 
         page = st.radio(
             "Select View:",
-            ["Overview", "Network", "Performance", "Chains", "GraphRAG", "Live Activity", "Pipeline Flow"],
+            ["Overview", "Network", "Performance", "Chains", "GraphRAG", "Live Activity", "Pipeline Flow", "Ontology"],
             index=0
         )
 
@@ -654,6 +930,9 @@ def main():
 
     elif page == "Pipeline Flow":
         render_pipeline_flow(store)
+
+    elif page == "Ontology":
+        render_ontology(store)
 
     # Footer
     st.markdown("---")

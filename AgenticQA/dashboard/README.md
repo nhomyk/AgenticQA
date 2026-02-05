@@ -74,6 +74,15 @@ The dashboard will open in your browser at `http://localhost:8501`
 - **Hybrid Metrics**: Performance stats across both storage systems
 - **Data Freshness**: Monitor agent activity and last active times
 
+### 🏗️ Ontology
+- **Design vs. Reality**: Compare intended workflow with actual behavior
+- **Agent Classification**: Identify orchestrators, workers, and balanced agents
+- **Delegation Heatmap**: Cross-type delegation patterns visualization
+- **Correlation Analysis**: See if agents are used as designed
+- **Anomaly Detection**: Find self-delegations, deep chains, slow paths
+- **Coverage Metrics**: How many possible paths are actually being used
+- **IP Considerations**: Guidance on what's safe to display publicly vs. internally
+
 ---
 
 ## 🎨 Dashboard Screenshots
