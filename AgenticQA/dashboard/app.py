@@ -376,6 +376,214 @@ def render_graphrag_recommendations(store: DelegationGraphStore):
             st.warning("No recommendation available. Need more historical data for this task type.")
 
 
+def render_live_activity(store: DelegationGraphStore):
+    """Render live activity and current workflow"""
+    st.subheader("🔴 Live Activity & Current Workflow")
+
+    # Get recent delegations
+    with store.session() as session:
+        result = session.run("""
+            MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
+            RETURN from.name as from_agent,
+                   to.name as to_agent,
+                   d.status as status,
+                   d.duration_ms as duration_ms,
+                   d.timestamp as timestamp,
+                   d.task as task,
+                   d.error_message as error_message
+            ORDER BY d.timestamp DESC
+            LIMIT 50
+        """)
+
+        recent_delegations = []
+        for record in result:
+            recent_delegations.append({
+                "from_agent": record["from_agent"],
+                "to_agent": record["to_agent"],
+                "status": record["status"],
+                "duration_ms": record["duration_ms"],
+                "timestamp": record["timestamp"],
+                "task": record["task"],
+                "error_message": record["error_message"]
+            })
+
+    if not recent_delegations:
+        st.info("No recent activity. Run some agents to populate this view!")
+        return
+
+    # Activity timeline
+    st.markdown("#### Recent Delegations")
+
+    df = pd.DataFrame(recent_delegations)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+    # Create timeline visualization
+    df["status_color"] = df["status"].map({
+        "success": "🟢",
+        "failed": "🔴",
+        "pending": "🟡",
+        "timeout": "⚫"
+    })
+
+    # Display as interactive table
+    display_df = df[["timestamp", "status_color", "from_agent", "to_agent", "duration_ms"]].copy()
+    display_df.columns = ["Time", "Status", "From", "To", "Duration (ms)"]
+    st.dataframe(display_df, use_container_width=True, height=400)
+
+    # Activity metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    success_count = len(df[df["status"] == "success"])
+    failed_count = len(df[df["status"] == "failed"])
+    total = len(df)
+    success_rate = (success_count / total * 100) if total > 0 else 0
+
+    col1.metric("Total Activity", total)
+    col2.metric("Success", success_count)
+    col3.metric("Failed", failed_count)
+    col4.metric("Success Rate", f"{success_rate:.1f}%")
+
+    # Activity over time
+    st.markdown("#### Activity Timeline")
+    df_timeline = df.groupby(df["timestamp"].dt.floor("H"))["status"].count().reset_index()
+    df_timeline.columns = ["Hour", "Count"]
+
+    fig = px.line(df_timeline, x="Hour", y="Count",
+                  title="Delegations per Hour",
+                  labels={"Count": "Number of Delegations", "Hour": "Time"})
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_pipeline_flow(store: DelegationGraphStore):
+    """Render data flow pipeline visualization"""
+    st.subheader("🔄 Pipeline Data Flow")
+
+    st.markdown("""
+    This view shows how data flows through AgenticQA's hybrid architecture combining
+    vector search (Weaviate) and graph analytics (Neo4j).
+    """)
+
+    # Pipeline architecture diagram
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### RAG Pipeline Flow")
+        st.markdown("""
+        ```
+        📝 Test Requirements
+              ↓
+        🔤 Sentence Transformer
+              ↓
+        🧮 Vector Embeddings (384-dim)
+              ↓
+        💾 Weaviate Vector Store
+              ↓
+        🔍 Semantic Similarity Search
+              ↓
+        📊 Retrieved Test Examples
+              ↓
+        🤖 LLM Generation
+              ↓
+        ✅ Generated Tests
+        ```
+        """)
+
+    with col2:
+        st.markdown("#### Delegation Pipeline Flow")
+        st.markdown("""
+        ```
+        🎯 Agent Task
+              ↓
+        🔍 Find Best Delegate (GraphRAG)
+              ├─ Neo4j: Historical Success
+              └─ Weaviate: Semantic Match
+              ↓
+        📨 Delegate to Target Agent
+              ↓
+        ⚙️  Execute Task
+              ↓
+        📊 Record to Neo4j
+              ├─ Success/Failure
+              ├─ Duration
+              └─ Chain Depth
+              ↓
+        🔄 Update Agent Metrics
+        ```
+        """)
+
+    st.markdown("---")
+
+    # Data flow metrics
+    st.markdown("#### Hybrid Storage Metrics")
+
+    stats = store.get_database_stats()
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**Neo4j Graph Store**")
+        st.metric("Agents (Nodes)", stats.get("total_agents", 0))
+        st.metric("Delegations (Edges)", stats.get("total_delegations", 0))
+        st.caption("Tracks collaboration patterns, success rates, delegation chains")
+
+    with col2:
+        st.markdown("**Weaviate Vector Store**")
+        st.info("Vector embeddings for semantic search")
+        st.caption("Stores test embeddings, enables similarity search, RAG retrieval")
+
+    with col3:
+        st.markdown("**Hybrid GraphRAG**")
+        st.success("Best of both worlds")
+        st.caption("Combines graph structure + semantic meaning for intelligent recommendations")
+
+    # Pipeline performance
+    st.markdown("#### Pipeline Performance")
+
+    with store.session() as session:
+        result = session.run("""
+            MATCH ()-[d:DELEGATES_TO]->()
+            WHERE d.duration_ms IS NOT NULL
+            RETURN
+                avg(d.duration_ms) as avg_duration,
+                percentileCont(d.duration_ms, 0.50) as p50_duration,
+                percentileCont(d.duration_ms, 0.95) as p95_duration,
+                max(d.duration_ms) as max_duration
+        """)
+
+        perf = result.single()
+        if perf:
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Avg Duration", f"{perf['avg_duration']:.0f} ms")
+            col2.metric("P50 Duration", f"{perf['p50_duration']:.0f} ms")
+            col3.metric("P95 Duration", f"{perf['p95_duration']:.0f} ms")
+            col4.metric("Max Duration", f"{perf['max_duration']:.0f} ms")
+
+    # Data freshness
+    st.markdown("#### Data Freshness")
+    with store.session() as session:
+        result = session.run("""
+            MATCH (a:Agent)
+            RETURN a.name as agent,
+                   a.last_active as last_active,
+                   a.total_delegations_made as delegations_made,
+                   a.total_delegations_received as delegations_received
+            ORDER BY a.last_active DESC
+        """)
+
+        agents_activity = []
+        for record in result:
+            agents_activity.append({
+                "Agent": record["agent"],
+                "Last Active": record["last_active"],
+                "Delegations Made": record["delegations_made"] or 0,
+                "Delegations Received": record["delegations_received"] or 0
+            })
+
+        if agents_activity:
+            df = pd.DataFrame(agents_activity)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 def main():
     """Main dashboard"""
     render_header()
@@ -387,7 +595,7 @@ def main():
 
         page = st.radio(
             "Select View:",
-            ["Overview", "Network", "Performance", "Chains", "GraphRAG"],
+            ["Overview", "Network", "Performance", "Chains", "GraphRAG", "Live Activity", "Pipeline Flow"],
             index=0
         )
 
@@ -435,6 +643,12 @@ def main():
 
     elif page == "GraphRAG":
         render_graphrag_recommendations(store)
+
+    elif page == "Live Activity":
+        render_live_activity(store)
+
+    elif page == "Pipeline Flow":
+        render_pipeline_flow(store)
 
     # Footer
     st.markdown("---")

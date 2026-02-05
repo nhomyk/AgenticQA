@@ -61,6 +61,19 @@ The dashboard will open in your browser at `http://localhost:8501`
 - **Historical Analysis**: Based on past success patterns
 - **Confidence Scores**: Data-driven recommendations
 
+### 🔴 Live Activity
+- **Real-Time Workflow**: View current and recent delegations as they happen
+- **Activity Timeline**: Interactive timeline of recent delegations
+- **Status Tracking**: Monitor success/failure rates in real-time
+- **Hourly Trends**: Delegation activity over time
+
+### 🔄 Pipeline Flow
+- **Architecture Visualization**: See how data flows through AgenticQA
+- **RAG Pipeline**: Vector embeddings → Weaviate → Semantic search
+- **Delegation Pipeline**: GraphRAG → Neo4j → Agent collaboration
+- **Hybrid Metrics**: Performance stats across both storage systems
+- **Data Freshness**: Monitor agent activity and last active times
+
 ---
 
 ## 🎨 Dashboard Screenshots
