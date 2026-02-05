@@ -296,7 +296,7 @@ def render_performance_metrics(store: DelegationGraphStore):
                 title="Success Rate by Agent Pair",
                 labels={"success_rate_pct": "Success Rate (%)", "pair": "Agent Pair"}
             )
-            fig.update_xaxis(tickangle=45)
+            fig.update_xaxes(tickangle=45)
             st.plotly_chart(fig, use_container_width=True)
 
 
@@ -397,12 +397,17 @@ def render_live_activity(store: DelegationGraphStore):
 
         recent_delegations = []
         for record in result:
+            # Convert Neo4j DateTime to Python datetime
+            timestamp = record["timestamp"]
+            if hasattr(timestamp, 'to_native'):
+                timestamp = timestamp.to_native()
+
             recent_delegations.append({
                 "from_agent": record["from_agent"],
                 "to_agent": record["to_agent"],
                 "status": record["status"],
                 "duration_ms": record["duration_ms"],
-                "timestamp": record["timestamp"],
+                "timestamp": timestamp,
                 "task": record["task"],
                 "error_message": record["error_message"]
             })
