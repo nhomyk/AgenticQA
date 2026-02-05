@@ -344,6 +344,145 @@ def render_graphrag_recommendations(store: DelegationGraphStore):
 
     st.markdown("**Get AI-powered delegation recommendations based on historical patterns**")
 
+    # Hybrid RAG Architecture Diagram
+    st.markdown("---")
+    st.markdown("### 🏗️ Hybrid RAG Architecture")
+
+    # Create interactive architecture diagram using Plotly
+    fig = go.Figure()
+
+    # Define component positions
+    components = {
+        # Input layer
+        "query": {"x": 0.5, "y": 1.0, "width": 0.2, "height": 0.08, "color": "#FFD700", "text": "Agent Query<br>(Task Type)"},
+
+        # GraphRAG orchestrator
+        "graphrag": {"x": 0.5, "y": 0.80, "width": 0.25, "height": 0.08, "color": "#9370DB", "text": "HybridGraphRAG<br>Orchestrator"},
+
+        # Dual storage layer
+        "weaviate": {"x": 0.25, "y": 0.55, "width": 0.2, "height": 0.15, "color": "#4CAF50", "text": "Weaviate<br>Vector Store<br><br>• 384-dim embeddings<br>• Semantic similarity<br>• Test examples"},
+        "neo4j": {"x": 0.75, "y": 0.55, "width": 0.2, "height": 0.15, "color": "#008CC1", "text": "Neo4j<br>Graph Store<br><br>• Agent relationships<br>• Success patterns<br>• Delegation history"},
+
+        # Processing layer
+        "semantic": {"x": 0.25, "y": 0.30, "width": 0.18, "height": 0.08, "color": "#81C784", "text": "Semantic Match<br>(Cosine Similarity)"},
+        "graph": {"x": 0.75, "y": 0.30, "width": 0.18, "height": 0.08, "color": "#29B6F6", "text": "Graph Traversal<br>(Cypher Query)"},
+
+        # Synthesis layer
+        "synthesis": {"x": 0.5, "y": 0.10, "width": 0.25, "height": 0.08, "color": "#FF6F61", "text": "Result Synthesis<br>(Weighted Ranking)"},
+
+        # Output
+        "output": {"x": 0.5, "y": -0.05, "width": 0.22, "height": 0.08, "color": "#FFD700", "text": "Recommended<br>Agent"}
+    }
+
+    # Draw boxes
+    for name, comp in components.items():
+        fig.add_shape(
+            type="rect",
+            x0=comp["x"] - comp["width"]/2,
+            y0=comp["y"] - comp["height"]/2,
+            x1=comp["x"] + comp["width"]/2,
+            y1=comp["y"] + comp["height"]/2,
+            line=dict(color="white", width=2),
+            fillcolor=comp["color"],
+            opacity=0.8
+        )
+
+        # Add text labels
+        fig.add_annotation(
+            x=comp["x"],
+            y=comp["y"],
+            text=comp["text"],
+            showarrow=False,
+            font=dict(size=10, color="white", family="Arial Black"),
+            align="center"
+        )
+
+    # Draw arrows (connections)
+    arrows = [
+        # Query to GraphRAG
+        {"from": "query", "to": "graphrag", "color": "#FFD700"},
+
+        # GraphRAG to both stores
+        {"from": "graphrag", "to": "weaviate", "color": "#4CAF50"},
+        {"from": "graphrag", "to": "neo4j", "color": "#008CC1"},
+
+        # Stores to processors
+        {"from": "weaviate", "to": "semantic", "color": "#4CAF50"},
+        {"from": "neo4j", "to": "graph", "color": "#008CC1"},
+
+        # Processors to synthesis
+        {"from": "semantic", "to": "synthesis", "color": "#81C784"},
+        {"from": "graph", "to": "synthesis", "color": "#29B6F6"},
+
+        # Synthesis to output
+        {"from": "synthesis", "to": "output", "color": "#FF6F61"}
+    ]
+
+    for arrow in arrows:
+        from_comp = components[arrow["from"]]
+        to_comp = components[arrow["to"]]
+
+        fig.add_annotation(
+            x=to_comp["x"],
+            y=to_comp["y"] + to_comp["height"]/2,
+            ax=from_comp["x"],
+            ay=from_comp["y"] - from_comp["height"]/2,
+            xref="x", yref="y",
+            axref="x", ayref="y",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1.5,
+            arrowwidth=3,
+            arrowcolor=arrow["color"],
+            opacity=0.7
+        )
+
+    # Add data flow annotations
+    fig.add_annotation(x=0.15, y=0.65, text="Vector<br>Embeddings", showarrow=False,
+                      font=dict(size=9, color="#4CAF50"), bgcolor="rgba(76, 175, 80, 0.2)")
+    fig.add_annotation(x=0.85, y=0.65, text="Graph<br>Patterns", showarrow=False,
+                      font=dict(size=9, color="#008CC1"), bgcolor="rgba(0, 140, 193, 0.2)")
+
+    # Configure layout
+    fig.update_layout(
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.1, 1.1]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.15, 1.1]),
+        plot_bgcolor='rgba(14, 17, 23, 0.95)',
+        paper_bgcolor='rgba(14, 17, 23, 0.95)',
+        height=600,
+        margin=dict(l=20, r=20, t=40, b=20),
+        title={
+            'text': "Hybrid RAG: Combining Vector Search + Graph Analytics",
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 16, 'color': 'white'}
+        }
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Explanation
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**🎯 Why Hybrid?**")
+        st.markdown("""
+        - **Weaviate**: Finds semantically similar tasks ("generate tests" ≈ "create test cases")
+        - **Neo4j**: Finds historically successful delegation paths
+        - **Combined**: Best match considering both meaning AND proven success
+        """)
+
+    with col2:
+        st.markdown("**⚡ Performance Benefits**")
+        st.markdown("""
+        - 📈 Higher accuracy than vector-only search
+        - 🎯 Context-aware recommendations
+        - 🔄 Self-improving (learns from each delegation)
+        """)
+
+    st.markdown("---")
+
     col1, col2 = st.columns(2)
 
     with col1:
