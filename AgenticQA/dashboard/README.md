@@ -309,6 +309,39 @@ CMD ["streamlit", "run", "dashboard/app.py"]
 
 ---
 
+## 🔧 Improving Agent Performance
+
+The dashboard helps you identify and fix delegation issues. See the comprehensive guide:
+
+**📖 [Agent Improvement Guide](../docs/AGENT_IMPROVEMENT_GUIDE.md)**
+
+### Quick Fixes for Low Success Rates
+
+If you see low success rates (like Performance_Agent → DevOps_Agent):
+
+1. **Check Ontology Tab**: Identify if it violates expected patterns
+2. **Use GraphRAG**: Get AI recommendations for better delegation targets
+3. **Add Guardrails**: Prevent bad delegations before they happen
+   ```python
+   from agenticqa.delegation.guardrails import DelegationGuardrails
+
+   validation = DelegationGuardrails.validate_delegation(
+       from_agent="Performance_Agent",
+       to_agent="DevOps_Agent",
+       task_type="load_test"
+   )
+
+   if not validation["valid"]:
+       # Use suggested alternative
+       to_agent = validation["alternatives"][0]
+   ```
+
+4. **Monitor**: Use Live Activity tab to watch improvements in real-time
+
+For detailed strategies, see the [full improvement guide](../docs/AGENT_IMPROVEMENT_GUIDE.md).
+
+---
+
 ## 📚 API Reference
 
 ### DelegationGraphStore Advanced Methods
