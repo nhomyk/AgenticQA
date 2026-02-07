@@ -12,8 +12,6 @@ on:
           - quick
           - full
           - comprehensive
-  schedule:
-    - cron: '0 2 * * *'
 
 jobs:
   test-sre-agent:
