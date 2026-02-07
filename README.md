@@ -66,7 +66,7 @@ Agents don't work in isolation. They delegate to each other through a governed c
 
 ## Analytics Dashboard
 
-A 12-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
+A 7-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
 
 ```
 streamlit run dashboard/app.py
@@ -76,18 +76,13 @@ streamlit run dashboard/app.py
 
 | Page | What It Shows |
 |---|---|
-| **Overview** | System-wide metrics — total agents, delegations, top performers |
-| **Network** | Interactive collaboration graph — nodes are agents, edges are delegations color-coded by success rate |
-| **Performance** | Duration distributions, latency trends, agent-by-agent response times |
-| **Chains** | Full delegation chain traces — see exactly how SDET → SRE → result flowed |
+| **Overview** | System metrics, top performers, and real-time activity feed |
+| **Collaboration** | Interactive network graph + delegation chain traces |
+| **Performance** | Bottleneck detection, latency trends, per-agent test results and health scores |
 | **GraphRAG** | Interactive Hybrid RAG architecture diagram with live recommendation engine |
-| **Live Activity** | Real-time agent execution feed with status indicators |
-| **Pipeline Flow** | End-to-end data flow from commit to deployment gate |
 | **Ontology** | Design-vs-reality analysis — intended delegation paths vs. actual usage |
-| **Agent Testing** | Per-agent test results, pass rates, coverage deltas, health scores |
-| **Pipeline Security** | Defense-in-depth diagram — 6 security layers from CI gate to immutability |
-| **API Plug** | Unified API connectivity view — service status, route inventory, test coverage |
-| **Stack Anatomy** | Full-stack architecture map with LOC breakdown across 7 layers and 10 frameworks |
+| **Pipeline** | End-to-end data flow + 6-layer defense-in-depth security architecture |
+| **Infrastructure** | Unified API connectivity, service status, and full-stack LOC breakdown |
 
 ### Hybrid RAG Query Flow
 
@@ -212,7 +207,7 @@ AgenticQA/
 │   ├── rag/              # Weaviate vector store, embeddings, retrieval
 │   ├── data_store/       # Artifact store, snapshots, security
 │   └── cli.py            # CLI interface
-├── dashboard/            # 12-page Streamlit analytics dashboard
+├── dashboard/            # 7-page Streamlit analytics dashboard
 ├── tests/                # 250 tests — unit, integration, RAG, delegation, UI
 ├── .github/workflows/    # CI pipeline (16 jobs) + nightly self-validation
 └── examples/             # SDK usage (Python, TypeScript, Neo4j)

@@ -2927,7 +2927,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Overview", "Network", "Performance", "Chains", "GraphRAG", "Live Activity", "Pipeline Flow", "Ontology", "Agent Testing", "Pipeline Security", "API Plug", "Stack Anatomy"]
+        pages = ["Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Infrastructure"]
         default_index = pages.index("GraphRAG") if not store else 0
 
         page = st.radio(
@@ -2964,13 +2964,13 @@ def main():
             st.rerun()
 
     # Pages that require Neo4j
-    neo4j_required_pages = {"Overview", "Network", "Performance", "Chains", "Live Activity", "Pipeline Flow", "Ontology"}
+    neo4j_required_pages = {"Overview", "Collaboration", "Performance", "Ontology"}
 
     if not store and page in neo4j_required_pages:
         st.warning("Neo4j is not connected. This page requires a running Neo4j instance.")
         st.info("Start Neo4j with: `docker-compose -f docker-compose.weaviate.yml up -d neo4j`")
         st.markdown("---")
-        st.markdown("Pages available without Neo4j: **GraphRAG** (architecture diagram), **Agent Testing** (demo data), **Pipeline Security**, **API Plug**, **Stack Anatomy**")
+        st.markdown("Pages available without Neo4j: **GraphRAG**, **Pipeline**, **Infrastructure**")
         return
 
     # Render selected page
@@ -2978,39 +2978,42 @@ def main():
         render_overview_metrics(store)
         st.markdown("---")
         render_top_agents(store)
+        st.markdown("---")
+        render_live_activity(store)
 
-    elif page == "Network":
-        render_collaboration_network(store)
+    elif page == "Collaboration":
+        tab_network, tab_chains = st.tabs(["Network Graph", "Delegation Chains"])
+        with tab_network:
+            render_collaboration_network(store)
+        with tab_chains:
+            render_delegation_chains(store)
 
     elif page == "Performance":
-        render_performance_metrics(store)
-
-    elif page == "Chains":
-        render_delegation_chains(store)
+        tab_metrics, tab_testing = st.tabs(["Agent Metrics", "Test Results"])
+        with tab_metrics:
+            render_performance_metrics(store)
+        with tab_testing:
+            render_agent_testing(store)
 
     elif page == "GraphRAG":
         render_graphrag_recommendations(store)
 
-    elif page == "Live Activity":
-        render_live_activity(store)
-
-    elif page == "Pipeline Flow":
-        render_pipeline_flow(store)
-
     elif page == "Ontology":
         render_ontology(store)
 
-    elif page == "Agent Testing":
-        render_agent_testing(store)
+    elif page == "Pipeline":
+        tab_flow, tab_security = st.tabs(["Data Flow", "Security"])
+        with tab_flow:
+            render_pipeline_flow(store)
+        with tab_security:
+            render_pipeline_security(store)
 
-    elif page == "Pipeline Security":
-        render_pipeline_security(store)
-
-    elif page == "API Plug":
-        render_api_plug(store)
-
-    elif page == "Stack Anatomy":
-        render_stack_anatomy(store)
+    elif page == "Infrastructure":
+        tab_api, tab_stack = st.tabs(["API Connectivity", "Stack Anatomy"])
+        with tab_api:
+            render_api_plug(store)
+        with tab_stack:
+            render_stack_anatomy(store)
 
     # Footer
     st.markdown("---")
