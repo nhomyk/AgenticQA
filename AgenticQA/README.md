@@ -64,6 +64,93 @@ Agents don't work in isolation. They delegate to each other through a governed c
 
 ---
 
+## Analytics Dashboard
+
+A 12-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
+
+```
+streamlit run dashboard/app.py
+```
+
+### Dashboard Pages
+
+| Page | What It Shows |
+|---|---|
+| **Overview** | System-wide metrics — total agents, delegations, top performers |
+| **Network** | Interactive collaboration graph — nodes are agents, edges are delegations color-coded by success rate |
+| **Performance** | Duration distributions, latency trends, agent-by-agent response times |
+| **Chains** | Full delegation chain traces — see exactly how SDET → SRE → result flowed |
+| **GraphRAG** | Interactive Hybrid RAG architecture diagram with live recommendation engine |
+| **Live Activity** | Real-time agent execution feed with status indicators |
+| **Pipeline Flow** | End-to-end data flow from commit to deployment gate |
+| **Ontology** | Design-vs-reality analysis — intended delegation paths vs. actual usage |
+| **Agent Testing** | Per-agent test results, pass rates, coverage deltas, health scores |
+| **Pipeline Security** | Defense-in-depth diagram — 6 security layers from CI gate to immutability |
+| **API Plug** | Unified API connectivity view — service status, route inventory, test coverage |
+| **Stack Anatomy** | Full-stack architecture map with LOC breakdown across 7 layers and 10 frameworks |
+
+### Hybrid RAG Query Flow
+
+The dashboard's recommendation engine combines two retrieval strategies to suggest which agent should handle a task:
+
+```
+            ┌──────────────────┐
+            │   Agent Query    │
+            │   (task type)    │
+            └────────┬─────────┘
+                     │
+          ┌──────────┴──────────┐
+          ▼                     ▼
+   ┌─────────────┐      ┌─────────────┐
+   │  Weaviate   │      │   Neo4j     │
+   │  (vectors)  │      │  (graphs)   │
+   │             │      │             │
+   │ "What does  │      │ "Who has    │
+   │  this task  │      │  succeeded  │
+   │  look like?"│      │  at this?"  │
+   └──────┬──────┘      └──────┬──────┘
+          │   cosine sim       │  graph traversal
+          └──────────┬─────────┘
+                     ▼
+            ┌──────────────────┐
+            │ Weighted Ranking │
+            │ (best of both)   │
+            └────────┬─────────┘
+                     ▼
+            ┌──────────────────┐
+            │  Recommended     │
+            │  Agent + Score   │
+            └──────────────────┘
+```
+
+### Security Architecture
+
+Every agent execution passes through 6 validation layers before reaching the artifact store:
+
+```
+  ┌──────────────────────────────────────────────────────────┐
+  │  1. CI/CD Pipeline Gate                                  │
+  │     16 jobs · 3 Python versions · final deployment gate  │
+  ├──────────────────────────────────────────────────────────┤
+  │  2. Delegation Guardrails                                │
+  │     max depth=3 · max total=5 · timeout=30s · whitelist  │
+  ├──────────────────────────────────────────────────────────┤
+  │  3. Task-Agent Ontology                                  │
+  │     18 task types · confidence scoring · 70% min success │
+  ├──────────────────────────────────────────────────────────┤
+  │  4. Schema & PII Validation                              │
+  │     4 PII patterns · schema compliance · encryption      │
+  ├──────────────────────────────────────────────────────────┤
+  │  5. Data Quality Testing                                 │
+  │     10 tests · integrity checks · temporal consistency   │
+  ├──────────────────────────────────────────────────────────┤
+  │  6. Immutability & Integrity                             │
+  │     SHA-256 hashing · duplicate detection · verification │
+  └──────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Why Pattern Learning Over LLMs
 
 Agents use Case-Based Reasoning — deterministic pattern matching against historical embeddings instead of LLM inference.
@@ -90,7 +177,7 @@ Agents use Case-Based Reasoning — deterministic pattern matching against histo
 | **API** | FastAPI |
 | **Dashboard** | Streamlit + Plotly |
 | **CI/CD** | GitHub Actions |
-| **Testing** | Pytest, Playwright, Pa11y |
+| **Testing** | Pytest (250 tests), Playwright, Pa11y |
 | **Language** | Python 3.8+ |
 
 ---
@@ -118,28 +205,28 @@ streamlit run dashboard/app.py
 ## Project Structure
 
 ```
-src/agenticqa/
-├── collaboration/    # Agent delegation, registry, guardrails
-├── graph/            # Neo4j graph store, hybrid RAG
-├── rag/              # Weaviate vector store, embeddings, retrieval
-├── data_store/       # Artifact store, snapshots, security
-└── cli.py            # CLI interface
-
-dashboard/            # Streamlit analytics dashboard
-tests/                # Unit, integration, RAG, delegation, UI tests
-.github/workflows/    # CI pipeline + nightly self-validation
-examples/             # SDK usage (Python, TypeScript, Neo4j)
+AgenticQA/
+├── src/agenticqa/
+│   ├── collaboration/    # Agent delegation, registry, guardrails
+│   ├── graph/            # Neo4j graph store, hybrid RAG
+│   ├── rag/              # Weaviate vector store, embeddings, retrieval
+│   ├── data_store/       # Artifact store, snapshots, security
+│   └── cli.py            # CLI interface
+├── dashboard/            # 12-page Streamlit analytics dashboard
+├── tests/                # 250 tests — unit, integration, RAG, delegation, UI
+├── .github/workflows/    # CI pipeline (16 jobs) + nightly self-validation
+└── examples/             # SDK usage (Python, TypeScript, Neo4j)
 ```
 
 ---
 
 ## Documentation
 
-- [Agent Collaboration](docs/AGENT_COLLABORATION.md) — delegation system and guardrails
-- [Hybrid RAG Architecture](HYBRID_RAG_ARCHITECTURE.md) — vector + graph + relational design
-- [Agent Learning System](AGENT_LEARNING_SYSTEM.md) — how pattern learning works
-- [Pipeline Validation](PIPELINE_VALIDATION_WORKFLOW.md) — self-testing workflow
-- [Quick Reference](QUICK_REFERENCE.md) — commands cheat sheet
+- [Agent Collaboration](AgenticQA/docs/AGENT_COLLABORATION.md) — delegation system and guardrails
+- [Hybrid RAG Architecture](AgenticQA/HYBRID_RAG_ARCHITECTURE.md) — vector + graph + relational design
+- [Agent Learning System](AgenticQA/AGENT_LEARNING_SYSTEM.md) — how pattern learning works
+- [Pipeline Validation](AgenticQA/PIPELINE_VALIDATION_WORKFLOW.md) — self-testing workflow
+- [Quick Reference](AgenticQA/QUICK_REFERENCE.md) — commands cheat sheet
 
 ---
 
