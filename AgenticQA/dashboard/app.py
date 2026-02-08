@@ -18,6 +18,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from agenticqa.graph import DelegationGraphStore
+from agenticqa.verification import RagasTracker, OutcomeTracker
 
 # Page config
 st.set_page_config(
@@ -525,6 +526,174 @@ def render_graphrag_recommendations(store=None):
             st.info(f"Based on {recommendation['success_count']} successful historical delegations")
         else:
             st.warning("No recommendation available. Need more historical data for this task type.")
+
+
+def render_rag_quality_trends():
+    """Render RAG quality trends from persisted RAGAS scores."""
+    st.subheader("📈 RAG Quality Over Time")
+
+    try:
+        tracker = RagasTracker()
+    except Exception as e:
+        st.error(f"Could not connect to RAGAS tracker: {e}")
+        return
+
+    metrics = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+    metric_labels = {
+        "faithfulness": "Faithfulness",
+        "answer_relevancy": "Answer Relevancy",
+        "context_precision": "Context Precision",
+        "context_recall": "Context Recall",
+    }
+
+    # ── Current vs Baseline metrics ─────────────────────────────────
+    st.markdown("#### Current vs Baseline")
+    cols = st.columns(4)
+    has_data = False
+
+    for i, metric in enumerate(metrics):
+        baseline = tracker.get_baseline(metric, window=10)
+        trend = tracker.get_trend(metric, limit=1)
+        current = trend[0].score if trend else None
+
+        with cols[i]:
+            if current is not None and baseline is not None:
+                has_data = True
+                delta = current - baseline
+                st.metric(
+                    label=metric_labels[metric],
+                    value=f"{current:.2f}",
+                    delta=f"{delta:+.3f}",
+                    delta_color="normal",
+                )
+            elif current is not None:
+                has_data = True
+                st.metric(label=metric_labels[metric], value=f"{current:.2f}")
+            else:
+                st.metric(label=metric_labels[metric], value="—")
+
+    if not has_data:
+        st.info("No RAGAS data yet. Run evaluations to populate this view.")
+        st.code(
+            "from agenticqa.verification import RagasTracker\n"
+            "tracker = RagasTracker()\n"
+            "tracker.record_scores(\n"
+            '    run_id="ci-123", commit_sha="abc",\n'
+            '    scores={"faithfulness": 0.9, "answer_relevancy": 0.85}\n'
+            ")",
+            language="python",
+        )
+        tracker.close()
+        return
+
+    # ── Trend line chart ────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### Score Trends (last 30 runs)")
+
+    all_rows = []
+    for metric in metrics:
+        for entry in tracker.get_trend(metric, limit=30):
+            all_rows.append({
+                "Run": entry.run_id,
+                "Metric": metric_labels[metric],
+                "Score": entry.score,
+                "Commit": entry.commit_sha[:7],
+                "Timestamp": entry.timestamp,
+            })
+
+    if all_rows:
+        df = pd.DataFrame(all_rows)
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+        fig = px.line(
+            df, x="Timestamp", y="Score", color="Metric",
+            title="RAGAS Metric Trends",
+            labels={"Score": "Score (0-1)", "Timestamp": "Time"},
+            markers=True,
+        )
+        fig.update_layout(
+            yaxis_range=[0, 1.05],
+            plot_bgcolor='rgba(14, 17, 23, 0.95)',
+            paper_bgcolor='rgba(14, 17, 23, 0.95)',
+            font=dict(color="white"),
+            legend=dict(font=dict(color="white")),
+            height=400,
+        )
+        fig.update_xaxes(gridcolor="rgba(255,255,255,0.1)")
+        fig.update_yaxes(gridcolor="rgba(255,255,255,0.1)")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ── Regression check ────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### Regression Check")
+
+    latest_scores = {}
+    for metric in metrics:
+        trend = tracker.get_trend(metric, limit=1)
+        if trend:
+            latest_scores[metric] = trend[0].score
+
+    if latest_scores:
+        regressions = tracker.check_regression(latest_scores, threshold=0.05)
+        if regressions:
+            for metric, info in regressions.items():
+                st.error(
+                    f"**{metric_labels.get(metric, metric)}** regressed: "
+                    f"{info['current']:.3f} (current) vs {info['baseline']:.3f} (baseline) "
+                    f"— delta {info['delta']:+.3f}"
+                )
+        else:
+            st.success("All metrics are at or above baseline. No regressions detected.")
+
+    # ── Prediction accuracy (from OutcomeTracker) ───────────────────
+    st.markdown("---")
+    st.markdown("#### Delegation Prediction Accuracy")
+
+    try:
+        ot = OutcomeTracker()
+        accuracy = ot.get_accuracy()
+        if accuracy["total_predictions"] > 0:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Predictions", accuracy["total_predictions"])
+            col2.metric("Accuracy", f"{accuracy['accuracy']:.1%}")
+            col3.metric("Mean Abs Error", f"{accuracy['mean_absolute_error']:.3f}")
+
+            calibration = ot.get_calibration(bucket_size=0.2)
+            if calibration:
+                cal_df = pd.DataFrame(calibration)
+                cal_df["Predicted"] = cal_df["avg_predicted"]
+                cal_df["Actual"] = cal_df["actual_rate"]
+                fig_cal = go.Figure()
+                fig_cal.add_trace(go.Bar(
+                    x=[f"{b:.0%}" for b in cal_df["bucket"]],
+                    y=cal_df["Actual"],
+                    name="Actual Success Rate",
+                    marker_color="#4CAF50",
+                ))
+                fig_cal.add_trace(go.Scatter(
+                    x=[f"{b:.0%}" for b in cal_df["bucket"]],
+                    y=cal_df["Predicted"],
+                    name="Predicted Confidence",
+                    mode="lines+markers",
+                    line=dict(color="#FF6F61", dash="dash"),
+                ))
+                fig_cal.update_layout(
+                    title="Prediction Calibration (closer = better)",
+                    yaxis_title="Rate", xaxis_title="Confidence Bucket",
+                    yaxis_range=[0, 1.05],
+                    plot_bgcolor='rgba(14, 17, 23, 0.95)',
+                    paper_bgcolor='rgba(14, 17, 23, 0.95)',
+                    font=dict(color="white"),
+                    legend=dict(font=dict(color="white")),
+                    height=350,
+                )
+                st.plotly_chart(fig_cal, use_container_width=True)
+        else:
+            st.info("No delegation predictions recorded yet.")
+        ot.close()
+    except Exception:
+        st.info("Outcome tracker not available.")
+
+    tracker.close()
 
 
 def render_live_activity(store: DelegationGraphStore):
@@ -3001,7 +3170,11 @@ def main():
             render_agent_testing(store)
 
     elif page == "GraphRAG":
-        render_graphrag_recommendations(store)
+        tab_rec, tab_trends = st.tabs(["Recommendations", "RAG Quality Trends"])
+        with tab_rec:
+            render_graphrag_recommendations(store)
+        with tab_trends:
+            render_rag_quality_trends()
 
     elif page == "Ontology":
         render_ontology(store)
