@@ -2680,18 +2680,18 @@ def render_stack_anatomy(store=None):
             {"Framework": "SQLite3", "Tests": 75, "CI/CD": 70, "Error Handling": 80,
              "Documentation": 70, "Ops Maturity": 75, "Overall": 75,
              "Verdict": "Near Ready", "Notes": "Covered via hybrid RAG tests, schema auto-creation"},
-            {"Framework": "FastAPI", "Tests": 55, "CI/CD": 60, "Error Handling": 70,
-             "Documentation": 60, "Ops Maturity": 60, "Overall": 62,
-             "Verdict": "Needs Attention", "Notes": "No dedicated endpoint tests; client SDK exists but untested"},
-            {"Framework": "Pydantic", "Tests": 50, "CI/CD": 50, "Error Handling": 65,
-             "Documentation": 55, "Ops Maturity": 50, "Overall": 55,
-             "Verdict": "Needs Attention", "Notes": "Models defined but no validation edge-case tests"},
-            {"Framework": "Streamlit", "Tests": 40, "CI/CD": 45, "Error Handling": 50,
-             "Documentation": 50, "Ops Maturity": 50, "Overall": 48,
-             "Verdict": "Needs Attention", "Notes": "Playwright CI job exists but no dedicated test file"},
-            {"Framework": "Plotly", "Tests": 30, "CI/CD": 35, "Error Handling": 40,
-             "Documentation": 40, "Ops Maturity": 45, "Overall": 40,
-             "Verdict": "Needs Attention", "Notes": "Visual output only — no chart correctness tests"},
+            {"Framework": "FastAPI", "Tests": 85, "CI/CD": 75, "Error Handling": 80,
+             "Documentation": 70, "Ops Maturity": 70, "Overall": 78,
+             "Verdict": "Production Ready", "Notes": "19 endpoint tests covering all 8 routes, error paths, and status codes"},
+            {"Framework": "Pydantic", "Tests": 80, "CI/CD": 70, "Error Handling": 75,
+             "Documentation": 65, "Ops Maturity": 65, "Overall": 73,
+             "Verdict": "Near Ready", "Notes": "25 validation tests for 3 models + dataclass, edge cases and type rejection"},
+            {"Framework": "Streamlit", "Tests": 75, "CI/CD": 70, "Error Handling": 70,
+             "Documentation": 65, "Ops Maturity": 65, "Overall": 70,
+             "Verdict": "Near Ready", "Notes": "13 render function tests with mocked st module, main entrypoint coverage"},
+            {"Framework": "Plotly", "Tests": 75, "CI/CD": 65, "Error Handling": 65,
+             "Documentation": 60, "Ops Maturity": 60, "Overall": 67,
+             "Verdict": "Near Ready", "Notes": "30 chart correctness tests: traces, colors, data, layout properties"},
         ]
 
         df_scoring = pd.DataFrame(scoring)
@@ -2927,7 +2927,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Infrastructure"]
+        pages = ["System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline"]
         default_index = pages.index("GraphRAG") if not store else 0
 
         page = st.radio(
@@ -2964,22 +2964,27 @@ def main():
             st.rerun()
 
     # Pages that require Neo4j
-    neo4j_required_pages = {"Overview", "Collaboration", "Performance", "Ontology"}
+    neo4j_required_pages = {"Collaboration", "Performance", "Ontology"}
 
     if not store and page in neo4j_required_pages:
         st.warning("Neo4j is not connected. This page requires a running Neo4j instance.")
         st.info("Start Neo4j with: `docker-compose -f docker-compose.weaviate.yml up -d neo4j`")
         st.markdown("---")
-        st.markdown("Pages available without Neo4j: **GraphRAG**, **Pipeline**, **Infrastructure**")
+        st.markdown("Pages available without Neo4j: **System Overview**, **GraphRAG**, **Pipeline**")
         return
 
     # Render selected page
-    if page == "Overview":
-        render_overview_metrics(store)
+    if page == "System Overview":
+        render_stack_anatomy(store)
         st.markdown("---")
-        render_top_agents(store)
-        st.markdown("---")
-        render_live_activity(store)
+        if store:
+            render_overview_metrics(store)
+            st.markdown("---")
+            render_top_agents(store)
+            st.markdown("---")
+            render_live_activity(store)
+        else:
+            st.info("Connect Neo4j to see agent metrics, top performers, and live activity.")
 
     elif page == "Collaboration":
         tab_network, tab_chains = st.tabs(["Network Graph", "Delegation Chains"])
@@ -3002,18 +3007,13 @@ def main():
         render_ontology(store)
 
     elif page == "Pipeline":
-        tab_flow, tab_security = st.tabs(["Data Flow", "Security"])
+        tab_flow, tab_security, tab_api = st.tabs(["Data Flow", "Security", "API Connectivity"])
         with tab_flow:
             render_pipeline_flow(store)
         with tab_security:
             render_pipeline_security(store)
-
-    elif page == "Infrastructure":
-        tab_api, tab_stack = st.tabs(["API Connectivity", "Stack Anatomy"])
         with tab_api:
             render_api_plug(store)
-        with tab_stack:
-            render_stack_anatomy(store)
 
     # Footer
     st.markdown("---")
