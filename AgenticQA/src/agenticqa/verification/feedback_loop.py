@@ -62,8 +62,8 @@ class RelevanceFeedback:
         cursor = self.conn.cursor()
         ts = datetime.utcnow().isoformat()
         cursor.execute(
-            """INSERT INTO document_scores (doc_id, doc_type, last_updated)
-               VALUES (?, ?, ?)
+            """INSERT INTO document_scores (doc_id, doc_type, times_retrieved, last_updated)
+               VALUES (?, ?, 1, ?)
                ON CONFLICT(doc_id) DO UPDATE SET
                  times_retrieved = times_retrieved + 1,
                  last_updated = ?""",

@@ -45,6 +45,26 @@ class BaseAgent(ABC):
                 )
                 self.use_rag = False
 
+        # Initialize feedback loop for learning from outcomes
+        self.feedback = None
+        self.outcome_tracker = None
+        self._threshold_calibrator = None
+        try:
+            from src.agenticqa.verification.feedback_loop import RelevanceFeedback
+            from src.agenticqa.verification.outcome_tracker import OutcomeTracker
+            from src.agenticqa.verification.threshold_calibrator import ThresholdCalibrator
+
+            self.feedback = RelevanceFeedback()
+            self.outcome_tracker = OutcomeTracker()
+            self._threshold_calibrator = ThresholdCalibrator(self.outcome_tracker)
+
+            # Wire calibrator into RAG retriever for adaptive thresholds
+            if self.rag and hasattr(self.rag, "retriever"):
+                self.rag.retriever.threshold_calibrator = self._threshold_calibrator
+        except Exception:
+            pass  # Graceful degradation - agent works without feedback
+
+        self._last_retrieved_doc_ids: List[str] = []
         self.execution_history: List[Dict] = []
 
     def _get_agent_type(self) -> str:
@@ -67,6 +87,8 @@ class BaseAgent(ABC):
 
         This enables agents to learn from historical executions by retrieving
         semantically similar past decisions, errors, patterns, and solutions.
+        Retrieved documents are tracked for feedback, and results are reranked
+        based on historical outcome data.
 
         Args:
             context: Current execution context
@@ -75,11 +97,44 @@ class BaseAgent(ABC):
             Augmented context with rag_recommendations and high_confidence_insights
         """
         if not self.use_rag or not self.rag:
+            self._last_retrieved_doc_ids = []
             return context
 
         try:
             agent_type = self._get_agent_type()
             augmented_context = self.rag.augment_agent_context(agent_type, context)
+
+            # Track retrieved documents for feedback loop
+            self._last_retrieved_doc_ids = []
+            recommendations = augmented_context.get("rag_recommendations", [])
+            for rec in recommendations:
+                doc_id = rec.get("source", {}).get("doc_id", "")
+                if doc_id:
+                    self._last_retrieved_doc_ids.append(doc_id)
+                    if self.feedback:
+                        self.feedback.record_retrieval(doc_id, rec.get("type", "unknown"))
+
+            # Rerank recommendations using feedback scores
+            if self.feedback and recommendations:
+                rerank_input = []
+                for rec in recommendations:
+                    rerank_input.append({
+                        **rec,
+                        "doc_id": rec.get("source", {}).get("doc_id", ""),
+                        "similarity": rec.get("confidence", 0.0),
+                    })
+                reranked = self.feedback.rerank_results(rerank_input)
+                # Update recommendations with reranked order and adjusted confidence
+                for rec in reranked:
+                    rec["confidence"] = rec.get("adjusted_similarity", rec.get("confidence", 0.0))
+                augmented_context["rag_recommendations"] = reranked
+
+                # Recompute high-confidence insights after reranking
+                high_confidence = [r for r in reranked if r.get("confidence", 0) > 0.75]
+                if high_confidence:
+                    augmented_context["high_confidence_insights"] = high_confidence
+                elif "high_confidence_insights" in augmented_context:
+                    del augmented_context["high_confidence_insights"]
 
             # Log RAG insights for transparency
             insights_count = augmented_context.get("rag_insights_count", 0)
@@ -89,6 +144,7 @@ class BaseAgent(ABC):
             return augmented_context
         except Exception as e:
             self.log(f"RAG augmentation failed: {e}. Proceeding without RAG insights.", "WARNING")
+            self._last_retrieved_doc_ids = []
             return context
 
     @abstractmethod
@@ -151,6 +207,22 @@ class BaseAgent(ABC):
                 self.log(f"Execution logged to Weaviate for future learning", "DEBUG")
             except Exception as e:
                 self.log(f"Failed to log execution to Weaviate: {e}", "WARNING")
+
+        # 3. Feed outcome back to relevance feedback loop
+        if self.feedback and self._last_retrieved_doc_ids:
+            try:
+                success = (status == "success")
+                for doc_id in self._last_retrieved_doc_ids:
+                    self.feedback.record_feedback(doc_id, success=success)
+                self.log(
+                    f"Feedback recorded for {len(self._last_retrieved_doc_ids)} docs "
+                    f"(outcome={'helpful' if success else 'unhelpful'})",
+                    "DEBUG",
+                )
+            except Exception as e:
+                self.log(f"Failed to record feedback: {e}", "WARNING")
+            finally:
+                self._last_retrieved_doc_ids = []
 
         return artifact_id
 
