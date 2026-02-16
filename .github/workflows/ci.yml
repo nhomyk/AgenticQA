@@ -337,6 +337,62 @@ jobs:
       - name: Run ESLint
         run: npx eslint . --ext .js
 
+  # Live migration proof: verifies real Weaviate historical data can be
+  # exported/imported into a fresh Qdrant target with full parity.
+  live-vector-migration-parity:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    name: "🔁 Live Vector Migration Parity"
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+    env:
+      SOURCE_VECTOR_PROVIDER: weaviate
+      TARGET_VECTOR_PROVIDER: qdrant
+      AGENTICQA_RAG_MODE: cloud
+      WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+      WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+      QDRANT_HOST: localhost
+      QDRANT_PORT: '6333'
+      QDRANT_COLLECTION: AgenticQADocumentsMigrationProof
+      QDRANT_USE_HTTPS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required source credentials
+        run: |
+          if [ -z "${WEAVIATE_HOST}" ]; then
+            echo "❌ WEAVIATE_HOST secret is missing; cannot prove historical migration parity."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install migration dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir qdrant-client>=1.7.0
+          pip install --no-cache-dir -e ./AgenticQA
+
+      - name: Run live Weaviate -> Qdrant parity verification
+        run: |
+          python AgenticQA/scripts/verify_vector_migration.py
+
+      - name: Publish verification summary
+        if: always()
+        run: |
+          echo "## 🔁 Live Vector Migration Parity" >> $GITHUB_STEP_SUMMARY
+          echo "- Source: Weaviate (historical data)" >> $GITHUB_STEP_SUMMARY
+          echo "- Target: Ephemeral Qdrant service" >> $GITHUB_STEP_SUMMARY
+          echo "- Script: AgenticQA/scripts/verify_vector_migration.py" >> $GITHUB_STEP_SUMMARY
+          echo "- Result: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+
   # Phase 1: Consolidated Testing
   # Runs all unit/integration tests in sequence within a single job
   phase-1-testing:
