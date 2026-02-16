@@ -17,6 +17,7 @@ Hybrid Approach:
 """
 
 from .weaviate_store import VectorStore, VectorDocument, WeaviateVectorStore
+from .qdrant_store import QdrantVectorStore
 from .embeddings import (
     Embedder,
     SimpleHashEmbedder,
@@ -30,12 +31,21 @@ from .embeddings import (
 from .retriever import RAGRetriever, RetrievalResult, MultiAgentRAG
 from .relational_store import RelationalStore, PostgreSQLStore, StructuredMetric
 from .hybrid_retriever import HybridRAG, HybridResult
-from .config import RAGConfig, WeaviateConfig, DeploymentMode, create_rag_system
+from .config import (
+    RAGConfig,
+    WeaviateConfig,
+    QdrantConfig,
+    DeploymentMode,
+    VectorProvider,
+    create_vector_store,
+    create_rag_system,
+)
 
 __all__ = [
     # Vector Store
     "VectorStore",
     "WeaviateVectorStore",
+    "QdrantVectorStore",
     "VectorDocument",
     # Embeddings
     "Embedder",
@@ -60,6 +70,9 @@ __all__ = [
     # Configuration
     "RAGConfig",
     "WeaviateConfig",
+    "QdrantConfig",
     "DeploymentMode",
+    "VectorProvider",
+    "create_vector_store",
     "create_rag_system",
 ]

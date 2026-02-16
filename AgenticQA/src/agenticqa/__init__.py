@@ -22,6 +22,7 @@ from .rag import (
     # Vector Store
     VectorStore,
     WeaviateVectorStore,
+    QdrantVectorStore,
     VectorDocument,
     # Embeddings
     Embedder,
@@ -39,7 +40,10 @@ from .rag import (
     # Configuration (for cloud/pipeline deployments)
     RAGConfig,
     WeaviateConfig,
+    QdrantConfig,
     DeploymentMode,
+    VectorProvider,
+    create_vector_store,
     create_rag_system,
 )
 
@@ -49,6 +53,7 @@ __all__ = [
     # Vector Store
     "VectorStore",
     "WeaviateVectorStore",
+    "QdrantVectorStore",
     "VectorDocument",
     # Embeddings
     "Embedder",
@@ -66,6 +71,9 @@ __all__ = [
     # Configuration
     "RAGConfig",
     "WeaviateConfig",
+    "QdrantConfig",
     "DeploymentMode",
+    "VectorProvider",
+    "create_vector_store",
     "create_rag_system",
 ]
