@@ -12,7 +12,7 @@ We needed a replacement path that was fast, safe, and provably equivalent.
 - Preserve compatibility with the existing provider for future flexibility.
 - Prove parity with tests and CI evidence, not assumptions.
 
-In practical terms, this was not a “database swap.” It was a reliability exercise.
+In practical terms, this was not a “database swap.” It was a reliability exercise across a multi-stage pipeline where RAG quality, CI signals, agent behavior, and storage consistency are tightly coupled.
 
 ---
 
@@ -27,6 +27,8 @@ Instead of rewriting retrieval logic, we implemented a provider architecture:
 5. Gate everything through targeted tests and CI checks.
 
 This approach minimized blast radius because application code paths remained stable while storage became pluggable.
+
+It also respected an important reality: in an agentic pipeline, vector storage is not isolated infrastructure. It directly affects retrieval relevance, downstream decision quality, and execution outcomes in later pipeline phases.
 
 ---
 
@@ -65,6 +67,16 @@ We started with a non-blocking check to gain signal safely, while preserving pip
 
 ## Testing and verification process
 
+### Why verification was intrinsically complex
+The migration had to be validated across multiple dependent layers, not a single storage API:
+- vector provider behavior,
+- migration data integrity,
+- RAG retrieval continuity,
+- CI/CD workflow orchestration,
+- agent-facing reliability signals.
+
+Any silent regression in retrieval could propagate into agent recommendations, triage quality, and pipeline remediation decisions. So parity had to mean both data parity and operational parity.
+
 ### Focused migration test suite
 We validated provider and migration logic with targeted tests:
 - `test_vector_provider_config.py`
@@ -73,8 +85,16 @@ We validated provider and migration logic with targeted tests:
 
 Observed local result: **12/12 tests passed**.
 
+These tests were intentionally chosen to protect the RAG-critical path:
+- provider routing correctness,
+- canonical export/import validity,
+- cross-provider parity detection,
+- dual-write replication consistency and fallback behavior.
+
 ### CI run verification
 After workflow trigger correction, feature-branch runs became visible and active. Migration validation was now present in the execution path.
+
+This mattered because verification had to occur in the same operational context where agents and quality gates run, not only in isolated local execution.
 
 ### Why this matters for RAG quality
 RAG failures during migration are often subtle. Our checks covered the risky surfaces:
@@ -82,7 +102,7 @@ RAG failures during migration are often subtle. Our checks covered the risky sur
 - migration schema integrity,
 - record parity across providers,
 - dual-write replication behavior,
-- retrieval continuity.
+- retrieval continuity under pipeline conditions.
 
 This reduces silent drift risk in production.
 
@@ -100,7 +120,7 @@ The acceleration came from:
 - immediate test feedback,
 - CI-backed operational proof.
 
-The key point: speed improved **without** reducing engineering rigor.
+The key point: speed improved **without** reducing engineering rigor, even with a complex pipeline that required RAG-aware verification before confidence in production rollout.
 
 ---
 
