@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feat/ml-learning-loop ]
   pull_request:
     branches: [ main ]
   schedule:
