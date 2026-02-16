@@ -5,6 +5,8 @@ Provides an open-source vector database backend with the same public API used by
 `WeaviateVectorStore` for drop-in provider switching.
 """
 
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime

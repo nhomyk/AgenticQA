@@ -439,6 +439,17 @@ jobs:
           pip install --no-cache-dir weaviate-client>=4.0.0
           pip install --no-cache-dir -e ./AgenticQA
 
+      - name: Validate vector migration toolkit (non-blocking)
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "🧪 Validating vector provider/migration/dual-write tests..."
+          PYTHONPATH=AgenticQA pytest \
+            AgenticQA/tests/test_vector_provider_config.py \
+            AgenticQA/tests/test_vector_migration.py \
+            AgenticQA/tests/test_dual_write_vector_store.py \
+            -v --tb=short
+
       - name: Ingest Test Results to Weaviate
         if: always()
         env:
