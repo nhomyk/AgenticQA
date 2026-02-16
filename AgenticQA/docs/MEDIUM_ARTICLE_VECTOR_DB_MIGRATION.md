@@ -32,6 +32,67 @@ It also respected an important reality: in an agentic pipeline, vector storage i
 
 ---
 
+## Visualizing the complex parts (diagram-ready)
+
+To emphasize pipeline complexity in the article, add these diagrams as images (recommended for Medium) or keep the Mermaid source below in your repo.
+
+### Diagram 1: End-to-end architecture (before/after migration)
+
+```mermaid
+flowchart LR
+	A[CI/CD Events + Test Artifacts] --> B[Ingestion + Embedding]
+	B --> C[RAG Retrieval Layer]
+	C --> D[Agent Orchestration]
+	D --> E[Pipeline Decisions + Remediation]
+
+	subgraph Vector Providers
+	  W[Weaviate]
+	  Q[Qdrant]
+	end
+
+	C --> W
+	C --> Q
+```
+
+### Diagram 2: Migration and cutover safety path
+
+```mermaid
+flowchart TD
+	S[Source Provider: Weaviate] --> X[Canonical JSONL Export]
+	X --> V[Schema Validation]
+	V --> I[Import to Target: Qdrant]
+	I --> P[Parity Report]
+	P -->|pass| D[Enable Dual-Write]
+	P -->|fail| R[Rollback / Investigate]
+	D --> C[Cutover Read Primary]
+```
+
+### Diagram 3: RAG-aware verification gates in CI
+
+```mermaid
+flowchart TD
+	T1[test_vector_provider_config.py] --> G[Migration Validation Gate]
+	T2[test_vector_migration.py] --> G
+	T3[test_dual_write_vector_store.py] --> G
+
+	G -->|pass| A[Agent Phases + Pipeline Continuation]
+	G -->|fail| H[Stop / Alert / Fix]
+```
+
+### Diagram 4: Why parity must include operations, not only data
+
+```mermaid
+flowchart LR
+	DP[Data Parity
+IDs + Content + Metadata] --> OP[Operational Parity
+Retrieval + Agent Outcomes + CI Signals]
+	OP --> PR[Production Readiness]
+```
+
+**Medium tip:** Mermaid does not always render natively in Medium. Export each diagram as SVG/PNG (e.g., Mermaid Live Editor, Excalidraw, or draw.io) and insert as images under the matching section.
+
+---
+
 ## What we built
 
 ### 1) Provider parity layer
