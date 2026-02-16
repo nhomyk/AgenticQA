@@ -12,6 +12,8 @@ Outcome: **exact feature parity and migration confidence without breaking dashbo
 
 The biggest story is speed-to-production: AI-assisted engineering + CI/CD gates + agentic workflows moved us from infrastructure risk to validated optionality in hours, not the multi-cycle timeline these migrations usually require.
 
+For context on the bigger product: I’m building an AI-powered pipeline platform that turns CI/CD into a learning system — detecting issues early, auto-fixing common failures, and helping teams ship faster with higher confidence over time.
+
 I documented the full process (challenge, plan, implementation, testing strategy, and lessons learned):
 
 👉 https://medium.com/@YOUR_HANDLE/how-we-added-an-open-source-vector-database-without-breaking-production
@@ -31,6 +33,8 @@ Shipped today: open-source vector DB support in our RAG stack with verified pari
 - Passed targeted provider/migration/dual-write tests
 
 Fast to production, safe by design, and fully test-verified.
+
+This is part of a broader product vision: an agentic CI/CD platform that doesn’t just report failures, but learns from every run to improve release quality and delivery speed.
 
 Full write-up: https://medium.com/@YOUR_HANDLE/how-we-added-an-open-source-vector-database-without-breaking-production
 
