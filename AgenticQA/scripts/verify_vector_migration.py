@@ -5,10 +5,10 @@ import os
 import tempfile
 from pathlib import Path
 
-from src.agenticqa.rag.config import RAGConfig, VectorProvider
-from src.agenticqa.rag.weaviate_store import WeaviateVectorStore
-from src.agenticqa.rag.qdrant_store import QdrantVectorStore
-from src.agenticqa.rag.migration import (
+from agenticqa.rag.config import RAGConfig, VectorProvider
+from agenticqa.rag.weaviate_store import WeaviateVectorStore
+from agenticqa.rag.qdrant_store import QdrantVectorStore
+from agenticqa.rag.migration import (
     export_vector_store_to_jsonl,
     import_jsonl_to_vector_store,
     parity_report,
