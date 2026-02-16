@@ -367,6 +367,10 @@ jobs:
             echo "❌ WEAVIATE_HOST secret is missing; cannot prove historical migration parity."
             exit 1
           fi
+          if [ -z "${WEAVIATE_API_KEY}" ]; then
+            echo "❌ WEAVIATE_API_KEY secret is missing; cloud Weaviate verification requires authentication."
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -382,7 +386,16 @@ jobs:
 
       - name: Run live Weaviate -> Qdrant parity verification
         run: |
-          python AgenticQA/scripts/verify_vector_migration.py
+          set -o pipefail
+          python AgenticQA/scripts/verify_vector_migration.py 2>&1 | tee migration-verify.log
+
+      - name: Attach migration verification log snippet
+        if: always()
+        run: |
+          echo "### Migration verification output (last 60 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 60 migration-verify.log >> $GITHUB_STEP_SUMMARY || echo "No migration log captured" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Publish verification summary
         if: always()
