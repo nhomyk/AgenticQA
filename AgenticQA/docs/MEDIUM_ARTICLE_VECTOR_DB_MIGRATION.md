@@ -34,62 +34,57 @@ It also respected an important reality: in an agentic pipeline, vector storage i
 
 ## Visualizing the complex parts (diagram-ready)
 
-To emphasize pipeline complexity in the article, add these diagrams as images (recommended for Medium) or keep the Mermaid source below in your repo.
+To emphasize pipeline complexity in the article, use these practical, copy/paste-ready flow charts.
 
-### Diagram 1: End-to-end architecture (before/after migration)
-
-```mermaid
-flowchart LR
-	A[CI/CD Events + Test Artifacts] --> B[Ingestion + Embedding]
-	B --> C[RAG Retrieval Layer]
-	C --> D[Agent Orchestration]
-	D --> E[Pipeline Decisions + Remediation]
-
-	subgraph Vector Providers
-	  W[Weaviate]
-	  Q[Qdrant]
-	end
-
-	C --> W
-	C --> Q
-```
-
-### Diagram 2: Migration and cutover safety path
+### Diagram 1: Migration safety flow (recommended)
 
 ```mermaid
 flowchart TD
-	S[Source Provider: Weaviate] --> X[Canonical JSONL Export]
-	X --> V[Schema Validation]
-	V --> I[Import to Target: Qdrant]
-	I --> P[Parity Report]
-	P -->|pass| D[Enable Dual-Write]
-	P -->|fail| R[Rollback / Investigate]
-	D --> C[Cutover Read Primary]
+		A[Risk: Weaviate demo expiry] --> B[Define non-negotiables]
+		B --> C[Add provider abstraction]
+		C --> D[Implement Qdrant backend]
+		D --> E[Export canonical JSONL from source]
+		E --> F[Validate schema]
+		F --> G[Import into target]
+		G --> H[Run parity report]
+		H -->|Pass| I[Enable dual-write]
+		H -->|Fail| R[Investigate + fix]
+		I --> J[Run RAG verification tests]
+		J --> K[Run CI/CD workflow gates]
+		K -->|Pass| L[Production-ready cutover]
+		K -->|Fail| R
 ```
 
-### Diagram 3: RAG-aware verification gates in CI
-
-```mermaid
-flowchart TD
-	T1[test_vector_provider_config.py] --> G[Migration Validation Gate]
-	T2[test_vector_migration.py] --> G
-	T3[test_dual_write_vector_store.py] --> G
-
-	G -->|pass| A[Agent Phases + Pipeline Continuation]
-	G -->|fail| H[Stop / Alert / Fix]
-```
-
-### Diagram 4: Why parity must include operations, not only data
+### Diagram 2: RAG-critical verification gate
 
 ```mermaid
 flowchart LR
-	DP[Data Parity
-IDs + Content + Metadata] --> OP[Operational Parity
-Retrieval + Agent Outcomes + CI Signals]
-	OP --> PR[Production Readiness]
+		T1[test_vector_provider_config.py] --> G[Migration Verification Gate]
+		T2[test_vector_migration.py] --> G
+		T3[test_dual_write_vector_store.py] --> G
+		G -->|Pass| P[Proceed to agent pipeline phases]
+		G -->|Fail| S[Stop + rollback path]
 ```
 
-**Medium tip:** Mermaid does not always render natively in Medium. Export each diagram as SVG/PNG (e.g., Mermaid Live Editor, Excalidraw, or draw.io) and insert as images under the matching section.
+### Diagram 3: Plain-text fallback (for platforms without Mermaid)
+
+```text
+Risk detected (provider expiry)
+	-> Provider abstraction
+	-> Add Qdrant backend
+	-> Export canonical data
+	-> Validate schema
+	-> Import target
+	-> Parity check
+			-> FAIL: fix and re-run
+			-> PASS: dual-write window
+								-> RAG verification tests
+								-> CI/CD gates
+										-> PASS: production cutover
+										-> FAIL: rollback/fix
+```
+
+**Medium tip:** Mermaid does not always render natively in Medium. Export these charts as SVG/PNG (Mermaid Live Editor, Excalidraw, or draw.io) and insert the images in-line.
 
 ---
 
