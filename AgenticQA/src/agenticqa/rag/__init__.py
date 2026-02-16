@@ -18,6 +18,7 @@ Hybrid Approach:
 
 from .weaviate_store import VectorStore, VectorDocument, WeaviateVectorStore
 from .qdrant_store import QdrantVectorStore
+from .dual_write_store import DualWriteVectorStore
 from .embeddings import (
     Embedder,
     SimpleHashEmbedder,
@@ -46,6 +47,7 @@ from .config import (
     DeploymentMode,
     VectorProvider,
     create_vector_store,
+    create_vector_store_for_provider,
     create_rag_system,
 )
 
@@ -54,6 +56,7 @@ __all__ = [
     "VectorStore",
     "WeaviateVectorStore",
     "QdrantVectorStore",
+    "DualWriteVectorStore",
     "VectorDocument",
     # Embeddings
     "Embedder",
@@ -89,5 +92,6 @@ __all__ = [
     "DeploymentMode",
     "VectorProvider",
     "create_vector_store",
+    "create_vector_store_for_provider",
     "create_rag_system",
 ]

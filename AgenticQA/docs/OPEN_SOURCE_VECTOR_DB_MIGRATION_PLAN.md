@@ -116,6 +116,12 @@ Project migration tooling now available:
 - `src/agenticqa/rag/migration.py` (canonical export/import/schema/parity)
 - `scripts/verify_vector_migration.py` (end-to-end verification runner)
 - `tests/test_vector_migration.py` (pipeline-safe migration tests)
+- `src/agenticqa/rag/dual_write_store.py` (primary+secondary write replication)
+
+Dual-write feature flags:
+- `AGENTICQA_VECTOR_DUAL_WRITE=true|false`
+- `AGENTICQA_VECTOR_PROVIDER=weaviate|qdrant` (primary)
+- `AGENTICQA_VECTOR_SECONDARY_PROVIDER=weaviate|qdrant` (secondary, optional)
 
 Optional:
 - **pytest-benchmark** for retrieval latency parity

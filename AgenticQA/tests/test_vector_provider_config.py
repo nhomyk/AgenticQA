@@ -47,3 +47,18 @@ class TestVectorProviderConfig:
 
             create_vector_store()
             mocked_weaviate.assert_called_once()
+
+    def test_create_vector_store_uses_dual_write_when_enabled(self, monkeypatch):
+        monkeypatch.setenv("AGENTICQA_VECTOR_PROVIDER", "weaviate")
+        monkeypatch.setenv("AGENTICQA_VECTOR_DUAL_WRITE", "true")
+        monkeypatch.setenv("AGENTICQA_VECTOR_SECONDARY_PROVIDER", "qdrant")
+
+        with patch("src.agenticqa.rag.config.create_vector_store_for_provider") as mocked_single:
+            with patch("src.agenticqa.rag.dual_write_store.DualWriteVectorStore") as mocked_dual:
+                from src.agenticqa.rag.config import create_vector_store
+
+                mocked_single.side_effect = [object(), object()]
+                create_vector_store()
+
+                assert mocked_single.call_count == 2
+                mocked_dual.assert_called_once()

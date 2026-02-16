@@ -101,6 +101,8 @@ class RAGConfig:
     ENV_QDRANT_COLLECTION = "QDRANT_COLLECTION"
     ENV_QDRANT_HTTPS = "QDRANT_USE_HTTPS"
     ENV_QDRANT_URL = "QDRANT_URL"
+    ENV_VECTOR_DUAL_WRITE = "AGENTICQA_VECTOR_DUAL_WRITE"
+    ENV_VECTOR_SECONDARY_PROVIDER = "AGENTICQA_VECTOR_SECONDARY_PROVIDER"
 
     @staticmethod
     def get_vector_provider() -> VectorProvider:
@@ -217,10 +219,6 @@ class RAGConfig:
         Raises:
             ValueError with detailed error message if configuration is invalid
         """
-        provider = RAGConfig.get_vector_provider()
-        if provider != VectorProvider.WEAVIATE:
-            return True
-
         mode = RAGConfig.get_deployment_mode()
 
         if mode == DeploymentMode.LOCAL:
@@ -255,6 +253,37 @@ class RAGConfig:
         return os.getenv(RAGConfig.ENV_USE_POSTGRESQL, "false").lower() in ["true", "1", "yes"]
 
     @staticmethod
+    def is_dual_write_enabled() -> bool:
+        """Check if dual-write replication is enabled."""
+        return os.getenv(RAGConfig.ENV_VECTOR_DUAL_WRITE, "false").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+
+    @staticmethod
+    def get_secondary_provider(primary: VectorProvider) -> Optional[VectorProvider]:
+        """Get secondary provider for dual-write mode."""
+        secondary_str = os.getenv(RAGConfig.ENV_VECTOR_SECONDARY_PROVIDER)
+
+        if not secondary_str:
+            return (
+                VectorProvider.QDRANT
+                if primary == VectorProvider.WEAVIATE
+                else VectorProvider.WEAVIATE
+            )
+
+        try:
+            secondary = VectorProvider(secondary_str.lower())
+        except ValueError:
+            return None
+
+        if secondary == primary:
+            return None
+
+        return secondary
+
+    @staticmethod
     def print_config_summary() -> str:
         """
         Print configuration summary (safe, no secrets).
@@ -271,6 +300,7 @@ class RAGConfig:
 RAG Configuration Summary
 ========================
 Vector Provider: {provider.value.upper()}
+    Dual Write: {'ENABLED' if RAGConfig.is_dual_write_enabled() else 'DISABLED'}
 Mode: {mode.value.upper()}
 Hybrid RAG: {'ENABLED' if hybrid_enabled else 'DISABLED'}
 
@@ -299,10 +329,8 @@ Hybrid RAG: {'ENABLED' if hybrid_enabled else 'DISABLED'}
         return summary
 
 
-def create_vector_store():
-    """Factory function to create vector store by provider."""
-    provider = RAGConfig.get_vector_provider()
-
+def create_vector_store_for_provider(provider: VectorProvider):
+    """Create vector store instance for an explicit provider."""
     if provider == VectorProvider.QDRANT:
         from .qdrant_store import QdrantVectorStore
 
@@ -314,6 +342,37 @@ def create_vector_store():
     RAGConfig.validate_cloud_config()
     config = RAGConfig.get_weaviate_config()
     return WeaviateVectorStore(**config.to_dict())
+
+
+def create_vector_store():
+    """Factory function to create vector store by provider."""
+    provider = RAGConfig.get_vector_provider()
+    primary_store = create_vector_store_for_provider(provider)
+
+    if not RAGConfig.is_dual_write_enabled():
+        return primary_store
+
+    secondary_provider = RAGConfig.get_secondary_provider(provider)
+    if secondary_provider is None:
+        return primary_store
+
+    try:
+        secondary_store = create_vector_store_for_provider(secondary_provider)
+    except Exception as exc:
+        print(
+            f"Warning: Secondary vector store unavailable ({secondary_provider.value}): {exc}. "
+            "Continuing with primary store only."
+        )
+        return primary_store
+
+    from .dual_write_store import DualWriteVectorStore
+
+    return DualWriteVectorStore(
+        primary_store=primary_store,
+        secondary_store=secondary_store,
+        primary_name=provider.value,
+        secondary_name=secondary_provider.value,
+    )
 
 
 def create_rag_system():
