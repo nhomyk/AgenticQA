@@ -31,6 +31,14 @@ from .embeddings import (
 from .retriever import RAGRetriever, RetrievalResult, MultiAgentRAG
 from .relational_store import RelationalStore, PostgreSQLStore, StructuredMetric
 from .hybrid_retriever import HybridRAG, HybridResult
+from .migration import (
+    CanonicalVectorRecord,
+    MigrationValidationError,
+    export_vector_store_to_jsonl,
+    import_jsonl_to_vector_store,
+    validate_jsonl_schema,
+    parity_report,
+)
 from .config import (
     RAGConfig,
     WeaviateConfig,
@@ -67,6 +75,13 @@ __all__ = [
     # Hybrid RAG
     "HybridRAG",
     "HybridResult",
+    # Migration
+    "CanonicalVectorRecord",
+    "MigrationValidationError",
+    "export_vector_store_to_jsonl",
+    "import_jsonl_to_vector_store",
+    "validate_jsonl_schema",
+    "parity_report",
     # Configuration
     "RAGConfig",
     "WeaviateConfig",

@@ -112,6 +112,11 @@ Migration rules:
 - **DeepDiff** (record-level parity diffs)
 - **Pandera** (schema contracts for migration datasets)
 
+Project migration tooling now available:
+- `src/agenticqa/rag/migration.py` (canonical export/import/schema/parity)
+- `scripts/verify_vector_migration.py` (end-to-end verification runner)
+- `tests/test_vector_migration.py` (pipeline-safe migration tests)
+
 Optional:
 - **pytest-benchmark** for retrieval latency parity
 - Continue using **Great Expectations** where already established
@@ -167,3 +172,12 @@ Migration is complete only when all are true:
 - Pipeline validation workflows pass.
 - Dashboard/UI-related tests remain green.
 - Rollback procedure is tested and documented.
+
+---
+
+## Quick Verification Commands
+
+- Unit-level migration checks:
+  - `pytest tests/test_vector_migration.py -v`
+- End-to-end provider migration verify (env-driven):
+  - `SOURCE_VECTOR_PROVIDER=weaviate TARGET_VECTOR_PROVIDER=qdrant python scripts/verify_vector_migration.py`

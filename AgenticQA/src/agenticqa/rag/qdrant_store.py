@@ -207,6 +207,47 @@ class QdrantVectorStore:
 
         return documents
 
+    def list_documents(
+        self,
+        doc_type: Optional[str] = None,
+        include_vectors: bool = True,
+        limit: int = 10000,
+    ) -> List[VectorDocument]:
+        """List documents from collection, optionally filtered by type."""
+        if not self.client.collection_exists(self.collection_name):
+            return []
+
+        scroll_filter = None
+        if doc_type:
+            scroll_filter = models.Filter(
+                must=[models.FieldCondition(key="doc_type", match=models.MatchValue(value=doc_type))]
+            )
+
+        points, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=scroll_filter,
+            limit=limit,
+            with_payload=True,
+            with_vectors=include_vectors,
+        )
+
+        documents = []
+        for point in points:
+            payload = point.payload or {}
+            vector = list(point.vector) if (include_vectors and point.vector is not None) else []
+            documents.append(
+                VectorDocument(
+                    id=str(point.id),
+                    content=payload.get("content", ""),
+                    embedding=vector,
+                    metadata=payload.get("metadata") or {},
+                    timestamp=payload.get("timestamp", ""),
+                    doc_type=payload.get("doc_type", ""),
+                )
+            )
+
+        return documents
+
     def delete_document(self, doc_id: str) -> bool:
         """Delete document from Qdrant"""
         if not self.client.collection_exists(self.collection_name):

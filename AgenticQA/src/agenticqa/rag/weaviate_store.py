@@ -257,6 +257,54 @@ class WeaviateVectorStore:
         except Exception as e:
             raise RuntimeError(f"Failed to fetch documents by type: {e}")
 
+    def list_documents(
+        self,
+        doc_type: Optional[str] = None,
+        include_vectors: bool = True,
+        limit: int = 10000,
+    ) -> List[VectorDocument]:
+        """List documents from collection, optionally filtered by type."""
+        try:
+            collection = self.client.collections.get(self.collection_name)
+            where_filter = None
+            if doc_type:
+                where_filter = weaviate.classes.query.Filter.by_property("doc_type").equal(doc_type)
+
+            try:
+                results = collection.query.fetch_objects(
+                    filters=where_filter,
+                    return_properties=["content", "doc_type", "metadata", "timestamp"],
+                    include_vector=include_vectors,
+                    limit=limit,
+                )
+            except TypeError:
+                # Backward compatibility with older client signatures
+                results = collection.query.fetch_objects(
+                    filters=where_filter,
+                    return_properties=["content", "doc_type", "metadata", "timestamp"],
+                    limit=limit,
+                )
+
+            documents = []
+            for item in results.objects:
+                vector = []
+                if include_vectors and getattr(item, "vector", None):
+                    vector = item.vector["default"] if "default" in item.vector else []
+
+                doc = VectorDocument(
+                    id=item.uuid,
+                    content=item.properties.get("content", ""),
+                    embedding=vector,
+                    metadata=json.loads(item.properties.get("metadata", "{}")),
+                    timestamp=item.properties.get("timestamp", ""),
+                    doc_type=item.properties.get("doc_type", ""),
+                )
+                documents.append(doc)
+
+            return documents
+        except Exception as e:
+            raise RuntimeError(f"Failed to list documents: {e}")
+
     def delete_document(self, doc_id: str) -> bool:
         """Delete document from Weaviate"""
         try:

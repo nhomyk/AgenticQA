@@ -443,6 +443,11 @@ jobs:
           echo "Testing data integrity, quality, and security..."
           pytest tests/test_data_validation.py -v --tb=short -m "data_integrity or data_quality or data_security"
 
+      - name: Test Vector Migration Validation
+        run: |
+          echo "Testing vector migration export/import/parity validation..."
+          pytest tests/test_vector_migration.py -v --tb=short
+
       - name: Test Pipeline Framework
         run: |
           echo "Testing pipeline framework and critical health checks..."
