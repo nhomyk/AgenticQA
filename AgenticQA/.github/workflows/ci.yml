@@ -7,6 +7,10 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-workflows:
     runs-on: ubuntu-latest
@@ -87,6 +91,18 @@ jobs:
       - name: Commit and push auto-fixes
         id: commit-fixes
         run: |
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            echo "Pull request event detected; skipping auto-commit."
+            echo "auto_fixed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "${GITHUB_ACTOR}" = "github-actions[bot]" ]; then
+            echo "Bot-triggered run detected; skipping auto-commit to avoid recursion."
+            echo "auto_fixed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A

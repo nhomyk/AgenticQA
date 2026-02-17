@@ -47,15 +47,41 @@ jobs:
       - name: Check Main Pipeline Status
         id: health
         run: |
-          # Check if main branch's latest workflow passed
-          echo "Checking main pipeline health..."
+          echo "Checking main pipeline health via GitHub API..."
 
-          # This would use gh CLI to check latest workflow
-          # For now, assume healthy
-          echo "healthy=true" >> $GITHUB_OUTPUT
-          echo "main_passing=true" >> $GITHUB_OUTPUT
+          API_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&per_page=1"
 
-          echo "✓ Main pipeline appears healthy"
+          RESPONSE=$(curl -fsSL \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "${API_URL}")
+
+          export RESPONSE
+          read -r MAIN_CONCLUSION MAIN_STATUS <<< "$(python - << 'PY'
+import json
+import os
+
+payload = json.loads(os.environ["RESPONSE"])
+runs = payload.get("workflow_runs", [])
+if not runs:
+    print("none none")
+else:
+    run = runs[0]
+    print(f"{run.get('conclusion', 'none')} {run.get('status', 'none')}")
+PY
+          )"
+
+          echo "Latest main CI run status=${MAIN_STATUS}, conclusion=${MAIN_CONCLUSION}"
+
+          if [ "${MAIN_CONCLUSION}" = "success" ]; then
+            echo "healthy=true" >> $GITHUB_OUTPUT
+            echo "main_passing=true" >> $GITHUB_OUTPUT
+            echo "✓ Main pipeline is healthy"
+          else
+            echo "healthy=false" >> $GITHUB_OUTPUT
+            echo "main_passing=false" >> $GITHUB_OUTPUT
+            echo "✗ Main pipeline is not healthy"
+          fi
 
       - name: Report Health Status
         run: |
