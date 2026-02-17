@@ -2313,6 +2313,43 @@ def render_api_plug(store=None):
 
             except ImportError:
                 st.error("The `requests` library is required. Install with: `pip install requests`")
+            except Exception as e:
+                if "ConnectionError" in type(e).__name__ or "Connection refused" in str(e):
+                    st.error("Connection refused. Is the FastAPI server running?\n\n"
+                              "Start it with: `uvicorn agent_api:app --host 0.0.0.0 --port 8000`")
+                else:
+                    st.error(f"Request failed: {e}")
+
+        if batch_clicked:
+            try:
+                import requests as req_lib
+                import time as time_mod
+
+                results = []
+                for name, ep_def in endpoints.items():
+                    if ep_def["method"] != "GET" or "{" in ep_def["path"]:
+                        continue
+                    try:
+                        start = time_mod.time()
+                        resp = req_lib.get(f"{api_base}{ep_def['path']}", timeout=5)
+                        elapsed = (time_mod.time() - start) * 1000
+                        results.append({"Endpoint": name, "Status": resp.status_code,
+                                        "Time (ms)": f"{elapsed:.0f}", "Result": "OK" if resp.status_code < 300 else "Error"})
+                    except Exception:
+                        results.append({"Endpoint": name, "Status": "-", "Time (ms)": "-", "Result": "Connection Refused"})
+
+                if results:
+                    st.dataframe(pd.DataFrame(results), use_container_width=True, hide_index=True)
+                    ok_count = sum(1 for r in results if r["Result"] == "OK")
+                    if ok_count == len(results):
+                        st.success(f"All {ok_count} endpoints healthy")
+                    elif ok_count > 0:
+                        st.warning(f"{ok_count}/{len(results)} endpoints responding")
+                    else:
+                        st.error("No endpoints responding. Start the FastAPI server first.")
+
+            except ImportError:
+                st.error("The `requests` library is required. Install with: `pip install requests`")
 
 
 def render_prompt_ops():
@@ -2473,43 +2510,6 @@ def render_prompt_ops():
                 "`uvicorn agent_api:app --host 0.0.0.0 --port 8000`\n\n"
                 f"Error: {e}"
             )
-            except Exception as e:
-                if "ConnectionError" in type(e).__name__ or "Connection refused" in str(e):
-                    st.error("Connection refused. Is the FastAPI server running?\n\n"
-                              "Start it with: `uvicorn agent_api:app --host 0.0.0.0 --port 8000`")
-                else:
-                    st.error(f"Request failed: {e}")
-
-        if batch_clicked:
-            try:
-                import requests as req_lib
-                import time as time_mod
-
-                results = []
-                for name, ep_def in endpoints.items():
-                    if ep_def["method"] != "GET" or "{" in ep_def["path"]:
-                        continue
-                    try:
-                        start = time_mod.time()
-                        resp = req_lib.get(f"{api_base}{ep_def['path']}", timeout=5)
-                        elapsed = (time_mod.time() - start) * 1000
-                        results.append({"Endpoint": name, "Status": resp.status_code,
-                                        "Time (ms)": f"{elapsed:.0f}", "Result": "OK" if resp.status_code < 300 else "Error"})
-                    except Exception:
-                        results.append({"Endpoint": name, "Status": "-", "Time (ms)": "-", "Result": "Connection Refused"})
-
-                if results:
-                    st.dataframe(pd.DataFrame(results), use_container_width=True, hide_index=True)
-                    ok_count = sum(1 for r in results if r["Result"] == "OK")
-                    if ok_count == len(results):
-                        st.success(f"All {ok_count} endpoints healthy")
-                    elif ok_count > 0:
-                        st.warning(f"{ok_count}/{len(results)} endpoints responding")
-                    else:
-                        st.error("No endpoints responding. Start the FastAPI server first.")
-
-            except ImportError:
-                st.error("The `requests` library is required. Install with: `pip install requests`")
 
 
 def render_stack_anatomy(store=None):
