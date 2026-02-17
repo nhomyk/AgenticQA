@@ -2636,6 +2636,96 @@ def render_prompt_ops():
                             st.json(resp.json().get("request", {}))
                         else:
                             st.error(f"Replay failed ({resp.status_code}): {resp.text[:500]}")
+
+                    st.markdown("---")
+                    st.markdown("### 🔎 Agent Observability Timeline")
+                    st.caption(
+                        "Trace-level visibility across worker orchestration, SDET loops, "
+                        "status transitions, and latency details."
+                    )
+
+                    obs_col1, obs_col2 = st.columns([1, 1])
+                    with obs_col1:
+                        trace_limit = st.number_input(
+                            "Trace Limit",
+                            min_value=5,
+                            max_value=200,
+                            value=30,
+                            step=5,
+                            key="prompt_ops_trace_limit",
+                        )
+                    with obs_col2:
+                        obs_event_limit = st.number_input(
+                            "Event Limit",
+                            min_value=10,
+                            max_value=500,
+                            value=100,
+                            step=10,
+                            key="prompt_ops_event_limit",
+                        )
+
+                    traces_resp = req_lib.get(
+                        f"{api_base}/api/observability/traces?limit={int(trace_limit)}",
+                        timeout=10,
+                    )
+                    if traces_resp.status_code < 300:
+                        traces = traces_resp.json().get("traces", [])
+                        if traces:
+                            trace_rows = []
+                            for t in traces:
+                                trace_rows.append(
+                                    {
+                                        "trace_id": t.get("trace_id"),
+                                        "request_id": t.get("request_id"),
+                                        "events": t.get("event_count"),
+                                        "last_status": t.get("last_status"),
+                                        "last_agent": t.get("last_agent"),
+                                        "last_action": t.get("last_action"),
+                                        "started_at": t.get("started_at"),
+                                        "ended_at": t.get("ended_at"),
+                                    }
+                                )
+
+                            st.dataframe(pd.DataFrame(trace_rows), use_container_width=True, hide_index=True)
+
+                            selected_trace = st.selectbox(
+                                "Select Trace",
+                                options=[r["trace_id"] for r in trace_rows if r.get("trace_id")],
+                                key="prompt_ops_selected_trace",
+                            )
+
+                            trace_resp = req_lib.get(
+                                f"{api_base}/api/observability/traces/{selected_trace}?limit={int(obs_event_limit)}",
+                                timeout=10,
+                            )
+                            if trace_resp.status_code < 300:
+                                trace = trace_resp.json().get("trace", {})
+                                events = trace.get("events", [])
+                                if events:
+                                    event_rows = []
+                                    for e in events:
+                                        event_rows.append(
+                                            {
+                                                "agent": e.get("agent"),
+                                                "action": e.get("action"),
+                                                "status": e.get("status"),
+                                                "latency_ms": e.get("latency_ms"),
+                                                "error": e.get("error"),
+                                                "created_at": e.get("created_at"),
+                                            }
+                                        )
+                                    st.dataframe(pd.DataFrame(event_rows), use_container_width=True, hide_index=True)
+
+                                    with st.expander("Selected Trace JSON", expanded=False):
+                                        st.json(trace)
+                                else:
+                                    st.info("No events found for selected trace.")
+                            else:
+                                st.error(f"Trace lookup failed ({trace_resp.status_code}): {trace_resp.text[:300]}")
+                        else:
+                            st.info("No observability traces yet. Run a workflow request to generate trace events.")
+                    else:
+                        st.error(f"Could not load traces ({traces_resp.status_code}): {traces_resp.text[:300]}")
                 else:
                     st.info("No workflow requests yet. Submit a prompt above.")
             else:

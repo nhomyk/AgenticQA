@@ -319,6 +319,11 @@ streamlit run dashboard/app.py
 - `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
 - `POST /api/plugin/doctor` — onboarding readiness checks for any repo
 
+Client value for AI observability:
+- Explainability for enterprise buyers (who did what, when, and why)
+- Faster incident response with per-agent action timelines and status transitions
+- Better governance and auditability with trace-level records tied to workflow requests
+
 ### Worker execution modes
 
 - Worker executes a code-generation stage before commit:
