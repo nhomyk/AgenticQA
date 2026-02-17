@@ -313,6 +313,9 @@ streamlit run dashboard/app.py
 - `POST /api/workflows/worker/run-next` — execute oldest queued request
 - `POST /api/workflows/worker/run/{id}` — execute a specific queued request
 - `GET /api/workflows/metrics` — MTTR, pass-rate uplift, flaky-reduction outcomes
+- `GET /api/observability/traces` — recent trace summaries across worker/agent actions
+- `GET /api/observability/traces/{trace_id}` — timeline for a single trace
+- `GET /api/observability/events` — raw action events with filters (`request_id`, `agent`, `action`)
 - `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
 - `POST /api/plugin/doctor` — onboarding readiness checks for any repo
 
@@ -322,6 +325,7 @@ streamlit run dashboard/app.py
      - derives feature intent from prompt,
      - invokes `FullstackAgent` generation,
      - orchestrates guardrailed collaboration with `Compliance_Agent`, `SDET_Agent`, and `DevOps_Agent`,
+     - emits observability events with correlated `trace_id` for worker, orchestrator, and SDET loop,
      - records explainable routing rationale (why each agent was selected),
      - runs SDET test synthesis for newly generated production files,
      - re-runs generated tests in a bounded loop until pass/fail budget is reached,

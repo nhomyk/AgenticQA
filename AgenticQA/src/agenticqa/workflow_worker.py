@@ -11,6 +11,8 @@ import os
 import re
 import subprocess
 import sys
+import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -19,14 +21,19 @@ from urllib import request as url_request
 
 from .prompt_ops_orchestrator import PromptOpsOrchestrator
 from .workflow_requests import PromptWorkflowStore
+try:
+    from .observability import ObservabilityStore
+except Exception:  # pragma: no cover
+    ObservabilityStore = Any  # type: ignore
 
 
 class WorkflowExecutionWorker:
     """Worker that executes queued prompt workflow requests."""
 
-    def __init__(self, store: PromptWorkflowStore):
+    def __init__(self, store: PromptWorkflowStore, observability_store: Optional[Any] = None):
         self.store = store
         self.orchestrator = PromptOpsOrchestrator()
+        self.observability_store = observability_store
 
     def run_next(self, dry_run: bool = True, open_pr: bool = True) -> Optional[Dict[str, Any]]:
         queued = self.store.get_next_queued_request()
@@ -35,6 +42,8 @@ class WorkflowExecutionWorker:
         return self.run_request(queued["id"], dry_run=dry_run, open_pr=open_pr)
 
     def run_request(self, request_id: str, dry_run: bool = True, open_pr: bool = True) -> Dict[str, Any]:
+        trace_id = f"tr_{uuid.uuid4().hex[:12]}"
+        started = time.perf_counter()
         req = self.store.get_request(request_id)
         if not req:
             raise ValueError("request_not_found")
@@ -52,6 +61,17 @@ class WorkflowExecutionWorker:
         pushed = False
 
         try:
+            self._emit_event(
+                trace_id=trace_id,
+                request_id=request_id,
+                agent="WorkflowWorker",
+                action="run_request",
+                status="STARTED",
+                metadata={"dry_run": dry_run, "open_pr": open_pr},
+            )
+            metadata = req.get("metadata") or {}
+            metadata["trace_id"] = trace_id
+            req["metadata"] = metadata
             self.store.start_request(request_id)
 
             base_branch = self._git(repo_path, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
@@ -61,6 +81,7 @@ class WorkflowExecutionWorker:
             self._git(repo_path, ["checkout", "-B", branch_name])
 
             generated_paths, orchestration = self._generate_and_apply_code(repo_path=repo_path, req=req)
+            orchestration["trace_id"] = trace_id
             artifact_path = self._write_execution_artifact(
                 repo_path=repo_path,
                 req=req,
@@ -94,13 +115,23 @@ class WorkflowExecutionWorker:
                     )
 
             note = "Execution completed in dry-run mode" if dry_run else "Execution completed"
-            return self.store.complete_request(
+            result = self.store.complete_request(
                 request_id,
                 branch_name=branch_name,
                 commit_sha=commit_sha,
                 pr_url=pr_url,
                 note=note,
             )
+            self._emit_event(
+                trace_id=trace_id,
+                request_id=request_id,
+                agent="WorkflowWorker",
+                action="run_request",
+                status="COMPLETED",
+                started_ts=started,
+                metadata={"branch_name": branch_name, "commit_sha": commit_sha},
+            )
+            return result
         except Exception as exc:
             self._attempt_rollback(
                 repo_path=repo_path,
@@ -109,6 +140,15 @@ class WorkflowExecutionWorker:
                 dry_run=dry_run,
                 pushed=pushed,
                 req=req,
+            )
+            self._emit_event(
+                trace_id=trace_id,
+                request_id=request_id,
+                agent="WorkflowWorker",
+                action="run_request",
+                status="FAILED",
+                started_ts=started,
+                error=str(exc),
             )
             return self.store.fail_request(
                 request_id,
@@ -324,6 +364,18 @@ class WorkflowExecutionWorker:
         generated_paths: List[Path],
     ) -> tuple[List[Path], Dict[str, Any]]:
         """Generate tests for new code and re-run tests in a bounded loop."""
+        meta = req.get("metadata") or {}
+        trace_id = str(meta.get("trace_id") or "")
+        step_started = time.perf_counter()
+        if trace_id:
+            self._emit_event(
+                trace_id=trace_id,
+                request_id=req.get("id", "unknown"),
+                agent="SDET_Agent",
+                action="sdet_test_loop",
+                status="STARTED",
+                metadata={"generated_paths": len(generated_paths)},
+            )
         metadata = req.get("metadata") or {}
         if not bool(metadata.get("require_sdet_loop", True)):
             return [], {"required": False, "passed": True, "iterations": 0, "tests_generated": 0}
@@ -357,6 +409,16 @@ class WorkflowExecutionWorker:
             )
             passed, output = self._run_pytest(repo_path=repo_path, test_paths=generated_tests)
             if passed:
+                if trace_id:
+                    self._emit_event(
+                        trace_id=trace_id,
+                        request_id=req.get("id", "unknown"),
+                        agent="SDET_Agent",
+                        action="sdet_test_loop",
+                        status="COMPLETED",
+                        started_ts=step_started,
+                        metadata={"iterations": iteration, "tests_generated": len(generated_tests)},
+                    )
                 return generated_tests, {
                     "required": True,
                     "passed": True,
@@ -402,6 +464,18 @@ class WorkflowExecutionWorker:
                             "last_error": "",
                         }
                     last_error = output_after_fix[:500]
+
+        if trace_id:
+            self._emit_event(
+                trace_id=trace_id,
+                request_id=req.get("id", "unknown"),
+                agent="SDET_Agent",
+                action="sdet_test_loop",
+                status="FAILED",
+                started_ts=step_started,
+                error=last_error[:300] if last_error else "sdet_failed",
+                metadata={"iterations": max_iterations, "tests_generated": len(generated_tests)},
+            )
 
         return generated_tests, {
             "required": True,
@@ -524,11 +598,79 @@ class WorkflowExecutionWorker:
         output = (proc.stdout or "") + "\n" + (proc.stderr or "")
         return proc.returncode == 0, output
 
-    def _run_orchestration(self, req: Dict[str, Any], feature_request: Dict[str, str]) -> Dict[str, Any]:
+    def _emit_event(
+        self,
+        trace_id: str,
+        request_id: str,
+        agent: str,
+        action: str,
+        status: str,
+        started_ts: Optional[float] = None,
+        error: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not self.observability_store:
+            return
         try:
-            return self.orchestrator.run(request=req, feature_request=feature_request)
+            now = datetime.now(UTC).isoformat()
+            latency = None
+            started_at = None
+            if started_ts is not None:
+                latency = round((time.perf_counter() - started_ts) * 1000.0, 3)
+                started_at = now
+            self.observability_store.log_event(
+                trace_id=trace_id,
+                request_id=request_id,
+                agent=agent,
+                action=action,
+                status=status,
+                started_at=started_at,
+                ended_at=now,
+                latency_ms=latency,
+                error=error,
+                metadata=metadata,
+            )
+        except Exception:
+            return
+
+    def _run_orchestration(self, req: Dict[str, Any], feature_request: Dict[str, str]) -> Dict[str, Any]:
+        meta = req.get("metadata") or {}
+        trace_id = str(meta.get("trace_id") or "")
+        step_started = time.perf_counter()
+        if trace_id:
+            self._emit_event(
+                trace_id=trace_id,
+                request_id=req.get("id", "unknown"),
+                agent="PromptOpsOrchestrator",
+                action="orchestrate",
+                status="STARTED",
+                metadata={"category": feature_request.get("category")},
+            )
+        try:
+            out = self.orchestrator.run(request=req, feature_request=feature_request)
+            if trace_id:
+                self._emit_event(
+                    trace_id=trace_id,
+                    request_id=req.get("id", "unknown"),
+                    agent="PromptOpsOrchestrator",
+                    action="orchestrate",
+                    status="COMPLETED",
+                    started_ts=step_started,
+                    metadata={"quality_gate_passed": (out.get("quality_gate") or {}).get("passed", True)},
+                )
+            return out
         except Exception:
             generated = self._run_fullstack_generation(feature_request)
+            if trace_id:
+                self._emit_event(
+                    trace_id=trace_id,
+                    request_id=req.get("id", "unknown"),
+                    agent="PromptOpsOrchestrator",
+                    action="orchestrate",
+                    status="FAILED",
+                    started_ts=step_started,
+                    error="orchestrator_failed_fallback_used",
+                )
             return {
                 "feature_request": feature_request,
                 "generation": generated,

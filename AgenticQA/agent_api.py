@@ -12,9 +12,11 @@ from src.data_store import SecureDataPipeline
 try:
     from src.agenticqa.workflow_requests import PromptWorkflowStore
     from src.agenticqa.workflow_worker import WorkflowExecutionWorker
+    from src.agenticqa.observability import ObservabilityStore
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
+    from agenticqa.observability import ObservabilityStore
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -31,7 +33,8 @@ app.add_middleware(
 orchestrator = AgentOrchestrator()
 data_pipeline = SecureDataPipeline(use_great_expectations=False)
 workflow_store = PromptWorkflowStore()
-workflow_worker = WorkflowExecutionWorker(workflow_store)
+observability_store = ObservabilityStore()
+workflow_worker = WorkflowExecutionWorker(workflow_store, observability_store=observability_store)
 
 
 # Request/Response Models
@@ -89,6 +92,16 @@ class PluginRepoRequest(BaseModel):
 
     repo: str = "."
     force: bool = False
+
+
+class ObservabilityEventsQuery(BaseModel):
+    """Optional filters for observability event queries."""
+
+    trace_id: Optional[str] = None
+    request_id: Optional[str] = None
+    agent: Optional[str] = None
+    action: Optional[str] = None
+    limit: int = 100
 
 
 @app.get("/health")
@@ -421,6 +434,48 @@ async def run_workflow_request(request_id: str, body: WorkflowRunRequest):
         if "not_found" in str(e):
             raise HTTPException(status_code=404, detail="workflow request not found")
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/observability/traces")
+async def list_observability_traces(limit: int = 100):
+    """List recent execution traces across workflow/agent actions."""
+    try:
+        traces = observability_store.list_traces(limit=limit)
+        return {"success": True, "count": len(traces), "traces": traces}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/observability/traces/{trace_id}")
+async def get_observability_trace(trace_id: str, limit: int = 500):
+    """Get all events for a single trace."""
+    try:
+        trace = observability_store.get_trace(trace_id=trace_id, limit=limit)
+        return {"success": True, "trace": trace}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/observability/events")
+async def list_observability_events(
+    limit: int = 100,
+    trace_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+    agent: Optional[str] = None,
+    action: Optional[str] = None,
+):
+    """Query raw observability events with optional filters."""
+    try:
+        events = observability_store.list_events(
+            limit=limit,
+            trace_id=trace_id,
+            request_id=request_id,
+            agent=agent,
+            action=action,
+        )
+        return {"success": True, "count": len(events), "events": events}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
