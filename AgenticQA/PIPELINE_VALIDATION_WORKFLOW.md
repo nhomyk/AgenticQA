@@ -70,6 +70,22 @@ A **separate validation pipeline** that:
 
 ## How It Works
 
+### Autonomous Safeguards (Self-Maintenance Controls)
+
+To keep the pipeline self-healing without runaway automation, CI now includes:
+
+- **Repair Budget Guardrail:** auto-fix bot commits are capped to a daily budget.
+   - If budget is exceeded, auto-fix commit is skipped.
+   - Pipeline continues with strict checks so issues are surfaced clearly.
+
+- **Auto-Rollback on Failed Bot Fixes:** if a bot-authored auto-fix commit causes downstream failures,
+   the workflow automatically reverts that commit and pushes the revert.
+
+- **Recursion Protection:** bot-triggered runs do not create additional auto-fix commits,
+   preventing infinite fix loops.
+
+- **PR Safety Mode:** pull request runs never push auto-fix commits.
+
 ### Schedule
 - **Nightly:** Runs automatically at 2 AM UTC
 - **On-Demand:** Trigger manually anytime
