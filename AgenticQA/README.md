@@ -220,6 +220,54 @@ pip install -e .[test]
 
 This keeps first-run lightweight and avoids forcing heavy dependencies unless needed.
 
+## One-Command Client Onboarding Profiles
+
+Use these copy/paste profiles in a test repository to reduce setup friction.
+
+### Profile A: Fastest (Onboarding only)
+
+```bash
+python -m pip install -U pip && pip install -e . && agenticqa bootstrap --repo . && agenticqa doctor --repo .
+```
+
+Best for initial validation. No graph/RAG/dashboard dependencies required.
+
+### Profile B: Onboarding + Graph Recommendations
+
+```bash
+python -m pip install -U pip && pip install -e .[graph] && agenticqa bootstrap --repo . && agenticqa doctor --repo .
+```
+
+Best when you want Neo4j-backed delegation insights.
+
+### Profile C: Onboarding + Dashboard
+
+```bash
+python -m pip install -U pip && pip install -e .[dashboard,graph] && agenticqa bootstrap --repo . && agenticqa doctor --repo .
+```
+
+Best for client demos that need visual reporting quickly.
+
+### Profile D: Full Local Validation Stack
+
+```bash
+python -m pip install -U pip && pip install -e .[test,rag,dashboard,graph,quality] && agenticqa bootstrap --repo . && agenticqa doctor --repo .
+```
+
+Best for engineering teams doing full end-to-end validation.
+
+### Quick trial in a test repo
+
+```bash
+# in your test repo
+agenticqa bootstrap --repo .
+pytest --junitxml=agenticqa-junit.xml || true
+agenticqa ingest-junit agenticqa-junit.xml --out .agenticqa/latest_input.json
+agenticqa doctor --repo .
+```
+
+Expected result: `.agenticqa/config.json` + `.agenticqa/latest_input.json` are generated and doctor reports required checks as healthy.
+
 ## Plug-In Any Codebase (Early Access)
 
 AgenticQA now includes a starter plug-in workflow to onboard an external repository.
