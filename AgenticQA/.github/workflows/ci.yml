@@ -493,6 +493,7 @@ jobs:
     needs: code-linting
     runs-on: ubuntu-latest
     name: Frontend UI Tests (Playwright)
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -502,7 +503,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
+      - name: Configure fast CI UI mode
+        run: |
+          echo "CI_UI_PROJECTS=chromium" >> $GITHUB_ENV
+          echo "CI_UI_RETRIES=1" >> $GITHUB_ENV
       - name: Run Playwright tests
         run: npm run test:ui
       - name: Upload test results
