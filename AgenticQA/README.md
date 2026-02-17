@@ -194,6 +194,32 @@ pytest tests/ -v
 streamlit run dashboard/app.py
 ```
 
+## Low-Friction Install Modes
+
+Use only what you need for fastest adoption:
+
+```bash
+# Minimum onboarding-only install (bootstrap/doctor/ingest-junit)
+pip install -e .
+
+# Add Graph features (Neo4j-backed recommendations)
+pip install -e .[graph]
+
+# Add RAG providers and evaluation stack
+pip install -e .[rag]
+
+# Add dashboard dependencies
+pip install -e .[dashboard]
+
+# Add data-quality / validation tools
+pip install -e .[quality]
+
+# Full local test stack
+pip install -e .[test]
+```
+
+This keeps first-run lightweight and avoids forcing heavy dependencies unless needed.
+
 ## Plug-In Any Codebase (Early Access)
 
 AgenticQA now includes a starter plug-in workflow to onboard an external repository.

@@ -6,7 +6,7 @@ import json
 import socket
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -59,7 +59,7 @@ def bootstrap_project(repo_root: Path, force: bool = False) -> BootstrapResult:
     if force or not config_path.exists():
         config = {
             "schema_version": "1.0.0",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "repo_root": str(repo_root),
             "project": {
                 "primary_language": stack["primary_language"],
@@ -125,6 +125,7 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "name": "agenticqa_config",
         "ok": config_path.exists(),
         "detail": str(config_path),
+        "required": True,
     })
 
     compose_exists = any(repo_root.glob("docker-compose*.yml"))
@@ -132,6 +133,7 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "name": "docker_compose_file",
         "ok": compose_exists,
         "detail": "docker-compose*.yml",
+        "required": False,
     })
 
     neo4j_reachable = _check_tcp("127.0.0.1", 7687)
@@ -139,6 +141,7 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "name": "neo4j_bolt",
         "ok": neo4j_reachable,
         "detail": "127.0.0.1:7687",
+        "required": False,
     })
 
     dashboard_exists = (repo_root / "dashboard" / "app.py").exists()
@@ -146,9 +149,10 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "name": "dashboard_app",
         "ok": dashboard_exists,
         "detail": "dashboard/app.py",
+        "required": True,
     })
 
-    healthy = all(item["ok"] for item in checks)
+    healthy = all(item["ok"] for item in checks if item.get("required", True))
     return DoctorResult(healthy=healthy, checks=checks)
 
 
@@ -173,7 +177,7 @@ def ingest_junit(junit_path: Path, output_path: Optional[Path] = None) -> Dict[s
     pass_rate = round((passed / total) * 100.0, 2) if total else 0.0
 
     payload = {
-        "ingested_at": datetime.utcnow().isoformat(),
+        "ingested_at": datetime.now(UTC).isoformat(),
         "source": str(junit_path),
         "test_results": {
             "total": total,

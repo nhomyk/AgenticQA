@@ -17,8 +17,6 @@ import sys
 from pathlib import Path
 from typing import Type, Tuple
 
-from agenticqa.plugin_onboarding import bootstrap_project, ingest_junit, run_doctor
-
 
 def _create_orchestrator():
     """Create orchestrator with backward-compatible imports."""
@@ -105,6 +103,8 @@ def stats_command(args: argparse.Namespace) -> None:
 
 def bootstrap_command(args: argparse.Namespace) -> None:
     """Bootstrap AgenticQA plug-in starter files into a repository."""
+    from agenticqa.plugin_onboarding import bootstrap_project
+
     result = bootstrap_project(repo_root=Path(args.repo), force=args.force)
     print(
         json.dumps(
@@ -121,6 +121,8 @@ def bootstrap_command(args: argparse.Namespace) -> None:
 
 def doctor_command(args: argparse.Namespace) -> None:
     """Run plug-in health checks for dashboard readiness."""
+    from agenticqa.plugin_onboarding import run_doctor
+
     result = run_doctor(repo_root=Path(args.repo))
     print(json.dumps({"healthy": result.healthy, "checks": result.checks}, indent=2))
     if not result.healthy:
@@ -129,6 +131,8 @@ def doctor_command(args: argparse.Namespace) -> None:
 
 def ingest_junit_command(args: argparse.Namespace) -> None:
     """Convert JUnit XML into AgenticQA JSON input payload."""
+    from agenticqa.plugin_onboarding import ingest_junit
+
     output_path = Path(args.out) if args.out else None
     payload = ingest_junit(Path(args.junit_file), output_path=output_path)
     print(json.dumps(payload, indent=2))
