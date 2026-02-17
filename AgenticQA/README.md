@@ -288,6 +288,30 @@ This creates:
 - `.agenticqa/samples/agenticqa_input.json` (starter payload)
 - `.github/workflows/agenticqa.yml` (starter CI wiring)
 
+## Prompt-to-Workflow Control Plane (MVP)
+
+You can now submit development prompts through the dashboard (Prompt Ops page)
+or via API, then move requests through approval/queue states.
+
+```bash
+# Start control plane API
+uvicorn agent_api:app --host 0.0.0.0 --port 8000
+
+# Open dashboard and navigate to "Prompt Ops"
+streamlit run dashboard/app.py
+```
+
+### Core API endpoints
+
+- `POST /api/workflows/requests` — create prompt-driven workflow request
+- `GET /api/workflows/requests` — list recent requests
+- `GET /api/workflows/requests/{id}` — inspect single request with events
+- `POST /api/workflows/requests/{id}/approve` — approve request
+- `POST /api/workflows/requests/{id}/queue` — queue approved request
+- `POST /api/workflows/requests/{id}/cancel` — cancel request
+
+This is the intake/orchestration foundation for future Slack/Teams integrations.
+
 ---
 
 ## Project Structure

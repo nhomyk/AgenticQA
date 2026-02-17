@@ -4,10 +4,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import UTC, datetime
 
 from src.agents import AgentOrchestrator
 from src.data_store import SecureDataPipeline
+try:
+    from src.agenticqa.workflow_requests import PromptWorkflowStore
+except Exception:
+    from agenticqa.workflow_requests import PromptWorkflowStore
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -23,6 +27,7 @@ app.add_middleware(
 # Initialize orchestrator and data store
 orchestrator = AgentOrchestrator()
 data_pipeline = SecureDataPipeline(use_great_expectations=False)
+workflow_store = PromptWorkflowStore()
 
 
 # Request/Response Models
@@ -52,12 +57,27 @@ class DataStoreStats(BaseModel):
     last_updated: Optional[str] = None
 
 
+class WorkflowRequestCreate(BaseModel):
+    """Prompt-driven workflow creation request."""
+
+    prompt: str
+    repo: str = "."
+    requester: str = "dashboard"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class WorkflowActionRequest(BaseModel):
+    """Action request for an existing workflow item."""
+
+    reason: Optional[str] = None
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "agents_ready": 4,
     }
 
@@ -69,7 +89,7 @@ async def execute_agents(request: ExecutionRequest):
         results = orchestrator.execute_all_agents(request.dict())
         return {
             "success": True,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "results": results,
         }
     except Exception as e:
@@ -83,7 +103,7 @@ async def get_agent_insights():
         insights = orchestrator.get_agent_insights()
         return {
             "success": True,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "insights": insights,
         }
     except Exception as e:
@@ -181,9 +201,102 @@ async def get_patterns():
         patterns = data_pipeline.analyze_patterns()
         return {
             "success": True,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "patterns": patterns,
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/requests")
+async def create_workflow_request(request: WorkflowRequestCreate):
+    """Create a prompt-driven development workflow request."""
+    try:
+        if not request.prompt.strip():
+            raise HTTPException(status_code=400, detail="prompt cannot be empty")
+
+        item = workflow_store.create_request(
+            prompt=request.prompt,
+            repo=request.repo,
+            requester=request.requester,
+            metadata=request.metadata,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "request": item,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/requests")
+async def list_workflow_requests(limit: int = 25):
+    """List recent workflow requests."""
+    try:
+        return {
+            "success": True,
+            "count": min(max(limit, 1), 200),
+            "requests": workflow_store.list_requests(limit=min(max(limit, 1), 200)),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/requests/{request_id}")
+async def get_workflow_request(request_id: str):
+    """Get a single workflow request with lifecycle events."""
+    try:
+        item = workflow_store.get_request(request_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        return {"success": True, "request": item}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/requests/{request_id}/approve")
+async def approve_workflow_request(request_id: str):
+    """Approve a workflow request for execution queueing."""
+    try:
+        item = workflow_store.approve_request(request_id)
+        return {"success": True, "request": item}
+    except ValueError as e:
+        if "not_found" in str(e):
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/requests/{request_id}/queue")
+async def queue_workflow_request(request_id: str):
+    """Queue an approved workflow request for worker pickup."""
+    try:
+        item = workflow_store.queue_request(request_id)
+        return {"success": True, "request": item}
+    except ValueError as e:
+        if "not_found" in str(e):
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/requests/{request_id}/cancel")
+async def cancel_workflow_request(request_id: str, body: WorkflowActionRequest):
+    """Cancel a workflow request."""
+    try:
+        item = workflow_store.cancel_request(request_id, reason=body.reason or "cancelled_by_user")
+        return {"success": True, "request": item}
+    except ValueError as e:
+        if "not_found" in str(e):
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

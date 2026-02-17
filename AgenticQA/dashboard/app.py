@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from agenticqa.graph import DelegationGraphStore
 from agenticqa.verification import RagasTracker, OutcomeTracker
+from agenticqa.collaboration.delegation import DelegationGuardrails as CollaborationGuardrails
+from agenticqa.delegation.guardrails import DelegationGuardrails as TaskOntologyGuardrails
 
 # Page config
 st.set_page_config(
@@ -802,7 +804,7 @@ def render_ontology(store: DelegationGraphStore):
         - **Fullstack_Agent** (Dev): Feature implementation, code review
         - **Compliance_Agent** (Security): Security scans, audits
         - **DevOps_Agent** (DevOps): CI/CD, infrastructure
-        - **QA_Agent** (QA): Manual testing, validation
+        - **QA_Assistant** (QA): Manual testing, validation
         - **Performance_Agent** (QA): Load testing, benchmarks
         """)
 
@@ -919,15 +921,18 @@ def render_ontology(store: DelegationGraphStore):
 
     with col1:
         st.markdown("#### Expected Patterns (Ontology)")
-        st.markdown("""
-        **Designed workflows:**
-        - SDET → Fullstack (test generation)
-        - SDET → SRE (deployment validation)
-        - Fullstack → QA (code validation)
-        - DevOps → SRE (deployment execution)
-        - Compliance → SDET (security scans)
-        - Performance → DevOps (load testing)
-        """)
+        allowed_edges = [
+            (source, target)
+            for source, targets in CollaborationGuardrails.ALLOWED_DELEGATIONS.items()
+            for target in targets
+        ]
+
+        if allowed_edges:
+            st.markdown("**Enforced delegation whitelist:**")
+            for source, target in allowed_edges:
+                st.markdown(f"- {source} → {target}")
+        else:
+            st.info("No allowed delegation paths configured.")
 
     with col2:
         st.markdown("#### Actual Patterns (Reality)")
@@ -1570,17 +1575,17 @@ def render_pipeline_security(store=None):
         m3.metric("Timeout per Delegation", "30s", help="Prevents indefinite hanging")
 
         st.markdown("#### Allowed Delegation Whitelist")
-        st.markdown("""
-        | Source Agent | Allowed Targets | Rationale |
-        |-------------|-----------------|-----------|
-        | **SDET_Agent** | SRE_Agent | Test deployment validation |
-        | **Fullstack_Agent** | Compliance_Agent | Code compliance review |
-        | **Compliance_Agent** | DevOps_Agent | Deployment after audit |
-        | **SRE_Agent** | *(none)* | Terminal node - prevents loops |
-        | **DevOps_Agent** | *(none)* | Terminal node - prevents loops |
-        | **QA_Agent** | *(none)* | Terminal node |
-        | **Performance_Agent** | *(none)* | Terminal node |
-        """)
+        whitelist = CollaborationGuardrails.ALLOWED_DELEGATIONS
+        whitelist_rows = [
+            "| Source Agent | Allowed Targets | Rationale |",
+            "|-------------|-----------------|-----------|",
+        ]
+        for source, targets in whitelist.items():
+            target_display = ", ".join(targets) if targets else "*(none)*"
+            rationale = "Configured collaboration path" if targets else "Terminal node - prevents loops"
+            whitelist_rows.append(f"| **{source}** | {target_display} | {rationale} |")
+
+        st.markdown("\n".join(whitelist_rows))
 
         with st.expander("Safety Exception Types"):
             st.markdown("""
@@ -1597,38 +1602,26 @@ def render_pipeline_security(store=None):
         st.markdown("Source: `src/agenticqa/delegation/guardrails.py`")
 
         task_agent_map = {
-            "load_test": ["Performance_Agent", "QA_Agent"],
-            "benchmark": ["Performance_Agent"],
-            "deploy": ["DevOps_Agent", "SRE_Agent"],
-            "deploy_tests": ["SRE_Agent", "DevOps_Agent"],
-            "rollback": ["SRE_Agent", "DevOps_Agent"],
-            "monitor": ["SRE_Agent", "DevOps_Agent"],
-            "generate_tests": ["SDET_Agent", "QA_Agent"],
-            "validate_tests": ["SDET_Agent", "QA_Agent"],
-            "validate_code": ["QA_Agent", "Fullstack_Agent"],
-            "security_scan": ["Compliance_Agent", "SDET_Agent"],
-            "audit": ["Compliance_Agent"],
-            "compliance_check": ["Compliance_Agent"],
-            "implement_feature": ["Fullstack_Agent"],
-            "code_review": ["Fullstack_Agent", "Compliance_Agent"],
-            "refactor": ["Fullstack_Agent"],
-            "ci_cd": ["DevOps_Agent"],
-            "infrastructure": ["DevOps_Agent", "SRE_Agent"],
+            task: [TaskOntologyGuardrails.normalize_agent_name(a) for a in agents]
+            for task, agents in TaskOntologyGuardrails.TASK_AGENT_MAP.items()
         }
 
-        agents_list = ["SDET", "QA", "Fullstack", "Compliance", "DevOps", "SRE", "Performance"]
+        agent_names = sorted({
+            agent for authorized_agents in task_agent_map.values() for agent in authorized_agents
+        })
+
         matrix_data = []
         for task, authorized in task_agent_map.items():
             row = {"Task": task}
-            for agent in agents_list:
-                row[agent] = 1 if f"{agent}_Agent" in authorized else 0
+            for agent in agent_names:
+                row[agent] = 1 if agent in authorized else 0
             matrix_data.append(row)
 
         df_matrix = pd.DataFrame(matrix_data).set_index("Task")
 
         fig_matrix = px.imshow(
             df_matrix.values,
-            x=agents_list,
+            x=agent_names,
             y=list(task_agent_map.keys()),
             color_continuous_scale=[[0, "#1a1a2e"], [1, "#4CAF50"]],
             labels=dict(x="Agent", y="Task Type", color="Authorized"),
@@ -2320,6 +2313,166 @@ def render_api_plug(store=None):
 
             except ImportError:
                 st.error("The `requests` library is required. Install with: `pip install requests`")
+
+
+def render_prompt_ops():
+    """Prompt-driven workflow intake and lifecycle controls."""
+    st.subheader("📝 Prompt Ops (Minions-Style Intake)")
+    st.markdown(
+        "Submit development requests, approve/queue execution, and track workflow state "
+        "through the FastAPI control plane."
+    )
+
+    api_base = st.text_input(
+        "Control Plane API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="prompt_ops_api_base",
+    ).rstrip("/")
+
+    with st.expander("New Prompt Request", expanded=True):
+        prompt = st.text_area(
+            "Prompt",
+            placeholder="Example: Add retry with exponential backoff to webhook delivery and include tests.",
+            height=140,
+            key="prompt_ops_prompt",
+        )
+        repo = st.text_input("Repository Path", value=".", key="prompt_ops_repo")
+        requester = st.text_input("Requester", value="dashboard_user", key="prompt_ops_requester")
+
+        col_submit, col_ping = st.columns([1, 1])
+        with col_submit:
+            submit = st.button("Create Workflow Request", type="primary", key="prompt_ops_submit")
+        with col_ping:
+            ping = st.button("Health Check API", key="prompt_ops_ping")
+
+        if ping:
+            try:
+                import requests as req_lib
+
+                response = req_lib.get(f"{api_base}/health", timeout=6)
+                if response.status_code == 200:
+                    st.success("Control plane is reachable.")
+                    st.json(response.json())
+                else:
+                    st.warning(f"Health endpoint returned {response.status_code}")
+            except Exception as e:
+                st.error(
+                    "Control plane API unreachable. Start with: "
+                    "`uvicorn agent_api:app --host 0.0.0.0 --port 8000`\n\n"
+                    f"Error: {e}"
+                )
+
+        if submit:
+            if not prompt.strip():
+                st.error("Prompt cannot be empty.")
+            else:
+                try:
+                    import requests as req_lib
+
+                    payload = {
+                        "prompt": prompt,
+                        "repo": repo,
+                        "requester": requester,
+                        "metadata": {"source": "dashboard"},
+                    }
+                    response = req_lib.post(f"{api_base}/api/workflows/requests", json=payload, timeout=12)
+                    if response.status_code < 300:
+                        body = response.json()
+                        st.success("Workflow request created.")
+                        st.json(body.get("request", body))
+                    else:
+                        st.error(f"Request failed ({response.status_code}): {response.text[:500]}")
+                except Exception as e:
+                    st.error(f"Failed to create workflow request: {e}")
+
+    st.markdown("---")
+    st.markdown("### Recent Workflow Requests")
+
+    refresh = st.button("Refresh Requests", key="prompt_ops_refresh")
+    if refresh or True:
+        try:
+            import requests as req_lib
+
+            response = req_lib.get(f"{api_base}/api/workflows/requests?limit=30", timeout=10)
+            if response.status_code < 300:
+                items = response.json().get("requests", [])
+                if items:
+                    rows = []
+                    for r in items:
+                        rows.append(
+                            {
+                                "id": r.get("id"),
+                                "status": r.get("status"),
+                                "next_action": r.get("next_action"),
+                                "requester": r.get("requester"),
+                                "repo": r.get("repo"),
+                                "created_at": r.get("created_at"),
+                                "updated_at": r.get("updated_at"),
+                            }
+                        )
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+                    request_ids = [r["id"] for r in rows if r.get("id")]
+                    selected_id = st.selectbox(
+                        "Select Request",
+                        options=request_ids,
+                        key="prompt_ops_selected_request",
+                    )
+
+                    col_a, col_q, col_c, col_i = st.columns([1, 1, 1, 1])
+                    with col_a:
+                        do_approve = st.button("Approve", key="prompt_ops_approve")
+                    with col_q:
+                        do_queue = st.button("Queue", key="prompt_ops_queue")
+                    with col_c:
+                        do_cancel = st.button("Cancel", key="prompt_ops_cancel")
+                    with col_i:
+                        do_inspect = st.button("Inspect", key="prompt_ops_inspect")
+
+                    if do_approve:
+                        resp = req_lib.post(f"{api_base}/api/workflows/requests/{selected_id}/approve", timeout=10)
+                        if resp.status_code < 300:
+                            st.success("Approved.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Approve failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_queue:
+                        resp = req_lib.post(f"{api_base}/api/workflows/requests/{selected_id}/queue", timeout=10)
+                        if resp.status_code < 300:
+                            st.success("Queued.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Queue failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_cancel:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/requests/{selected_id}/cancel",
+                            json={"reason": "cancelled_from_dashboard"},
+                            timeout=10,
+                        )
+                        if resp.status_code < 300:
+                            st.warning("Cancelled.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Cancel failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_inspect:
+                        resp = req_lib.get(f"{api_base}/api/workflows/requests/{selected_id}", timeout=10)
+                        if resp.status_code < 300:
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Inspect failed ({resp.status_code}): {resp.text[:400]}")
+                else:
+                    st.info("No workflow requests yet. Submit a prompt above.")
+            else:
+                st.error(f"Could not load requests ({response.status_code}).")
+        except Exception as e:
+            st.error(
+                "Unable to query workflow requests. Ensure FastAPI is running: "
+                "`uvicorn agent_api:app --host 0.0.0.0 --port 8000`\n\n"
+                f"Error: {e}"
+            )
             except Exception as e:
                 if "ConnectionError" in type(e).__name__ or "Connection refused" in str(e):
                     st.error("Connection refused. Is the FastAPI server running?\n\n"
@@ -3096,7 +3249,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline"]
+        pages = ["System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Prompt Ops"]
         default_index = pages.index("GraphRAG") if not store else 0
 
         page = st.radio(
@@ -3139,7 +3292,7 @@ def main():
         st.warning("Neo4j is not connected. This page requires a running Neo4j instance.")
         st.info("Start Neo4j with: `docker-compose -f docker-compose.weaviate.yml up -d neo4j`")
         st.markdown("---")
-        st.markdown("Pages available without Neo4j: **System Overview**, **GraphRAG**, **Pipeline**")
+        st.markdown("Pages available without Neo4j: **System Overview**, **GraphRAG**, **Pipeline**, **Prompt Ops**")
         return
 
     # Render selected page
@@ -3187,6 +3340,9 @@ def main():
             render_pipeline_security(store)
         with tab_api:
             render_api_plug(store)
+
+    elif page == "Prompt Ops":
+        render_prompt_ops()
 
     # Footer
     st.markdown("---")
