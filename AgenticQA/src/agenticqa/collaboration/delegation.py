@@ -28,6 +28,12 @@ class DelegationBudgetExceededError(DelegationError):
     pass
 
 
+class ApprovalRequiredError(DelegationError):
+    """Raised when policy requires explicit approval for delegation"""
+
+    pass
+
+
 class UnauthorizedDelegationError(DelegationError):
     """Raised when agent tries to delegate to unauthorized agent"""
 
@@ -53,6 +59,11 @@ class DelegationGuardrails:
 
     # Whitelisted delegation paths (source_agent -> allowed_targets)
     # Conservative start: Only high-value, low-risk delegations
+    AGENT_ALIASES: Dict[str, str] = {
+        "QA_Agent": "QA_Assistant",
+        "QAAssistantAgent": "QA_Assistant",
+    }
+
     ALLOWED_DELEGATIONS: Dict[str, List[str]] = {
         "SDET_Agent": ["SRE_Agent"],  # SDET can delegate test generation to SRE
         "Fullstack_Agent": ["Compliance_Agent"],  # Fullstack can validate code with Compliance
@@ -72,6 +83,11 @@ class DelegationGuardrails:
         self.delegation_counts = {}
         self.start_time = datetime.utcnow()
 
+    @classmethod
+    def normalize_agent_name(cls, agent_name: str) -> str:
+        """Normalize historical/alias agent names to canonical runtime names."""
+        return cls.AGENT_ALIASES.get(agent_name, agent_name)
+
     def can_delegate(
         self, from_agent: str, to_agent: str, current_depth: int, delegation_stack: List[str]
     ) -> tuple[bool, Optional[str]]:
@@ -81,13 +97,17 @@ class DelegationGuardrails:
         Returns:
             (allowed, reason_if_not_allowed)
         """
+        from_agent = self.normalize_agent_name(from_agent)
+        to_agent = self.normalize_agent_name(to_agent)
+        normalized_stack = [self.normalize_agent_name(a) for a in delegation_stack]
+
         # Check depth limit
         if current_depth >= self.MAX_DEPTH:
             return False, f"Max delegation depth {self.MAX_DEPTH} exceeded"
 
         # Check circular dependency
-        if to_agent in delegation_stack:
-            chain = " -> ".join(delegation_stack + [to_agent])
+        if to_agent in normalized_stack:
+            chain = " -> ".join(normalized_stack + [to_agent])
             return False, f"Circular delegation detected: {chain}"
 
         # Check total delegation budget
@@ -107,6 +127,8 @@ class DelegationGuardrails:
 
     def record_delegation(self, from_agent: str, to_agent: str):
         """Record a delegation for budget tracking"""
+        from_agent = self.normalize_agent_name(from_agent)
+        to_agent = self.normalize_agent_name(to_agent)
         key = f"{from_agent}->{to_agent}"
         self.delegation_counts[key] = self.delegation_counts.get(key, 0) + 1
 

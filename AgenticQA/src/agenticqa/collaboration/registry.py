@@ -9,9 +9,12 @@ from .delegation import (
     DelegationError,
     CircularDelegationError,
     MaxDelegationDepthError,
+    DelegationBudgetExceededError,
+    ApprovalRequiredError,
     UnauthorizedDelegationError,
 )
 from .tracker import DelegationTracker, DelegationEvent
+from ..policy import DelegationPolicyEngine
 
 if TYPE_CHECKING:
     from src.agents import BaseAgent
@@ -27,12 +30,21 @@ class AgentRegistry:
     - Delegation tracking and observability
     """
 
-    def __init__(self, enable_delegation: bool = True):
+    def __init__(
+        self,
+        enable_delegation: bool = True,
+        policy_engine: Optional[DelegationPolicyEngine] = None,
+    ):
         self.agents: Dict[str, "BaseAgent"] = {}
         self.guardrails = DelegationGuardrails()
         self.tracker = DelegationTracker()
         self.enable_delegation = enable_delegation
+        self.policy_engine = policy_engine
         self._delegation_stack: list[str] = []
+
+    def set_policy_engine(self, policy_engine: Optional[DelegationPolicyEngine]):
+        """Attach or replace the runtime delegation policy engine."""
+        self.policy_engine = policy_engine
 
     def register_agent(self, agent: "BaseAgent"):
         """Register an agent for collaboration"""
@@ -62,6 +74,26 @@ class AgentRegistry:
         """
         if not self.enable_delegation:
             raise DelegationError("Delegation is disabled")
+
+        task_type = task.get("task_type", task.get("task", "unknown"))
+
+        if self.policy_engine:
+            policy_context = {
+                "from_agent": from_agent,
+                "to_agent": to_agent,
+                "task_type": task_type,
+                "task": task,
+                "depth": depth,
+                "total_delegations": self.guardrails.get_delegation_stats()["total_delegations"],
+                "approved": bool(task.get("approved", False)),
+            }
+            decision = self.policy_engine.evaluate(policy_context)
+            if not decision.allowed:
+                if decision.requires_approval:
+                    raise ApprovalRequiredError(decision.reason)
+                if "budget" in decision.tags:
+                    raise DelegationBudgetExceededError(decision.reason)
+                raise DelegationError(decision.reason)
 
         # Check guardrails
         allowed, reason = self.guardrails.can_delegate(
