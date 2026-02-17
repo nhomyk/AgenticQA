@@ -46,6 +46,18 @@ class AgentRegistry:
         """Attach or replace the runtime delegation policy engine."""
         self.policy_engine = policy_engine
 
+    def configure_governance_gates(
+        self,
+        max_total_delegations: int = 5,
+        approval_required_task_types: Optional[set[str]] = None,
+    ):
+        """Enable budget and approval gates with safe defaults."""
+        self.policy_engine = DelegationPolicyEngine(
+            max_total_delegations=max_total_delegations,
+            approval_required_task_types=approval_required_task_types
+            or {"deploy", "rollback", "infrastructure"},
+        )
+
     def register_agent(self, agent: "BaseAgent"):
         """Register an agent for collaboration"""
         self.agents[agent.agent_name] = agent

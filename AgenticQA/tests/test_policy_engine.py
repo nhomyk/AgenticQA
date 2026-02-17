@@ -79,3 +79,28 @@ def test_callback_can_grant_approval():
 
     result = registry.delegate_task("SDET_Agent", "SRE_Agent", {"task_type": "deploy"})
     assert result["status"] == "success"
+
+
+def test_registry_configure_governance_gates_helper():
+    registry = AgentRegistry()
+    registry.configure_governance_gates(max_total_delegations=1, approval_required_task_types={"deploy_tests"})
+
+    src = DummyAgent("SDET_Agent")
+    dst = DummyAgent("SRE_Agent")
+    registry.register_agent(src)
+    registry.register_agent(dst)
+
+    with pytest.raises(ApprovalRequiredError):
+        registry.delegate_task("SDET_Agent", "SRE_Agent", {"task_type": "deploy_tests"})
+
+    registry.delegate_task(
+        "SDET_Agent",
+        "SRE_Agent",
+        {"task_type": "generate_tests", "approved": True},
+    )
+    with pytest.raises(DelegationBudgetExceededError):
+        registry.delegate_task(
+            "SDET_Agent",
+            "SRE_Agent",
+            {"task_type": "generate_tests", "approved": True},
+        )
