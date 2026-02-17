@@ -323,6 +323,8 @@ streamlit run dashboard/app.py
      - invokes `FullstackAgent` generation,
      - orchestrates guardrailed collaboration with `Compliance_Agent`, `SDET_Agent`, and `DevOps_Agent`,
      - records explainable routing rationale (why each agent was selected),
+     - runs SDET test synthesis for newly generated production files,
+     - re-runs generated tests in a bounded loop until pass/fail budget is reached,
      - records collaboration + quality-gate context into workflow artifacts,
      - writes generated code into repo files,
      - commits generated code + workflow artifact together.
@@ -338,6 +340,9 @@ streamlit run dashboard/app.py
 - Reliability loop includes replay and rollback support:
      - replay endpoint clones and queues prior requests,
      - worker attempts rollback cleanup on failed executions.
+- SDET loop controls (request metadata):
+     - `require_sdet_loop` (default `true`)
+     - `max_sdet_iterations` (default `3`, max `5`)
 - Default is `dry_run=true`: worker creates branch + commit locally and marks request completed.
 - Set `dry_run=false` to push branch to `origin`.
 - Set `open_pr=true` (with `dry_run=false`) to auto-open a GitHub PR.

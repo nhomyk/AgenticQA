@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -271,7 +272,146 @@ class WorkflowExecutionWorker:
             )
             target.write_text(body, encoding="utf-8")
             written.append(target)
+
+        sdet_tests, sdet_loop = self._run_sdet_test_loop(
+            repo_path=repo_path,
+            req=req,
+            generated_paths=written,
+        )
+        orchestration["sdet_test_loop"] = sdet_loop
+        if sdet_tests:
+            written.extend(sdet_tests)
+
+        if sdet_loop.get("required") and not sdet_loop.get("passed", False):
+            gate = orchestration.setdefault("quality_gate", {"passed": True, "blockers": []})
+            blockers = gate.setdefault("blockers", [])
+            if "sdet_loop_failed" not in blockers:
+                blockers.append("sdet_loop_failed")
+            gate["passed"] = False
+            raise RuntimeError(f"sdet_loop_failed:{sdet_loop.get('last_error', 'unknown')}")
+
+        ontology = orchestration.setdefault("ontology", {})
+        routing = ontology.setdefault("routing_explanations", {})
+        routing["sdet_test_loop"] = {
+            "from": "SDET_Agent",
+            "to": "pytest_runner",
+            "why": "New production code detected; generated tests and re-ran test pass before completion",
+            "signals": {
+                "iterations": sdet_loop.get("iterations", 0),
+                "tests_generated": sdet_loop.get("tests_generated", 0),
+                "required": sdet_loop.get("required", False),
+            },
+        }
         return written, orchestration
+
+    def _run_sdet_test_loop(
+        self,
+        repo_path: Path,
+        req: Dict[str, Any],
+        generated_paths: List[Path],
+    ) -> tuple[List[Path], Dict[str, Any]]:
+        """Generate tests for new code and re-run tests in a bounded loop."""
+        metadata = req.get("metadata") or {}
+        if not bool(metadata.get("require_sdet_loop", True)):
+            return [], {"required": False, "passed": True, "iterations": 0, "tests_generated": 0}
+
+        max_iterations = int(metadata.get("max_sdet_iterations", 3) or 3)
+        max_iterations = max(1, min(max_iterations, 5))
+
+        prod_files = [
+            p
+            for p in generated_paths
+            if p.suffix in {".py", ".js", ".ts"}
+            and "tests/" not in p.as_posix()
+            and not p.name.startswith("test_")
+        ]
+        if not prod_files:
+            return [], {"required": False, "passed": True, "iterations": 0, "tests_generated": 0}
+
+        generated_tests: List[Path] = []
+        last_error = ""
+        for iteration in range(1, max_iterations + 1):
+            generated_tests = self._sdet_generate_tests(
+                repo_path=repo_path,
+                req=req,
+                prod_files=prod_files,
+                iteration=iteration,
+            )
+            passed, output = self._run_pytest(repo_path=repo_path, test_paths=generated_tests)
+            if passed:
+                return generated_tests, {
+                    "required": True,
+                    "passed": True,
+                    "iterations": iteration,
+                    "tests_generated": len(generated_tests),
+                    "last_error": "",
+                }
+            last_error = output[:500]
+
+        return generated_tests, {
+            "required": True,
+            "passed": False,
+            "iterations": max_iterations,
+            "tests_generated": len(generated_tests),
+            "last_error": last_error,
+        }
+
+    def _sdet_generate_tests(
+        self,
+        repo_path: Path,
+        req: Dict[str, Any],
+        prod_files: List[Path],
+        iteration: int,
+    ) -> List[Path]:
+        out_dir = repo_path / "tests" / "generated"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        metadata = req.get("metadata") or {}
+        force_failure = bool(metadata.get("force_sdet_failure", False))
+
+        generated: List[Path] = []
+        for idx, target in enumerate(prod_files):
+            rel = target.relative_to(repo_path).as_posix()
+            slug = re.sub(r"[^a-z0-9]+", "_", target.stem.lower()).strip("_") or "generated"
+            test_path = out_dir / f"test_{slug}_{req['id']}_{idx}.py"
+
+            lines = [
+                "from pathlib import Path",
+                "",
+                f"TARGET = Path(__file__).resolve().parents[2] / \"{rel}\"",
+                "",
+                "def test_generated_file_exists():",
+                "    assert TARGET.exists(), f\"Expected generated file missing: {TARGET}\"",
+                "",
+                "def test_generated_file_not_empty():",
+                "    content = TARGET.read_text(encoding='utf-8')",
+                "    assert content.strip(), \"Generated file should not be empty\"",
+            ]
+
+            if target.suffix == ".py":
+                lines.extend(
+                    [
+                        "",
+                        "def test_generated_python_syntax_valid():",
+                        "    content = TARGET.read_text(encoding='utf-8')",
+                        "    compile(content, str(TARGET), 'exec')",
+                    ]
+                )
+
+            if force_failure and iteration >= 1:
+                lines.extend(["", "def test_force_failure():", "    assert False, 'forced sdet failure'"])
+
+            test_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            generated.append(test_path)
+        return generated
+
+    def _run_pytest(self, repo_path: Path, test_paths: List[Path]) -> tuple[bool, str]:
+        if not test_paths:
+            return True, "no_tests_generated"
+        args = [sys.executable, "-m", "pytest", "-q", *[str(p) for p in test_paths]]
+        proc = subprocess.run(args, cwd=str(repo_path), text=True, capture_output=True, timeout=120)
+        output = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        return proc.returncode == 0, output
 
     def _run_orchestration(self, req: Dict[str, Any], feature_request: Dict[str, str]) -> Dict[str, Any]:
         try:

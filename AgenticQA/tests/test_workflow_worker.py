@@ -59,6 +59,7 @@ def test_worker_processes_queued_request_dry_run(tmp_path):
     assert item["id"] in show.stdout
     assert "Collaborative Orchestration" in show.stdout
     assert "Fullstack_Agent" in show.stdout
+    assert "sdet_test_loop" in show.stdout
 
     changed = subprocess.run(
         ["git", "show", "--name-only", "--pretty=format:", result["commit_sha"]],
@@ -74,6 +75,8 @@ def test_worker_processes_queued_request_dry_run(tmp_path):
         if p != artifact_rel and (p.endswith(".js") or p.endswith(".py") or p.endswith(".ts"))
     ]
     assert len(generated_files) >= 1
+    generated_test_files = [p for p in generated_files if p.startswith("tests/generated/test_")]
+    assert len(generated_test_files) >= 1
 
     generated_show = subprocess.run(
         ["git", "show", f"{result['commit_sha']}:{generated_files[0]}"],
@@ -129,5 +132,29 @@ def test_worker_enforces_strict_push_policy_gate(tmp_path):
 
     assert result["status"] == "FAILED"
     assert "approved_by_required_for_push" in (result.get("error_message") or "")
+
+    store.close()
+
+
+def test_worker_fails_when_sdet_loop_fails(tmp_path):
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    _init_git_repo(repo_path)
+
+    store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+    item = store.create_request(
+        prompt="Add endpoint scaffolding",
+        repo=str(repo_path),
+        requester="dashboard",
+        metadata={"force_sdet_failure": True, "max_sdet_iterations": 2},
+    )
+    store.approve_request(item["id"])
+    store.queue_request(item["id"])
+
+    worker = WorkflowExecutionWorker(store)
+    result = worker.run_request(item["id"], dry_run=True, open_pr=False)
+
+    assert result["status"] == "FAILED"
+    assert "sdet_loop_failed" in (result.get("error_message") or "")
 
     store.close()

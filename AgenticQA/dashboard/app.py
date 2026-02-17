@@ -2385,6 +2385,23 @@ def render_prompt_ops():
             allow_high_risk = st.checkbox("Allow High-Risk Changes", value=False, key="prompt_ops_allow_high_risk")
         with col_meta4:
             auto_rollback = st.checkbox("Auto Rollback on Failure", value=True, key="prompt_ops_auto_rollback")
+        col_meta5, col_meta6 = st.columns(2)
+        with col_meta5:
+            max_sdet_iterations = st.number_input(
+                "Max SDET Loop Iterations",
+                min_value=1,
+                max_value=5,
+                value=3,
+                step=1,
+                key="prompt_ops_max_sdet_iterations",
+            )
+        with col_meta6:
+            require_sdet_loop = st.checkbox(
+                "Require SDET Test Loop",
+                value=True,
+                key="prompt_ops_require_sdet_loop",
+                help="When enabled, generated code must pass SDET-generated tests before workflow completion.",
+            )
 
         col_submit, col_ping = st.columns([1, 1])
         with col_submit:
@@ -2426,6 +2443,8 @@ def render_prompt_ops():
                             "policy_ticket": policy_ticket.strip(),
                             "allow_high_risk": allow_high_risk,
                             "auto_rollback": auto_rollback,
+                            "max_sdet_iterations": int(max_sdet_iterations),
+                            "require_sdet_loop": require_sdet_loop,
                         },
                     }
                     response = req_lib.post(f"{api_base}/api/workflows/requests", json=payload, timeout=12)
