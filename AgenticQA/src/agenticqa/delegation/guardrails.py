@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 class DelegationGuardrails:
     """Prevent bad delegations through pre-validation"""
 
+    AGENT_ALIASES = {
+        "QA_Agent": "QA_Assistant",
+        "QAAssistantAgent": "QA_Assistant",
+    }
+
     # Define which agents should handle which task types
     # This is the "ontology" - the designed workflow
     TASK_AGENT_MAP = {
@@ -35,6 +40,11 @@ class DelegationGuardrails:
         "ci_cd": ["DevOps_Agent"],
         "infrastructure": ["DevOps_Agent", "SRE_Agent"],
     }
+
+    @classmethod
+    def normalize_agent_name(cls, agent_name: str) -> str:
+        """Normalize historical/alias names to canonical runtime names."""
+        return cls.AGENT_ALIASES.get(agent_name, agent_name)
 
     @classmethod
     def validate_delegation(
@@ -62,6 +72,8 @@ class DelegationGuardrails:
             }
         """
         allowed_agents = cls.TASK_AGENT_MAP.get(task_type, [])
+        normalized_to_agent = cls.normalize_agent_name(to_agent)
+        normalized_allowed_agents = [cls.normalize_agent_name(a) for a in allowed_agents]
 
         # Unknown task type - allow but warn
         if not allowed_agents:
@@ -74,10 +86,10 @@ class DelegationGuardrails:
             }
 
         # Valid delegation
-        if to_agent in allowed_agents:
+        if normalized_to_agent in normalized_allowed_agents:
             return {
                 "valid": True,
-                "reason": f"{to_agent} is authorized to handle {task_type}",
+                "reason": f"{normalized_to_agent} is authorized to handle {task_type}",
                 "suggestion": None,
                 "confidence": 1.0
             }
@@ -85,10 +97,10 @@ class DelegationGuardrails:
         # Invalid delegation - suggest alternatives
         return {
             "valid": False,
-            "reason": f"{to_agent} not suitable for {task_type}",
-            "suggestion": f"Consider delegating to: {', '.join(allowed_agents)}",
+            "reason": f"{normalized_to_agent} not suitable for {task_type}",
+            "suggestion": f"Consider delegating to: {', '.join(normalized_allowed_agents)}",
             "confidence": 0.0,
-            "alternatives": allowed_agents
+            "alternatives": normalized_allowed_agents
         }
 
     @classmethod
@@ -104,7 +116,7 @@ class DelegationGuardrails:
         """
         allowed_agents = cls.TASK_AGENT_MAP.get(task_type, [])
         if allowed_agents:
-            return allowed_agents[0]  # Return first (primary) agent
+            return cls.normalize_agent_name(allowed_agents[0])  # Return first (primary) agent
         return None
 
     @classmethod
@@ -119,10 +131,12 @@ class DelegationGuardrails:
         Returns:
             {"is_self_delegation": bool, "warning": Optional[str]}
         """
-        if from_agent == to_agent:
+        normalized_from = cls.normalize_agent_name(from_agent)
+        normalized_to = cls.normalize_agent_name(to_agent)
+        if normalized_from == normalized_to:
             return {
                 "is_self_delegation": True,
-                "warning": f"{from_agent} is delegating to itself - possible logic error"
+                "warning": f"{normalized_from} is delegating to itself - possible logic error"
             }
         return {
             "is_self_delegation": False,

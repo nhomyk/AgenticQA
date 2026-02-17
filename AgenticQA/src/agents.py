@@ -49,14 +49,17 @@ class BaseAgent(ABC):
         self.feedback = None
         self.outcome_tracker = None
         self._threshold_calibrator = None
+        self._strategy_selector = None
         try:
             from src.agenticqa.verification.feedback_loop import RelevanceFeedback
             from src.agenticqa.verification.outcome_tracker import OutcomeTracker
             from src.agenticqa.verification.threshold_calibrator import ThresholdCalibrator
+            from src.agenticqa.verification.strategy_selector import StrategySelector
 
             self.feedback = RelevanceFeedback()
             self.outcome_tracker = OutcomeTracker()
             self._threshold_calibrator = ThresholdCalibrator(self.outcome_tracker)
+            self._strategy_selector = StrategySelector(outcome_tracker=self.outcome_tracker)
 
             # Wire calibrator into RAG retriever for adaptive thresholds
             if self.rag and hasattr(self.rag, "retriever"):
@@ -135,6 +138,18 @@ class BaseAgent(ABC):
                     augmented_context["high_confidence_insights"] = high_confidence
                 elif "high_confidence_insights" in augmented_context:
                     del augmented_context["high_confidence_insights"]
+
+            # Apply adaptive strategy (Phase 5) — filter/cap recommendations
+            strategy = self._get_adaptive_strategy()
+            if strategy.name != "standard":
+                self.log(f"Applying {strategy.name} strategy: {strategy.description}", "INFO")
+
+            recs = augmented_context.get("rag_recommendations", [])
+            if strategy.require_high_confidence:
+                recs = augmented_context.get("high_confidence_insights", recs[:strategy.max_recommendations])
+            recs = recs[:strategy.max_recommendations]
+            augmented_context["rag_recommendations"] = recs
+            augmented_context["execution_strategy"] = strategy.name
 
             # Log RAG insights for transparency
             insights_count = augmented_context.get("rag_insights_count", 0)
@@ -259,12 +274,84 @@ class BaseAgent(ABC):
 
         return artifacts[:limit]
 
+    def _get_adaptive_strategy(self):
+        """Get current execution strategy based on recent outcomes."""
+        if self._strategy_selector:
+            try:
+                return self._strategy_selector.select_strategy(self._get_agent_type())
+            except Exception:
+                pass
+        from src.agenticqa.verification.strategy_selector import STRATEGIES
+        return STRATEGIES["standard"]
+
+    def _get_execution_strategy(self) -> Dict[str, Any]:
+        """
+        Determine execution strategy based on historical patterns.
+
+        Returns strategy parameters that agents use to adjust behavior:
+        - confidence_adjustment: Multiply RAG threshold by this factor
+        - extra_caution: Whether to apply stricter validation
+        - known_failure_types: Top failure patterns to watch for
+        - recent_failure_rate: This agent's recent failure rate
+        """
+        strategy = {
+            "confidence_adjustment": 1.0,
+            "extra_caution": False,
+            "known_failure_types": [],
+            "recent_failure_rate": 0.0,
+        }
+
+        if not self.use_data_store:
+            return strategy
+
+        try:
+            patterns = self.get_pattern_insights()
+
+            # Check if this agent is flaky — if so, be more cautious
+            flaky_agents = patterns.get("flakiness", {}).get("flaky_agents", {})
+            if self.agent_name in flaky_agents:
+                fail_rate = flaky_agents[self.agent_name].get("fail_rate", 0)
+                strategy["recent_failure_rate"] = fail_rate
+                if fail_rate > 0.3:
+                    strategy["extra_caution"] = True
+                    strategy["confidence_adjustment"] = 1.2
+
+            # Collect known failure types for early detection
+            failure_types = patterns.get("errors", {}).get("types", {})
+            if failure_types:
+                sorted_failures = sorted(failure_types.items(), key=lambda x: x[1], reverse=True)
+                strategy["known_failure_types"] = [f[0] for f in sorted_failures[:5]]
+
+            # Check performance — high latency means system under stress
+            perf = patterns.get("performance", {})
+            if perf.get("avg_latency_ms", 0) > 5000:
+                strategy["extra_caution"] = True
+
+        except Exception as e:
+            self.log(f"Pattern analysis for strategy failed: {e}", "WARNING")
+
+        return strategy
+
+    def _get_graph_store(self):
+        """Get DelegationGraphStore if available via agent registry."""
+        if hasattr(self, "_graph_store"):
+            return self._graph_store
+        try:
+            tracker = getattr(self.agent_registry, "tracker", None)
+            if tracker and hasattr(tracker, "graph_store"):
+                self._graph_store = tracker.graph_store
+                return self._graph_store
+        except Exception:
+            pass
+        self._graph_store = None
+        return None
+
     def delegate_to_agent(self, agent_name: str, task: Dict[str, Any]) -> Dict[str, Any]:
         """
         Delegate a task to another specialized agent.
 
-        This enables true agent collaboration where agents leverage each other's
-        expertise rather than working in isolation.
+        Consults GraphRAG for delegation recommendations and records outcomes
+        to OutcomeTracker for future calibration.
 
         Args:
             agent_name: Name of target agent (e.g., "SRE_Agent", "Compliance_Agent")
@@ -272,32 +359,90 @@ class BaseAgent(ABC):
 
         Returns:
             Result from the delegated agent
-
-        Raises:
-            DelegationError: If delegation is not allowed or fails
-
-        Example:
-            # SDET delegates test generation to SRE
-            tests = self.delegate_to_agent("SRE_Agent", {
-                "task": "generate_tests",
-                "files": ["src/api.py"],
-                "coverage_gaps": [10, 20, 30]
-            })
         """
+        import time
+        import uuid
+
         if not self.agent_registry:
             raise Exception(f"{self.agent_name} cannot delegate: No agent registry configured")
 
-        self.log(f"Delegating task to {agent_name}", "INFO")
+        task_type = task.get("task_type", task.get("task", "unknown"))
+        delegation_id = str(uuid.uuid4())
+        target_agent = agent_name
+        confidence = 0.5
+        recommendation_source = "manual"
 
-        result = self.agent_registry.delegate_task(
-            from_agent=self.agent_name,
-            to_agent=agent_name,
-            task=task,
-            depth=self._delegation_depth + 1,
-        )
+        # Consult GraphRAG for delegation recommendation
+        try:
+            graph_store = self._get_graph_store()
+            if graph_store:
+                risk = graph_store.predict_delegation_failure_risk(
+                    self.agent_name, agent_name, task_type
+                )
+                if risk.get("risk_level") == "high" and risk.get("confidence", 0) > 0.5:
+                    rec = graph_store.recommend_delegation_target(
+                        self.agent_name, task_type
+                    )
+                    if rec and rec.get("recommended_agent") != agent_name:
+                        self.log(
+                            f"GraphRAG suggests {rec['recommended_agent']} over {agent_name} "
+                            f"for {task_type} (risk: {risk['risk_level']})",
+                            "WARNING",
+                        )
+                        target_agent = rec["recommended_agent"]
+                        confidence = min(1.0, rec.get("priority_score", 8.0) / 10.0)
+                        recommendation_source = "graphrag"
+                elif risk.get("failure_probability") is not None:
+                    confidence = 1.0 - risk["failure_probability"]
+                    recommendation_source = "graphrag"
+        except Exception as e:
+            self.log(f"GraphRAG delegation lookup failed: {e}", "WARNING")
 
-        self.log(f"Delegation to {agent_name} completed", "INFO")
-        return result
+        # Record prediction before execution
+        if self.outcome_tracker:
+            try:
+                self.outcome_tracker.record_prediction(
+                    delegation_id=delegation_id,
+                    from_agent=self.agent_name,
+                    to_agent=target_agent,
+                    task_type=task_type,
+                    predicted_confidence=confidence,
+                    recommendation_source=recommendation_source,
+                )
+            except Exception:
+                pass
+
+        # Execute delegation
+        self.log(f"Delegating task to {target_agent}", "INFO")
+        start_time = time.time()
+        success = False
+        try:
+            result = self.agent_registry.delegate_task(
+                from_agent=self.agent_name,
+                to_agent=target_agent,
+                task=task,
+                depth=self._delegation_depth + 1,
+            )
+            success = result.get("status", "") != "error"
+            self.log(f"Delegation to {target_agent} completed", "INFO")
+            return result
+        except Exception:
+            success = False
+            raise
+        finally:
+            # Record actual outcome
+            if self.outcome_tracker:
+                try:
+                    duration_ms = (time.time() - start_time) * 1000
+                    self.outcome_tracker.record_outcome(
+                        delegation_id=delegation_id,
+                        actual_success=success,
+                        duration_ms=duration_ms,
+                    )
+                    if self._threshold_calibrator:
+                        self._threshold_calibrator.invalidate_cache()
+                except Exception:
+                    pass
 
     def query_agent_expertise(self, agent_name: str, question: Dict[str, Any]) -> Dict[str, Any]:
         """

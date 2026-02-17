@@ -115,3 +115,11 @@ class PatternAnalyzer:
             json.dump(pattern_data, f, indent=2)
 
         return pattern_data
+
+    def get_agent_failure_rate(self, agent_name: str, window_days: int = 7) -> float:
+        """Get failure rate for a specific agent over the given window."""
+        flakiness = self.analyze_flakiness(window_days)
+        flaky_agents = flakiness.get("flaky_agents", {})
+        if agent_name in flaky_agents:
+            return flaky_agents[agent_name]["fail_rate"]
+        return 0.0

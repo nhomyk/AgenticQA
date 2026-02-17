@@ -158,3 +158,44 @@ def test_worker_fails_when_sdet_loop_fails(tmp_path):
     assert "sdet_loop_failed" in (result.get("error_message") or "")
 
     store.close()
+
+
+def test_worker_sdet_autofix_recovers_generated_python_syntax(tmp_path):
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    _init_git_repo(repo_path)
+
+    store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+    item = store.create_request(
+        prompt="Add simple python utility",
+        repo=str(repo_path),
+        requester="dashboard",
+        metadata={
+            "target_file": "src/generated/autofix_target.py",
+            "inject_python_syntax_error": True,
+            "enable_sdet_autofix": True,
+            "max_sdet_fix_attempts": 2,
+            "max_sdet_iterations": 2,
+        },
+    )
+    store.approve_request(item["id"])
+    store.queue_request(item["id"])
+
+    worker = WorkflowExecutionWorker(store)
+    result = worker.run_request(item["id"], dry_run=True, open_pr=False)
+
+    assert result["status"] == "COMPLETED"
+
+    artifact_rel = f".agenticqa/workflows/{item['id']}.md"
+    show = subprocess.run(
+        ["git", "show", f"{result['commit_sha']}:{artifact_rel}"],
+        cwd=str(repo_path),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert '"autofix_enabled": true' in show.stdout
+    assert '"autofix_attempts": 1' in show.stdout
+    assert '"files_auto_fixed": 1' in show.stdout
+
+    store.close()

@@ -509,7 +509,11 @@ jobs:
           echo "CI_UI_PROJECTS=chromium" >> $GITHUB_ENV
           echo "CI_UI_RETRIES=1" >> $GITHUB_ENV
       - name: Run Playwright tests
-        run: npm run test:ui
+        continue-on-error: false
+        run: |
+          set -euo pipefail
+          # Run Playwright directly to guarantee non-zero exit on failures.
+          npx playwright test
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()

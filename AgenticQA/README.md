@@ -343,6 +343,8 @@ streamlit run dashboard/app.py
 - SDET loop controls (request metadata):
      - `require_sdet_loop` (default `true`)
      - `max_sdet_iterations` (default `3`, max `5`)
+     - `enable_sdet_autofix` (default `true`)
+     - `max_sdet_fix_attempts` (default `2`, max `5`)
 - Default is `dry_run=true`: worker creates branch + commit locally and marks request completed.
 - Set `dry_run=false` to push branch to `origin`.
 - Set `open_pr=true` (with `dry_run=false`) to auto-open a GitHub PR.

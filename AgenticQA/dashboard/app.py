@@ -2402,6 +2402,23 @@ def render_prompt_ops():
                 key="prompt_ops_require_sdet_loop",
                 help="When enabled, generated code must pass SDET-generated tests before workflow completion.",
             )
+        col_meta7, col_meta8 = st.columns(2)
+        with col_meta7:
+            enable_sdet_autofix = st.checkbox(
+                "Enable SDET Auto-Fix",
+                value=True,
+                key="prompt_ops_enable_sdet_autofix",
+                help="Allows bounded auto-fix attempts on generated code before failing the workflow.",
+            )
+        with col_meta8:
+            max_sdet_fix_attempts = st.number_input(
+                "Max SDET Auto-Fix Attempts",
+                min_value=0,
+                max_value=5,
+                value=2,
+                step=1,
+                key="prompt_ops_max_sdet_fix_attempts",
+            )
 
         col_submit, col_ping = st.columns([1, 1])
         with col_submit:
@@ -2445,6 +2462,8 @@ def render_prompt_ops():
                             "auto_rollback": auto_rollback,
                             "max_sdet_iterations": int(max_sdet_iterations),
                             "require_sdet_loop": require_sdet_loop,
+                            "enable_sdet_autofix": enable_sdet_autofix,
+                            "max_sdet_fix_attempts": int(max_sdet_fix_attempts),
                         },
                     }
                     response = req_lib.post(f"{api_base}/api/workflows/requests", json=payload, timeout=12)
