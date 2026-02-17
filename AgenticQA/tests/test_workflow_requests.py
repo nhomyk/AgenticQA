@@ -58,3 +58,38 @@ def test_cancel_request_sets_terminal_state(tmp_path):
     assert cancelled_again["status"] == "CANCELLED"
 
     store.close()
+
+
+def test_replay_request_creates_queued_clone(tmp_path):
+    store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+
+    item = store.create_request(prompt="Improve flaky test handling", repo=".", requester="dashboard")
+    replay = store.replay_request(item["id"], requester="test_replay")
+
+    assert replay["status"] == "QUEUED"
+    assert replay["metadata"].get("replay_of") == item["id"]
+    assert replay["metadata"].get("self_heal") is True
+
+    store.close()
+
+
+def test_metrics_returns_expected_keys(tmp_path):
+    store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+    first = store.create_request(prompt="Add endpoint", repo=".", requester="dashboard")
+    store.approve_request(first["id"])
+    store.queue_request(first["id"])
+    store.start_request(first["id"])
+    store.complete_request(first["id"], note="done")
+
+    second = store.create_request(prompt="Break migration", repo=".", requester="dashboard")
+    store.approve_request(second["id"])
+    store.queue_request(second["id"])
+    store.fail_request(second["id"], error_message="failed")
+
+    metrics = store.get_metrics(lookback_limit=50)
+    assert metrics["total_requests"] >= 2
+    assert "mttr_minutes" in metrics
+    assert "pass_rate_uplift_pct" in metrics
+    assert "flaky_reduction_pct" in metrics
+
+    store.close()

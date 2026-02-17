@@ -309,6 +309,46 @@ streamlit run dashboard/app.py
 - `POST /api/workflows/requests/{id}/approve` — approve request
 - `POST /api/workflows/requests/{id}/queue` — queue approved request
 - `POST /api/workflows/requests/{id}/cancel` — cancel request
+- `POST /api/workflows/requests/{id}/replay` — replay a prior request with self-heal metadata
+- `POST /api/workflows/worker/run-next` — execute oldest queued request
+- `POST /api/workflows/worker/run/{id}` — execute a specific queued request
+- `GET /api/workflows/metrics` — MTTR, pass-rate uplift, flaky-reduction outcomes
+- `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
+- `POST /api/plugin/doctor` — onboarding readiness checks for any repo
+
+### Worker execution modes
+
+- Worker executes a code-generation stage before commit:
+     - derives feature intent from prompt,
+     - invokes `FullstackAgent` generation,
+     - orchestrates guardrailed collaboration with `Compliance_Agent`, `SDET_Agent`, and `DevOps_Agent`,
+     - records explainable routing rationale (why each agent was selected),
+     - records collaboration + quality-gate context into workflow artifacts,
+     - writes generated code into repo files,
+     - commits generated code + workflow artifact together.
+- Learning is persisted through the same agent pathways used elsewhere in AgenticQA:
+     - semantic retrieval (RAG),
+     - structured execution artifacts,
+     - delegation tracking for collaboration outcomes.
+- Strict Prompt-to-PR policy gates are enforced when `dry_run=false`:
+     - quality gate must pass,
+     - `metadata.approved_by` is required for push,
+     - `metadata.policy_ticket` is required for PR creation,
+     - high-risk prompts require `metadata.allow_high_risk=true`.
+- Reliability loop includes replay and rollback support:
+     - replay endpoint clones and queues prior requests,
+     - worker attempts rollback cleanup on failed executions.
+- Default is `dry_run=true`: worker creates branch + commit locally and marks request completed.
+- Set `dry_run=false` to push branch to `origin`.
+- Set `open_pr=true` (with `dry_run=false`) to auto-open a GitHub PR.
+
+GitHub PR automation requires:
+- `GITHUB_TOKEN` environment variable
+- Repository slug (one of):
+     - inferred from `origin` remote URL, or
+     - request metadata `github_repo`, or
+     - `AGENTICQA_GITHUB_REPO` environment variable
+- Optional: `AGENTICQA_BASE_BRANCH` (defaults to current branch)
 
 This is the intake/orchestration foundation for future Slack/Teams integrations.
 

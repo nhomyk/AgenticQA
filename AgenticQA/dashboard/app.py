@@ -2354,7 +2354,7 @@ def render_api_plug(store=None):
 
 def render_prompt_ops():
     """Prompt-driven workflow intake and lifecycle controls."""
-    st.subheader("📝 Prompt Ops (Minions-Style Intake)")
+    st.subheader("📝 Prompt Ops Intake")
     st.markdown(
         "Submit development requests, approve/queue execution, and track workflow state "
         "through the FastAPI control plane."
@@ -2375,6 +2375,16 @@ def render_prompt_ops():
         )
         repo = st.text_input("Repository Path", value=".", key="prompt_ops_repo")
         requester = st.text_input("Requester", value="dashboard_user", key="prompt_ops_requester")
+        col_meta1, col_meta2 = st.columns(2)
+        with col_meta1:
+            approved_by = st.text_input("Approved By (required for push/PR)", value="", key="prompt_ops_approved_by")
+        with col_meta2:
+            policy_ticket = st.text_input("Policy Ticket (required for PR)", value="", key="prompt_ops_policy_ticket")
+        col_meta3, col_meta4 = st.columns(2)
+        with col_meta3:
+            allow_high_risk = st.checkbox("Allow High-Risk Changes", value=False, key="prompt_ops_allow_high_risk")
+        with col_meta4:
+            auto_rollback = st.checkbox("Auto Rollback on Failure", value=True, key="prompt_ops_auto_rollback")
 
         col_submit, col_ping = st.columns([1, 1])
         with col_submit:
@@ -2410,7 +2420,13 @@ def render_prompt_ops():
                         "prompt": prompt,
                         "repo": repo,
                         "requester": requester,
-                        "metadata": {"source": "dashboard"},
+                        "metadata": {
+                            "source": "dashboard",
+                            "approved_by": approved_by.strip(),
+                            "policy_ticket": policy_ticket.strip(),
+                            "allow_high_risk": allow_high_risk,
+                            "auto_rollback": auto_rollback,
+                        },
                     }
                     response = req_lib.post(f"{api_base}/api/workflows/requests", json=payload, timeout=12)
                     if response.status_code < 300:
@@ -2424,6 +2440,20 @@ def render_prompt_ops():
 
     st.markdown("---")
     st.markdown("### Recent Workflow Requests")
+
+    try:
+        import requests as req_lib
+
+        metrics_resp = req_lib.get(f"{api_base}/api/workflows/metrics?limit=200", timeout=8)
+        if metrics_resp.status_code < 300:
+            metrics = (metrics_resp.json() or {}).get("metrics", {})
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("MTTR (min)", metrics.get("mttr_minutes") if metrics.get("mttr_minutes") is not None else "n/a")
+            m2.metric("Pass Rate", f"{(metrics.get('pass_rate', 0.0) * 100):.1f}%")
+            m3.metric("Pass Rate Uplift", f"{metrics.get('pass_rate_uplift_pct', 0.0):.1f}%")
+            m4.metric("Flaky Reduction", f"{metrics.get('flaky_reduction_pct', 0.0):.1f}%")
+    except Exception:
+        pass
 
     refresh = st.button("Refresh Requests", key="prompt_ops_refresh")
     if refresh or True:
@@ -2456,7 +2486,25 @@ def render_prompt_ops():
                         key="prompt_ops_selected_request",
                     )
 
-                    col_a, col_q, col_c, col_i = st.columns([1, 1, 1, 1])
+                    exec_col1, exec_col2, exec_col3 = st.columns([1, 1, 1])
+                    with exec_col1:
+                        worker_dry_run = st.checkbox(
+                            "Dry Run Worker",
+                            value=True,
+                            key="prompt_ops_worker_dry_run",
+                            help="When enabled, worker creates branch/commit locally without pushing or opening a PR.",
+                        )
+                    with exec_col2:
+                        worker_open_pr = st.checkbox(
+                            "Open PR",
+                            value=True,
+                            key="prompt_ops_worker_open_pr",
+                            help="Requires Dry Run disabled plus GITHUB_TOKEN and a resolvable GitHub repo.",
+                        )
+                    with exec_col3:
+                        do_run_next = st.button("Run Next Queued", key="prompt_ops_run_next")
+
+                    col_a, col_q, col_c, col_i, col_r, col_replay = st.columns([1, 1, 1, 1, 1, 1])
                     with col_a:
                         do_approve = st.button("Approve", key="prompt_ops_approve")
                     with col_q:
@@ -2465,6 +2513,32 @@ def render_prompt_ops():
                         do_cancel = st.button("Cancel", key="prompt_ops_cancel")
                     with col_i:
                         do_inspect = st.button("Inspect", key="prompt_ops_inspect")
+                    with col_r:
+                        do_run_selected = st.button("Run Selected", key="prompt_ops_run_selected")
+                    with col_replay:
+                        do_replay = st.button("Replay", key="prompt_ops_replay")
+
+                    worker_payload = {
+                        "dry_run": worker_dry_run,
+                        "open_pr": worker_open_pr,
+                    }
+
+                    if do_run_next:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/worker/run-next",
+                            json=worker_payload,
+                            timeout=60,
+                        )
+                        if resp.status_code < 300:
+                            body = resp.json()
+                            item = body.get("request")
+                            if item:
+                                st.success("Worker executed queued request.")
+                                st.json(item)
+                            else:
+                                st.info(body.get("message", "No queued requests."))
+                        else:
+                            st.error(f"Run-next failed ({resp.status_code}): {resp.text[:500]}")
 
                     if do_approve:
                         resp = req_lib.post(f"{api_base}/api/workflows/requests/{selected_id}/approve", timeout=10)
@@ -2500,6 +2574,30 @@ def render_prompt_ops():
                             st.json(resp.json().get("request", {}))
                         else:
                             st.error(f"Inspect failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_run_selected:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/worker/run/{selected_id}",
+                            json=worker_payload,
+                            timeout=60,
+                        )
+                        if resp.status_code < 300:
+                            st.success("Worker executed selected request.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Run selected failed ({resp.status_code}): {resp.text[:500]}")
+
+                    if do_replay:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/requests/{selected_id}/replay",
+                            json={"requester": requester},
+                            timeout=20,
+                        )
+                        if resp.status_code < 300:
+                            st.success("Replay request created and queued.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Replay failed ({resp.status_code}): {resp.text[:500]}")
                 else:
                     st.info("No workflow requests yet. Submit a prompt above.")
             else:
@@ -3237,9 +3335,73 @@ def render_pipeline_flow(store: DelegationGraphStore):
             st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+def render_plans_and_tiers():
+    """Render commercial plans and feature packaging in a standalone view."""
+    st.subheader("💼 Plans & Tiers")
+    st.markdown(
+        "Start small, prove ROI quickly, and scale into fully autonomous quality operations."
+    )
+
+    st.markdown("---")
+    st.markdown("### 🆓 Free / Community")
+    st.markdown(
+        """
+- Best for trying AgenticQA with minimal setup and zero procurement friction
+- Fast onboarding with bootstrap + health checks + JUnit ingest
+- Core dashboard visibility for quick wins in reliability and quality
+- Local-first operation for easy evaluation
+- Community support
+"""
+    )
+
+    st.markdown("### 🚀 Pro / Team")
+    st.markdown(
+        """
+- Best for teams who want measurable CI/CD improvement each sprint
+- Everything in Free, plus advanced analytics and collaboration intelligence
+- Prompt-to-workflow execution with branch/commit automation and optional PR creation
+- Graph-powered routing recommendations and policy guardrails
+- CI health diagnostics and team notifications
+"""
+    )
+
+    st.markdown("### 🏢 Enterprise")
+    st.markdown(
+        """
+- Best for regulated and large-scale organizations
+- Everything in Pro, plus enterprise governance and security controls
+- SSO/SAML, tenant isolation, advanced RBAC, and approval workflows
+- Audit exports, retention policy controls, and compliance readiness
+- Private/self-hosted deployment options, SLA, and priority support
+- Enterprise integrations (GitHub Enterprise, GitLab, Jenkins, SIEM)
+"""
+    )
+
+    st.markdown("### ➕ Add-ons")
+    st.markdown(
+        """
+- RAG+ Intelligence: richer retrieval and recommendation quality
+- Autonomous Repair: deeper self-healing workflows and recovery automation
+- Prompt Ops Automation: higher-scale prompt-to-delivery operations
+- Compliance Suite: stronger policy controls and audit posture
+"""
+    )
+
+    st.markdown("---")
+    st.markdown("[← Back to dashboard](?)")
+
+
 def main():
     """Main dashboard"""
     render_header()
+    
+    view = st.query_params.get("view", "")
+    if view == "plans":
+        render_plans_and_tiers()
+        st.caption(
+            f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | AgenticQA Plans"
+        )
+        return
 
     # Get store early so sidebar can show connection status
     store = get_graph_store()
@@ -3278,6 +3440,9 @@ def main():
         st.markdown("### 📚 Resources")
         st.markdown("[Neo4j Browser](http://localhost:7474)")
         st.markdown("[Documentation](https://github.com/nhomyk/AgenticQA)")
+        st.markdown("---")
+        st.markdown("### 💼 Commercial")
+        st.markdown("[Plans & Tiers](?view=plans)")
 
         # Auto-refresh
         if auto_refresh:

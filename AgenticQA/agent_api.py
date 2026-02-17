@@ -5,13 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from datetime import UTC, datetime
+from pathlib import Path
 
 from src.agents import AgentOrchestrator
 from src.data_store import SecureDataPipeline
 try:
     from src.agenticqa.workflow_requests import PromptWorkflowStore
+    from src.agenticqa.workflow_worker import WorkflowExecutionWorker
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
+    from agenticqa.workflow_worker import WorkflowExecutionWorker
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -28,6 +31,7 @@ app.add_middleware(
 orchestrator = AgentOrchestrator()
 data_pipeline = SecureDataPipeline(use_great_expectations=False)
 workflow_store = PromptWorkflowStore()
+workflow_worker = WorkflowExecutionWorker(workflow_store)
 
 
 # Request/Response Models
@@ -70,6 +74,21 @@ class WorkflowActionRequest(BaseModel):
     """Action request for an existing workflow item."""
 
     reason: Optional[str] = None
+    requester: Optional[str] = None
+
+
+class WorkflowRunRequest(BaseModel):
+    """Worker execution request options."""
+
+    dry_run: bool = True
+    open_pr: bool = True
+
+
+class PluginRepoRequest(BaseModel):
+    """Request for plug-in onboarding operations."""
+
+    repo: str = "."
+    force: bool = False
 
 
 @app.get("/health")
@@ -208,6 +227,46 @@ async def get_patterns():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/plugin/bootstrap")
+async def plugin_bootstrap(body: PluginRepoRequest):
+    """Bootstrap AgenticQA plug-in files for any target repository."""
+    try:
+        try:
+            from src.agenticqa.plugin_onboarding import bootstrap_project
+        except Exception:
+            from agenticqa.plugin_onboarding import bootstrap_project
+
+        result = bootstrap_project(repo_root=Path(body.repo), force=body.force)
+        return {
+            "success": True,
+            "repo": body.repo,
+            "created_files": [str(p) for p in result.created_files],
+            "detected_stack": result.detected_stack,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/plugin/doctor")
+async def plugin_doctor(body: PluginRepoRequest):
+    """Run onboarding health checks for a target repository."""
+    try:
+        try:
+            from src.agenticqa.plugin_onboarding import run_doctor
+        except Exception:
+            from agenticqa.plugin_onboarding import run_doctor
+
+        result = run_doctor(repo_root=Path(body.repo))
+        return {
+            "success": True,
+            "repo": body.repo,
+            "healthy": result.healthy,
+            "checks": result.checks,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/workflows/requests")
 async def create_workflow_request(request: WorkflowRequestCreate):
     """Create a prompt-driven development workflow request."""
@@ -292,6 +351,71 @@ async def cancel_workflow_request(request_id: str, body: WorkflowActionRequest):
     """Cancel a workflow request."""
     try:
         item = workflow_store.cancel_request(request_id, reason=body.reason or "cancelled_by_user")
+        return {"success": True, "request": item}
+    except ValueError as e:
+        if "not_found" in str(e):
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/requests/{request_id}/replay")
+async def replay_workflow_request(request_id: str, body: WorkflowActionRequest):
+    """Replay an existing workflow request with self-heal metadata and queue it immediately."""
+    try:
+        item = workflow_store.replay_request(
+            request_id=request_id,
+            requester=body.requester or "replay_api",
+        )
+        return {"success": True, "request": item}
+    except ValueError as e:
+        if "not_found" in str(e):
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/metrics")
+async def get_workflow_metrics(limit: int = 200):
+    """Return Prompt Ops outcome metrics (MTTR, pass-rate uplift, flaky reduction)."""
+    try:
+        metrics = workflow_store.get_metrics(lookback_limit=limit)
+        return {"success": True, "metrics": metrics}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/worker/run-next")
+async def run_next_workflow_request(body: WorkflowRunRequest):
+    """Run worker execution for the oldest queued workflow request."""
+    try:
+        item = workflow_worker.run_next(dry_run=body.dry_run, open_pr=body.open_pr)
+        if not item:
+            return {
+                "success": True,
+                "message": "no queued requests",
+                "request": None,
+            }
+        return {"success": True, "request": item}
+    except ValueError as e:
+        if "not_found" in str(e):
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/worker/run/{request_id}")
+async def run_workflow_request(request_id: str, body: WorkflowRunRequest):
+    """Run worker execution for a specific queued workflow request."""
+    try:
+        item = workflow_worker.run_request(
+            request_id=request_id,
+            dry_run=body.dry_run,
+            open_pr=body.open_pr,
+        )
         return {"success": True, "request": item}
     except ValueError as e:
         if "not_found" in str(e):

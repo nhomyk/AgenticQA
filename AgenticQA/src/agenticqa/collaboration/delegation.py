@@ -66,7 +66,10 @@ class DelegationGuardrails:
 
     ALLOWED_DELEGATIONS: Dict[str, List[str]] = {
         "SDET_Agent": ["SRE_Agent"],  # SDET can delegate test generation to SRE
-        "Fullstack_Agent": ["Compliance_Agent"],  # Fullstack can validate code with Compliance
+        "Fullstack_Agent": [
+            "Compliance_Agent",
+            "SDET_Agent",
+        ],  # Fullstack can request security + test validation
         "Compliance_Agent": ["DevOps_Agent"],  # Compliance can consult DevOps on deployment
         "SRE_Agent": [],  # SRE can't delegate (prevents loops)
         "DevOps_Agent": [],  # DevOps can't delegate (prevents loops)
