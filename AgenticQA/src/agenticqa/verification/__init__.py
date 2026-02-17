@@ -14,6 +14,9 @@ from .ragas_tracker import RagasTracker, RagasScore
 from .outcome_tracker import OutcomeTracker, DelegationOutcome
 from .benchmark import BenchmarkSuite, BenchmarkCase, BenchmarkResult, get_default_benchmarks
 from .feedback_loop import RelevanceFeedback
+from .threshold_calibrator import ThresholdCalibrator
+from .strategy_selector import StrategySelector, ExecutionStrategy, STRATEGIES
+from .eval_harness import EvalHarness, EvalThresholds, EvalRunResult
 from .tracing import Tracer
 from .ab_comparison import ABComparison, ABResult
 
@@ -22,6 +25,9 @@ __all__ = [
     "OutcomeTracker", "DelegationOutcome",
     "BenchmarkSuite", "BenchmarkCase", "BenchmarkResult", "get_default_benchmarks",
     "RelevanceFeedback",
+    "ThresholdCalibrator",
+    "StrategySelector", "ExecutionStrategy", "STRATEGIES",
+    "EvalHarness", "EvalThresholds", "EvalRunResult",
     "Tracer",
     "ABComparison", "ABResult",
 ]
