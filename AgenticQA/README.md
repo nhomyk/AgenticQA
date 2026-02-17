@@ -345,6 +345,21 @@ streamlit run dashboard/app.py
      - `max_sdet_iterations` (default `3`, max `5`)
      - `enable_sdet_autofix` (default `true`)
      - `max_sdet_fix_attempts` (default `2`, max `5`)
+
+### SDET trend benchmark (improvement over time)
+
+Run a repeatable benchmark locally:
+
+```bash
+python scripts/run_sdet_trend_benchmark.py --runs-per-cohort 3 --output-dir .agenticqa/benchmarks/latest
+```
+
+Outputs:
+- `.agenticqa/benchmarks/latest/benchmark_summary.json`
+- `.agenticqa/benchmarks/latest/benchmark_report.md`
+- `~/.agenticqa/benchmarks/sdet_trend_history.jsonl` (append-only trend history)
+
+A scheduled CI benchmark is available at [ .github/workflows/sdet-trend-benchmark.yml ](.github/workflows/sdet-trend-benchmark.yml).
 - Default is `dry_run=true`: worker creates branch + commit locally and marks request completed.
 - Set `dry_run=false` to push branch to `origin`.
 - Set `open_pr=true` (with `dry_run=false`) to auto-open a GitHub PR.
