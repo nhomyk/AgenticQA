@@ -144,3 +144,53 @@ def test_observability_failure_and_counterfactual_insights(tmp_path):
     assert "approved_by" in " ".join(recs["recommendations"][0]["counterfactuals"])
 
     store.close()
+
+
+def test_observability_quality_includes_decision_score(tmp_path):
+    store = ObservabilityStore(db_path=str(tmp_path / "obs.db"))
+
+    # Trace with decision + successful completion
+    store.log_event(
+        trace_id="tr_good",
+        request_id="wr_good",
+        span_id="sp_good",
+        agent="PromptOpsOrchestrator",
+        action="orchestrate",
+        status="STARTED",
+    )
+    store.log_event(
+        trace_id="tr_good",
+        request_id="wr_good",
+        span_id="sp_good",
+        agent="PromptOpsOrchestrator",
+        action="orchestrate",
+        status="COMPLETED",
+        decision={"delegation_mode": "adaptive"},
+    )
+
+    # Trace with no decision context in terminal event
+    store.log_event(
+        trace_id="tr_poor",
+        request_id="wr_poor",
+        span_id="sp_poor",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="STARTED",
+    )
+    store.log_event(
+        trace_id="tr_poor",
+        request_id="wr_poor",
+        span_id="sp_poor",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="FAILED",
+        error="pytest failure",
+    )
+
+    quality = store.get_quality_summary(limit=10, min_completeness=0.95, min_decision_quality=0.6)
+    assert quality["trace_count"] == 2
+    assert "avg_decision_quality_score" in quality
+    assert "decision_quality_below_threshold_count" in quality
+    assert quality["decision_quality_below_threshold_count"] >= 1
+
+    store.close()

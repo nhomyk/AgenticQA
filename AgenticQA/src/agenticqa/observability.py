@@ -339,7 +339,12 @@ class ObservabilityStore:
             "spans": list(spans.values()),
         }
 
-    def get_quality_summary(self, limit: int = 100, min_completeness: float = 0.95) -> Dict[str, Any]:
+    def get_quality_summary(
+        self,
+        limit: int = 100,
+        min_completeness: float = 0.95,
+        min_decision_quality: float = 0.60,
+    ) -> Dict[str, Any]:
         traces = self.list_traces(limit=limit)
         if not traces:
             return {
@@ -348,18 +353,42 @@ class ObservabilityStore:
                 "min_completeness_ratio": 1.0,
                 "below_threshold_count": 0,
                 "min_completeness_threshold": min_completeness,
+                "avg_decision_quality_score": 1.0,
+                "min_decision_quality_score": 1.0,
+                "decision_quality_below_threshold_count": 0,
+                "min_decision_quality_threshold": min_decision_quality,
                 "status": "no_traces",
             }
 
         ratios = [float(t.get("completeness_ratio") or 0.0) for t in traces]
         below = [r for r in ratios if r < min_completeness]
+
+        decision_scores: List[float] = []
+        decision_below = 0
+        for t in traces:
+            trace_id = str(t.get("trace_id") or "")
+            if not trace_id:
+                continue
+            trace_events = self.list_events(limit=1000, trace_id=trace_id, newest_first=False)
+            score = self._compute_decision_quality_score(trace_events)
+            decision_scores.append(score)
+            if score < min_decision_quality:
+                decision_below += 1
+
+        avg_decision_score = round(sum(decision_scores) / len(decision_scores), 3) if decision_scores else 1.0
+        min_decision_score = round(min(decision_scores), 3) if decision_scores else 1.0
+
         return {
             "trace_count": len(traces),
             "avg_completeness_ratio": round(sum(ratios) / len(ratios), 3),
             "min_completeness_ratio": round(min(ratios), 3),
             "below_threshold_count": len(below),
             "min_completeness_threshold": min_completeness,
-            "status": "pass" if not below else "warn",
+            "avg_decision_quality_score": avg_decision_score,
+            "min_decision_quality_score": min_decision_score,
+            "decision_quality_below_threshold_count": decision_below,
+            "min_decision_quality_threshold": min_decision_quality,
+            "status": "pass" if (not below and decision_below == 0) else "warn",
         }
 
     def get_failure_insights(self, limit: int = 300) -> Dict[str, Any]:
@@ -522,6 +551,28 @@ class ObservabilityStore:
         if metadata.get("quality_gate_passed") is False:
             return "QUALITY_GATE"
         return "UNKNOWN"
+
+    def _compute_decision_quality_score(self, events: List[Dict[str, Any]]) -> float:
+        if not events:
+            return 1.0
+
+        terminal = [
+            e
+            for e in events
+            if str(e.get("status") or "").upper() in {"COMPLETED", "FAILED", "CANCELLED", "SKIPPED"}
+        ]
+        if not terminal:
+            return 1.0
+
+        with_decision = [e for e in terminal if bool(e.get("decision"))]
+        decision_coverage = len(with_decision) / len(terminal)
+
+        successful_decisions = [e for e in with_decision if str(e.get("status") or "").upper() == "COMPLETED"]
+        decision_success = (len(successful_decisions) / len(with_decision)) if with_decision else 1.0
+
+        # Weighted blend: prioritize logging coverage, then decision outcome quality.
+        score = (0.7 * decision_coverage) + (0.3 * decision_success)
+        return round(score, 3)
 
     def _row_to_event(self, row: Dict[str, Any]) -> Dict[str, Any]:
         try:

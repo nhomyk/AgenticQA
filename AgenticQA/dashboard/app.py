@@ -2693,12 +2693,12 @@ def render_prompt_ops():
                         )
 
                     quality_resp = req_lib.get(
-                        f"{api_base}/api/observability/quality?limit={int(trace_limit)}&min_completeness=0.95",
+                        f"{api_base}/api/observability/quality?limit={int(trace_limit)}&min_completeness=0.95&min_decision_quality=0.60",
                         timeout=10,
                     )
                     if quality_resp.status_code < 300:
                         q = (quality_resp.json() or {}).get("quality", {})
-                        q1, q2, q3, q4 = st.columns(4)
+                        q1, q2, q3, q4, q5, q6 = st.columns(6)
                         with q1:
                             st.metric("Trace Count", int(q.get("trace_count") or 0))
                         with q2:
@@ -2707,6 +2707,16 @@ def render_prompt_ops():
                             st.metric("Min Completeness", f"{float(q.get('min_completeness_ratio') or 0.0):.3f}")
                         with q4:
                             st.metric("Below Threshold", int(q.get("below_threshold_count") or 0))
+                        with q5:
+                            st.metric(
+                                "Avg Decision Quality",
+                                f"{float(q.get('avg_decision_quality_score') or 0.0):.3f}",
+                            )
+                        with q6:
+                            st.metric(
+                                "Decision Quality Below",
+                                int(q.get("decision_quality_below_threshold_count") or 0),
+                            )
                     else:
                         st.warning(f"Trace quality summary unavailable ({quality_resp.status_code}).")
 

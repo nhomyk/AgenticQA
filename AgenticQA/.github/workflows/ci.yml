@@ -218,6 +218,7 @@ jobs:
           python scripts/observability_quality_report.py \
             --output docs/reports/OBSERVABILITY_QUALITY.json \
             --min-completeness 0.95 \
+            --min-decision-quality 0.60 \
             --seed-demo-if-empty \
             --enforce
       - name: Upload observability quality artifact

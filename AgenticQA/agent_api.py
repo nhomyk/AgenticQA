@@ -561,12 +561,17 @@ async def list_observability_events(
 
 
 @app.get("/api/observability/quality")
-async def get_observability_quality(limit: int = 100, min_completeness: float = 0.95):
+async def get_observability_quality(
+    limit: int = 100,
+    min_completeness: float = 0.95,
+    min_decision_quality: float = 0.60,
+):
     """Return aggregate trace quality metrics for CI/CD quality gates."""
     try:
         summary = observability_store.get_quality_summary(
             limit=limit,
             min_completeness=min_completeness,
+            min_decision_quality=min_decision_quality,
         )
         return {
             "success": True,
