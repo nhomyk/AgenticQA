@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -197,5 +198,51 @@ def test_worker_sdet_autofix_recovers_generated_python_syntax(tmp_path):
     assert '"autofix_enabled": true' in show.stdout
     assert '"autofix_attempts": 1' in show.stdout
     assert '"files_auto_fixed": 1' in show.stdout
+
+    store.close()
+
+
+def test_worker_gracefully_skips_sdet_when_runner_unavailable(tmp_path):
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    _init_git_repo(repo_path)
+
+    store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+    item = store.create_request(
+        prompt="Add simple endpoint helper",
+        repo=str(repo_path),
+        requester="dashboard",
+        metadata={
+            "target_file": "src/generated/skip_runner.py",
+            "require_sdet_loop": True,
+            "max_sdet_iterations": 1,
+        },
+    )
+    store.approve_request(item["id"])
+    store.queue_request(item["id"])
+
+    worker = WorkflowExecutionWorker(store)
+    with patch(
+        "agenticqa.workflow_worker.resolve_generated_test_command",
+        return_value={
+            "available": False,
+            "runner": "none",
+            "command": None,
+            "reason": "simulated_runner_unavailable",
+        },
+    ):
+        result = worker.run_request(item["id"], dry_run=True, open_pr=False)
+
+    assert result["status"] == "COMPLETED"
+
+    artifact_rel = f".agenticqa/workflows/{item['id']}.md"
+    show = subprocess.run(
+        ["git", "show", f"{result['commit_sha']}:{artifact_rel}"],
+        cwd=str(repo_path),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert '"skip_reason": "simulated_runner_unavailable"' in show.stdout
 
     store.close()

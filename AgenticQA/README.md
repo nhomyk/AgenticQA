@@ -334,12 +334,14 @@ Client value for AI observability:
 ### Worker execution modes
 
 - Worker executes a code-generation stage before commit:
+     - auto-detects `repo_profile` (language, package manager, CI provider, test hints),
      - derives feature intent from prompt,
      - invokes `FullstackAgent` generation,
      - orchestrates guardrailed collaboration with `Compliance_Agent`, `SDET_Agent`, and `DevOps_Agent`,
      - emits observability events with correlated `trace_id` for worker, orchestrator, and SDET loop,
      - records explainable routing rationale (why each agent was selected),
      - runs SDET test synthesis for newly generated production files,
+     - resolves generated-test runner from repo profile with graceful fallback when unavailable,
      - re-runs generated tests in a bounded loop until pass/fail budget is reached,
      - records collaboration + quality-gate context into workflow artifacts,
      - writes generated code into repo files,

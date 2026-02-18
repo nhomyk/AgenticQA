@@ -20,6 +20,7 @@ from urllib import error as url_error
 from urllib import request as url_request
 
 from .prompt_ops_orchestrator import PromptOpsOrchestrator
+from .repo_profile import detect_repo_profile, resolve_generated_test_command
 from .workflow_requests import PromptWorkflowStore
 try:
     from .observability import ObservabilityStore
@@ -77,6 +78,8 @@ class WorkflowExecutionWorker:
             metadata = req.get("metadata") or {}
             metadata["trace_id"] = trace_id
             metadata["root_span_id"] = root_span_id
+            repo_profile = detect_repo_profile(repo_path)
+            metadata["repo_profile"] = repo_profile.to_dict()
             req["metadata"] = metadata
             self.store.start_request(request_id)
 
@@ -138,7 +141,11 @@ class WorkflowExecutionWorker:
                 span_id=root_span_id,
                 event_type="workflow",
                 step_key="worker.run_request",
-                metadata={"branch_name": branch_name, "commit_sha": commit_sha},
+                metadata={
+                    "branch_name": branch_name,
+                    "commit_sha": commit_sha,
+                    "repo_primary_language": repo_profile.primary_language,
+                },
                 output_payload={"branch_name": branch_name, "commit_sha": commit_sha},
             )
             return result
@@ -427,6 +434,33 @@ class WorkflowExecutionWorker:
                 iteration=iteration,
             )
             passed, output = self._run_pytest(repo_path=repo_path, test_paths=generated_tests)
+            if output.startswith("TEST_RUNNER_UNAVAILABLE:"):
+                reason = output.split(":", 1)[1]
+                if trace_id:
+                    self._emit_event(
+                        trace_id=trace_id,
+                        request_id=req.get("id", "unknown"),
+                        agent="SDET_Agent",
+                        action="sdet_test_loop",
+                        status="SKIPPED",
+                        started_ts=step_started,
+                        span_id=sdet_span_id,
+                        parent_span_id=root_span_id or None,
+                        event_type="test_generation",
+                        step_key="sdet.loop",
+                        metadata={"skip_reason": reason, "tests_generated": len(generated_tests)},
+                    )
+                return generated_tests, {
+                    "required": False,
+                    "passed": True,
+                    "iterations": iteration,
+                    "tests_generated": len(generated_tests),
+                    "autofix_enabled": enable_autofix,
+                    "autofix_attempts": fix_attempts,
+                    "files_auto_fixed": files_auto_fixed,
+                    "last_error": "",
+                    "skip_reason": reason,
+                }
             if passed:
                 if trace_id:
                     self._emit_event(
@@ -651,7 +685,14 @@ class WorkflowExecutionWorker:
     def _run_pytest(self, repo_path: Path, test_paths: List[Path]) -> tuple[bool, str]:
         if not test_paths:
             return True, "no_tests_generated"
-        args = [sys.executable, "-m", "pytest", "-q", *[str(p) for p in test_paths]]
+        profile = detect_repo_profile(repo_path)
+        resolved = resolve_generated_test_command(repo_root=repo_path, profile=profile, test_paths=test_paths)
+        if not resolved.get("available"):
+            return False, f"TEST_RUNNER_UNAVAILABLE:{resolved.get('reason', 'unknown')}"
+
+        args = resolved.get("command") or []
+        if not args:
+            return False, "TEST_RUNNER_UNAVAILABLE:empty_command"
         proc = subprocess.run(args, cwd=str(repo_path), text=True, capture_output=True, timeout=120)
         output = (proc.stdout or "") + "\n" + (proc.stderr or "")
         return proc.returncode == 0, output
