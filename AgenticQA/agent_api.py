@@ -13,10 +13,12 @@ try:
     from src.agenticqa.workflow_requests import PromptWorkflowStore
     from src.agenticqa.workflow_worker import WorkflowExecutionWorker
     from src.agenticqa.observability import ObservabilityStore
+    from src.agenticqa.reliability_evidence import build_evidence_summary, check_tcp, read_latest_jsonl
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
     from agenticqa.observability import ObservabilityStore
+    from agenticqa.reliability_evidence import build_evidence_summary, check_tcp, read_latest_jsonl
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -112,6 +114,28 @@ async def health_check():
         "timestamp": datetime.now(UTC).isoformat(),
         "agents_ready": 4,
     }
+
+
+@app.get("/api/system/readiness")
+async def system_readiness():
+    """Detailed readiness checks for local dependencies and data stores."""
+    try:
+        home = Path.home() / ".agenticqa"
+        checks = {
+            "workflow_db_writable": home.exists() or home.parent.exists(),
+            "observability_db_writable": home.exists() or home.parent.exists(),
+            "neo4j_tcp": check_tcp("127.0.0.1", 7687),
+            "weaviate_tcp": check_tcp("127.0.0.1", 8080),
+        }
+        ready = checks["workflow_db_writable"] and checks["observability_db_writable"]
+        return {
+            "success": True,
+            "ready": bool(ready),
+            "checks": checks,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/agents/execute")
@@ -396,6 +420,24 @@ async def get_workflow_metrics(limit: int = 200):
     try:
         metrics = workflow_store.get_metrics(lookback_limit=limit)
         return {"success": True, "metrics": metrics}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/evidence")
+async def get_workflow_evidence(limit: int = 500):
+    """Client-facing evidence bundle mapping system claims to measurable signals."""
+    try:
+        metrics = workflow_store.get_metrics(lookback_limit=limit)
+        traces = observability_store.list_traces(limit=100)
+        history_path = Path.home() / ".agenticqa" / "benchmarks" / "sdet_trend_history.jsonl"
+        latest = read_latest_jsonl(history_path)
+        evidence = build_evidence_summary(metrics=metrics, latest_benchmark=latest, trace_count=len(traces))
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "evidence": evidence,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -316,6 +316,8 @@ streamlit run dashboard/app.py
 - `GET /api/observability/traces` — recent trace summaries across worker/agent actions
 - `GET /api/observability/traces/{trace_id}` — timeline for a single trace
 - `GET /api/observability/events` — raw action events with filters (`request_id`, `agent`, `action`)
+- `GET /api/system/readiness` — dependency readiness checks (DB writeability, Neo4j, Weaviate)
+- `GET /api/workflows/evidence` — claims-to-evidence bundle for client-facing proof
 - `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
 - `POST /api/plugin/doctor` — onboarding readiness checks for any repo
 

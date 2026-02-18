@@ -2490,6 +2490,34 @@ def render_prompt_ops():
             m2.metric("Pass Rate", f"{(metrics.get('pass_rate', 0.0) * 100):.1f}%")
             m3.metric("Pass Rate Uplift", f"{metrics.get('pass_rate_uplift_pct', 0.0):.1f}%")
             m4.metric("Flaky Reduction", f"{metrics.get('flaky_reduction_pct', 0.0):.1f}%")
+
+        readiness_resp = req_lib.get(f"{api_base}/api/system/readiness", timeout=8)
+        if readiness_resp.status_code < 300:
+            readiness = readiness_resp.json() or {}
+            checks = readiness.get("checks", {})
+            rc1, rc2, rc3, rc4 = st.columns(4)
+            rc1.metric("Workflow DB", "OK" if checks.get("workflow_db_writable") else "Issue")
+            rc2.metric("Observability DB", "OK" if checks.get("observability_db_writable") else "Issue")
+            rc3.metric("Neo4j", "Connected" if checks.get("neo4j_tcp") else "Offline")
+            rc4.metric("Weaviate", "Connected" if checks.get("weaviate_tcp") else "Offline")
+
+        evidence_resp = req_lib.get(f"{api_base}/api/workflows/evidence?limit=500", timeout=8)
+        if evidence_resp.status_code < 300:
+            evidence = ((evidence_resp.json() or {}).get("evidence") or {})
+            claims = evidence.get("claims") or {}
+            if claims:
+                st.markdown("### 📌 Client Value Evidence")
+                rows = []
+                for name, payload in claims.items():
+                    rows.append(
+                        {
+                            "claim": name,
+                            "metric": payload.get("metric"),
+                            "value": payload.get("value"),
+                            "status": payload.get("status"),
+                        }
+                    )
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     except Exception:
         pass
 
