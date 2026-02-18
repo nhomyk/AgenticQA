@@ -7,10 +7,10 @@ from .security_validator import DataSecurityValidator
 from .pattern_analyzer import PatternAnalyzer
 
 try:
-    from .great_expectations_validator import AgentDataValidator
+    from .great_expectations_validator import AgentDataValidator, GREAT_EXPECTATIONS_AVAILABLE
 
-    GREAT_EXPECTATIONS_AVAILABLE = True
 except ImportError:
+    AgentDataValidator = None
     GREAT_EXPECTATIONS_AVAILABLE = False
 
 
@@ -22,7 +22,7 @@ class SecureDataPipeline:
         self.security_validator = DataSecurityValidator()
         self.pattern_analyzer = PatternAnalyzer(self.artifact_store)
 
-        if use_great_expectations and GREAT_EXPECTATIONS_AVAILABLE:
+        if use_great_expectations and GREAT_EXPECTATIONS_AVAILABLE and AgentDataValidator:
             self.ge_validator = AgentDataValidator()
         else:
             self.ge_validator = None

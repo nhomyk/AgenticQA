@@ -379,6 +379,8 @@ class BaseAgent(ABC):
                 risk = graph_store.predict_delegation_failure_risk(
                     self.agent_name, agent_name, task_type
                 )
+                if not isinstance(risk, dict):
+                    risk = {}
                 if risk.get("risk_level") == "high" and risk.get("confidence", 0) > 0.5:
                     rec = graph_store.recommend_delegation_target(
                         self.agent_name, task_type
@@ -397,6 +399,11 @@ class BaseAgent(ABC):
                     recommendation_source = "graphrag"
         except Exception as e:
             self.log(f"GraphRAG delegation lookup failed: {e}", "WARNING")
+
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.5
 
         # Record prediction before execution
         if self.outcome_tracker:
@@ -630,6 +637,13 @@ class PerformanceAgent(BaseAgent):
         avg_latency = perf.get("avg_latency_ms", 0)
         if avg_latency > 3000:
             suggestions.append("Average latency above 3s. Consider caching or parallelization.")
+
+        duration = data.get("duration_ms", 0) or 0
+        baseline = data.get("baseline_ms", 0) or 0
+        if duration >= 5000:
+            suggestions.append("Observed high execution latency. Profile hot paths and optimize slow queries.")
+        if baseline > 0 and duration > baseline * 2:
+            suggestions.append("Execution time exceeds 2x baseline. Investigate regressions and add targeted benchmarking.")
 
         # RAG-enhanced suggestions from Weaviate
         if augmented_context:

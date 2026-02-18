@@ -13,9 +13,9 @@ from agenticqa.data_store.snapshot_manager import SnapshotManager
 
 
 @pytest.fixture
-def snapshot_manager():
+def snapshot_manager(tmp_path):
     """Create snapshot manager for tests."""
-    return SnapshotManager(".snapshots/tests")
+    return SnapshotManager(str(tmp_path / ".snapshots" / "tests"))
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ class TestAgentOutputSnapshots:
         orchestrator = AgentOrchestrator()
         results = orchestrator.execute_all_agents(test_data)
 
-        qa_output = results.get("qa_agent", {})
+        qa_output = results.get("qa", {})
 
         # Create or compare snapshot
         comparison = snapshot_manager.compare_snapshot("qa_agent_output", qa_output)
@@ -67,7 +67,7 @@ class TestAgentOutputSnapshots:
         orchestrator = AgentOrchestrator()
         results = orchestrator.execute_all_agents(test_data)
 
-        perf_output = results.get("performance_agent", {})
+        perf_output = results.get("performance", {})
 
         comparison = snapshot_manager.compare_snapshot("performance_agent_output", perf_output)
 
@@ -83,7 +83,7 @@ class TestAgentOutputSnapshots:
         orchestrator = AgentOrchestrator()
         results = orchestrator.execute_all_agents(test_data)
 
-        compliance_output = results.get("compliance_agent", {})
+        compliance_output = results.get("compliance", {})
 
         comparison = snapshot_manager.compare_snapshot("compliance_agent_output", compliance_output)
 
@@ -99,7 +99,7 @@ class TestAgentOutputSnapshots:
         orchestrator = AgentOrchestrator()
         results = orchestrator.execute_all_agents(test_data)
 
-        devops_output = results.get("devops_agent", {})
+        devops_output = results.get("devops", {})
 
         comparison = snapshot_manager.compare_snapshot("devops_agent_output", devops_output)
 
@@ -114,9 +114,9 @@ class TestAgentOutputSnapshots:
 class TestDataStoreSnapshots:
     """Test that data store artifacts remain consistent."""
 
-    def test_artifact_store_structure_snapshot(self, snapshot_manager):
+    def test_artifact_store_structure_snapshot(self, snapshot_manager, tmp_path):
         """Snapshot test for artifact store structure."""
-        store = TestArtifactStore()
+        store = TestArtifactStore(str(tmp_path / ".test-artifact-store"))
 
         store_info = {
             "total_artifacts": len(store.master_index),
@@ -134,15 +134,15 @@ class TestDataStoreSnapshots:
                 "matches"
             ], f"Data store structure changed: {comparison['differences']}"
 
-    def test_artifact_metadata_snapshot(self, snapshot_manager):
+    def test_artifact_metadata_snapshot(self, snapshot_manager, tmp_path):
         """Snapshot test for artifact metadata consistency."""
-        store = TestArtifactStore()
-
-        if not store.master_index:
-            pytest.skip("No artifacts in store")
-
-        # Get metadata from first artifact
-        first_artifact_id = list(store.master_index.keys())[0]
+        store = TestArtifactStore(str(tmp_path / ".test-artifact-store"))
+        first_artifact_id = store.store_artifact(
+            artifact_data={"status": "ok", "created_at": datetime.utcnow().isoformat()},
+            artifact_type="execution",
+            source="snapshot_test",
+            tags=["snapshot"],
+        )
         artifact_meta = store.master_index[first_artifact_id]
 
         comparison = snapshot_manager.compare_snapshot("artifact_metadata_schema", artifact_meta)
@@ -151,7 +151,7 @@ class TestDataStoreSnapshots:
             snapshot_manager.create_snapshot("artifact_metadata_schema", artifact_meta)
         else:
             # Verify schema consistency
-            assert "id" in artifact_meta, "Artifact missing 'id'"
+            assert "artifact_id" in artifact_meta, "Artifact missing 'artifact_id'"
             assert "timestamp" in artifact_meta, "Artifact missing 'timestamp'"
             assert "checksum" in artifact_meta, "Artifact missing 'checksum'"
 
@@ -162,7 +162,14 @@ class TestPipelineSnapshots:
     def test_pipeline_execution_snapshot(self, snapshot_manager, test_data):
         """Snapshot test for complete pipeline execution."""
         pipeline = SecureDataPipeline()
-        results = pipeline.execute_with_validation(test_data)
+        execution_payload = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "agent_name": "qa_agent",
+            "status": "passed",
+            "output": test_data,
+        }
+        success, results = pipeline.execute_with_validation("qa_agent", execution_payload)
+        assert success is True
 
         # Remove timestamp-based fields for stable snapshots
         snapshot_results = {

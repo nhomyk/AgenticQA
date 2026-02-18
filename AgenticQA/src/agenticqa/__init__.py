@@ -49,6 +49,11 @@ from .rag import (
     create_rag_system,
 )
 
+try:
+    from agents import AgentOrchestrator
+except Exception:  # pragma: no cover - optional compatibility import
+    AgentOrchestrator = None
+
 __version__ = "2.0.0"
 
 __all__ = [
@@ -80,4 +85,5 @@ __all__ = [
     "create_vector_store",
     "create_vector_store_for_provider",
     "create_rag_system",
+    "AgentOrchestrator",
 ]
