@@ -2710,6 +2710,33 @@ def render_prompt_ops():
                     else:
                         st.warning(f"Trace quality summary unavailable ({quality_resp.status_code}).")
 
+                    insights_resp = req_lib.get(
+                        f"{api_base}/api/observability/insights?limit={int(obs_event_limit)}",
+                        timeout=10,
+                    )
+                    if insights_resp.status_code < 300:
+                        insights = (insights_resp.json() or {}).get("insights", {})
+                        failures = insights.get("failures", {})
+                        policy_impact = insights.get("policy_impact", {})
+
+                        st.markdown("#### Global Observability Insights")
+                        g1, g2, g3, g4 = st.columns(4)
+                        with g1:
+                            st.metric("Failed Events", int(failures.get("failed_events") or 0))
+                        with g2:
+                            st.metric("Failure Rate", f"{float(failures.get('failure_rate') or 0.0):.3f}")
+                        with g3:
+                            st.metric("Policy Blocked", int(policy_impact.get("policy_blocked_runs") or 0))
+                        with g4:
+                            st.metric("Policy Block Rate", f"{float(policy_impact.get('policy_block_rate') or 0.0):.3f}")
+
+                        root_causes = failures.get("root_cause_counts") or []
+                        if root_causes:
+                            st.markdown("##### Root Cause Distribution")
+                            st.dataframe(pd.DataFrame(root_causes), use_container_width=True, hide_index=True)
+                    else:
+                        st.warning(f"Observability insights unavailable ({insights_resp.status_code}).")
+
                     traces_resp = req_lib.get(
                         f"{api_base}/api/observability/traces?limit={int(trace_limit)}",
                         timeout=10,
@@ -2851,6 +2878,33 @@ def render_prompt_ops():
                                         if by_agent_action:
                                             st.markdown("##### Aggregated by Agent/Action")
                                             st.dataframe(pd.DataFrame(by_agent_action), use_container_width=True, hide_index=True)
+
+                                        cf_resp = req_lib.get(
+                                            f"{api_base}/api/observability/traces/{selected_trace}/counterfactuals?limit={int(obs_event_limit)}",
+                                            timeout=10,
+                                        )
+                                        if cf_resp.status_code < 300:
+                                            cf = (cf_resp.json() or {}).get("counterfactuals", {})
+                                            recs = cf.get("recommendations") or []
+                                            st.markdown("##### Counterfactual Recommendations")
+                                            if recs:
+                                                rec_rows = []
+                                                for r in recs:
+                                                    rec_rows.append(
+                                                        {
+                                                            "agent": r.get("agent"),
+                                                            "action": r.get("action"),
+                                                            "status": r.get("status"),
+                                                            "root_cause": r.get("root_cause"),
+                                                            "error": r.get("error"),
+                                                            "counterfactuals": " | ".join(r.get("counterfactuals") or []),
+                                                        }
+                                                    )
+                                                st.dataframe(pd.DataFrame(rec_rows), use_container_width=True, hide_index=True)
+                                            else:
+                                                st.info("No failed/retried steps for counterfactuals in this trace.")
+                                        else:
+                                            st.warning(f"Counterfactual lookup unavailable ({cf_resp.status_code}).")
                                     else:
                                         st.warning(
                                             f"Trace analysis unavailable ({analysis_resp.status_code}): "

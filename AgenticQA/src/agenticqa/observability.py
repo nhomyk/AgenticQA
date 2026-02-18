@@ -362,6 +362,130 @@ class ObservabilityStore:
             "status": "pass" if not below else "warn",
         }
 
+    def get_failure_insights(self, limit: int = 300) -> Dict[str, Any]:
+        events = self.list_events(limit=limit)
+        failed = [e for e in events if str(e.get("status") or "").upper() == "FAILED"]
+
+        root_causes: Dict[str, int] = {}
+        by_agent_action: Dict[str, int] = {}
+        examples: List[Dict[str, Any]] = []
+
+        for e in failed:
+            rc = self._classify_root_cause(error=e.get("error"), metadata=e.get("metadata") or {})
+            root_causes[rc] = root_causes.get(rc, 0) + 1
+
+            key = f"{e.get('agent')}::{e.get('action')}"
+            by_agent_action[key] = by_agent_action.get(key, 0) + 1
+
+            if len(examples) < 20:
+                examples.append(
+                    {
+                        "trace_id": e.get("trace_id"),
+                        "request_id": e.get("request_id"),
+                        "agent": e.get("agent"),
+                        "action": e.get("action"),
+                        "root_cause": rc,
+                        "error": (e.get("error") or "")[:220],
+                        "created_at": e.get("created_at"),
+                    }
+                )
+
+        ranked_causes = sorted(root_causes.items(), key=lambda it: it[1], reverse=True)
+        ranked_pairs = sorted(by_agent_action.items(), key=lambda it: it[1], reverse=True)
+        return {
+            "window_events": len(events),
+            "failed_events": len(failed),
+            "failure_rate": round((len(failed) / len(events)), 3) if events else 0.0,
+            "root_cause_counts": [{"root_cause": k, "count": v} for k, v in ranked_causes],
+            "top_failure_agent_actions": [
+                {"agent_action": k, "count": v} for k, v in ranked_pairs[:20]
+            ],
+            "examples": examples,
+        }
+
+    def get_policy_impact_summary(self, limit: int = 500) -> Dict[str, Any]:
+        events = self.list_events(limit=limit)
+
+        policy_blocked = 0
+        quality_gate_blocked = 0
+        policy_passed = 0
+
+        for e in events:
+            err = str(e.get("error") or "")
+            md = e.get("metadata") or {}
+            status = str(e.get("status") or "").upper()
+
+            if "policy_gate_failed" in err:
+                policy_blocked += 1
+            if "quality_gate_failed" in err or (status == "FAILED" and md.get("quality_gate_passed") is False):
+                quality_gate_blocked += 1
+            if e.get("action") == "run_request" and status == "COMPLETED":
+                policy_passed += 1
+
+        total = max(policy_passed + policy_blocked, 1)
+        return {
+            "window_events": len(events),
+            "policy_passed_runs": policy_passed,
+            "policy_blocked_runs": policy_blocked,
+            "quality_gate_blocked_runs": quality_gate_blocked,
+            "policy_block_rate": round(policy_blocked / total, 3),
+        }
+
+    def get_counterfactual_recommendations(self, trace_id: str, limit: int = 100) -> Dict[str, Any]:
+        events = self.list_events(limit=limit, trace_id=trace_id, newest_first=False)
+        recs: List[Dict[str, Any]] = []
+
+        for e in events:
+            status = str(e.get("status") or "").upper()
+            if status not in {"FAILED", "RETRY"}:
+                continue
+
+            reason = str(e.get("error") or "")
+            action = str(e.get("action") or "")
+            event_type = str(e.get("event_type") or "")
+            root_cause = self._classify_root_cause(reason, e.get("metadata") or {})
+
+            alternatives: List[str] = []
+            if "policy_gate_failed" in reason:
+                alternatives.append("Provide required policy metadata (`approved_by`, `policy_ticket`) before non-dry run")
+            if action == "sdet_test_loop":
+                alternatives.append("Increase `max_sdet_iterations` by 1 for flaky test synthesis paths")
+                alternatives.append("Enable SDET auto-fix and include syntax-safe fallback templates")
+            if root_cause == "DEPENDENCY_UNAVAILABLE":
+                alternatives.append("Preflight dependency readiness in CI before workflow execution")
+            if root_cause == "PYTEST_FAILURE":
+                alternatives.append("Persist failing test signature and generate targeted remediation tests")
+            if root_cause == "IMPORT_OR_MODULE_ERROR":
+                alternatives.append("Add package export compatibility check in validation stage")
+            if not alternatives:
+                alternatives.append("Capture additional decision metadata to improve replayable remediation")
+
+            recs.append(
+                {
+                    "event_id": e.get("id"),
+                    "agent": e.get("agent"),
+                    "action": action,
+                    "event_type": event_type,
+                    "status": status,
+                    "root_cause": root_cause,
+                    "error": reason[:240],
+                    "counterfactuals": alternatives,
+                }
+            )
+
+        return {
+            "trace_id": trace_id,
+            "event_count": len(events),
+            "recommendations": recs,
+        }
+
+    def get_global_insights(self, limit: int = 500) -> Dict[str, Any]:
+        return {
+            "quality": self.get_quality_summary(limit=limit),
+            "failures": self.get_failure_insights(limit=limit),
+            "policy_impact": self.get_policy_impact_summary(limit=limit),
+        }
+
     def hash_payload(self, payload: Optional[Any]) -> Optional[str]:
         if payload is None:
             return None
@@ -378,6 +502,26 @@ class ObservabilityStore:
         if not children:
             return here
         return here + max(self._span_path_latency(spans, c) for c in children)
+
+    def _classify_root_cause(self, error: Optional[str], metadata: Dict[str, Any]) -> str:
+        text = (error or "").lower()
+        if "policy_gate_failed" in text:
+            return "POLICY_GATE"
+        if "quality_gate_failed" in text:
+            return "QUALITY_GATE"
+        if "repo_not_found" in text:
+            return "REPO_NOT_FOUND"
+        if "syntaxerror" in text:
+            return "SYNTAX_ERROR"
+        if "importerror" in text or "modulenotfounderror" in text:
+            return "IMPORT_OR_MODULE_ERROR"
+        if "pytest" in text or "assert" in text or "sdet_loop_failed" in text:
+            return "PYTEST_FAILURE"
+        if "connection refused" in text or "timed out" in text or "weaviate" in text or "neo4j" in text:
+            return "DEPENDENCY_UNAVAILABLE"
+        if metadata.get("quality_gate_passed") is False:
+            return "QUALITY_GATE"
+        return "UNKNOWN"
 
     def _row_to_event(self, row: Dict[str, Any]) -> Dict[str, Any]:
         try:

@@ -105,3 +105,42 @@ def test_worker_emits_observability_events(tmp_path):
 
     obs_store.close()
     wf_store.close()
+
+
+def test_observability_failure_and_counterfactual_insights(tmp_path):
+    store = ObservabilityStore(db_path=str(tmp_path / "obs.db"))
+    trace_id = "tr_fail"
+
+    store.log_event(
+        trace_id=trace_id,
+        request_id="wr_fail",
+        span_id="sp_fail",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="STARTED",
+        event_type="workflow",
+    )
+    store.log_event(
+        trace_id=trace_id,
+        request_id="wr_fail",
+        span_id="sp_fail",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="FAILED",
+        event_type="workflow",
+        error="policy_gate_failed:approved_by_required_for_push",
+        metadata={"quality_gate_passed": False},
+    )
+
+    failures = store.get_failure_insights(limit=20)
+    assert failures["failed_events"] == 1
+    assert failures["root_cause_counts"][0]["root_cause"] == "POLICY_GATE"
+
+    policy = store.get_policy_impact_summary(limit=20)
+    assert policy["policy_blocked_runs"] == 1
+
+    recs = store.get_counterfactual_recommendations(trace_id=trace_id, limit=20)
+    assert len(recs["recommendations"]) == 1
+    assert "approved_by" in " ".join(recs["recommendations"][0]["counterfactuals"])
+
+    store.close()

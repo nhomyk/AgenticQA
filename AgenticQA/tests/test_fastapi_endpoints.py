@@ -253,3 +253,39 @@ class TestObservabilityEndpoints:
             assert data["success"] is True
             assert data["trace_id"] == "tr_x"
             assert data["analysis"]["span_count"] == 1
+
+    def test_observability_counterfactuals_returns_payload(self, client):
+        mock_obs = MagicMock()
+        mock_obs.get_counterfactual_recommendations.return_value = {
+            "trace_id": "tr_cf",
+            "event_count": 2,
+            "recommendations": [
+                {
+                    "agent": "SDET_Agent",
+                    "action": "sdet_test_loop",
+                    "status": "FAILED",
+                    "root_cause": "PYTEST_FAILURE",
+                    "counterfactuals": ["Increase max iterations"],
+                }
+            ],
+        }
+        with patch.object(agent_api, "observability_store", mock_obs):
+            response = client.get("/api/observability/traces/tr_cf/counterfactuals")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["counterfactuals"]["trace_id"] == "tr_cf"
+
+    def test_observability_insights_returns_payload(self, client):
+        mock_obs = MagicMock()
+        mock_obs.get_global_insights.return_value = {
+            "quality": {"trace_count": 3},
+            "failures": {"failed_events": 1, "failure_rate": 0.1},
+            "policy_impact": {"policy_blocked_runs": 0, "policy_block_rate": 0.0},
+        }
+        with patch.object(agent_api, "observability_store", mock_obs):
+            response = client.get("/api/observability/insights")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["insights"]["quality"]["trace_count"] == 3

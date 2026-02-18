@@ -520,6 +520,20 @@ async def get_observability_trace_analysis(trace_id: str, limit: int = 1000):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/observability/traces/{trace_id}/counterfactuals")
+async def get_observability_counterfactuals(trace_id: str, limit: int = 300):
+    """Get counterfactual recommendations for failed/retried actions in a trace."""
+    try:
+        data = observability_store.get_counterfactual_recommendations(trace_id=trace_id, limit=limit)
+        return {
+            "success": True,
+            "trace_id": trace_id,
+            "counterfactuals": data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/observability/events")
 async def list_observability_events(
     limit: int = 100,
@@ -558,6 +572,20 @@ async def get_observability_quality(limit: int = 100, min_completeness: float = 
             "success": True,
             "timestamp": datetime.now(UTC).isoformat(),
             "quality": summary,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/observability/insights")
+async def get_observability_insights(limit: int = 500):
+    """Get aggregate observability insights (quality, failures, policy impact)."""
+    try:
+        insights = observability_store.get_global_insights(limit=limit)
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "insights": insights,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

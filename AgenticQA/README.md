@@ -316,8 +316,10 @@ streamlit run dashboard/app.py
 - `GET /api/observability/traces` — recent trace summaries across worker/agent actions
 - `GET /api/observability/traces/{trace_id}` — timeline for a single trace
 - `GET /api/observability/traces/{trace_id}/analysis` — span tree, completeness, critical path, and agent/action aggregates
+- `GET /api/observability/traces/{trace_id}/counterfactuals` — failed-step alternatives and remediation recommendations
 - `GET /api/observability/events` — raw action events with filters (`request_id`, `agent`, `action`, `status`, `event_type`)
 - `GET /api/observability/quality` — aggregate trace quality summary for CI/CD gating
+- `GET /api/observability/insights` — aggregate root-cause and policy-impact analytics for learning loops
 - `GET /api/system/readiness` — dependency readiness checks (DB writeability, Neo4j, Weaviate)
 - `GET /api/workflows/evidence` — claims-to-evidence bundle for client-facing proof
 - `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
