@@ -216,3 +216,40 @@ class TestPatternsEndpoint:
         assert data["success"] is True
         assert "patterns" in data
         assert "timestamp" in data
+
+
+class TestObservabilityEndpoints:
+    """Tests for observability trace/quality APIs."""
+
+    def test_observability_quality_returns_summary(self, client):
+        mock_obs = MagicMock()
+        mock_obs.get_quality_summary.return_value = {
+            "trace_count": 2,
+            "avg_completeness_ratio": 0.98,
+            "min_completeness_ratio": 0.95,
+            "below_threshold_count": 0,
+            "status": "pass",
+        }
+        with patch.object(agent_api, "observability_store", mock_obs):
+            response = client.get("/api/observability/quality")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["quality"]["trace_count"] == 2
+
+    def test_observability_trace_analysis_returns_payload(self, client):
+        mock_obs = MagicMock()
+        mock_obs.list_events.return_value = [{"trace_id": "tr_x", "status": "STARTED"}]
+        mock_obs.analyze_trace.return_value = {
+            "trace_id": "tr_x",
+            "span_count": 1,
+            "completeness_ratio": 0.0,
+            "critical_path_ms": 0.0,
+        }
+        with patch.object(agent_api, "observability_store", mock_obs):
+            response = client.get("/api/observability/traces/tr_x/analysis")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["trace_id"] == "tr_x"
+            assert data["analysis"]["span_count"] == 1

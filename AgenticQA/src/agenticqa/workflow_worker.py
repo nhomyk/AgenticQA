@@ -43,6 +43,7 @@ class WorkflowExecutionWorker:
 
     def run_request(self, request_id: str, dry_run: bool = True, open_pr: bool = True) -> Dict[str, Any]:
         trace_id = f"tr_{uuid.uuid4().hex[:12]}"
+        root_span_id = f"sp_{request_id}_run"
         started = time.perf_counter()
         req = self.store.get_request(request_id)
         if not req:
@@ -67,10 +68,15 @@ class WorkflowExecutionWorker:
                 agent="WorkflowWorker",
                 action="run_request",
                 status="STARTED",
+                span_id=root_span_id,
+                event_type="workflow",
+                step_key="worker.run_request",
                 metadata={"dry_run": dry_run, "open_pr": open_pr},
+                input_payload={"dry_run": dry_run, "open_pr": open_pr},
             )
             metadata = req.get("metadata") or {}
             metadata["trace_id"] = trace_id
+            metadata["root_span_id"] = root_span_id
             req["metadata"] = metadata
             self.store.start_request(request_id)
 
@@ -129,7 +135,11 @@ class WorkflowExecutionWorker:
                 action="run_request",
                 status="COMPLETED",
                 started_ts=started,
+                span_id=root_span_id,
+                event_type="workflow",
+                step_key="worker.run_request",
                 metadata={"branch_name": branch_name, "commit_sha": commit_sha},
+                output_payload={"branch_name": branch_name, "commit_sha": commit_sha},
             )
             return result
         except Exception as exc:
@@ -148,7 +158,11 @@ class WorkflowExecutionWorker:
                 action="run_request",
                 status="FAILED",
                 started_ts=started,
+                span_id=root_span_id,
+                event_type="workflow",
+                step_key="worker.run_request",
                 error=str(exc),
+                output_payload={"error": str(exc)},
             )
             return self.store.fail_request(
                 request_id,
@@ -366,6 +380,8 @@ class WorkflowExecutionWorker:
         """Generate tests for new code and re-run tests in a bounded loop."""
         meta = req.get("metadata") or {}
         trace_id = str(meta.get("trace_id") or "")
+        root_span_id = str(meta.get("root_span_id") or "")
+        sdet_span_id = f"sp_{req.get('id', 'unknown')}_sdet"
         step_started = time.perf_counter()
         if trace_id:
             self._emit_event(
@@ -374,16 +390,19 @@ class WorkflowExecutionWorker:
                 agent="SDET_Agent",
                 action="sdet_test_loop",
                 status="STARTED",
+                span_id=sdet_span_id,
+                parent_span_id=root_span_id or None,
+                event_type="test_generation",
+                step_key="sdet.loop",
                 metadata={"generated_paths": len(generated_paths)},
             )
-        metadata = req.get("metadata") or {}
-        if not bool(metadata.get("require_sdet_loop", True)):
+        if not bool(meta.get("require_sdet_loop", True)):
             return [], {"required": False, "passed": True, "iterations": 0, "tests_generated": 0}
 
-        max_iterations = int(metadata.get("max_sdet_iterations", 3) or 3)
+        max_iterations = int(meta.get("max_sdet_iterations", 3) or 3)
         max_iterations = max(1, min(max_iterations, 5))
-        enable_autofix = bool(metadata.get("enable_sdet_autofix", True))
-        max_fix_attempts = int(metadata.get("max_sdet_fix_attempts", 2) or 2)
+        enable_autofix = bool(meta.get("enable_sdet_autofix", True))
+        max_fix_attempts = int(meta.get("max_sdet_fix_attempts", 2) or 2)
         max_fix_attempts = max(0, min(max_fix_attempts, 5))
 
         prod_files = [
@@ -417,6 +436,11 @@ class WorkflowExecutionWorker:
                         action="sdet_test_loop",
                         status="COMPLETED",
                         started_ts=step_started,
+                        span_id=sdet_span_id,
+                        parent_span_id=root_span_id or None,
+                        event_type="test_generation",
+                        step_key="sdet.loop",
+                        attempt=iteration,
                         metadata={"iterations": iteration, "tests_generated": len(generated_tests)},
                     )
                 return generated_tests, {
@@ -432,6 +456,21 @@ class WorkflowExecutionWorker:
             last_error = output[:500]
 
             if enable_autofix and fix_attempts < max_fix_attempts:
+                if trace_id:
+                    self._emit_event(
+                        trace_id=trace_id,
+                        request_id=req.get("id", "unknown"),
+                        agent="SDET_Agent",
+                        action="sdet_test_loop",
+                        status="RETRY",
+                        span_id=sdet_span_id,
+                        parent_span_id=root_span_id or None,
+                        event_type="autofix",
+                        step_key="sdet.autofix",
+                        attempt=iteration,
+                        metadata={"reason": "pytest_failed", "fix_attempts": fix_attempts},
+                        output_payload={"pytest_error_snippet": last_error[:180]},
+                    )
                 fixed_files = self._sdet_attempt_auto_fix(
                     repo_path=repo_path,
                     prod_files=prod_files,
@@ -453,6 +492,21 @@ class WorkflowExecutionWorker:
                     )
                     generated_tests = regenerated_tests
                     if passed_after_fix:
+                        if trace_id:
+                            self._emit_event(
+                                trace_id=trace_id,
+                                request_id=req.get("id", "unknown"),
+                                agent="SDET_Agent",
+                                action="sdet_test_loop",
+                                status="COMPLETED",
+                                started_ts=step_started,
+                                span_id=sdet_span_id,
+                                parent_span_id=root_span_id or None,
+                                event_type="autofix",
+                                step_key="sdet.autofix",
+                                attempt=iteration,
+                                metadata={"autofix_attempts": fix_attempts, "files_auto_fixed": files_auto_fixed},
+                            )
                         return generated_tests, {
                             "required": True,
                             "passed": True,
@@ -473,6 +527,10 @@ class WorkflowExecutionWorker:
                 action="sdet_test_loop",
                 status="FAILED",
                 started_ts=step_started,
+                span_id=sdet_span_id,
+                parent_span_id=root_span_id or None,
+                event_type="test_generation",
+                step_key="sdet.loop",
                 error=last_error[:300] if last_error else "sdet_failed",
                 metadata={"iterations": max_iterations, "tests_generated": len(generated_tests)},
             )
@@ -606,8 +664,16 @@ class WorkflowExecutionWorker:
         action: str,
         status: str,
         started_ts: Optional[float] = None,
+        span_id: Optional[str] = None,
+        parent_span_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        step_key: Optional[str] = None,
+        attempt: Optional[int] = None,
         error: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        input_payload: Optional[Dict[str, Any]] = None,
+        output_payload: Optional[Dict[str, Any]] = None,
+        decision: Optional[Dict[str, Any]] = None,
     ) -> None:
         if not self.observability_store:
             return
@@ -621,12 +687,20 @@ class WorkflowExecutionWorker:
             self.observability_store.log_event(
                 trace_id=trace_id,
                 request_id=request_id,
+                span_id=span_id,
+                parent_span_id=parent_span_id,
                 agent=agent,
                 action=action,
+                event_type=event_type,
+                step_key=step_key,
+                attempt=attempt,
                 status=status,
                 started_at=started_at,
                 ended_at=now,
                 latency_ms=latency,
+                input_hash=self.observability_store.hash_payload(input_payload),
+                output_hash=self.observability_store.hash_payload(output_payload),
+                decision=decision,
                 error=error,
                 metadata=metadata,
             )
@@ -636,6 +710,8 @@ class WorkflowExecutionWorker:
     def _run_orchestration(self, req: Dict[str, Any], feature_request: Dict[str, str]) -> Dict[str, Any]:
         meta = req.get("metadata") or {}
         trace_id = str(meta.get("trace_id") or "")
+        root_span_id = str(meta.get("root_span_id") or "")
+        orchestration_span_id = f"sp_{req.get('id', 'unknown')}_orchestrate"
         step_started = time.perf_counter()
         if trace_id:
             self._emit_event(
@@ -644,7 +720,12 @@ class WorkflowExecutionWorker:
                 agent="PromptOpsOrchestrator",
                 action="orchestrate",
                 status="STARTED",
+                span_id=orchestration_span_id,
+                parent_span_id=root_span_id or None,
+                event_type="planning",
+                step_key="orchestrator.run",
                 metadata={"category": feature_request.get("category")},
+                input_payload=feature_request,
             )
         try:
             out = self.orchestrator.run(request=req, feature_request=feature_request)
@@ -656,7 +737,13 @@ class WorkflowExecutionWorker:
                     action="orchestrate",
                     status="COMPLETED",
                     started_ts=step_started,
+                    span_id=orchestration_span_id,
+                    parent_span_id=root_span_id or None,
+                    event_type="planning",
+                    step_key="orchestrator.run",
                     metadata={"quality_gate_passed": (out.get("quality_gate") or {}).get("passed", True)},
+                    output_payload={"quality_gate": out.get("quality_gate")},
+                    decision={"delegation_mode": (out.get("ontology") or {}).get("delegation_mode")},
                 )
             return out
         except Exception:
@@ -669,7 +756,12 @@ class WorkflowExecutionWorker:
                     action="orchestrate",
                     status="FAILED",
                     started_ts=step_started,
+                    span_id=orchestration_span_id,
+                    parent_span_id=root_span_id or None,
+                    event_type="planning",
+                    step_key="orchestrator.run",
                     error="orchestrator_failed_fallback_used",
+                    output_payload={"fallback": True},
                 )
             return {
                 "feature_request": feature_request,

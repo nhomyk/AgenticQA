@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,22 +31,54 @@ class ObservabilityStore:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 trace_id TEXT NOT NULL,
                 request_id TEXT,
+                span_id TEXT,
+                parent_span_id TEXT,
                 agent TEXT NOT NULL,
                 action TEXT NOT NULL,
+                event_type TEXT,
+                step_key TEXT,
+                attempt INTEGER,
                 status TEXT NOT NULL,
                 started_at TEXT,
                 ended_at TEXT,
                 latency_ms REAL,
+                input_hash TEXT,
+                output_hash TEXT,
+                decision_json TEXT,
                 error TEXT,
                 metadata_json TEXT,
                 created_at TEXT NOT NULL
             )
             """
         )
+        self._ensure_columns(
+            [
+                ("span_id", "TEXT"),
+                ("parent_span_id", "TEXT"),
+                ("event_type", "TEXT"),
+                ("step_key", "TEXT"),
+                ("attempt", "INTEGER"),
+                ("input_hash", "TEXT"),
+                ("output_hash", "TEXT"),
+                ("decision_json", "TEXT"),
+            ]
+        )
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_trace ON agent_action_events(trace_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_request ON agent_action_events(request_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_agent_action ON agent_action_events(agent, action)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_obs_span ON agent_action_events(span_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_obs_parent_span ON agent_action_events(parent_span_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_obs_event_type ON agent_action_events(event_type)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_created ON agent_action_events(created_at)")
+        self.conn.commit()
+
+    def _ensure_columns(self, columns: List[tuple[str, str]]) -> None:
+        c = self.conn.cursor()
+        c.execute("PRAGMA table_info(agent_action_events)")
+        existing = {str(r[1]) for r in c.fetchall()}
+        for name, ddl_type in columns:
+            if name not in existing:
+                c.execute(f"ALTER TABLE agent_action_events ADD COLUMN {name} {ddl_type}")
         self.conn.commit()
 
     def log_event(
@@ -55,30 +88,49 @@ class ObservabilityStore:
         agent: str,
         action: str,
         status: str,
+        span_id: Optional[str] = None,
+        parent_span_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        step_key: Optional[str] = None,
+        attempt: Optional[int] = None,
         started_at: Optional[str] = None,
         ended_at: Optional[str] = None,
         latency_ms: Optional[float] = None,
+        input_hash: Optional[str] = None,
+        output_hash: Optional[str] = None,
+        decision: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> int:
         now = datetime.now(UTC).isoformat()
+        normalized_status = (status or "UNKNOWN").upper()
         c = self.conn.cursor()
         c.execute(
             """
             INSERT INTO agent_action_events (
-                trace_id, request_id, agent, action, status,
-                started_at, ended_at, latency_ms, error, metadata_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                trace_id, request_id, span_id, parent_span_id, agent, action,
+                event_type, step_key, attempt, status,
+                started_at, ended_at, latency_ms, input_hash, output_hash,
+                decision_json, error, metadata_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 trace_id,
                 request_id,
+                span_id,
+                parent_span_id,
                 agent,
                 action,
-                status,
+                event_type,
+                step_key,
+                attempt,
+                normalized_status,
                 started_at,
                 ended_at,
                 latency_ms,
+                input_hash,
+                output_hash,
+                json.dumps(decision or {}),
                 error,
                 json.dumps(metadata or {}),
                 now,
@@ -94,6 +146,9 @@ class ObservabilityStore:
         request_id: Optional[str] = None,
         agent: Optional[str] = None,
         action: Optional[str] = None,
+        status: Optional[str] = None,
+        event_type: Optional[str] = None,
+        newest_first: bool = True,
     ) -> List[Dict[str, Any]]:
         limit = min(max(limit, 1), 1000)
         where: List[str] = []
@@ -111,15 +166,22 @@ class ObservabilityStore:
         if action:
             where.append("action = ?")
             params.append(action)
+        if status:
+            where.append("status = ?")
+            params.append(status.upper())
+        if event_type:
+            where.append("event_type = ?")
+            params.append(event_type)
 
         clause = f"WHERE {' AND '.join(where)}" if where else ""
+        order_clause = "DESC" if newest_first else "ASC"
         c = self.conn.cursor()
         c.execute(
             f"""
             SELECT *
             FROM agent_action_events
             {clause}
-            ORDER BY id DESC
+            ORDER BY id {order_clause}
             LIMIT ?
             """,
             [*params, limit],
@@ -136,6 +198,8 @@ class ObservabilityStore:
                 trace_id,
                 MAX(request_id) AS request_id,
                 COUNT(*) AS event_count,
+                SUM(CASE WHEN status = 'STARTED' THEN 1 ELSE 0 END) AS started_count,
+                SUM(CASE WHEN status IN ('COMPLETED','FAILED','CANCELLED','SKIPPED') THEN 1 ELSE 0 END) AS terminal_count,
                 MIN(COALESCE(started_at, created_at)) AS started_at,
                 MAX(COALESCE(ended_at, created_at)) AS ended_at,
                 MAX(id) AS last_event_id
@@ -157,16 +221,163 @@ class ObservabilityStore:
             row["last_status"] = (dict(last).get("status") if last else None)
             row["last_agent"] = (dict(last).get("agent") if last else None)
             row["last_action"] = (dict(last).get("action") if last else None)
+            started_count = int(row.get("started_count") or 0)
+            terminal_count = int(row.get("terminal_count") or 0)
+            row["completeness_ratio"] = (
+                round(terminal_count / started_count, 3) if started_count > 0 else 1.0
+            )
             row.pop("last_event_id", None)
         return rows
 
     def get_trace(self, trace_id: str, limit: int = 500) -> Dict[str, Any]:
-        events = self.list_events(limit=limit, trace_id=trace_id)
+        events = self.list_events(limit=limit, trace_id=trace_id, newest_first=False)
+        analysis = self.analyze_trace(trace_id=trace_id, events=events)
         return {
             "trace_id": trace_id,
             "event_count": len(events),
             "events": events,
+            "analysis": analysis,
         }
+
+    def analyze_trace(
+        self,
+        trace_id: str,
+        events: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        records = events or self.list_events(limit=1000, trace_id=trace_id, newest_first=False)
+
+        spans: Dict[str, Dict[str, Any]] = {}
+        roots: List[str] = []
+        by_agent_action: Dict[str, Dict[str, Any]] = {}
+        event_type_counts: Dict[str, int] = {}
+        started_spans: set[str] = set()
+        terminal_spans: set[str] = set()
+
+        for e in records:
+            span_id = e.get("span_id")
+            parent_span_id = e.get("parent_span_id")
+            status = str(e.get("status") or "").upper()
+            event_type = str(e.get("event_type") or "unknown")
+
+            event_type_counts[event_type] = event_type_counts.get(event_type, 0) + 1
+
+            key = f"{e.get('agent')}::{e.get('action')}"
+            entry = by_agent_action.setdefault(
+                key,
+                {
+                    "agent": e.get("agent"),
+                    "action": e.get("action"),
+                    "count": 0,
+                    "failures": 0,
+                    "avg_latency_ms": 0.0,
+                },
+            )
+            entry["count"] += 1
+            if status == "FAILED":
+                entry["failures"] += 1
+
+            latency = e.get("latency_ms")
+            if isinstance(latency, (int, float)):
+                prior = float(entry["avg_latency_ms"]) * (entry["count"] - 1)
+                entry["avg_latency_ms"] = round((prior + float(latency)) / entry["count"], 3)
+
+            if span_id:
+                node = spans.setdefault(
+                    span_id,
+                    {
+                        "span_id": span_id,
+                        "parent_span_id": parent_span_id,
+                        "agent": e.get("agent"),
+                        "action": e.get("action"),
+                        "event_type": e.get("event_type"),
+                        "step_key": e.get("step_key"),
+                        "statuses": [],
+                        "started_at": e.get("started_at") or e.get("created_at"),
+                        "ended_at": e.get("ended_at") or e.get("created_at"),
+                        "latency_ms": e.get("latency_ms"),
+                        "children": [],
+                    },
+                )
+                node["statuses"].append(status)
+                node["ended_at"] = e.get("ended_at") or e.get("created_at")
+                if isinstance(e.get("latency_ms"), (int, float)):
+                    node["latency_ms"] = e.get("latency_ms")
+
+                if status == "STARTED":
+                    started_spans.add(span_id)
+                if status in {"COMPLETED", "FAILED", "CANCELLED", "SKIPPED"}:
+                    terminal_spans.add(span_id)
+
+        for span_id, node in spans.items():
+            parent = node.get("parent_span_id")
+            if parent and parent in spans:
+                spans[parent]["children"].append(span_id)
+            else:
+                roots.append(span_id)
+
+        started_count = len(started_spans)
+        terminal_count = len(terminal_spans)
+        completeness_ratio = round((terminal_count / started_count), 3) if started_count > 0 else 1.0
+
+        orphan_span_count = len([s for s in spans.values() if s.get("parent_span_id") and s.get("parent_span_id") not in spans])
+
+        critical_path_ms = 0.0
+        for root in roots:
+            critical_path_ms = max(critical_path_ms, self._span_path_latency(spans=spans, span_id=root))
+
+        return {
+            "trace_id": trace_id,
+            "span_count": len(spans),
+            "root_spans": roots,
+            "started_span_count": started_count,
+            "terminal_span_count": terminal_count,
+            "completeness_ratio": completeness_ratio,
+            "orphan_span_count": orphan_span_count,
+            "critical_path_ms": round(critical_path_ms, 3),
+            "by_agent_action": sorted(by_agent_action.values(), key=lambda r: (r["failures"], r["count"]), reverse=True),
+            "event_type_counts": event_type_counts,
+            "spans": list(spans.values()),
+        }
+
+    def get_quality_summary(self, limit: int = 100, min_completeness: float = 0.95) -> Dict[str, Any]:
+        traces = self.list_traces(limit=limit)
+        if not traces:
+            return {
+                "trace_count": 0,
+                "avg_completeness_ratio": 1.0,
+                "min_completeness_ratio": 1.0,
+                "below_threshold_count": 0,
+                "min_completeness_threshold": min_completeness,
+                "status": "no_traces",
+            }
+
+        ratios = [float(t.get("completeness_ratio") or 0.0) for t in traces]
+        below = [r for r in ratios if r < min_completeness]
+        return {
+            "trace_count": len(traces),
+            "avg_completeness_ratio": round(sum(ratios) / len(ratios), 3),
+            "min_completeness_ratio": round(min(ratios), 3),
+            "below_threshold_count": len(below),
+            "min_completeness_threshold": min_completeness,
+            "status": "pass" if not below else "warn",
+        }
+
+    def hash_payload(self, payload: Optional[Any]) -> Optional[str]:
+        if payload is None:
+            return None
+        try:
+            data = json.dumps(payload, sort_keys=True, default=str)
+            return hashlib.sha256(data.encode("utf-8")).hexdigest()
+        except Exception:
+            return None
+
+    def _span_path_latency(self, spans: Dict[str, Dict[str, Any]], span_id: str) -> float:
+        node = spans.get(span_id) or {}
+        here = float(node.get("latency_ms") or 0.0)
+        children = node.get("children") or []
+        if not children:
+            return here
+        return here + max(self._span_path_latency(spans, c) for c in children)
 
     def _row_to_event(self, row: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -174,6 +385,11 @@ class ObservabilityStore:
         except Exception:
             row["metadata"] = {}
             row.pop("metadata_json", None)
+        try:
+            row["decision"] = json.loads(row.pop("decision_json") or "{}")
+        except Exception:
+            row["decision"] = {}
+            row.pop("decision_json", None)
         return row
 
     def close(self) -> None:

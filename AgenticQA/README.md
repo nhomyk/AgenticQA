@@ -315,7 +315,9 @@ streamlit run dashboard/app.py
 - `GET /api/workflows/metrics` — MTTR, pass-rate uplift, flaky-reduction outcomes
 - `GET /api/observability/traces` — recent trace summaries across worker/agent actions
 - `GET /api/observability/traces/{trace_id}` — timeline for a single trace
-- `GET /api/observability/events` — raw action events with filters (`request_id`, `agent`, `action`)
+- `GET /api/observability/traces/{trace_id}/analysis` — span tree, completeness, critical path, and agent/action aggregates
+- `GET /api/observability/events` — raw action events with filters (`request_id`, `agent`, `action`, `status`, `event_type`)
+- `GET /api/observability/quality` — aggregate trace quality summary for CI/CD gating
 - `GET /api/system/readiness` — dependency readiness checks (DB writeability, Neo4j, Weaviate)
 - `GET /api/workflows/evidence` — claims-to-evidence bundle for client-facing proof
 - `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
@@ -325,6 +327,7 @@ Client value for AI observability:
 - Explainability for enterprise buyers (who did what, when, and why)
 - Faster incident response with per-agent action timelines and status transitions
 - Better governance and auditability with trace-level records tied to workflow requests
+- CI-grade telemetry quality checks (trace completeness + span integrity) before release
 
 ### Worker execution modes
 
@@ -356,6 +359,20 @@ Client value for AI observability:
      - `max_sdet_iterations` (default `3`, max `5`)
      - `enable_sdet_autofix` (default `true`)
      - `max_sdet_fix_attempts` (default `2`, max `5`)
+
+### CI/CD observability quality report
+
+Generate a machine-readable quality artifact from the observability DB:
+
+```bash
+python scripts/observability_quality_report.py \
+     --output docs/reports/OBSERVABILITY_QUALITY.json \
+     --min-completeness 0.95 \
+     --seed-demo-if-empty \
+     --enforce
+```
+
+This is wired into CI as the **Observability Quality Gate** job.
 
 ### SDET trend benchmark (improvement over time)
 

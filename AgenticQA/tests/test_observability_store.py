@@ -26,6 +26,7 @@ def test_observability_store_lists_traces_and_events(tmp_path):
     store.log_event(
         trace_id="tr_1",
         request_id="wr_1",
+        span_id="sp_1",
         agent="WorkflowWorker",
         action="run_request",
         status="STARTED",
@@ -34,6 +35,7 @@ def test_observability_store_lists_traces_and_events(tmp_path):
     store.log_event(
         trace_id="tr_1",
         request_id="wr_1",
+        span_id="sp_1",
         agent="SDET_Agent",
         action="sdet_test_loop",
         status="COMPLETED",
@@ -48,6 +50,15 @@ def test_observability_store_lists_traces_and_events(tmp_path):
     events = store.list_events(limit=10, trace_id="tr_1")
     assert len(events) == 2
     assert events[0]["metadata"] is not None
+
+    trace = store.get_trace("tr_1")
+    analysis = trace.get("analysis") or {}
+    assert analysis.get("trace_id") == "tr_1"
+    assert analysis.get("completeness_ratio") == 1.0
+
+    quality = store.get_quality_summary(limit=10, min_completeness=0.95)
+    assert quality["trace_count"] == 1
+    assert quality["below_threshold_count"] == 0
 
     store.close()
 
@@ -86,6 +97,11 @@ def test_worker_emits_observability_events(tmp_path):
     assert ("WorkflowWorker", "run_request", "STARTED") in actions
     assert ("PromptOpsOrchestrator", "orchestrate", "STARTED") in actions
     assert ("SDET_Agent", "sdet_test_loop", "STARTED") in actions
+
+    trace_id = events[0]["trace_id"]
+    analysis = obs_store.analyze_trace(trace_id)
+    assert analysis["span_count"] >= 2
+    assert analysis["critical_path_ms"] >= 0
 
     obs_store.close()
     wf_store.close()

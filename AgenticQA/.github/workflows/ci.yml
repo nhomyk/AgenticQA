@@ -199,6 +199,33 @@ jobs:
       - name: Run Mypy type checker (strict)
         run: mypy src/ --ignore-missing-imports
 
+  observability-quality-gate:
+    needs: code-linting
+    runs-on: ubuntu-latest
+    name: Observability Quality Gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+      - name: Generate observability quality report
+        run: |
+          python scripts/observability_quality_report.py \
+            --output docs/reports/OBSERVABILITY_QUALITY.json \
+            --min-completeness 0.95 \
+            --seed-demo-if-empty \
+            --enforce
+      - name: Upload observability quality artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-quality
+          path: docs/reports/OBSERVABILITY_QUALITY.json
+
   test:
     needs: code-linting
     runs-on: ubuntu-latest

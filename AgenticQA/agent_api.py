@@ -500,6 +500,26 @@ async def get_observability_trace(trace_id: str, limit: int = 500):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/observability/traces/{trace_id}/analysis")
+async def get_observability_trace_analysis(trace_id: str, limit: int = 1000):
+    """Get computed span tree and quality analysis for a single trace."""
+    try:
+        events = observability_store.list_events(
+            limit=limit,
+            trace_id=trace_id,
+            newest_first=False,
+        )
+        analysis = observability_store.analyze_trace(trace_id=trace_id, events=events)
+        return {
+            "success": True,
+            "trace_id": trace_id,
+            "event_count": len(events),
+            "analysis": analysis,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/observability/events")
 async def list_observability_events(
     limit: int = 100,
@@ -507,6 +527,8 @@ async def list_observability_events(
     request_id: Optional[str] = None,
     agent: Optional[str] = None,
     action: Optional[str] = None,
+    status: Optional[str] = None,
+    event_type: Optional[str] = None,
 ):
     """Query raw observability events with optional filters."""
     try:
@@ -516,8 +538,27 @@ async def list_observability_events(
             request_id=request_id,
             agent=agent,
             action=action,
+            status=status,
+            event_type=event_type,
         )
         return {"success": True, "count": len(events), "events": events}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/observability/quality")
+async def get_observability_quality(limit: int = 100, min_completeness: float = 0.95):
+    """Return aggregate trace quality metrics for CI/CD quality gates."""
+    try:
+        summary = observability_store.get_quality_summary(
+            limit=limit,
+            min_completeness=min_completeness,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "quality": summary,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

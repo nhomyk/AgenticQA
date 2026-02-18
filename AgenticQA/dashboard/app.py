@@ -2692,6 +2692,24 @@ def render_prompt_ops():
                             key="prompt_ops_event_limit",
                         )
 
+                    quality_resp = req_lib.get(
+                        f"{api_base}/api/observability/quality?limit={int(trace_limit)}&min_completeness=0.95",
+                        timeout=10,
+                    )
+                    if quality_resp.status_code < 300:
+                        q = (quality_resp.json() or {}).get("quality", {})
+                        q1, q2, q3, q4 = st.columns(4)
+                        with q1:
+                            st.metric("Trace Count", int(q.get("trace_count") or 0))
+                        with q2:
+                            st.metric("Avg Completeness", f"{float(q.get('avg_completeness_ratio') or 0.0):.3f}")
+                        with q3:
+                            st.metric("Min Completeness", f"{float(q.get('min_completeness_ratio') or 0.0):.3f}")
+                        with q4:
+                            st.metric("Below Threshold", int(q.get("below_threshold_count") or 0))
+                    else:
+                        st.warning(f"Trace quality summary unavailable ({quality_resp.status_code}).")
+
                     traces_resp = req_lib.get(
                         f"{api_base}/api/observability/traces?limit={int(trace_limit)}",
                         timeout=10,
@@ -2726,6 +2744,10 @@ def render_prompt_ops():
                                 f"{api_base}/api/observability/traces/{selected_trace}?limit={int(obs_event_limit)}",
                                 timeout=10,
                             )
+                            analysis_resp = req_lib.get(
+                                f"{api_base}/api/observability/traces/{selected_trace}/analysis?limit={int(obs_event_limit)}",
+                                timeout=10,
+                            )
                             if trace_resp.status_code < 300:
                                 trace = trace_resp.json().get("trace", {})
                                 events = trace.get("events", [])
@@ -2734,15 +2756,106 @@ def render_prompt_ops():
                                     for e in events:
                                         event_rows.append(
                                             {
+                                                "event_type": e.get("event_type") or "unknown",
+                                                "span_id": e.get("span_id"),
+                                                "parent_span_id": e.get("parent_span_id"),
                                                 "agent": e.get("agent"),
                                                 "action": e.get("action"),
+                                                "step_key": e.get("step_key"),
+                                                "attempt": e.get("attempt"),
                                                 "status": e.get("status"),
                                                 "latency_ms": e.get("latency_ms"),
                                                 "error": e.get("error"),
+                                                "input_hash": e.get("input_hash"),
+                                                "output_hash": e.get("output_hash"),
+                                                "started_at": e.get("started_at"),
+                                                "ended_at": e.get("ended_at"),
                                                 "created_at": e.get("created_at"),
                                             }
                                         )
                                     st.dataframe(pd.DataFrame(event_rows), use_container_width=True, hide_index=True)
+
+                                    timeline_df = pd.DataFrame(event_rows)
+                                    timeline_df["start"] = pd.to_datetime(
+                                        timeline_df["started_at"].fillna(timeline_df["created_at"]),
+                                        errors="coerce",
+                                        utc=True,
+                                    )
+                                    timeline_df["end"] = pd.to_datetime(
+                                        timeline_df["ended_at"].fillna(timeline_df["created_at"]),
+                                        errors="coerce",
+                                        utc=True,
+                                    )
+                                    timeline_df = timeline_df.dropna(subset=["start", "end"])
+                                    if not timeline_df.empty:
+                                        timeline_df["task"] = (
+                                            timeline_df["agent"].astype(str)
+                                            + " :: "
+                                            + timeline_df["action"].astype(str)
+                                            + " :: "
+                                            + timeline_df["status"].astype(str)
+                                        )
+                                        st.markdown("#### Full Trace Timeline")
+                                        fig_timeline = px.timeline(
+                                            timeline_df,
+                                            x_start="start",
+                                            x_end="end",
+                                            y="task",
+                                            color="status",
+                                            hover_data=["event_type", "step_key", "attempt", "latency_ms", "span_id"],
+                                        )
+                                        fig_timeline.update_layout(height=420, yaxis_title="Trace Step", xaxis_title="Time")
+                                        st.plotly_chart(fig_timeline, use_container_width=True)
+
+                                    if analysis_resp.status_code < 300:
+                                        analysis = (analysis_resp.json() or {}).get("analysis", {})
+                                        st.markdown("#### Trace Analysis")
+                                        a1, a2, a3, a4 = st.columns(4)
+                                        with a1:
+                                            st.metric("Spans", int(analysis.get("span_count") or 0))
+                                        with a2:
+                                            st.metric(
+                                                "Completeness",
+                                                f"{float(analysis.get('completeness_ratio') or 0.0):.3f}",
+                                            )
+                                        with a3:
+                                            st.metric("Orphan Spans", int(analysis.get("orphan_span_count") or 0))
+                                        with a4:
+                                            st.metric(
+                                                "Critical Path (ms)",
+                                                f"{float(analysis.get('critical_path_ms') or 0.0):.1f}",
+                                            )
+
+                                        spans = analysis.get("spans") or []
+                                        if spans:
+                                            st.markdown("##### Span Tree")
+                                            st.dataframe(
+                                                pd.DataFrame(spans)[
+                                                    [
+                                                        "span_id",
+                                                        "parent_span_id",
+                                                        "agent",
+                                                        "action",
+                                                        "event_type",
+                                                        "step_key",
+                                                        "latency_ms",
+                                                        "statuses",
+                                                        "children",
+                                                    ]
+                                                ],
+                                                use_container_width=True,
+                                                hide_index=True,
+                                            )
+
+                                        by_agent_action = analysis.get("by_agent_action") or []
+                                        if by_agent_action:
+                                            st.markdown("##### Aggregated by Agent/Action")
+                                            st.dataframe(pd.DataFrame(by_agent_action), use_container_width=True, hide_index=True)
+                                    else:
+                                        st.warning(
+                                            f"Trace analysis unavailable ({analysis_resp.status_code}): "
+                                            f"{analysis_resp.text[:200]}"
+                                        )
 
                                     with st.expander("Selected Trace JSON", expanded=False):
                                         st.json(trace)
