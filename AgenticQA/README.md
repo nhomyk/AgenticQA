@@ -42,7 +42,7 @@ curl -X POST http://localhost:8000/api/system/constitution/check \
 
 | Tier | Verdict | Laws |
 |---|---|---|
-| **Tier 1** | `DENY` | No destructive ops without CI pass · Delegation depth ≤ 3 · No PII in logs · No traceless external writes · No self-modification |
+| **Tier 1** | `DENY` | No destructive ops without CI pass · Delegation depth ≤ 3 · No PII in logs · No traceless external writes · No self-modification · **Agent file scope violations** |
 | **Tier 2** | `REQUIRE_APPROVAL` | Production deployments · Infrastructure changes · Bulk operations >1K records |
 | **Tier 3** | Alert | Low confidence · High failure rate · RAG similarity degradation |
 
@@ -92,6 +92,35 @@ GenericDictAdapter(store=store).ingest({
 ```
 
 Field mapping is automatic. Token usage flows into complexity trends. Every event is immediately queryable via the audit report and trace timeline APIs. **AgenticQA becomes the observability backbone for your entire agent fleet, regardless of framework.**
+
+---
+
+### 🗂️ Agent File Scopes — Codebase Governance at the YAML Layer
+
+Enterprise answer to "what can this agent touch?" — every agent has a declared file scope enforced as a Tier 1 law before any write operation. SDET agents can't modify CI/CD workflows. SRE agents can't modify application source. Compliance agents can't write anything. Declared in versioned YAML, enforced in milliseconds:
+
+```bash
+# Check if an agent is allowed to write a specific file
+curl -X POST http://localhost:8000/api/system/agent-scopes/check \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "SDET_Agent", "action": "write", "file_path": ".github/workflows/ci.yml"}'
+# → {"verdict": "DENY", "law": "T1-006", "reason": "SDET_Agent is not permitted to write .github/workflows/ci.yml"}
+
+# Introspect any agent's full scope declaration
+curl http://localhost:8000/api/system/agent-scopes
+```
+
+| Agent | Writes To | Cannot Write |
+|---|---|---|
+| **SDET_Agent** | `tests/**`, `conftest.py` | `.github/**`, `*.yml`, `Dockerfile`, `src/**` |
+| **SRE_Agent** | `.github/**`, `*.sh`, `Makefile`, `Dockerfile` | `src/**`, `tests/**`, `frontend/**` |
+| **Fullstack_Agent** | `src/**`, `frontend/**`, `api/**` | `.github/**`, `tests/**`, `Dockerfile` |
+| **DevOps_Agent** | `k8s/**`, `terraform/**`, `.github/workflows/**` | `src/**`, `tests/**` |
+| **Compliance_Agent** | — *(read-only enforced)* | Everything |
+| **QA_Agent** | `reports/**`, `qa/**` | `src/**`, `tests/**`, infrastructure |
+| **Performance_Agent** | `benchmarks/**`, `reports/**` | `src/**`, `tests/**`, infrastructure |
+
+Scopes are YAML-versioned, git-tracked, and enforced at the ConstitutionalGate as T1-006. An SDET agent that tries to modify a GitHub Actions workflow is denied — not by the OS, not by file permissions, but by the agent's own governance layer. **No competing agent platform enforces file-level access control at the policy layer.** This is what enterprise security teams require before running autonomous agents on production codebases.
 
 ---
 
@@ -183,7 +212,7 @@ streamlit run dashboard/app.py
 | Page | What It Shows |
 |---|---|
 | **Operator Console** | Prompt intake → approve → queue → execute → replay. Trace explorer with timeline, span tree, counterfactuals, audit report generator, and agent complexity trends |
-| **Governance** | Agent Constitution viewer (all Tier 1/2/3 laws), interactive pre-action check simulator, agent rights declaration |
+| **Governance** | Agent Constitution viewer (all Tier 1/2/3 laws), interactive pre-action check simulator, **Agent Scopes browser** (per-agent file access matrix + live scope checker), agent rights declaration |
 | **System Overview** | Stack anatomy, framework matrix, test coverage, LOC breakdown, live agent metrics |
 | **Collaboration** | Interactive delegation network graph + chain traces |
 | **Performance** | Bottleneck detection, latency trends, per-agent health scores |
@@ -238,6 +267,8 @@ pip install -e .[test,rag,dashboard,graph]  # full validation stack
 **Governance**
 - `GET  /api/system/constitution` — machine-readable law set; queryable by any agent platform
 - `POST /api/system/constitution/check` — pre-action check: returns `ALLOW / REQUIRE_APPROVAL / DENY`
+- `GET  /api/system/agent-scopes` — all declared agent file scopes (YAML-backed, all 7 agents)
+- `POST /api/system/agent-scopes/check` — scope check: `ALLOW / DENY` for agent × action × file path
 
 **Observability & Auditing**
 - `GET  /api/observability/traces/{id}/audit-report` — PASS/FAIL compliance artifact with stable audit ID
@@ -267,8 +298,8 @@ Every agent execution passes through 6 validation layers — and now a 7th const
 
 ```
   ┌──────────────────────────────────────────────────────────┐
-  │  0. Constitutional Gate (NEW)                            │
-  │     pre-action ALLOW/DENY · 5 Tier 1 laws · PII block   │
+  │  0. Constitutional Gate                                  │
+  │     pre-action ALLOW/DENY · 6 Tier 1 laws · agent scopes│
   ├──────────────────────────────────────────────────────────┤
   │  1. CI/CD Pipeline Gate                                  │
   │     16 jobs · 3 Python versions · final deployment gate  │
@@ -316,6 +347,7 @@ Every agent execution passes through 6 validation layers — and now a 7th const
 AgenticQA/
 ├── src/agenticqa/
 │   ├── constitution.yaml        # Agent Constitution — versioned, machine-readable law set
+│   ├── agent_scopes.yaml        # Per-agent file access scopes (T1-006) — 7 agents declared
 │   ├── constitutional_gate.py   # Pre-action enforcement: ALLOW / REQUIRE_APPROVAL / DENY
 │   ├── audit_report.py          # Forensic compliance artifact builder (PR-embeddable markdown)
 │   ├── observability.py         # SQLite store: complexity tracking, anomaly detection, audit trail
@@ -328,7 +360,7 @@ AgenticQA/
 │   └── cli.py                   # CLI: bootstrap, doctor, ingest-junit
 ├── dashboard/                   # 8-page Streamlit analytics dashboard
 ├── agent_api.py                 # FastAPI control plane (30+ endpoints)
-├── tests/                       # 300+ tests — unit, integration, governance, RAG, UI
+├── tests/                       # 360+ tests — unit, integration, governance, agent scopes, RAG, UI
 └── .github/workflows/           # 16-job CI pipeline + nightly self-validation benchmark
 ```
 

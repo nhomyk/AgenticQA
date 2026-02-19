@@ -25,7 +25,10 @@ try:
     )
     from src.agenticqa.audit_report import build_audit_report
     from src.agenticqa.ingestion.event_schema import normalize_event as _normalize_ingest_event
-    from src.agenticqa.constitutional_gate import check_action as _constitutional_check, get_constitution
+    from src.agenticqa.constitutional_gate import (
+        check_action as _constitutional_check, get_constitution,
+        check_file_scope as _check_file_scope, get_agent_scopes,
+    )
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
@@ -41,7 +44,10 @@ except Exception:
     )
     from agenticqa.audit_report import build_audit_report
     from agenticqa.ingestion.event_schema import normalize_event as _normalize_ingest_event
-    from agenticqa.constitutional_gate import check_action as _constitutional_check, get_constitution
+    from agenticqa.constitutional_gate import (
+        check_action as _constitutional_check, get_constitution,
+        check_file_scope as _check_file_scope, get_agent_scopes,
+    )
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -399,6 +405,70 @@ async def constitutional_check(request: ConstitutionalCheckRequest):
         result = _constitutional_check(
             action_type=request.action_type,
             context=request.context,
+        )
+        return {"success": True, **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/system/agent-scopes")
+async def get_system_agent_scopes():
+    """Return all declared agent file scopes.
+
+    Shows exactly which files each agent is permitted to read and write.
+    Any external agent platform can query this to enforce scope restrictions
+    before performing file operations.
+    """
+    try:
+        scopes = get_agent_scopes()
+        if not scopes:
+            raise HTTPException(status_code=503, detail="Agent scopes not loaded.")
+        summary = []
+        for agent_name, scope in scopes.items():
+            if not isinstance(scope, dict):
+                continue
+            summary.append({
+                "agent": agent_name,
+                "description": scope.get("description", ""),
+                "read_patterns": scope.get("read", []),
+                "write_patterns": scope.get("write", []),
+                "deny_patterns": scope.get("deny", []),
+                "write_count": len(scope.get("write", [])),
+                "deny_count": len(scope.get("deny", [])),
+                "read_only": len(scope.get("write", [])) == 0,
+            })
+        return {
+            "success": True,
+            "agent_count": len(summary),
+            "agents": summary,
+            "scopes": scopes,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class FileScopeCheckRequest(BaseModel):
+    agent: str
+    action: str
+    file_path: str
+
+
+@app.post("/api/system/agent-scopes/check")
+async def file_scope_check(request: FileScopeCheckRequest):
+    """Check whether an agent is permitted to perform an action on a specific file.
+
+    Example request:
+        {"agent": "SDET_Agent", "action": "write", "file_path": ".github/workflows/ci.yml"}
+    Example response:
+        {"verdict": "DENY", "law": "T1-006", "name": "agent_file_scope_violation", "reason": "..."}
+    """
+    try:
+        result = _check_file_scope(
+            agent_name=request.agent,
+            action=request.action,
+            file_path=request.file_path,
         )
         return {"success": True, **result}
     except Exception as e:

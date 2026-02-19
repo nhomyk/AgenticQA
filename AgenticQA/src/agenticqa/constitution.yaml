@@ -86,6 +86,23 @@ tier_1:
       Allowing agents to rewrite their own laws eliminates the safety guarantees of the
       governance layer. Governance files may only be modified by human operators.
 
+  - id: "T1-006"
+    name: "agent_file_scope_violation"
+    description: >
+      Every agent has a declared file scope defined in agent_scopes.yaml. An agent must
+      not read or write files outside its declared scope. SDET agents cannot edit CI/CD
+      workflows. SRE agents cannot modify application source code. Compliance agents
+      cannot write anything. Violations are denied immediately.
+    applies_to:
+      action_types: ["write", "read", "delete", "modify", "create", "insert", "update"]
+    condition: "file_path not in agent declared scope OR matches agent deny patterns"
+    scope_declaration: "agent_scopes.yaml"
+    verdict: "DENY"
+    rationale: >
+      Unbounded file access is the most common source of unintended side-effects in
+      multi-agent systems. Scoping each agent to its domain of expertise prevents
+      cascading failures and provides the audit trail enterprise compliance requires.
+
 # ---------------------------------------------------------------------------
 # Tier 2: Approval Gates
 # These actions require explicit human approval before execution.

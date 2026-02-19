@@ -1,26 +1,33 @@
 """Constitutional pre-action check for AgenticQA agents.
 
-Loads constitution.yaml once at module import and evaluates any proposed
-action against Tier 1 (DENY) and Tier 2 (REQUIRE_APPROVAL) laws.
+Loads constitution.yaml and agent_scopes.yaml once at module import and
+evaluates any proposed action against:
+  - Tier 1 laws (DENY)
+  - Tier 2 laws (REQUIRE_APPROVAL)
+  - Agent file-scope declarations (T1-006 — DENY if out of scope)
 
 Usage:
-    from agenticqa.constitutional_gate import check_action
+    from agenticqa.constitutional_gate import check_action, check_file_scope
 
+    # Full constitutional check (includes scope if agent + target_path present)
     result = check_action(
-        action_type="delete",
-        context={"ci_status": "FAILED", "trace_id": "trace-001"},
+        action_type="write",
+        context={"agent": "SDET_Agent", "target_path": ".github/workflows/ci.yml",
+                 "trace_id": "tr-001"},
     )
-    # {"verdict": "DENY", "law": "T1-001", "name": "no_destructive_without_ci", "reason": "..."}
+    # {"verdict": "DENY", "law": "T1-006", "name": "agent_file_scope_violation", ...}
 
-    if result["verdict"] == "DENY":
-        raise PermissionError(result["reason"])
+    # Direct scope check
+    result = check_file_scope("SRE_Agent", "write", ".github/workflows/deploy.yml")
+    # {"verdict": "ALLOW", ...}
 """
 
 from __future__ import annotations
 
+import fnmatch
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     import yaml as _yaml
@@ -28,9 +35,10 @@ except ImportError:  # PyYAML is optional — constitution still loads from dict
     _yaml = None  # type: ignore
 
 _CONSTITUTION_PATH = Path(__file__).parent / "constitution.yaml"
+_SCOPES_PATH = Path(__file__).parent / "agent_scopes.yaml"
 
 # ---------------------------------------------------------------------------
-# Load constitution
+# Load constitution + agent scopes
 # ---------------------------------------------------------------------------
 
 def _load_constitution() -> Dict[str, Any]:
@@ -40,12 +48,133 @@ def _load_constitution() -> Dict[str, Any]:
     return {}
 
 
+def _load_scopes() -> Dict[str, Any]:
+    if _yaml is not None and _SCOPES_PATH.exists():
+        with open(_SCOPES_PATH, "r") as f:
+            data = _yaml.safe_load(f) or {}
+            # Strip top-level metadata keys (version, etc.)
+            return {k: v for k, v in data.items() if isinstance(v, dict) and "read" in v or "write" in v or "deny" in v}
+    return {}
+
+
 _CONSTITUTION: Dict[str, Any] = _load_constitution()
+_AGENT_SCOPES: Dict[str, Any] = _load_scopes()
 
 
 def get_constitution() -> Dict[str, Any]:
     """Return the raw parsed constitution dict (for the API endpoint)."""
     return _CONSTITUTION
+
+
+def get_agent_scopes() -> Dict[str, Any]:
+    """Return all agent scope declarations (for the API endpoint)."""
+    return _AGENT_SCOPES
+
+
+# ---------------------------------------------------------------------------
+# File scope enforcement (T1-006)
+# ---------------------------------------------------------------------------
+
+_WRITE_ACTIONS = {"write", "delete", "modify", "insert", "update", "create", "overwrite", "truncate", "drop", "purge"}
+_READ_ACTIONS = {"read", "scan", "analyze", "inspect", "list"}
+
+
+def _path_matches(file_path: str, pattern: str) -> bool:
+    """Match a file path against a glob pattern with ** support."""
+    fp = file_path.replace("\\", "/").lstrip("./").lstrip("/")
+    pat = pattern.replace("\\", "/").lstrip("./").lstrip("/").rstrip("/")
+
+    if pat == "**":
+        return True
+
+    # Pattern like "tests/**" — match directory and all contents
+    if pat.endswith("/**"):
+        prefix = pat[:-3]
+        return fp == prefix or fp.startswith(prefix + "/")
+
+    # Pattern like "**/*.yml" — match at any depth
+    if pat.startswith("**/"):
+        suffix = pat[3:]
+        basename = fp.split("/")[-1]
+        return fnmatch.fnmatch(basename, suffix) or fnmatch.fnmatch(fp, suffix)
+
+    # Pattern with ** in the middle — split and check prefix + suffix
+    if "**" in pat:
+        parts = pat.split("**", 1)
+        return fp.startswith(parts[0]) and (not parts[1] or fnmatch.fnmatch(fp, pat.replace("**", "*")))
+
+    # No **, use fnmatch: match full path OR just the basename
+    return fnmatch.fnmatch(fp, pat) or fnmatch.fnmatch(fp.split("/")[-1], pat)
+
+
+def _matches_any(file_path: str, patterns: List[str]) -> bool:
+    return any(_path_matches(file_path, p) for p in patterns)
+
+
+def check_file_scope(
+    agent_name: str,
+    action: str,
+    file_path: str,
+) -> Dict[str, Any]:
+    """Check whether an agent is permitted to perform action on file_path.
+
+    Args:
+        agent_name: Agent identifier, e.g. "SDET_Agent".
+        action:     Action type, e.g. "write", "read", "delete".
+        file_path:  Target file or directory path.
+
+    Returns:
+        dict with verdict / law / name / reason keys (same shape as check_action).
+    """
+    scope = _AGENT_SCOPES.get(agent_name)
+    if scope is None:
+        # Unknown agent — open-world assumption: ALLOW (backward-compatible)
+        return {"verdict": "ALLOW", "law": None, "name": None, "reason": None}
+
+    act = str(action).strip().lower()
+    deny_pats: List[str] = scope.get("deny", [])
+    write_pats: List[str] = scope.get("write", [])
+    read_pats: List[str] = scope.get("read", [])
+
+    # Deny patterns take absolute precedence
+    if _matches_any(file_path, deny_pats):
+        return {
+            "verdict": "DENY",
+            "law": "T1-006",
+            "name": "agent_file_scope_violation",
+            "reason": (
+                f"Agent '{agent_name}' is explicitly denied access to '{file_path}'. "
+                f"Scope declaration: deny patterns matched."
+            ),
+        }
+
+    # Write actions require explicit write permission
+    if act in _WRITE_ACTIONS:
+        if not write_pats or not _matches_any(file_path, write_pats):
+            return {
+                "verdict": "DENY",
+                "law": "T1-006",
+                "name": "agent_file_scope_violation",
+                "reason": (
+                    f"Agent '{agent_name}' does not have write permission for '{file_path}'. "
+                    f"Declared write scope: {write_pats or '(none)'}."
+                ),
+            }
+
+    # Read actions require explicit read permission
+    if act in _READ_ACTIONS:
+        if not read_pats or not _matches_any(file_path, read_pats):
+            return {
+                "verdict": "DENY",
+                "law": "T1-006",
+                "name": "agent_file_scope_violation",
+                "reason": (
+                    f"Agent '{agent_name}' does not have read permission for '{file_path}'. "
+                    f"Declared read scope: {read_pats or '(none)'}."
+                ),
+            }
+
+    return {"verdict": "ALLOW", "law": None, "name": None, "reason": None}
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +245,7 @@ def check_action(
     action_type: str,
     context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Evaluate a proposed agent action against the Agent Constitution.
+    """Evaluate a proposed agent action against the Agent Constitution and file scopes.
 
     Args:
         action_type: The type of action the agent wants to perform.
@@ -129,6 +258,8 @@ def check_action(
                      - target_path (str): file/resource path being written or deleted
                      - environment (str): "production" | "staging" | "dev"
                      - record_count (int): records affected by bulk operation
+                     - agent (str): agent name — triggers file scope check when
+                                    combined with target_path
 
     Returns:
         dict with keys:
@@ -167,6 +298,14 @@ def check_action(
                     or f"Action '{action}' requires human approval per {law_id}."
                 ),
             }
+
+    # T1-006 — Agent file scope check (fires when agent + target_path are present)
+    agent = ctx.get("agent", "")
+    target_path = ctx.get("target_path", "")
+    if agent and target_path:
+        scope_result = check_file_scope(str(agent), action, str(target_path))
+        if scope_result["verdict"] != "ALLOW":
+            return scope_result
 
     return {"verdict": "ALLOW", "law": None, "name": None, "reason": None}
 

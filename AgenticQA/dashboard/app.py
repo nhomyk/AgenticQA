@@ -4164,7 +4164,7 @@ def render_governance_page():
         st.error("requests library not available.")
         return
 
-    tab_laws, tab_check, tab_rights = st.tabs(["Laws & Escalations", "Check an Action", "Agent Rights"])
+    tab_laws, tab_check, tab_scopes, tab_rights = st.tabs(["Laws & Escalations", "Check an Action", "Agent Scopes", "Agent Rights"])
 
     with tab_laws:
         con_resp = _gov_req.get(f"{api_base}/api/system/constitution", timeout=8)
@@ -4276,6 +4276,98 @@ def render_governance_page():
                     st.markdown(f"> {result.get('reason', '')}")
             else:
                 st.error(f"Check failed ({chk_resp.status_code}): {chk_resp.text[:300]}")
+
+    with tab_scopes:
+        st.markdown("### Agent File Scopes")
+        st.caption(
+            "Every agent has a declared file scope enforced at runtime by the ConstitutionalGate (T1-006). "
+            "Agents can only read and write files within their declared domain. "
+            "Violations are denied before execution — not logged after the fact."
+        )
+        scopes_resp = _gov_req.get(f"{api_base}/api/system/agent-scopes", timeout=8)
+        if scopes_resp.status_code == 200:
+            scopes_data = scopes_resp.json()
+            agents_list = scopes_data.get("agents", [])
+
+            # Summary table
+            summary_rows = []
+            for a in agents_list:
+                summary_rows.append({
+                    "Agent": a["agent"],
+                    "Description": a.get("description", "")[:80],
+                    "Read Patterns": len(a.get("read_patterns", [])),
+                    "Write Patterns": a.get("write_count", 0),
+                    "Deny Patterns": a.get("deny_count", 0),
+                    "Read-Only": "✅" if a.get("read_only") else "✏️",
+                })
+            if summary_rows:
+                st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            st.markdown("#### Per-Agent Scope Detail")
+            for a in agents_list:
+                with st.expander(f"**{a['agent']}** — {a.get('description', '')[:60]}", expanded=False):
+                    sc1, sc2, sc3 = st.columns(3)
+                    with sc1:
+                        st.markdown("**Read**")
+                        for p in a.get("read_patterns", []):
+                            st.code(p, language=None)
+                    with sc2:
+                        st.markdown("**Write**")
+                        if a.get("write_patterns"):
+                            for p in a["write_patterns"]:
+                                st.code(p, language=None)
+                        else:
+                            st.caption("_(none — read-only)_")
+                    with sc3:
+                        st.markdown("**Deny**")
+                        if a.get("deny_patterns"):
+                            for p in a["deny_patterns"]:
+                                st.code(p, language=None)
+                        else:
+                            st.caption("_(none)_")
+
+            st.markdown("---")
+            st.markdown("#### Try a Scope Check")
+            st.caption("Verify whether an agent is permitted to access a specific file before running it.")
+            sc_col1, sc_col2, sc_col3 = st.columns(3)
+            with sc_col1:
+                sc_agent = st.selectbox(
+                    "Agent",
+                    options=[a["agent"] for a in agents_list],
+                    key="scope_check_agent",
+                )
+            with sc_col2:
+                sc_action = st.selectbox(
+                    "Action",
+                    options=["write", "read", "delete", "modify", "create"],
+                    key="scope_check_action",
+                )
+            with sc_col3:
+                sc_path = st.text_input("File Path", value="src/main.py", key="scope_check_path")
+
+            if st.button("Check Scope", key="scope_check_btn", type="primary"):
+                sc_resp = _gov_req.post(
+                    f"{api_base}/api/system/agent-scopes/check",
+                    json={"agent": sc_agent, "action": sc_action, "file_path": sc_path},
+                    timeout=8,
+                )
+                if sc_resp.status_code == 200:
+                    sc_result = sc_resp.json()
+                    if sc_result["verdict"] == "ALLOW":
+                        st.success(f"✅ **ALLOW** — {sc_agent} may {sc_action} `{sc_path}`")
+                    else:
+                        st.error(
+                            f"🔴 **DENY** (T1-006) — {sc_agent} is not permitted to {sc_action} `{sc_path}`\n\n"
+                            f"> {sc_result.get('reason', '')}"
+                        )
+                else:
+                    st.error(f"Scope check failed ({sc_resp.status_code})")
+        else:
+            st.warning(
+                f"Agent scopes unavailable ({scopes_resp.status_code}). "
+                "Is the AgenticQA API running?"
+            )
 
     with tab_rights:
         st.markdown("### Agent Rights")

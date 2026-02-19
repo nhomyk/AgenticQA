@@ -1,0 +1,155 @@
+# AgenticQA Agent Scope Declarations v1.0
+#
+# Defines exactly which files each agent is permitted to read and write.
+# Enforced at runtime by ConstitutionalGate — violations are DENY (T1-006).
+#
+# Pattern syntax (CODEOWNERS-compatible):
+#   tests/**          — any file anywhere under tests/
+#   *.yml             — any YAML file (matched against basename)
+#   docker-compose*.yml — wildcard within a filename
+#   **                — all files (use carefully — only for auditors)
+#
+# Evaluation order: deny → write/read → DENY if not matched.
+# Unknown agents default to ALLOW (backward-compatible open-world assumption).
+
+version: "1.0"
+
+# ---------------------------------------------------------------------------
+# SDET Agent — Software Development Engineer in Test
+# Owns the test layer. Never touches CI/CD or application infrastructure.
+# ---------------------------------------------------------------------------
+SDET_Agent:
+  description: "Writes and maintains automated tests. Read access to source for context."
+  read:
+    - "src/**"
+    - "tests/**"
+    - "*.cfg"
+    - "*.ini"
+    - "pytest.ini"
+    - "pyproject.toml"
+    - "setup.cfg"
+    - "conftest.py"
+  write:
+    - "tests/**"
+    - "conftest.py"
+  deny:
+    - ".github/**"
+    - "*.yml"
+    - "*.yaml"
+    - "Dockerfile"
+    - "docker-compose*"
+    - "k8s/**"
+    - "terraform/**"
+    - "Makefile"
+    - "*.sh"
+
+# ---------------------------------------------------------------------------
+# SRE Agent — Site Reliability Engineer
+# Owns infrastructure and CI/CD. Diagnoses from source but never edits it.
+# ---------------------------------------------------------------------------
+SRE_Agent:
+  description: "Manages CI/CD pipelines, infrastructure configs, and shell automation. Read-only on application code."
+  read:
+    - "**"
+  write:
+    - ".github/**"
+    - "*.sh"
+    - "Makefile"
+    - "Dockerfile"
+    - "docker-compose*.yml"
+    - "docker-compose*.yaml"
+    - ".env.example"
+    - "scripts/**"
+  deny: []
+
+# ---------------------------------------------------------------------------
+# Fullstack Agent — Application Code Generator
+# Owns the application layer. Never touches CI/CD, tests, or infra.
+# ---------------------------------------------------------------------------
+Fullstack_Agent:
+  description: "Generates and modifies application source code and frontend. Tests are SDET's domain."
+  read:
+    - "src/**"
+    - "frontend/**"
+    - "api/**"
+    - "*.toml"
+    - "*.cfg"
+    - "requirements*.txt"
+    - "package.json"
+    - "package-lock.json"
+  write:
+    - "src/**"
+    - "frontend/**"
+    - "api/**"
+    - "requirements*.txt"
+    - "package.json"
+  deny:
+    - ".github/**"
+    - "tests/**"
+    - "Dockerfile"
+    - "docker-compose*"
+    - "k8s/**"
+    - "terraform/**"
+    - "*.sh"
+    - "Makefile"
+
+# ---------------------------------------------------------------------------
+# Compliance Agent — Policy Auditor
+# Read-only across the entire codebase. Never modifies anything.
+# An auditor who writes is no longer independent.
+# ---------------------------------------------------------------------------
+Compliance_Agent:
+  description: "Read-only auditor. Full visibility, zero write access. Independence is non-negotiable."
+  read:
+    - "**"
+  write: []
+  deny: []
+
+# ---------------------------------------------------------------------------
+# DevOps Agent — Deployment & Infrastructure Orchestration
+# Owns container, cloud, and deployment manifests. Never edits app or tests.
+# ---------------------------------------------------------------------------
+DevOps_Agent:
+  description: "Manages container configs, Kubernetes manifests, and cloud infrastructure. Read-only on application code."
+  read:
+    - "**"
+  write:
+    - "k8s/**"
+    - "terraform/**"
+    - "Dockerfile"
+    - "docker-compose*.yml"
+    - "docker-compose*.yaml"
+    - ".github/workflows/**"
+    - ".env.example"
+    - "deploy/**"
+    - "infra/**"
+  deny: []
+
+# ---------------------------------------------------------------------------
+# QA Agent — Quality Assurance Analyst
+# Reviews outputs and generates quality reports. Read-only on source.
+# ---------------------------------------------------------------------------
+QA_Agent:
+  description: "Analyzes test results and generates QA reports. Does not modify source or infrastructure."
+  read:
+    - "**"
+  write:
+    - "reports/**"
+    - "qa/**"
+    - ".agenticqa/**"
+  deny: []
+
+# ---------------------------------------------------------------------------
+# Performance Agent — Performance & Benchmarking Specialist
+# Runs benchmarks and writes performance reports. Read-only on source.
+# ---------------------------------------------------------------------------
+Performance_Agent:
+  description: "Profiles execution and writes benchmark artifacts. Never modifies application or infrastructure code."
+  read:
+    - "**"
+  write:
+    - "benchmarks/**"
+    - "reports/**"
+    - ".agenticqa/benchmarks/**"
+    - "perf/**"
+  deny: []
