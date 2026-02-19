@@ -26,7 +26,7 @@ class SnapshotManager:
             snapshot_dir: Directory to store snapshots
         """
         self.snapshot_dir = Path(snapshot_dir)
-        self.snapshot_dir.mkdir(exist_ok=True)
+        self.snapshot_dir.mkdir(parents=True, exist_ok=True)
         self.snapshots: Dict[str, Dict[str, Any]] = {}
 
     def create_snapshot(self, name: str, data: Dict[str, Any]) -> str:

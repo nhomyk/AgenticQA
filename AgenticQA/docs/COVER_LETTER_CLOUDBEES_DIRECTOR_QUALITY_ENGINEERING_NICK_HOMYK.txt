@@ -1,0 +1,33 @@
+Nick Homyk
+nickhomyk@gmail.com | +1 914 204 2139
+linkedin.com/in/nhomyk | github.com/nhomyk | medium.com/@nickhomyk
+
+February 16, 2026
+
+Hiring Team
+CloudBees
+
+Dear Hiring Team,
+
+I’m excited to apply for the Director of Quality Engineering role at CloudBees. Your mission to help enterprises deliver secure, compliant software at scale aligns closely with the work I’ve led throughout my career: building high-output quality engineering functions that enable fast delivery without compromising reliability.
+
+I bring 15+ years of quality and automation experience, including leadership of cross-functional and distributed teams, modernization of API/UI automation programs, and CI/CD quality governance for complex SaaS products. I have repeatedly transformed testing practices from reactive validation into shift-left, automation-first systems that increase release confidence and engineering velocity.
+
+What I would bring to CloudBees:
+
+- A pragmatic QE roadmap that aligns technical quality strategy with business risk and product confidence
+- Framework evolution from fragmented tests to robust, maintainable enterprise-grade automation suites
+- Performance and reliability discipline, including load/stress testing and proactive risk mitigation
+- CI/CD re-engineering to remove bottlenecks while preserving high safety standards
+- Team upskilling and mentorship focused on automation depth, performance engineering, and ownership
+- A forward-looking perspective on AI-assisted testing to accelerate coverage and maintenance responsibly
+
+In prior roles, I have led initiatives that reduced regression windows from weekly to same-day execution, improved release predictability, and strengthened defect prevention through better automation architecture and feedback loops. As Interim Head of Engineering at Blue Bite, I led a 15-person team and partnered across Product, Engineering, and leadership to deliver quality outcomes under rapid growth conditions.
+
+CloudBees’ focus on scalable software delivery, DevSecOps maturity, and platform reliability is exactly where I can contribute at the highest level. I would value the opportunity to help lead the next stage of your quality engineering transformation.
+
+Thank you for your consideration. I look forward to the opportunity to discuss how my background can support CloudBees’ goals.
+
+Sincerely,
+
+Nick Homyk

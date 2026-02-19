@@ -26,9 +26,10 @@ class RetrievalResult:
 class RAGRetriever:
     """Retrieves relevant context for agent decision-making"""
 
-    def __init__(self, vector_store: VectorStore, embedder: Embedder = None):
+    def __init__(self, vector_store: VectorStore, embedder: Embedder = None, threshold_calibrator=None):
         self.vector_store = vector_store
         self.embedder = embedder or EmbedderFactory.get_default()
+        self.threshold_calibrator = threshold_calibrator
 
     def retrieve_similar_tests(
         self, test_name: str, test_type: str, k: int = 5
@@ -138,11 +139,19 @@ class RAGRetriever:
 
         return results
 
+    def _get_threshold(self, agent_type: str) -> float:
+        """Get confidence threshold for an agent type, using calibrator if available."""
+        if self.threshold_calibrator:
+            return self.threshold_calibrator.get_threshold(agent_type)
+        defaults = {"qa": 0.7, "performance": 0.6, "compliance": 0.5, "devops": 0.6}
+        return defaults.get(agent_type, 0.6)
+
     def get_agent_recommendations(
         self, agent_type: str, context: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Get AI-informed recommendations for an agent"""
         recommendations = []
+        threshold = self._get_threshold(agent_type)
 
         if agent_type == "qa":
             # Get similar test failures
@@ -151,13 +160,13 @@ class RAGRetriever:
             )
 
             for result in test_results:
-                if result.similarity > 0.7:
+                if result.similarity > threshold:
                     recommendations.append(
                         {
                             "type": "test_pattern",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": result.document.metadata,
+                            "source": {**result.document.metadata, "doc_id": result.document.id},
                         }
                     )
 
@@ -168,13 +177,13 @@ class RAGRetriever:
             )
 
             for result in patterns:
-                if result.similarity > 0.6:
+                if result.similarity > threshold:
                     recommendations.append(
                         {
                             "type": "optimization",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": result.document.metadata,
+                            "source": {**result.document.metadata, "doc_id": result.document.id},
                         }
                     )
 
@@ -185,13 +194,13 @@ class RAGRetriever:
             )
 
             for result in rules:
-                if result.similarity > 0.5:
+                if result.similarity > threshold:
                     recommendations.append(
                         {
                             "type": "compliance_rule",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": result.document.metadata,
+                            "source": {**result.document.metadata, "doc_id": result.document.id},
                         }
                     )
 
@@ -202,13 +211,13 @@ class RAGRetriever:
             )
 
             for result in errors:
-                if result.similarity > 0.6:
+                if result.similarity > threshold:
                     recommendations.append(
                         {
                             "type": "error_resolution",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": result.document.metadata,
+                            "source": {**result.document.metadata, "doc_id": result.document.id},
                         }
                     )
 
@@ -253,10 +262,10 @@ class RAGRetriever:
 class MultiAgentRAG:
     """Orchestrates RAG across all agents"""
 
-    def __init__(self, vector_store: VectorStore, embedder: Embedder = None):
+    def __init__(self, vector_store: VectorStore, embedder: Embedder = None, threshold_calibrator=None):
         self.vector_store = vector_store
         self.embedder = embedder or EmbedderFactory.get_default()
-        self.retriever = RAGRetriever(vector_store, embedder)
+        self.retriever = RAGRetriever(vector_store, embedder, threshold_calibrator)
 
     def augment_agent_context(
         self, agent_type: str, agent_context: Dict[str, Any]

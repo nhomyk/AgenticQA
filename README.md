@@ -66,7 +66,7 @@ Agents don't work in isolation. They delegate to each other through a governed c
 
 ## Analytics Dashboard
 
-A 7-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
+A 6-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
 
 ```
 streamlit run dashboard/app.py
@@ -76,13 +76,12 @@ streamlit run dashboard/app.py
 
 | Page | What It Shows |
 |---|---|
-| **Overview** | System metrics, top performers, and real-time activity feed |
+| **System Overview** | Full-stack anatomy (framework matrix, test coverage, LOC breakdown), agent metrics, and live activity |
 | **Collaboration** | Interactive network graph + delegation chain traces |
 | **Performance** | Bottleneck detection, latency trends, per-agent test results and health scores |
 | **GraphRAG** | Interactive Hybrid RAG architecture diagram with live recommendation engine |
 | **Ontology** | Design-vs-reality analysis — intended delegation paths vs. actual usage |
-| **Pipeline** | End-to-end data flow + 6-layer defense-in-depth security architecture |
-| **Infrastructure** | Unified API connectivity, service status, and full-stack LOC breakdown |
+| **Pipeline** | End-to-end data flow, 6-layer defense-in-depth security, and API connectivity |
 
 ### Hybrid RAG Query Flow
 
@@ -207,7 +206,7 @@ AgenticQA/
 │   ├── rag/              # Weaviate vector store, embeddings, retrieval
 │   ├── data_store/       # Artifact store, snapshots, security
 │   └── cli.py            # CLI interface
-├── dashboard/            # 7-page Streamlit analytics dashboard
+├── dashboard/            # 6-page Streamlit analytics dashboard
 ├── tests/                # 250 tests — unit, integration, RAG, delegation, UI
 ├── .github/workflows/    # CI pipeline (16 jobs) + nightly self-validation
 └── examples/             # SDK usage (Python, TypeScript, Neo4j)

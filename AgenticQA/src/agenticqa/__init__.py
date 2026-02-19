@@ -22,6 +22,8 @@ from .rag import (
     # Vector Store
     VectorStore,
     WeaviateVectorStore,
+    QdrantVectorStore,
+    DualWriteVectorStore,
     VectorDocument,
     # Embeddings
     Embedder,
@@ -39,9 +41,18 @@ from .rag import (
     # Configuration (for cloud/pipeline deployments)
     RAGConfig,
     WeaviateConfig,
+    QdrantConfig,
     DeploymentMode,
+    VectorProvider,
+    create_vector_store,
+    create_vector_store_for_provider,
     create_rag_system,
 )
+
+try:
+    from agents import AgentOrchestrator
+except Exception:  # pragma: no cover - optional compatibility import
+    AgentOrchestrator = None
 
 __version__ = "2.0.0"
 
@@ -49,6 +60,8 @@ __all__ = [
     # Vector Store
     "VectorStore",
     "WeaviateVectorStore",
+    "QdrantVectorStore",
+    "DualWriteVectorStore",
     "VectorDocument",
     # Embeddings
     "Embedder",
@@ -66,6 +79,11 @@ __all__ = [
     # Configuration
     "RAGConfig",
     "WeaviateConfig",
+    "QdrantConfig",
     "DeploymentMode",
+    "VectorProvider",
+    "create_vector_store",
+    "create_vector_store_for_provider",
     "create_rag_system",
+    "AgentOrchestrator",
 ]

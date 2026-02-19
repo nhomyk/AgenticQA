@@ -1,1 +1,8 @@
 .cache/
+
+# Python bytecode/cache
+__pycache__/
+*.py[cod]
+
+# Local test artifact output
+.test-artifact-store/

@@ -7,10 +7,10 @@ from .security_validator import DataSecurityValidator
 from .pattern_analyzer import PatternAnalyzer
 
 try:
-    from .great_expectations_validator import AgentDataValidator
+    from .great_expectations_validator import AgentDataValidator, GREAT_EXPECTATIONS_AVAILABLE
 
-    GREAT_EXPECTATIONS_AVAILABLE = True
 except ImportError:
+    AgentDataValidator = None
     GREAT_EXPECTATIONS_AVAILABLE = False
 
 
@@ -22,43 +22,79 @@ class SecureDataPipeline:
         self.security_validator = DataSecurityValidator()
         self.pattern_analyzer = PatternAnalyzer(self.artifact_store)
 
-        if use_great_expectations and GREAT_EXPECTATIONS_AVAILABLE:
+        if use_great_expectations and GREAT_EXPECTATIONS_AVAILABLE and AgentDataValidator:
             self.ge_validator = AgentDataValidator()
         else:
             self.ge_validator = None
 
-    def execute_with_validation(
-        self, agent_name: str, execution_result: Dict[str, Any]
+    def _normalize_validation_args(
+        self, agent_name_or_input: Any, input_data: Any = None
+    ) -> Tuple[str, Dict[str, Any]]:
+        """
+        Normalize legacy/new validation call signatures.
+
+        Supported signatures:
+        - validate_input_data(agent_name: str, input_data: dict)
+        - validate_input_data(input_data: dict)
+        - validate_input_data(input_data: dict, agent_name: str)
+        """
+        if isinstance(agent_name_or_input, str) and isinstance(input_data, dict):
+            return agent_name_or_input, input_data
+
+        if isinstance(agent_name_or_input, dict) and input_data is None:
+            return "unknown", agent_name_or_input
+
+        if isinstance(agent_name_or_input, dict) and isinstance(input_data, str):
+            return input_data, agent_name_or_input
+
+        raise TypeError(
+            "validate_input_data() expects (agent_name: str, input_data: dict) "
+            "or (input_data: dict[, agent_name: str])"
+        )
+
+    def validate_input_data(
+        self, agent_name_or_input: Any, input_data: Any = None
     ) -> Tuple[bool, Dict]:
-        """Full pipeline with all validations"""
+        """Pre-execution validation for schema, PII, and encryption readiness."""
+        agent_name, payload = self._normalize_validation_args(agent_name_or_input, input_data)
 
         pipeline_result = {"agent": agent_name, "stages": {}}
 
-        # Stage 1: Pre-execution validation
         schema = {
             "timestamp": "str",
             "agent_name": "str",
             "status": "str",
             "output": "dict",
         }
-        schema_valid, errors = self.security_validator.validate_schema_compliance(
-            execution_result, schema
-        )
+        schema_valid, errors = self.security_validator.validate_schema_compliance(payload, schema)
         pipeline_result["stages"]["schema_validation"] = schema_valid
         if not schema_valid:
             pipeline_result["errors"] = errors
             return False, pipeline_result
 
-        # Stage 2: PII check
-        pii_valid, pii_found = self.security_validator.validate_no_pii_leakage(execution_result)
+        pii_valid, pii_found = self.security_validator.validate_no_pii_leakage(payload)
         pipeline_result["stages"]["pii_check"] = pii_valid
         if not pii_valid:
             pipeline_result["pii_warnings"] = pii_found
             return False, pipeline_result
 
-        # Stage 3: Encryption readiness
-        encrypt_valid, msg = self.security_validator.validate_encryption_ready(execution_result)
+        encrypt_valid, msg = self.security_validator.validate_encryption_ready(payload)
         pipeline_result["stages"]["encryption_ready"] = encrypt_valid
+        pipeline_result["encryption_message"] = msg
+
+        return True, pipeline_result
+
+    def execute_with_validation(
+        self, agent_name: str, execution_result: Dict[str, Any]
+    ) -> Tuple[bool, Dict]:
+        """Full pipeline with all validations"""
+
+        # Stage 1-3: Shared pre-execution validation
+        pre_valid, pipeline_result = self.validate_input_data(agent_name, execution_result)
+        if not pre_valid:
+            return False, pipeline_result
+
+        encrypt_valid = pipeline_result["stages"].get("encryption_ready", False)
 
         # Stage 4: Great Expectations validation
         ge_success = True
@@ -88,8 +124,8 @@ class SecureDataPipeline:
         pipeline_result["stages"]["integrity_verified"] = integrity_valid
 
         success_checks = [
-            schema_valid,
-            pii_valid,
+            pipeline_result["stages"].get("schema_validation", False),
+            pipeline_result["stages"].get("pii_check", False),
             encrypt_valid,
             integrity_valid,
         ]

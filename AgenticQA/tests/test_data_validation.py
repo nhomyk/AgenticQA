@@ -466,8 +466,10 @@ class TestDataSecurity:
 
         # Detect credit card pattern
         for value in pii_dataset["credit_card"]:
-            if pd.notna(value) and isinstance(value, str) and value.count("-") >= 3:
-                detected_pii["credit_card"].append(value)
+            if pd.notna(value) and isinstance(value, str):
+                digits_only = "".join(ch for ch in value if ch.isdigit())
+                if 13 <= len(digits_only) <= 19:
+                    detected_pii["credit_card"].append(value)
 
         assert len(detected_pii["ssn"]) == 3, "SSN values not detected"
         assert len(detected_pii["credit_card"]) == 3, "Credit card values not detected"

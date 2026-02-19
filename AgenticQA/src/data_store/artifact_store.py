@@ -21,6 +21,28 @@ class TestArtifactStore:
 
         self._ensure_directories()
 
+    @property
+    def storage_dir(self) -> Path:
+        """Backward-compatible alias for base storage path."""
+        return self.base_path
+
+    @property
+    def master_index(self) -> Dict[str, Dict[str, Any]]:
+        """Backward-compatible artifact index keyed by artifact ID."""
+        if not self.index_file.exists():
+            return {}
+
+        with open(self.index_file, "r") as f:
+            index = json.load(f)
+
+        artifacts = index.get("artifacts", [])
+        keyed: Dict[str, Dict[str, Any]] = {}
+        for artifact in artifacts:
+            artifact_id = artifact.get("artifact_id")
+            if artifact_id:
+                keyed[artifact_id] = artifact
+        return keyed
+
     def _ensure_directories(self):
         """Create all necessary directories"""
         for directory in [
@@ -59,6 +81,11 @@ class TestArtifactStore:
 
         meta_path = self.metadata_dir / f"{artifact_id}-meta.json"
         with open(meta_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        # Backward-compatible metadata filename expected by legacy tests/tools
+        legacy_meta_path = self.metadata_dir / f"{artifact_id}_metadata.json"
+        with open(legacy_meta_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
         # Update master index

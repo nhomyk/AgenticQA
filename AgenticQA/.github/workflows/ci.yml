@@ -2,9 +2,14 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, feat/ml-learning-loop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-workflows:
@@ -62,6 +67,7 @@ jobs:
     name: Auto-Fix Linting Issues (SRE Agent)
     outputs:
       auto_fixed: ${{ steps.commit-fixes.outputs.auto_fixed }}
+      repair_budget_exceeded: ${{ steps.commit-fixes.outputs.repair_budget_exceeded }}
     permissions:
       contents: write
     steps:
@@ -86,6 +92,30 @@ jobs:
       - name: Commit and push auto-fixes
         id: commit-fixes
         run: |
+          echo "repair_budget_exceeded=false" >> $GITHUB_OUTPUT
+
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            echo "Pull request event detected; skipping auto-commit."
+            echo "auto_fixed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "${GITHUB_ACTOR}" = "github-actions[bot]" ]; then
+            echo "Bot-triggered run detected; skipping auto-commit to avoid recursion."
+            echo "auto_fixed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          MAX_AUTO_FIXES_PER_24H=3
+          RECENT_FIXES=$(git log --since="24 hours ago" --author="github-actions\[bot\]" --grep="^style: auto-format Python files with Black" --pretty=oneline | wc -l | tr -d ' ')
+
+          if [ "${RECENT_FIXES}" -ge "${MAX_AUTO_FIXES_PER_24H}" ]; then
+            echo "Repair budget exceeded (${RECENT_FIXES}/${MAX_AUTO_FIXES_PER_24H} in last 24h)."
+            echo "auto_fixed=false" >> $GITHUB_OUTPUT
+            echo "repair_budget_exceeded=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -105,6 +135,45 @@ jobs:
             echo "auto_fixed=true" >> $GITHUB_OUTPUT
             echo "⚠️ Auto-fixes were committed and pushed. A new CI run will be triggered to verify the fixes."
           fi
+
+  rollback-bot-autofix-on-failure:
+    needs: [code-linting, test, rag-tests, weaviate-integration, vector-migration-validation, agent-rag-integration, local-pipeline-validation, agent-error-handling, data-validation, data-quality-integration, pipeline-integrity, deployment-validation, ui-tests]
+    runs-on: ubuntu-latest
+    name: 🔁 Auto-Rollback Failed Bot Fixes
+    if: always() && github.event_name == 'push' && github.actor == 'github-actions[bot]' && contains(toJson(needs), '"result":"failure"')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2
+
+      - name: Revert latest bot auto-fix commit
+        run: |
+          LAST_SUBJECT=$(git log -1 --pretty=%s)
+          LAST_AUTHOR=$(git log -1 --pretty=%an)
+
+          echo "Latest commit subject: ${LAST_SUBJECT}"
+          echo "Latest commit author: ${LAST_AUTHOR}"
+
+          if [[ "${LAST_SUBJECT}" != style:\ auto-format\ Python\ files\ with\ Black* ]]; then
+            echo "Latest commit is not an auto-fix commit; skipping rollback."
+            exit 0
+          fi
+
+          if [[ "${LAST_AUTHOR}" != "github-actions[bot]" ]]; then
+            echo "Latest commit is not authored by github-actions[bot]; skipping rollback."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git revert --no-edit HEAD
+          git push
+
+          echo "✅ Reverted failed auto-fix commit."
 
   code-linting:
     needs: auto-fix-linting-issues
@@ -129,6 +198,34 @@ jobs:
         run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
       - name: Run Mypy type checker (strict)
         run: mypy src/ --ignore-missing-imports
+
+  observability-quality-gate:
+    needs: code-linting
+    runs-on: ubuntu-latest
+    name: Observability Quality Gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+      - name: Generate observability quality report
+        run: |
+          python scripts/observability_quality_report.py \
+            --output docs/reports/OBSERVABILITY_QUALITY.json \
+            --min-completeness 0.95 \
+            --min-decision-quality 0.60 \
+            --seed-demo-if-empty \
+            --enforce
+      - name: Upload observability quality artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-quality
+          path: docs/reports/OBSERVABILITY_QUALITY.json
 
   test:
     needs: code-linting
@@ -199,6 +296,26 @@ jobs:
           pip install -e .
           pip install pytest weaviate-client
       - run: pytest tests/test_rag_retrieval.py::TestWeaviateIntegration -v
+
+  vector-migration-validation:
+    needs: code-linting
+    runs-on: ubuntu-latest
+    name: Vector Migration Validation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest
+      - name: Run migration parity tests
+        run: |
+          pytest tests/test_vector_migration.py -v --tb=short
+          pytest tests/test_dual_write_vector_store.py -v --tb=short
 
   agent-rag-integration:
     needs: code-linting
@@ -404,6 +521,7 @@ jobs:
     needs: code-linting
     runs-on: ubuntu-latest
     name: Frontend UI Tests (Playwright)
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -413,9 +531,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
+      - name: Configure fast CI UI mode
+        run: |
+          echo "CI_UI_PROJECTS=chromium" >> $GITHUB_ENV
+          echo "CI_UI_RETRIES=1" >> $GITHUB_ENV
       - name: Run Playwright tests
-        run: npm run test:ui
+        continue-on-error: false
+        run: |
+          set -euo pipefail
+          # Run Playwright directly to guarantee non-zero exit on failures.
+          npx playwright test
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -432,7 +558,7 @@ jobs:
           retention-days: 30
 
   final-deployment-gate:
-    needs: [deployment-validation, ui-tests, rag-tests, weaviate-integration, agent-rag-integration, agent-error-handling, local-pipeline-validation, pipeline-integrity]
+    needs: [deployment-validation, ui-tests, rag-tests, weaviate-integration, vector-migration-validation, agent-rag-integration, agent-error-handling, local-pipeline-validation, pipeline-integrity]
     runs-on: ubuntu-latest
     name: Final Deployment Gate
     steps:

@@ -19,6 +19,13 @@ class DeploymentMode(Enum):
     CUSTOM = "custom"  # Custom Weaviate endpoint
 
 
+class VectorProvider(Enum):
+    """Supported vector database providers"""
+
+    WEAVIATE = "weaviate"
+    QDRANT = "qdrant"
+
+
 @dataclass
 class WeaviateConfig:
     """Configuration for Weaviate connection"""
@@ -50,6 +57,28 @@ class WeaviateConfig:
             }
 
 
+@dataclass
+class QdrantConfig:
+    """Configuration for Qdrant connection"""
+
+    host: str
+    port: int
+    api_key: Optional[str]
+    collection_name: str
+    use_https: bool = False
+    url: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "host": self.host,
+            "port": self.port,
+            "collection_name": self.collection_name,
+            "api_key": self.api_key,
+            "use_https": self.use_https,
+            "url": self.url,
+        }
+
+
 class RAGConfig:
     """
     RAG Configuration Factory
@@ -65,6 +94,25 @@ class RAGConfig:
     ENV_WEAVIATE_COLLECTION = "WEAVIATE_COLLECTION"
     ENV_HYBRID_RAG = "AGENTICQA_HYBRID_RAG"
     ENV_USE_POSTGRESQL = "AGENTICQA_USE_POSTGRESQL"
+    ENV_VECTOR_PROVIDER = "AGENTICQA_VECTOR_PROVIDER"
+    ENV_QDRANT_HOST = "QDRANT_HOST"
+    ENV_QDRANT_PORT = "QDRANT_PORT"
+    ENV_QDRANT_API_KEY = "QDRANT_API_KEY"
+    ENV_QDRANT_COLLECTION = "QDRANT_COLLECTION"
+    ENV_QDRANT_HTTPS = "QDRANT_USE_HTTPS"
+    ENV_QDRANT_URL = "QDRANT_URL"
+    ENV_VECTOR_DUAL_WRITE = "AGENTICQA_VECTOR_DUAL_WRITE"
+    ENV_VECTOR_SECONDARY_PROVIDER = "AGENTICQA_VECTOR_SECONDARY_PROVIDER"
+    ENV_VECTOR_AUTO_FALLBACK = "AGENTICQA_VECTOR_AUTO_FALLBACK"
+
+    @staticmethod
+    def get_vector_provider() -> VectorProvider:
+        """Get vector DB provider from environment"""
+        provider_str = os.getenv(RAGConfig.ENV_VECTOR_PROVIDER, "weaviate").lower()
+        try:
+            return VectorProvider(provider_str)
+        except ValueError:
+            return VectorProvider.WEAVIATE
 
     @staticmethod
     def get_deployment_mode() -> DeploymentMode:
@@ -139,6 +187,29 @@ class RAGConfig:
         )
 
     @staticmethod
+    def get_qdrant_config() -> QdrantConfig:
+        """Get Qdrant configuration from environment variables."""
+        host = os.getenv(RAGConfig.ENV_QDRANT_HOST, "localhost")
+        port = int(os.getenv(RAGConfig.ENV_QDRANT_PORT, "6333"))
+        api_key = os.getenv(RAGConfig.ENV_QDRANT_API_KEY)
+        collection = os.getenv(RAGConfig.ENV_QDRANT_COLLECTION, "AgenticQADocuments")
+        use_https = os.getenv(RAGConfig.ENV_QDRANT_HTTPS, "false").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+        url = os.getenv(RAGConfig.ENV_QDRANT_URL)
+
+        return QdrantConfig(
+            host=host,
+            port=port,
+            api_key=api_key,
+            collection_name=collection,
+            use_https=use_https,
+            url=url,
+        )
+
+    @staticmethod
     def validate_cloud_config() -> bool:
         """
         Validate cloud configuration is properly set.
@@ -183,6 +254,46 @@ class RAGConfig:
         return os.getenv(RAGConfig.ENV_USE_POSTGRESQL, "false").lower() in ["true", "1", "yes"]
 
     @staticmethod
+    def is_dual_write_enabled() -> bool:
+        """Check if dual-write replication is enabled."""
+        return os.getenv(RAGConfig.ENV_VECTOR_DUAL_WRITE, "false").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+
+    @staticmethod
+    def get_secondary_provider(primary: VectorProvider) -> Optional[VectorProvider]:
+        """Get secondary provider for dual-write mode."""
+        secondary_str = os.getenv(RAGConfig.ENV_VECTOR_SECONDARY_PROVIDER)
+
+        if not secondary_str:
+            return (
+                VectorProvider.QDRANT
+                if primary == VectorProvider.WEAVIATE
+                else VectorProvider.WEAVIATE
+            )
+
+        try:
+            secondary = VectorProvider(secondary_str.lower())
+        except ValueError:
+            return None
+
+        if secondary == primary:
+            return None
+
+        return secondary
+
+    @staticmethod
+    def is_auto_fallback_enabled() -> bool:
+        """Check if automatic provider fallback is enabled when primary is unavailable."""
+        return os.getenv(RAGConfig.ENV_VECTOR_AUTO_FALLBACK, "true").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+
+    @staticmethod
     def print_config_summary() -> str:
         """
         Print configuration summary (safe, no secrets).
@@ -190,30 +301,113 @@ class RAGConfig:
         Returns:
             String summary of current configuration
         """
+        provider = RAGConfig.get_vector_provider()
         mode = RAGConfig.get_deployment_mode()
-        config = RAGConfig.get_weaviate_config()
         hybrid_enabled = RAGConfig.is_hybrid_rag_enabled()
         use_pg = RAGConfig.use_postgresql()
 
         summary = f"""
 RAG Configuration Summary
 ========================
+Vector Provider: {provider.value.upper()}
+    Dual Write: {'ENABLED' if RAGConfig.is_dual_write_enabled() else 'DISABLED'}
 Mode: {mode.value.upper()}
 Hybrid RAG: {'ENABLED' if hybrid_enabled else 'DISABLED'}
-Collection: {config.collection_name}
 
 """
 
-        if mode == DeploymentMode.LOCAL:
-            summary += f"Host: {config.host}:{config.port}\n"
+        if provider == VectorProvider.WEAVIATE:
+            config = RAGConfig.get_weaviate_config()
+            summary += f"Collection: {config.collection_name}\n"
+            if mode == DeploymentMode.LOCAL:
+                summary += f"Host: {config.host}:{config.port}\n"
+            else:
+                summary += f"Host: {config.host}\n"
+                summary += f"API Key: {'***' if config.api_key else 'Not Set'}\n"
         else:
-            summary += f"Host: {config.host}\n"
+            config = RAGConfig.get_qdrant_config()
+            summary += f"Collection: {config.collection_name}\n"
+            if config.url:
+                summary += f"URL: {config.url}\n"
+            else:
+                summary += f"Host: {config.host}:{config.port}\n"
             summary += f"API Key: {'***' if config.api_key else 'Not Set'}\n"
 
         if hybrid_enabled:
             summary += f"\nRelational DB: {'PostgreSQL' if use_pg else 'SQLite'}\n"
 
         return summary
+
+
+def create_vector_store_for_provider(provider: VectorProvider):
+    """Create vector store instance for an explicit provider."""
+    if provider == VectorProvider.QDRANT:
+        from .qdrant_store import QdrantVectorStore
+
+        config = RAGConfig.get_qdrant_config()
+        return QdrantVectorStore(**config.to_dict())
+
+    from .weaviate_store import WeaviateVectorStore
+
+    RAGConfig.validate_cloud_config()
+    config = RAGConfig.get_weaviate_config()
+    return WeaviateVectorStore(**config.to_dict())
+
+
+def create_vector_store():
+    """Factory function to create vector store by provider."""
+    provider = RAGConfig.get_vector_provider()
+    selected_provider = provider
+
+    try:
+        primary_store = create_vector_store_for_provider(provider)
+    except Exception as primary_exc:
+        if not RAGConfig.is_auto_fallback_enabled():
+            raise
+
+        fallback_provider = (
+            VectorProvider.QDRANT
+            if provider == VectorProvider.WEAVIATE
+            else VectorProvider.WEAVIATE
+        )
+        try:
+            print(
+                f"Warning: Primary vector store unavailable ({provider.value}): {primary_exc}. "
+                f"Falling back to {fallback_provider.value}."
+            )
+            primary_store = create_vector_store_for_provider(fallback_provider)
+            selected_provider = fallback_provider
+        except Exception as fallback_exc:
+            raise RuntimeError(
+                "Failed to initialize vector store. "
+                f"Primary ({provider.value}) error: {primary_exc}. "
+                f"Fallback ({fallback_provider.value}) error: {fallback_exc}."
+            )
+
+    if not RAGConfig.is_dual_write_enabled():
+        return primary_store
+
+    secondary_provider = RAGConfig.get_secondary_provider(selected_provider)
+    if secondary_provider is None:
+        return primary_store
+
+    try:
+        secondary_store = create_vector_store_for_provider(secondary_provider)
+    except Exception as exc:
+        print(
+            f"Warning: Secondary vector store unavailable ({secondary_provider.value}): {exc}. "
+            "Continuing with primary store only."
+        )
+        return primary_store
+
+    from .dual_write_store import DualWriteVectorStore
+
+    return DualWriteVectorStore(
+        primary_store=primary_store,
+        secondary_store=secondary_store,
+        primary_name=provider.value,
+        secondary_name=secondary_provider.value,
+    )
 
 
 def create_rag_system():
@@ -245,12 +439,7 @@ def create_rag_system():
         rag = create_rag_system()
         ```
     """
-    from .weaviate_store import WeaviateVectorStore
     from .embeddings import EmbedderFactory
-
-    # Validate and get configuration
-    RAGConfig.validate_cloud_config()
-    config = RAGConfig.get_weaviate_config()
 
     # Create embedder (defaults to SimpleHashEmbedder)
     embedder = EmbedderFactory.get_default()
@@ -260,9 +449,9 @@ def create_rag_system():
         from .hybrid_retriever import HybridRAG
         from .relational_store import RelationalStore, PostgreSQLStore
 
-        # Create vector store (optional - can be None if Weaviate unavailable)
+        # Create vector store (optional - can be None if provider unavailable)
         try:
-            vector_store = WeaviateVectorStore(**config.to_dict())
+            vector_store = create_vector_store()
         except Exception as e:
             print(f"Warning: Vector store unavailable: {e}. Using relational DB only.")
             vector_store = None
@@ -289,7 +478,7 @@ def create_rag_system():
         from .retriever import MultiAgentRAG
 
         # Create vector store
-        vector_store = WeaviateVectorStore(**config.to_dict())
+        vector_store = create_vector_store()
 
         # Create and return standard RAG system
         return MultiAgentRAG(vector_store, embedder)

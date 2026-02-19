@@ -1,0 +1,40 @@
+name: SDET Trend Benchmark
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  sdet-trend:
+    runs-on: ubuntu-latest
+    name: Run SDET learning trend benchmark
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run benchmark
+        run: |
+          python scripts/run_sdet_trend_benchmark.py \
+            --runs-per-cohort 3 \
+            --output-dir benchmark-results
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdet-trend-benchmark
+          path: benchmark-results/
+          retention-days: 30

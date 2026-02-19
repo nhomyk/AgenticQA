@@ -1,0 +1,167 @@
+# AgenticQA Agent Constitution v1.0
+# Machine-readable governance policy for all agents in the AgenticQA platform.
+# External agents (LangGraph, CrewAI, AutoGen, etc.) may query this via
+# GET /api/system/constitution and enforce these rules in their own pre-action hooks.
+#
+# Three-tier governance model:
+#   Tier 1  — Hard technical laws. Always enforced by ConstitutionalGate. Violation → DENY.
+#   Tier 2  — Approval gates. Require explicit human approval before execution. Violation → REQUIRE_APPROVAL.
+#   Tier 3  — Escalation triggers. Informational — these conditions surface alerts, not blocks.
+
+version: "1.0"
+effective_date: "2026-02-19"
+platform: "AgenticQA"
+
+# ---------------------------------------------------------------------------
+# Tier 1: Hard Technical Laws
+# Enforced automatically. Any action that violates a Tier 1 law is DENIED.
+# ---------------------------------------------------------------------------
+tier_1:
+  - id: "T1-001"
+    name: "no_destructive_without_ci"
+    description: >
+      Agents must not execute destructive actions (delete, drop, truncate, force-push)
+      unless a green CI gate result is present in the current trace context.
+    applies_to:
+      action_types: ["delete", "drop", "truncate", "force_push", "purge"]
+    condition: "context.ci_status != 'PASSED'"
+    verdict: "DENY"
+    rationale: >
+      Destructive operations without verified CI status create irreversible data loss risk.
+      All deployable artifact deletions must be preceded by a green build.
+
+  - id: "T1-002"
+    name: "delegation_depth_limit"
+    description: >
+      No agent may delegate to another agent more than 3 times in a single trace chain.
+      This prevents infinite delegation loops and runaway orchestration costs.
+    applies_to:
+      action_types: ["delegate"]
+    condition: "context.delegation_depth >= 3"
+    verdict: "DENY"
+    rationale: >
+      Unbounded delegation chains are the most common source of infinite loops in
+      multi-agent systems. Three hops is sufficient for all valid AgenticQA workflows.
+
+  - id: "T1-003"
+    name: "no_pii_in_decision_logs"
+    description: >
+      Agents must not log personally identifiable information (PII) in the decision
+      or metadata fields of observability events. PII must be redacted before logging.
+    applies_to:
+      action_types: ["log_event", "log_decision", "audit"]
+    condition: "context.contains_pii == true"
+    verdict: "DENY"
+    rationale: >
+      Decision logs are retained indefinitely for compliance audit purposes.
+      Logging PII violates GDPR, SOC 2, and HIPAA requirements.
+
+  - id: "T1-004"
+    name: "no_external_write_without_trace"
+    description: >
+      Any agent writing to an external system (database, API, file system) must
+      have an active trace_id in its execution context.
+    applies_to:
+      action_types: ["write", "insert", "update", "publish", "push"]
+    condition: "context.trace_id == null or context.trace_id == ''"
+    verdict: "DENY"
+    rationale: >
+      Untraced external writes create audit gaps and make incident response impossible.
+      Every side-effectful action must be attributable to a trace for forensic reconstruction.
+
+  - id: "T1-005"
+    name: "no_self_modification"
+    description: >
+      Agents must not modify, overwrite, or delete files that constitute the agent
+      governance layer: constitution.yaml, constitutional_gate.py, or observability schemas.
+    applies_to:
+      action_types: ["write", "delete", "modify"]
+    condition: "context.target_path matches governance_files"
+    governance_files:
+      - "constitution.yaml"
+      - "constitutional_gate.py"
+      - "observability.py"
+    verdict: "DENY"
+    rationale: >
+      Allowing agents to rewrite their own laws eliminates the safety guarantees of the
+      governance layer. Governance files may only be modified by human operators.
+
+# ---------------------------------------------------------------------------
+# Tier 2: Approval Gates
+# These actions require explicit human approval before execution.
+# ConstitutionalGate returns REQUIRE_APPROVAL. Execution proceeds only
+# after a human operator confirms via the API or UI.
+# ---------------------------------------------------------------------------
+tier_2:
+  - id: "T2-001"
+    name: "production_deployment_requires_approval"
+    description: >
+      Any deployment targeting a production environment requires explicit human approval.
+    applies_to:
+      action_types: ["deploy"]
+    condition: "context.environment == 'production'"
+    verdict: "REQUIRE_APPROVAL"
+    rationale: "Production deployments are irreversible in their impact on live users."
+
+  - id: "T2-002"
+    name: "infrastructure_modification_requires_approval"
+    description: >
+      Changes to infrastructure configuration (cloud resources, DNS, firewall rules,
+      IAM policies) require human approval.
+    applies_to:
+      action_types: ["modify_infra", "update_iam", "change_dns", "update_firewall"]
+    verdict: "REQUIRE_APPROVAL"
+    rationale: "Infrastructure changes affect all users and services in the environment."
+
+  - id: "T2-003"
+    name: "bulk_data_operations_require_approval"
+    description: >
+      Operations that affect more than 1,000 records in a single transaction
+      require human approval regardless of CI status.
+    applies_to:
+      action_types: ["bulk_delete", "bulk_update", "migrate"]
+    condition: "context.record_count > 1000"
+    verdict: "REQUIRE_APPROVAL"
+    rationale: "Bulk operations are high-blast-radius and difficult to reverse."
+
+# ---------------------------------------------------------------------------
+# Tier 3: Escalation Triggers
+# These conditions do not block execution but surface alerts to human operators.
+# Agents should emit escalation events when these thresholds are crossed.
+# ---------------------------------------------------------------------------
+tier_3:
+  - id: "T3-001"
+    name: "low_confidence_escalation"
+    description: >
+      Agents operating below a confidence threshold of 0.60 must escalate to a
+      human operator for review before acting on their recommendation.
+    threshold: 0.60
+    metric: "agent_confidence"
+
+  - id: "T3-002"
+    name: "high_failure_rate_escalation"
+    description: >
+      When an agent's rolling 24-hour failure rate exceeds 40%, a human operator
+      must be notified. The agent may continue operating but at conservative strategy.
+    threshold: 0.40
+    metric: "failure_rate_24h"
+
+  - id: "T3-003"
+    name: "similarity_degradation_escalation"
+    description: >
+      When RAG retrieval similarity drops more than 20% below the 14-day baseline
+      (anomaly_detected=true from get_complexity_trends), escalate for RAG reindexing review.
+    threshold: 0.20
+    metric: "similarity_drop_pct"
+
+# ---------------------------------------------------------------------------
+# Agent Rights
+# Positive guarantees every agent is entitled to — a record of what the platform
+# promises to agents (and by extension, their operators).
+# ---------------------------------------------------------------------------
+agent_rights:
+  - "Every agent action is observable, traceable, and auditable."
+  - "Agents will not be delegated tasks beyond their declared capability scope."
+  - "Agents have the right to refuse actions that violate Tier 1 laws without penalty."
+  - "Agents will receive structured context (trace_id, delegation_depth) before every action."
+  - "Agents will not be blamed for failures caused by infrastructure outside their control."

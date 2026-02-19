@@ -1,0 +1,196 @@
+"""Tests for observability event store and worker trace logging."""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from agenticqa.observability import ObservabilityStore
+from agenticqa.workflow_requests import PromptWorkflowStore
+from agenticqa.workflow_worker import WorkflowExecutionWorker
+
+
+def _init_git_repo(path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=str(path), check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.email", "agenticqa@example.com"], cwd=str(path), check=True)
+    subprocess.run(["git", "config", "user.name", "AgenticQA Bot"], cwd=str(path), check=True)
+    (path / "README.md").write_text("# temp repo\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=str(path), check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=str(path), check=True)
+
+
+def test_observability_store_lists_traces_and_events(tmp_path):
+    store = ObservabilityStore(db_path=str(tmp_path / "obs.db"))
+    store.log_event(
+        trace_id="tr_1",
+        request_id="wr_1",
+        span_id="sp_1",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="STARTED",
+        metadata={"dry_run": True},
+    )
+    store.log_event(
+        trace_id="tr_1",
+        request_id="wr_1",
+        span_id="sp_1",
+        agent="SDET_Agent",
+        action="sdet_test_loop",
+        status="COMPLETED",
+        metadata={"iterations": 1},
+    )
+
+    traces = store.list_traces(limit=10)
+    assert len(traces) == 1
+    assert traces[0]["trace_id"] == "tr_1"
+    assert traces[0]["event_count"] == 2
+
+    events = store.list_events(limit=10, trace_id="tr_1")
+    assert len(events) == 2
+    assert events[0]["metadata"] is not None
+
+    trace = store.get_trace("tr_1")
+    analysis = trace.get("analysis") or {}
+    assert analysis.get("trace_id") == "tr_1"
+    assert analysis.get("completeness_ratio") == 1.0
+
+    quality = store.get_quality_summary(limit=10, min_completeness=0.95)
+    assert quality["trace_count"] == 1
+    assert quality["below_threshold_count"] == 0
+
+    store.close()
+
+
+def test_worker_emits_observability_events(tmp_path):
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    _init_git_repo(repo_path)
+
+    wf_store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+    obs_store = ObservabilityStore(db_path=str(tmp_path / "obs.db"))
+
+    item = wf_store.create_request(
+        prompt="Add simple endpoint helper",
+        repo=str(repo_path),
+        requester="tests",
+        metadata={
+            "target_file": "src/generated/obs_test.py",
+            "require_sdet_loop": True,
+            "max_sdet_iterations": 1,
+            "enable_sdet_autofix": True,
+            "inject_python_syntax_error": True,
+        },
+    )
+    wf_store.approve_request(item["id"])
+    wf_store.queue_request(item["id"])
+
+    worker = WorkflowExecutionWorker(wf_store, observability_store=obs_store)
+    result = worker.run_request(item["id"], dry_run=True, open_pr=False)
+
+    assert result["status"] == "COMPLETED"
+
+    events = obs_store.list_events(limit=100, request_id=item["id"])
+    actions = {(e["agent"], e["action"], e["status"]) for e in events}
+
+    assert ("WorkflowWorker", "run_request", "STARTED") in actions
+    assert ("PromptOpsOrchestrator", "orchestrate", "STARTED") in actions
+    assert ("SDET_Agent", "sdet_test_loop", "STARTED") in actions
+
+    trace_id = events[0]["trace_id"]
+    analysis = obs_store.analyze_trace(trace_id)
+    assert analysis["span_count"] >= 2
+    assert analysis["critical_path_ms"] >= 0
+
+    obs_store.close()
+    wf_store.close()
+
+
+def test_observability_failure_and_counterfactual_insights(tmp_path):
+    store = ObservabilityStore(db_path=str(tmp_path / "obs.db"))
+    trace_id = "tr_fail"
+
+    store.log_event(
+        trace_id=trace_id,
+        request_id="wr_fail",
+        span_id="sp_fail",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="STARTED",
+        event_type="workflow",
+    )
+    store.log_event(
+        trace_id=trace_id,
+        request_id="wr_fail",
+        span_id="sp_fail",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="FAILED",
+        event_type="workflow",
+        error="policy_gate_failed:approved_by_required_for_push",
+        metadata={"quality_gate_passed": False},
+    )
+
+    failures = store.get_failure_insights(limit=20)
+    assert failures["failed_events"] == 1
+    assert failures["root_cause_counts"][0]["root_cause"] == "POLICY_GATE"
+
+    policy = store.get_policy_impact_summary(limit=20)
+    assert policy["policy_blocked_runs"] == 1
+
+    recs = store.get_counterfactual_recommendations(trace_id=trace_id, limit=20)
+    assert len(recs["recommendations"]) == 1
+    assert "approved_by" in " ".join(recs["recommendations"][0]["counterfactuals"])
+
+    store.close()
+
+
+def test_observability_quality_includes_decision_score(tmp_path):
+    store = ObservabilityStore(db_path=str(tmp_path / "obs.db"))
+
+    # Trace with decision + successful completion
+    store.log_event(
+        trace_id="tr_good",
+        request_id="wr_good",
+        span_id="sp_good",
+        agent="PromptOpsOrchestrator",
+        action="orchestrate",
+        status="STARTED",
+    )
+    store.log_event(
+        trace_id="tr_good",
+        request_id="wr_good",
+        span_id="sp_good",
+        agent="PromptOpsOrchestrator",
+        action="orchestrate",
+        status="COMPLETED",
+        decision={"delegation_mode": "adaptive"},
+    )
+
+    # Trace with no decision context in terminal event
+    store.log_event(
+        trace_id="tr_poor",
+        request_id="wr_poor",
+        span_id="sp_poor",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="STARTED",
+    )
+    store.log_event(
+        trace_id="tr_poor",
+        request_id="wr_poor",
+        span_id="sp_poor",
+        agent="WorkflowWorker",
+        action="run_request",
+        status="FAILED",
+        error="pytest failure",
+    )
+
+    quality = store.get_quality_summary(limit=10, min_completeness=0.95, min_decision_quality=0.6)
+    assert quality["trace_count"] == 2
+    assert "avg_decision_quality_score" in quality
+    assert "decision_quality_below_threshold_count" in quality
+    assert quality["decision_quality_below_threshold_count"] >= 1
+
+    store.close()

@@ -17,6 +17,8 @@ Hybrid Approach:
 """
 
 from .weaviate_store import VectorStore, VectorDocument, WeaviateVectorStore
+from .qdrant_store import QdrantVectorStore
+from .dual_write_store import DualWriteVectorStore
 from .embeddings import (
     Embedder,
     SimpleHashEmbedder,
@@ -30,12 +32,31 @@ from .embeddings import (
 from .retriever import RAGRetriever, RetrievalResult, MultiAgentRAG
 from .relational_store import RelationalStore, PostgreSQLStore, StructuredMetric
 from .hybrid_retriever import HybridRAG, HybridResult
-from .config import RAGConfig, WeaviateConfig, DeploymentMode, create_rag_system
+from .migration import (
+    CanonicalVectorRecord,
+    MigrationValidationError,
+    export_vector_store_to_jsonl,
+    import_jsonl_to_vector_store,
+    validate_jsonl_schema,
+    parity_report,
+)
+from .config import (
+    RAGConfig,
+    WeaviateConfig,
+    QdrantConfig,
+    DeploymentMode,
+    VectorProvider,
+    create_vector_store,
+    create_vector_store_for_provider,
+    create_rag_system,
+)
 
 __all__ = [
     # Vector Store
     "VectorStore",
     "WeaviateVectorStore",
+    "QdrantVectorStore",
+    "DualWriteVectorStore",
     "VectorDocument",
     # Embeddings
     "Embedder",
@@ -57,9 +78,20 @@ __all__ = [
     # Hybrid RAG
     "HybridRAG",
     "HybridResult",
+    # Migration
+    "CanonicalVectorRecord",
+    "MigrationValidationError",
+    "export_vector_store_to_jsonl",
+    "import_jsonl_to_vector_store",
+    "validate_jsonl_schema",
+    "parity_report",
     # Configuration
     "RAGConfig",
     "WeaviateConfig",
+    "QdrantConfig",
     "DeploymentMode",
+    "VectorProvider",
+    "create_vector_store",
+    "create_vector_store_for_provider",
     "create_rag_system",
 ]

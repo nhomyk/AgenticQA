@@ -17,10 +17,11 @@ class DataQualityValidatedPipeline(SecureDataPipeline):
         self.run_quality_tests = run_quality_tests
         self.quality_test_results = None
 
-    def validate_input_data(self, agent_name: str, input_data: Dict[str, Any]) -> Tuple[bool, Dict]:
+    def validate_input_data(self, agent_name_or_input: Any, input_data: Any = None) -> Tuple[bool, Dict]:
         """Pre-execution validation with data quality checks"""
         # Run standard validation
-        is_valid, validation_result = super().validate_input_data(agent_name, input_data)
+        agent_name, _ = self._normalize_validation_args(agent_name_or_input, input_data)
+        is_valid, validation_result = super().validate_input_data(agent_name_or_input, input_data)
 
         if not is_valid:
             return is_valid, validation_result

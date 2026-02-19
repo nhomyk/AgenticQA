@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from agenticqa.graph import DelegationGraphStore
 from agenticqa.verification import RagasTracker, OutcomeTracker
+from agenticqa.collaboration.delegation import DelegationGuardrails as CollaborationGuardrails
+from agenticqa.delegation.guardrails import DelegationGuardrails as TaskOntologyGuardrails
 
 # Page config
 st.set_page_config(
@@ -27,6 +29,34 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
+def _install_streamlit_width_compat() -> None:
+    """Map deprecated use_container_width to width for Streamlit widgets.
+
+    This keeps existing call-sites stable while preventing runtime deprecation spam
+    in recent Streamlit versions.
+    """
+    original_plotly_chart = st.plotly_chart
+    original_dataframe = st.dataframe
+
+    def _translate_kwargs(kwargs: dict) -> dict:
+        copied = dict(kwargs)
+        if "use_container_width" in copied and "width" not in copied:
+            copied["width"] = "stretch" if copied.pop("use_container_width") else "content"
+        return copied
+
+    def _plotly_chart_compat(*args, **kwargs):
+        return original_plotly_chart(*args, **_translate_kwargs(kwargs))
+
+    def _dataframe_compat(*args, **kwargs):
+        return original_dataframe(*args, **_translate_kwargs(kwargs))
+
+    st.plotly_chart = _plotly_chart_compat
+    st.dataframe = _dataframe_compat
+
+
+_install_streamlit_width_compat()
 
 # Custom CSS
 st.markdown("""
@@ -802,7 +832,7 @@ def render_ontology(store: DelegationGraphStore):
         - **Fullstack_Agent** (Dev): Feature implementation, code review
         - **Compliance_Agent** (Security): Security scans, audits
         - **DevOps_Agent** (DevOps): CI/CD, infrastructure
-        - **QA_Agent** (QA): Manual testing, validation
+        - **QA_Assistant** (QA): Manual testing, validation
         - **Performance_Agent** (QA): Load testing, benchmarks
         """)
 
@@ -919,15 +949,18 @@ def render_ontology(store: DelegationGraphStore):
 
     with col1:
         st.markdown("#### Expected Patterns (Ontology)")
-        st.markdown("""
-        **Designed workflows:**
-        - SDET → Fullstack (test generation)
-        - SDET → SRE (deployment validation)
-        - Fullstack → QA (code validation)
-        - DevOps → SRE (deployment execution)
-        - Compliance → SDET (security scans)
-        - Performance → DevOps (load testing)
-        """)
+        allowed_edges = [
+            (source, target)
+            for source, targets in CollaborationGuardrails.ALLOWED_DELEGATIONS.items()
+            for target in targets
+        ]
+
+        if allowed_edges:
+            st.markdown("**Enforced delegation whitelist:**")
+            for source, target in allowed_edges:
+                st.markdown(f"- {source} → {target}")
+        else:
+            st.info("No allowed delegation paths configured.")
 
     with col2:
         st.markdown("#### Actual Patterns (Reality)")
@@ -1570,17 +1603,17 @@ def render_pipeline_security(store=None):
         m3.metric("Timeout per Delegation", "30s", help="Prevents indefinite hanging")
 
         st.markdown("#### Allowed Delegation Whitelist")
-        st.markdown("""
-        | Source Agent | Allowed Targets | Rationale |
-        |-------------|-----------------|-----------|
-        | **SDET_Agent** | SRE_Agent | Test deployment validation |
-        | **Fullstack_Agent** | Compliance_Agent | Code compliance review |
-        | **Compliance_Agent** | DevOps_Agent | Deployment after audit |
-        | **SRE_Agent** | *(none)* | Terminal node - prevents loops |
-        | **DevOps_Agent** | *(none)* | Terminal node - prevents loops |
-        | **QA_Agent** | *(none)* | Terminal node |
-        | **Performance_Agent** | *(none)* | Terminal node |
-        """)
+        whitelist = CollaborationGuardrails.ALLOWED_DELEGATIONS
+        whitelist_rows = [
+            "| Source Agent | Allowed Targets | Rationale |",
+            "|-------------|-----------------|-----------|",
+        ]
+        for source, targets in whitelist.items():
+            target_display = ", ".join(targets) if targets else "*(none)*"
+            rationale = "Configured collaboration path" if targets else "Terminal node - prevents loops"
+            whitelist_rows.append(f"| **{source}** | {target_display} | {rationale} |")
+
+        st.markdown("\n".join(whitelist_rows))
 
         with st.expander("Safety Exception Types"):
             st.markdown("""
@@ -1597,38 +1630,26 @@ def render_pipeline_security(store=None):
         st.markdown("Source: `src/agenticqa/delegation/guardrails.py`")
 
         task_agent_map = {
-            "load_test": ["Performance_Agent", "QA_Agent"],
-            "benchmark": ["Performance_Agent"],
-            "deploy": ["DevOps_Agent", "SRE_Agent"],
-            "deploy_tests": ["SRE_Agent", "DevOps_Agent"],
-            "rollback": ["SRE_Agent", "DevOps_Agent"],
-            "monitor": ["SRE_Agent", "DevOps_Agent"],
-            "generate_tests": ["SDET_Agent", "QA_Agent"],
-            "validate_tests": ["SDET_Agent", "QA_Agent"],
-            "validate_code": ["QA_Agent", "Fullstack_Agent"],
-            "security_scan": ["Compliance_Agent", "SDET_Agent"],
-            "audit": ["Compliance_Agent"],
-            "compliance_check": ["Compliance_Agent"],
-            "implement_feature": ["Fullstack_Agent"],
-            "code_review": ["Fullstack_Agent", "Compliance_Agent"],
-            "refactor": ["Fullstack_Agent"],
-            "ci_cd": ["DevOps_Agent"],
-            "infrastructure": ["DevOps_Agent", "SRE_Agent"],
+            task: [TaskOntologyGuardrails.normalize_agent_name(a) for a in agents]
+            for task, agents in TaskOntologyGuardrails.TASK_AGENT_MAP.items()
         }
 
-        agents_list = ["SDET", "QA", "Fullstack", "Compliance", "DevOps", "SRE", "Performance"]
+        agent_names = sorted({
+            agent for authorized_agents in task_agent_map.values() for agent in authorized_agents
+        })
+
         matrix_data = []
         for task, authorized in task_agent_map.items():
             row = {"Task": task}
-            for agent in agents_list:
-                row[agent] = 1 if f"{agent}_Agent" in authorized else 0
+            for agent in agent_names:
+                row[agent] = 1 if agent in authorized else 0
             matrix_data.append(row)
 
         df_matrix = pd.DataFrame(matrix_data).set_index("Task")
 
         fig_matrix = px.imshow(
             df_matrix.values,
-            x=agents_list,
+            x=agent_names,
             y=list(task_agent_map.keys()),
             color_continuous_scale=[[0, "#1a1a2e"], [1, "#4CAF50"]],
             labels=dict(x="Agent", y="Task Type", color="Authorized"),
@@ -2359,6 +2380,1030 @@ def render_api_plug(store=None):
                 st.error("The `requests` library is required. Install with: `pip install requests`")
 
 
+def render_prompt_ops():
+    """Prompt-driven workflow intake and lifecycle controls."""
+    st.subheader("🧭 Operator Console")
+    st.markdown(
+        "Primary intake for user intent and governed execution. Submit requests, collaborate in chat, "
+        "and run approve/queue/execute workflows from a single surface."
+    )
+
+    api_base = st.text_input(
+        "Control Plane API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="prompt_ops_api_base",
+    ).rstrip("/")
+
+    with st.expander("New Prompt Request", expanded=True):
+        prompt = st.text_area(
+            "Prompt",
+            placeholder="Example: Add retry with exponential backoff to webhook delivery and include tests.",
+            height=140,
+            key="prompt_ops_prompt",
+        )
+        repo = st.text_input("Repository Path", value=".", key="prompt_ops_repo")
+        requester = st.text_input("Requester", value="dashboard_user", key="prompt_ops_requester")
+        col_meta1, col_meta2 = st.columns(2)
+        with col_meta1:
+            approved_by = st.text_input("Approved By (required for push/PR)", value="", key="prompt_ops_approved_by")
+        with col_meta2:
+            policy_ticket = st.text_input("Policy Ticket (required for PR)", value="", key="prompt_ops_policy_ticket")
+        col_meta3, col_meta4 = st.columns(2)
+        with col_meta3:
+            allow_high_risk = st.checkbox("Allow High-Risk Changes", value=False, key="prompt_ops_allow_high_risk")
+        with col_meta4:
+            auto_rollback = st.checkbox("Auto Rollback on Failure", value=True, key="prompt_ops_auto_rollback")
+        col_meta5, col_meta6 = st.columns(2)
+        with col_meta5:
+            max_sdet_iterations = st.number_input(
+                "Max SDET Loop Iterations",
+                min_value=1,
+                max_value=5,
+                value=3,
+                step=1,
+                key="prompt_ops_max_sdet_iterations",
+            )
+        with col_meta6:
+            require_sdet_loop = st.checkbox(
+                "Require SDET Test Loop",
+                value=True,
+                key="prompt_ops_require_sdet_loop",
+                help="When enabled, generated code must pass SDET-generated tests before workflow completion.",
+            )
+        col_meta7, col_meta8 = st.columns(2)
+        with col_meta7:
+            enable_sdet_autofix = st.checkbox(
+                "Enable SDET Auto-Fix",
+                value=True,
+                key="prompt_ops_enable_sdet_autofix",
+                help="Allows bounded auto-fix attempts on generated code before failing the workflow.",
+            )
+        with col_meta8:
+            max_sdet_fix_attempts = st.number_input(
+                "Max SDET Auto-Fix Attempts",
+                min_value=0,
+                max_value=5,
+                value=2,
+                step=1,
+                key="prompt_ops_max_sdet_fix_attempts",
+            )
+
+        col_submit, col_ping = st.columns([1, 1])
+        with col_submit:
+            submit = st.button("Create Workflow Request", type="primary", key="prompt_ops_submit")
+        with col_ping:
+            ping = st.button("Health Check API", key="prompt_ops_ping")
+
+        if ping:
+            try:
+                import requests as req_lib
+
+                response = req_lib.get(f"{api_base}/health", timeout=6)
+                if response.status_code == 200:
+                    st.success("Control plane is reachable.")
+                    st.json(response.json())
+                else:
+                    st.warning(f"Health endpoint returned {response.status_code}")
+            except Exception as e:
+                st.error(
+                    "Control plane API unreachable. Start with: "
+                    "`uvicorn agent_api:app --host 0.0.0.0 --port 8000`\n\n"
+                    f"Error: {e}"
+                )
+
+        if submit:
+            if not prompt.strip():
+                st.error("Prompt cannot be empty.")
+            else:
+                try:
+                    import requests as req_lib
+
+                    payload = {
+                        "prompt": prompt,
+                        "repo": repo,
+                        "requester": requester,
+                        "metadata": {
+                            "source": "dashboard",
+                            "approved_by": approved_by.strip(),
+                            "policy_ticket": policy_ticket.strip(),
+                            "allow_high_risk": allow_high_risk,
+                            "auto_rollback": auto_rollback,
+                            "max_sdet_iterations": int(max_sdet_iterations),
+                            "require_sdet_loop": require_sdet_loop,
+                            "enable_sdet_autofix": enable_sdet_autofix,
+                            "max_sdet_fix_attempts": int(max_sdet_fix_attempts),
+                        },
+                    }
+                    response = req_lib.post(f"{api_base}/api/workflows/requests", json=payload, timeout=12)
+                    if response.status_code < 300:
+                        body = response.json()
+                        st.success("Workflow request created.")
+                        st.json(body.get("request", body))
+                    else:
+                        st.error(f"Request failed ({response.status_code}): {response.text[:500]}")
+                except Exception as e:
+                    st.error(f"Failed to create workflow request: {e}")
+
+    st.markdown("---")
+    st.markdown("### 💬 Operator Chat (In-Dashboard)")
+    st.caption(
+        "Chat prompts are persisted and can be converted into workflow requests automatically, "
+        "so users can stay fully inside the dashboard flow."
+    )
+
+    chat_col1, chat_col2, chat_col3 = st.columns([2, 1, 1])
+    with chat_col1:
+        auto_create_from_chat = st.checkbox(
+            "Auto-create workflow requests from chat prompts",
+            value=True,
+            key="prompt_ops_chat_auto_create",
+        )
+    with chat_col2:
+        chat_repo = st.text_input("Chat Repo", value=repo, key="prompt_ops_chat_repo")
+    with chat_col3:
+        chat_requester = st.text_input("Chat Requester", value=requester, key="prompt_ops_chat_requester")
+
+    mode_col1, mode_col2 = st.columns([1, 1])
+    with mode_col1:
+        operator_mode = st.selectbox(
+            "Operator Mode",
+            options=["deterministic", "llm"],
+            index=0,
+            key="prompt_ops_operator_mode",
+            help="LLM mode currently falls back to deterministic behavior until provider adapter is configured.",
+        )
+    with mode_col2:
+        tool_execution_mode = st.selectbox(
+            "Tool Execution Policy",
+            options=["require_approval", "suggest_only", "auto_for_safe"],
+            index=0,
+            key="prompt_ops_tool_execution_mode",
+            help="Governed action policy for chat turns.",
+        )
+
+    if st.button("Check Operator Config", key="prompt_ops_operator_config_check"):
+        try:
+            import requests as req_lib
+
+            config_resp = req_lib.get(f"{api_base}/api/operator/config", timeout=8)
+            if config_resp.status_code < 300:
+                st.json(config_resp.json())
+            else:
+                st.warning(f"Operator config endpoint returned {config_resp.status_code}.")
+        except Exception as e:
+            st.warning(f"Unable to fetch operator config: {e}")
+
+    if st.button("Start New Chat Session", key="prompt_ops_chat_new_session"):
+        st.session_state["prompt_ops_chat_session_id"] = None
+        st.session_state["prompt_ops_last_action_plan"] = []
+        st.session_state["prompt_ops_last_mode"] = "deterministic"
+        st.session_state["prompt_ops_last_tool_execution"] = "require_approval"
+        st.session_state["prompt_ops_chat_reset_notice"] = True
+        st.rerun()
+
+    try:
+        import requests as req_lib
+
+        if not st.session_state.get("prompt_ops_chat_session_id"):
+            create_session_resp = req_lib.post(
+                f"{api_base}/api/chat/sessions",
+                json={
+                    "repo": chat_repo,
+                    "requester": chat_requester,
+                    "metadata": {"source": "dashboard_prompt_ops"},
+                },
+                timeout=8,
+            )
+            if create_session_resp.status_code < 300:
+                session = (create_session_resp.json() or {}).get("session") or {}
+                st.session_state["prompt_ops_chat_session_id"] = session.get("id")
+            else:
+                st.error(f"Unable to create chat session ({create_session_resp.status_code}).")
+
+        if st.session_state.pop("prompt_ops_chat_reset_notice", False):
+            st.success("Started a new chat session.")
+
+        session_id = st.session_state.get("prompt_ops_chat_session_id")
+        if session_id:
+            st.caption(f"Session: {session_id}")
+            history_resp = req_lib.get(
+                f"{api_base}/api/chat/sessions/{session_id}",
+                params={"limit": 150},
+                timeout=8,
+            )
+            if history_resp.status_code < 300:
+                session_payload = (history_resp.json() or {}).get("session") or {}
+                history = session_payload.get("messages") or []
+                for msg in history:
+                    role = msg.get("role", "assistant")
+                    with st.chat_message("assistant" if role == "assistant" else "user"):
+                        st.write(msg.get("content", ""))
+                        if msg.get("request_id"):
+                            st.caption(f"Linked workflow: {msg.get('request_id')}")
+
+        chat_input = st.chat_input("Type a request (e.g., add retries + tests to webhook flow)")
+        if chat_input and session_id:
+            turn_payload = {
+                "session_id": session_id,
+                "message": chat_input,
+                "repo": chat_repo,
+                "requester": chat_requester,
+                "auto_create_workflow": auto_create_from_chat,
+                "mode": operator_mode,
+                "tool_execution": tool_execution_mode,
+                "metadata": {
+                    "approved_by": approved_by.strip(),
+                    "policy_ticket": policy_ticket.strip(),
+                    "allow_high_risk": allow_high_risk,
+                    "auto_rollback": auto_rollback,
+                    "max_sdet_iterations": int(max_sdet_iterations),
+                    "require_sdet_loop": require_sdet_loop,
+                    "enable_sdet_autofix": enable_sdet_autofix,
+                    "max_sdet_fix_attempts": int(max_sdet_fix_attempts),
+                },
+            }
+            turn_resp = req_lib.post(f"{api_base}/api/chat/turn", json=turn_payload, timeout=20)
+            if turn_resp.status_code < 300:
+                body = turn_resp.json() or {}
+                workflow_item = body.get("workflow_request") or {}
+                st.session_state["prompt_ops_last_action_plan"] = body.get("action_plan") or []
+                st.session_state["prompt_ops_last_tool_execution"] = body.get("tool_execution")
+                st.session_state["prompt_ops_last_mode"] = body.get("mode")
+                if workflow_item.get("id"):
+                    st.success(
+                        f"Prompt saved and workflow created: {workflow_item.get('id')} "
+                        f"({workflow_item.get('status')})"
+                    )
+                st.rerun()
+            else:
+                st.error(f"Chat turn failed ({turn_resp.status_code}): {turn_resp.text[:400]}")
+
+        last_plan = st.session_state.get("prompt_ops_last_action_plan") or []
+        if last_plan:
+            st.markdown("#### 🧭 Last Operator Action Plan")
+            st.caption(
+                f"Mode: {st.session_state.get('prompt_ops_last_mode', 'deterministic')} · "
+                f"Policy: {st.session_state.get('prompt_ops_last_tool_execution', 'require_approval')}"
+            )
+            plan_rows = []
+            for step in last_plan:
+                plan_rows.append(
+                    {
+                        "tool": step.get("tool"),
+                        "label": step.get("label"),
+                        "risk": step.get("risk"),
+                        "requires_approval": step.get("requires_approval"),
+                        "kind": step.get("kind"),
+                    }
+                )
+            st.dataframe(pd.DataFrame(plan_rows), use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.warning(f"Chat UI could not connect to control plane: {e}")
+
+    st.markdown("---")
+
+    main_col, rail_col = st.columns([3, 1])
+    with main_col:
+        st.markdown("### Recent Workflow Requests")
+
+    with rail_col:
+        st.markdown("#### ⏳ Pending Approvals")
+        st.caption("Compact operator rail for fast approve/queue actions.")
+        try:
+            import requests as req_lib
+
+            pending_resp = req_lib.get(f"{api_base}/api/workflows/requests?limit=50", timeout=8)
+            if pending_resp.status_code < 300:
+                all_requests = (pending_resp.json() or {}).get("requests") or []
+                pending_items = [
+                    item for item in all_requests
+                    if item.get("status") in {"AWAITING_APPROVAL", "APPROVED"}
+                ]
+                awaiting_count = sum(1 for item in pending_items if item.get("status") == "AWAITING_APPROVAL")
+                approved_count = sum(1 for item in pending_items if item.get("status") == "APPROVED")
+
+                st.metric("Pending", len(pending_items))
+                bd1, bd2 = st.columns(2)
+                bd1.metric("Awaiting", awaiting_count)
+                bd2.metric("Approved", approved_count)
+
+                if st.button("Run Next Queued", key="rail_run_next"):
+                    run_next_resp = req_lib.post(
+                        f"{api_base}/api/workflows/worker/run-next",
+                        json={"dry_run": True, "open_pr": False},
+                        timeout=45,
+                    )
+                    if run_next_resp.status_code < 300:
+                        next_item = (run_next_resp.json() or {}).get("request")
+                        if next_item:
+                            st.success(f"Ran queued request: {next_item.get('id')}")
+                        else:
+                            st.info("No queued requests.")
+                        st.rerun()
+                    else:
+                        st.error(f"Run-next failed ({run_next_resp.status_code})")
+
+                for item in pending_items[:6]:
+                    req_id = item.get("id", "unknown")
+                    status = item.get("status", "unknown")
+                    st.markdown(f"**{req_id}**")
+                    st.caption(f"{status} · {item.get('repo', '.')}")
+
+                    action_cols = st.columns(2)
+                    with action_cols[0]:
+                        if status == "AWAITING_APPROVAL":
+                            if st.button("Approve", key=f"rail_approve_{req_id}"):
+                                resp = req_lib.post(f"{api_base}/api/workflows/requests/{req_id}/approve", timeout=10)
+                                if resp.status_code < 300:
+                                    st.success(f"Approved {req_id}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Approve failed ({resp.status_code})")
+                        else:
+                            st.write("")
+
+                    with action_cols[1]:
+                        if status in {"APPROVED", "AWAITING_APPROVAL"}:
+                            if st.button("Queue", key=f"rail_queue_{req_id}"):
+                                if status == "AWAITING_APPROVAL":
+                                    _approve = req_lib.post(f"{api_base}/api/workflows/requests/{req_id}/approve", timeout=10)
+                                    if _approve.status_code >= 300:
+                                        st.error(f"Approve before queue failed ({_approve.status_code})")
+                                        continue
+                                resp = req_lib.post(f"{api_base}/api/workflows/requests/{req_id}/queue", timeout=10)
+                                if resp.status_code < 300:
+                                    st.success(f"Queued {req_id}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Queue failed ({resp.status_code})")
+
+                    st.markdown("---")
+
+                if not pending_items:
+                    st.success("No pending approvals")
+            else:
+                st.warning(f"Could not load pending requests ({pending_resp.status_code})")
+        except Exception as e:
+            st.warning(f"Pending approvals unavailable: {e}")
+
+    try:
+        import requests as req_lib
+
+        metrics_resp = req_lib.get(f"{api_base}/api/workflows/metrics?limit=200", timeout=8)
+        if metrics_resp.status_code < 300:
+            metrics = (metrics_resp.json() or {}).get("metrics", {})
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("MTTR (min)", metrics.get("mttr_minutes") if metrics.get("mttr_minutes") is not None else "n/a")
+            m2.metric("Pass Rate", f"{(metrics.get('pass_rate', 0.0) * 100):.1f}%")
+            m3.metric("Pass Rate Uplift", f"{metrics.get('pass_rate_uplift_pct', 0.0):.1f}%")
+            m4.metric("Flaky Reduction", f"{metrics.get('flaky_reduction_pct', 0.0):.1f}%")
+
+        readiness_resp = req_lib.get(f"{api_base}/api/system/readiness", timeout=8)
+        if readiness_resp.status_code < 300:
+            readiness = readiness_resp.json() or {}
+            checks = readiness.get("checks", {})
+            rc1, rc2, rc3, rc4, rc5 = st.columns(5)
+            rc1.metric("Workflow DB", "OK" if checks.get("workflow_db_writable") else "Issue")
+            rc2.metric("Observability DB", "OK" if checks.get("observability_db_writable") else "Issue")
+            rc3.metric("Neo4j", "Connected" if checks.get("neo4j_tcp") else "Offline")
+            rc4.metric("Weaviate", "Connected" if checks.get("weaviate_tcp") else "Offline")
+            rc5.metric("Qdrant", "Connected" if checks.get("qdrant_tcp") else "Offline")
+
+            provider = str(checks.get("vector_provider") or "unknown").upper()
+            provider_up = bool(checks.get("vector_provider_tcp"))
+            provider_state = "Connected" if provider_up else "Offline"
+            st.caption(f"Active vector provider: {provider} ({provider_state})")
+
+        evidence_resp = req_lib.get(f"{api_base}/api/workflows/evidence?limit=500", timeout=8)
+        if evidence_resp.status_code < 300:
+            evidence = ((evidence_resp.json() or {}).get("evidence") or {})
+            claims = evidence.get("claims") or {}
+            if claims:
+                st.markdown("### 📌 Client Value Evidence")
+                rows = []
+                for name, payload in claims.items():
+                    rows.append(
+                        {
+                            "claim": name,
+                            "metric": payload.get("metric"),
+                            "value": payload.get("value"),
+                            "status": payload.get("status"),
+                        }
+                    )
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+        portability_resp = req_lib.get(
+            f"{api_base}/api/workflows/portability-scorecard",
+            params={"repo": repo, "limit": 500},
+            timeout=8,
+        )
+        if portability_resp.status_code < 300:
+            payload = portability_resp.json() or {}
+            scorecard = payload.get("scorecard") or {}
+            scores = scorecard.get("scores") or {}
+            delta = scorecard.get("delta") or {}
+            quick_wins = scorecard.get("quick_wins") or []
+
+            st.markdown("### 🚀 Repo Portability Scorecard")
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("Overall", f"{float(scores.get('overall', 0.0)):.1f}")
+            s2.metric("Onboarding", f"{float(scores.get('onboarding_readiness', 0.0)):.1f}")
+            s3.metric("Reliability", f"{float(scores.get('execution_reliability', 0.0)):.1f}")
+            s4.metric("Observability", f"{float(scores.get('observability_quality', 0.0)):.1f}")
+
+            if delta:
+                trend_icon = "✅" if delta.get("trend") == "improved" else "⚠️" if delta.get("trend") == "regressed" else "➖"
+                st.info(
+                    f"{trend_icon} Baseline→Delta: {delta.get('overall_delta', 0.0):+.2f} "
+                    f"(baseline {delta.get('baseline_overall', 0.0):.2f} → current {delta.get('current_overall', 0.0):.2f})"
+                )
+            else:
+                st.caption("No baseline saved yet. Save one to activate baseline→delta tracking.")
+
+            if quick_wins:
+                st.markdown("**Immediate Quick Wins**")
+                for tip in quick_wins:
+                    st.write(f"- {tip}")
+
+            baseline_note = st.text_input(
+                "Baseline note",
+                value="",
+                key="prompt_ops_portability_baseline_note",
+                help="Optional note saved with this baseline snapshot.",
+            )
+            if st.button("Save Current as Baseline", key="prompt_ops_save_portability_baseline"):
+                baseline_resp = req_lib.post(
+                    f"{api_base}/api/workflows/portability-scorecard/baseline",
+                    json={"repo": repo, "note": baseline_note},
+                    timeout=10,
+                )
+                if baseline_resp.status_code < 300:
+                    st.success("Baseline saved. Refresh to view updated delta.")
+                else:
+                    st.error(f"Failed to save baseline ({baseline_resp.status_code}): {baseline_resp.text[:300]}")
+    except Exception:
+        pass
+
+    refresh = st.button("Refresh Requests", key="prompt_ops_refresh")
+    if refresh or True:
+        try:
+            import requests as req_lib
+
+            response = req_lib.get(f"{api_base}/api/workflows/requests?limit=30", timeout=10)
+            if response.status_code < 300:
+                items = response.json().get("requests", [])
+                if items:
+                    rows = []
+                    for r in items:
+                        rows.append(
+                            {
+                                "id": r.get("id"),
+                                "status": r.get("status"),
+                                "next_action": r.get("next_action"),
+                                "requester": r.get("requester"),
+                                "repo": r.get("repo"),
+                                "created_at": r.get("created_at"),
+                                "updated_at": r.get("updated_at"),
+                            }
+                        )
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+                    request_ids = [r["id"] for r in rows if r.get("id")]
+                    selected_id = st.selectbox(
+                        "Select Request",
+                        options=request_ids,
+                        key="prompt_ops_selected_request",
+                    )
+
+                    exec_col1, exec_col2, exec_col3 = st.columns([1, 1, 1])
+                    with exec_col1:
+                        worker_dry_run = st.checkbox(
+                            "Dry Run Worker",
+                            value=True,
+                            key="prompt_ops_worker_dry_run",
+                            help="When enabled, worker creates branch/commit locally without pushing or opening a PR.",
+                        )
+                    with exec_col2:
+                        worker_open_pr = st.checkbox(
+                            "Open PR",
+                            value=True,
+                            key="prompt_ops_worker_open_pr",
+                            help="Requires Dry Run disabled plus GITHUB_TOKEN and a resolvable GitHub repo.",
+                        )
+                    with exec_col3:
+                        do_run_next = st.button("Run Next Queued", key="prompt_ops_run_next")
+
+                    col_a, col_q, col_c, col_i, col_r, col_replay = st.columns([1, 1, 1, 1, 1, 1])
+                    with col_a:
+                        do_approve = st.button("Approve", key="prompt_ops_approve")
+                    with col_q:
+                        do_queue = st.button("Queue", key="prompt_ops_queue")
+                    with col_c:
+                        do_cancel = st.button("Cancel", key="prompt_ops_cancel")
+                    with col_i:
+                        do_inspect = st.button("Inspect", key="prompt_ops_inspect")
+                    with col_r:
+                        do_run_selected = st.button("Run Selected", key="prompt_ops_run_selected")
+                    with col_replay:
+                        do_replay = st.button("Replay", key="prompt_ops_replay")
+
+                    worker_payload = {
+                        "dry_run": worker_dry_run,
+                        "open_pr": worker_open_pr,
+                    }
+
+                    if do_run_next:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/worker/run-next",
+                            json=worker_payload,
+                            timeout=60,
+                        )
+                        if resp.status_code < 300:
+                            body = resp.json()
+                            item = body.get("request")
+                            if item:
+                                st.success("Worker executed queued request.")
+                                st.json(item)
+                            else:
+                                st.info(body.get("message", "No queued requests."))
+                        else:
+                            st.error(f"Run-next failed ({resp.status_code}): {resp.text[:500]}")
+
+                    if do_approve:
+                        resp = req_lib.post(f"{api_base}/api/workflows/requests/{selected_id}/approve", timeout=10)
+                        if resp.status_code < 300:
+                            st.success("Approved.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Approve failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_queue:
+                        resp = req_lib.post(f"{api_base}/api/workflows/requests/{selected_id}/queue", timeout=10)
+                        if resp.status_code < 300:
+                            st.success("Queued.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Queue failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_cancel:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/requests/{selected_id}/cancel",
+                            json={"reason": "cancelled_from_dashboard"},
+                            timeout=10,
+                        )
+                        if resp.status_code < 300:
+                            st.warning("Cancelled.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Cancel failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_inspect:
+                        resp = req_lib.get(f"{api_base}/api/workflows/requests/{selected_id}", timeout=10)
+                        if resp.status_code < 300:
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Inspect failed ({resp.status_code}): {resp.text[:400]}")
+
+                    if do_run_selected:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/worker/run/{selected_id}",
+                            json=worker_payload,
+                            timeout=60,
+                        )
+                        if resp.status_code < 300:
+                            st.success("Worker executed selected request.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Run selected failed ({resp.status_code}): {resp.text[:500]}")
+
+                    if do_replay:
+                        resp = req_lib.post(
+                            f"{api_base}/api/workflows/requests/{selected_id}/replay",
+                            json={"requester": requester},
+                            timeout=20,
+                        )
+                        if resp.status_code < 300:
+                            st.success("Replay request created and queued.")
+                            st.json(resp.json().get("request", {}))
+                        else:
+                            st.error(f"Replay failed ({resp.status_code}): {resp.text[:500]}")
+
+                    st.markdown("---")
+                    st.markdown("### 🔎 Agent Observability Timeline")
+                    st.caption(
+                        "Trace-level visibility across worker orchestration, SDET loops, "
+                        "status transitions, and latency details."
+                    )
+
+                    obs_col1, obs_col2 = st.columns([1, 1])
+                    with obs_col1:
+                        trace_limit = st.number_input(
+                            "Trace Limit",
+                            min_value=5,
+                            max_value=200,
+                            value=30,
+                            step=5,
+                            key="prompt_ops_trace_limit",
+                        )
+                    with obs_col2:
+                        obs_event_limit = st.number_input(
+                            "Event Limit",
+                            min_value=10,
+                            max_value=500,
+                            value=100,
+                            step=10,
+                            key="prompt_ops_event_limit",
+                        )
+
+                    quality_resp = req_lib.get(
+                        f"{api_base}/api/observability/quality?limit={int(trace_limit)}&min_completeness=0.95&min_decision_quality=0.60",
+                        timeout=10,
+                    )
+                    if quality_resp.status_code < 300:
+                        q = (quality_resp.json() or {}).get("quality", {})
+                        q1, q2, q3, q4, q5, q6 = st.columns(6)
+                        with q1:
+                            st.metric("Trace Count", int(q.get("trace_count") or 0))
+                        with q2:
+                            st.metric("Avg Completeness", f"{float(q.get('avg_completeness_ratio') or 0.0):.3f}")
+                        with q3:
+                            st.metric("Min Completeness", f"{float(q.get('min_completeness_ratio') or 0.0):.3f}")
+                        with q4:
+                            st.metric("Below Threshold", int(q.get("below_threshold_count") or 0))
+                        with q5:
+                            st.metric(
+                                "Avg Decision Quality",
+                                f"{float(q.get('avg_decision_quality_score') or 0.0):.3f}",
+                            )
+                        with q6:
+                            st.metric(
+                                "Decision Quality Below",
+                                int(q.get("decision_quality_below_threshold_count") or 0),
+                            )
+                    else:
+                        st.warning(f"Trace quality summary unavailable ({quality_resp.status_code}).")
+
+                    insights_resp = req_lib.get(
+                        f"{api_base}/api/observability/insights?limit={int(obs_event_limit)}",
+                        timeout=10,
+                    )
+                    if insights_resp.status_code < 300:
+                        insights = (insights_resp.json() or {}).get("insights", {})
+                        failures = insights.get("failures", {})
+                        policy_impact = insights.get("policy_impact", {})
+
+                        st.markdown("#### Global Observability Insights")
+                        g1, g2, g3, g4 = st.columns(4)
+                        with g1:
+                            st.metric("Failed Events", int(failures.get("failed_events") or 0))
+                        with g2:
+                            st.metric("Failure Rate", f"{float(failures.get('failure_rate') or 0.0):.3f}")
+                        with g3:
+                            st.metric("Policy Blocked", int(policy_impact.get("policy_blocked_runs") or 0))
+                        with g4:
+                            st.metric("Policy Block Rate", f"{float(policy_impact.get('policy_block_rate') or 0.0):.3f}")
+
+                        root_causes = failures.get("root_cause_counts") or []
+                        if root_causes:
+                            st.markdown("##### Root Cause Distribution")
+                            st.dataframe(pd.DataFrame(root_causes), use_container_width=True, hide_index=True)
+                    else:
+                        st.warning(f"Observability insights unavailable ({insights_resp.status_code}).")
+
+                    st.markdown("---")
+                    st.markdown("### 📈 Agent Complexity Trends")
+                    st.caption(
+                        "Per-agent retrieval quality over time: RAG docs retrieved, average similarity score, "
+                        "and LLM token usage. Anomaly detection flags when similarity drops >20% below baseline."
+                    )
+                    cplx_col1, cplx_col2, cplx_col3 = st.columns([2, 1, 1])
+                    with cplx_col1:
+                        cplx_agent = st.text_input(
+                            "Agent name (blank = all)",
+                            value="",
+                            key="cplx_agent_filter",
+                            placeholder="e.g. QA_Assistant",
+                        )
+                    with cplx_col2:
+                        cplx_window = st.number_input(
+                            "Window (days)",
+                            min_value=1,
+                            max_value=90,
+                            value=14,
+                            step=1,
+                            key="cplx_window_days",
+                        )
+                    with cplx_col3:
+                        do_cplx = st.button("Load Complexity Trends", key="cplx_load_btn")
+
+                    if do_cplx:
+                        cplx_url = (
+                            f"{api_base}/api/observability/agent-complexity"
+                            f"?window_days={int(cplx_window)}"
+                            + (f"&agent={cplx_agent.strip()}" if cplx_agent.strip() else "")
+                        )
+                        cplx_resp = req_lib.get(cplx_url, timeout=10)
+                        if cplx_resp.status_code == 200:
+                            cplx_data = cplx_resp.json()
+                            if cplx_agent.strip():
+                                # Single-agent view
+                                trends = cplx_data.get("trends", {})
+                                summary = trends.get("summary", {})
+                                cplx_s1, cplx_s2, cplx_s3, cplx_s4 = st.columns(4)
+                                with cplx_s1:
+                                    st.metric("Total Actions", summary.get("total_actions", 0))
+                                with cplx_s2:
+                                    st.metric("Avg RAG Docs", f"{float(summary.get('avg_rag_docs', 0)):.1f}")
+                                with cplx_s3:
+                                    st.metric("Avg Similarity", f"{float(summary.get('avg_similarity', 0)):.3f}")
+                                with cplx_s4:
+                                    prompt_tok = summary.get("total_llm_prompt_tokens") or 0
+                                    comp_tok = summary.get("total_llm_completion_tokens") or 0
+                                    st.metric("LLM Tokens", f"{int(prompt_tok)+int(comp_tok):,}")
+                                if trends.get("anomaly"):
+                                    st.warning(f"⚠️ Anomaly: {trends.get('anomaly_reason', 'similarity degraded')}")
+                                daily = trends.get("daily", [])
+                                if daily:
+                                    daily_df = pd.DataFrame(daily)
+                                    if "avg_similarity" in daily_df.columns and "date" in daily_df.columns:
+                                        fig_sim = px.line(
+                                            daily_df, x="date", y="avg_similarity",
+                                            title=f"Avg Similarity — {cplx_agent.strip()} ({int(cplx_window)}d)",
+                                            markers=True,
+                                        )
+                                        fig_sim.update_layout(height=260)
+                                        st.plotly_chart(fig_sim, use_container_width=True)
+                                    st.dataframe(daily_df, use_container_width=True, hide_index=True)
+                            else:
+                                # All-agents summary
+                                agents_summary = cplx_data.get("agents", [])
+                                anomalies = cplx_data.get("anomalies", [])
+                                if anomalies:
+                                    st.warning(f"⚠️ {len(anomalies)} agent(s) with anomalies: {', '.join(anomalies)}")
+                                if agents_summary:
+                                    st.dataframe(
+                                        pd.DataFrame(agents_summary),
+                                        use_container_width=True,
+                                        hide_index=True,
+                                    )
+                                else:
+                                    st.info("No complexity data yet. Run workflows to populate trends.")
+                        else:
+                            st.warning(f"Complexity trends unavailable ({cplx_resp.status_code}).")
+
+                    st.markdown("---")
+                    traces_resp = req_lib.get(
+                        f"{api_base}/api/observability/traces?limit={int(trace_limit)}",
+                        timeout=10,
+                    )
+                    if traces_resp.status_code < 300:
+                        traces = traces_resp.json().get("traces", [])
+                        if traces:
+                            trace_rows = []
+                            for t in traces:
+                                trace_rows.append(
+                                    {
+                                        "trace_id": t.get("trace_id"),
+                                        "request_id": t.get("request_id"),
+                                        "events": t.get("event_count"),
+                                        "last_status": t.get("last_status"),
+                                        "last_agent": t.get("last_agent"),
+                                        "last_action": t.get("last_action"),
+                                        "started_at": t.get("started_at"),
+                                        "ended_at": t.get("ended_at"),
+                                    }
+                                )
+
+                            st.dataframe(pd.DataFrame(trace_rows), use_container_width=True, hide_index=True)
+
+                            selected_trace = st.selectbox(
+                                "Select Trace",
+                                options=[r["trace_id"] for r in trace_rows if r.get("trace_id")],
+                                key="prompt_ops_selected_trace",
+                            )
+
+                            trace_resp = req_lib.get(
+                                f"{api_base}/api/observability/traces/{selected_trace}?limit={int(obs_event_limit)}",
+                                timeout=10,
+                            )
+                            analysis_resp = req_lib.get(
+                                f"{api_base}/api/observability/traces/{selected_trace}/analysis?limit={int(obs_event_limit)}",
+                                timeout=10,
+                            )
+                            if trace_resp.status_code < 300:
+                                trace = trace_resp.json().get("trace", {})
+                                events = trace.get("events", [])
+                                if events:
+                                    event_rows = []
+                                    for e in events:
+                                        event_rows.append(
+                                            {
+                                                "event_type": e.get("event_type") or "unknown",
+                                                "span_id": e.get("span_id"),
+                                                "parent_span_id": e.get("parent_span_id"),
+                                                "agent": e.get("agent"),
+                                                "action": e.get("action"),
+                                                "step_key": e.get("step_key"),
+                                                "attempt": e.get("attempt"),
+                                                "status": e.get("status"),
+                                                "latency_ms": e.get("latency_ms"),
+                                                "error": e.get("error"),
+                                                "input_hash": e.get("input_hash"),
+                                                "output_hash": e.get("output_hash"),
+                                                "started_at": e.get("started_at"),
+                                                "ended_at": e.get("ended_at"),
+                                                "created_at": e.get("created_at"),
+                                            }
+                                        )
+                                    st.dataframe(pd.DataFrame(event_rows), use_container_width=True, hide_index=True)
+
+                                    timeline_df = pd.DataFrame(event_rows)
+                                    timeline_df["start"] = pd.to_datetime(
+                                        timeline_df["started_at"].fillna(timeline_df["created_at"]),
+                                        errors="coerce",
+                                        utc=True,
+                                    )
+                                    timeline_df["end"] = pd.to_datetime(
+                                        timeline_df["ended_at"].fillna(timeline_df["created_at"]),
+                                        errors="coerce",
+                                        utc=True,
+                                    )
+                                    timeline_df = timeline_df.dropna(subset=["start", "end"])
+                                    if not timeline_df.empty:
+                                        timeline_df["task"] = (
+                                            timeline_df["agent"].astype(str)
+                                            + " :: "
+                                            + timeline_df["action"].astype(str)
+                                            + " :: "
+                                            + timeline_df["status"].astype(str)
+                                        )
+                                        st.markdown("#### Full Trace Timeline")
+                                        fig_timeline = px.timeline(
+                                            timeline_df,
+                                            x_start="start",
+                                            x_end="end",
+                                            y="task",
+                                            color="status",
+                                            hover_data=["event_type", "step_key", "attempt", "latency_ms", "span_id"],
+                                        )
+                                        fig_timeline.update_layout(height=420, yaxis_title="Trace Step", xaxis_title="Time")
+                                        st.plotly_chart(fig_timeline, use_container_width=True)
+
+                                    if analysis_resp.status_code < 300:
+                                        analysis = (analysis_resp.json() or {}).get("analysis", {})
+                                        st.markdown("#### Trace Analysis")
+                                        a1, a2, a3, a4 = st.columns(4)
+                                        with a1:
+                                            st.metric("Spans", int(analysis.get("span_count") or 0))
+                                        with a2:
+                                            st.metric(
+                                                "Completeness",
+                                                f"{float(analysis.get('completeness_ratio') or 0.0):.3f}",
+                                            )
+                                        with a3:
+                                            st.metric("Orphan Spans", int(analysis.get("orphan_span_count") or 0))
+                                        with a4:
+                                            st.metric(
+                                                "Critical Path (ms)",
+                                                f"{float(analysis.get('critical_path_ms') or 0.0):.1f}",
+                                            )
+
+                                        spans = analysis.get("spans") or []
+                                        if spans:
+                                            st.markdown("##### Span Tree")
+                                            st.dataframe(
+                                                pd.DataFrame(spans)[
+                                                    [
+                                                        "span_id",
+                                                        "parent_span_id",
+                                                        "agent",
+                                                        "action",
+                                                        "event_type",
+                                                        "step_key",
+                                                        "latency_ms",
+                                                        "statuses",
+                                                        "children",
+                                                    ]
+                                                ],
+                                                use_container_width=True,
+                                                hide_index=True,
+                                            )
+
+                                        by_agent_action = analysis.get("by_agent_action") or []
+                                        if by_agent_action:
+                                            st.markdown("##### Aggregated by Agent/Action")
+                                            st.dataframe(pd.DataFrame(by_agent_action), use_container_width=True, hide_index=True)
+
+                                        cf_resp = req_lib.get(
+                                            f"{api_base}/api/observability/traces/{selected_trace}/counterfactuals?limit={int(obs_event_limit)}",
+                                            timeout=10,
+                                        )
+                                        if cf_resp.status_code < 300:
+                                            cf = (cf_resp.json() or {}).get("counterfactuals", {})
+                                            recs = cf.get("recommendations") or []
+                                            st.markdown("##### Counterfactual Recommendations")
+                                            if recs:
+                                                rec_rows = []
+                                                for r in recs:
+                                                    rec_rows.append(
+                                                        {
+                                                            "agent": r.get("agent"),
+                                                            "action": r.get("action"),
+                                                            "status": r.get("status"),
+                                                            "root_cause": r.get("root_cause"),
+                                                            "error": r.get("error"),
+                                                            "counterfactuals": " | ".join(r.get("counterfactuals") or []),
+                                                        }
+                                                    )
+                                                st.dataframe(pd.DataFrame(rec_rows), use_container_width=True, hide_index=True)
+                                            else:
+                                                st.info("No failed/retried steps for counterfactuals in this trace.")
+                                        else:
+                                            st.warning(f"Counterfactual lookup unavailable ({cf_resp.status_code}).")
+
+                                        with st.expander("📋 Generate Audit Report", expanded=False):
+                                            st.caption(
+                                                "Generates a shareable compliance artifact: verdict, "
+                                                "decision quality score, root causes, and recommendations. "
+                                                "Paste the Markdown into any PR description."
+                                            )
+                                            audit_col1, audit_col2 = st.columns([3, 1])
+                                            with audit_col2:
+                                                audit_fmt = st.radio(
+                                                    "Format",
+                                                    ["structured", "markdown"],
+                                                    key="audit_report_fmt",
+                                                    horizontal=True,
+                                                )
+                                            with audit_col1:
+                                                do_audit = st.button("Generate Audit Report", key="audit_report_btn")
+                                            if do_audit:
+                                                ar_resp = req_lib.get(
+                                                    f"{api_base}/api/observability/traces/{selected_trace}/audit-report"
+                                                    f"?format={audit_fmt}",
+                                                    timeout=15,
+                                                )
+                                                if ar_resp.status_code == 200:
+                                                    ar = ar_resp.json()
+                                                    if audit_fmt == "markdown":
+                                                        st.markdown(ar.get("markdown_body", ""))
+                                                    else:
+                                                        verdict = ar.get("verdict", "")
+                                                        verdict_color = "green" if verdict == "PASS" else "red"
+                                                        st.markdown(
+                                                            f"**Verdict:** :{verdict_color}[{verdict}]"
+                                                            f"  &nbsp;  **Audit ID:** `{ar.get('audit_id')}`"
+                                                        )
+                                                        summary = ar.get("summary", {})
+                                                        dq = ar.get("decision_quality", {})
+                                                        ar1, ar2, ar3, ar4 = st.columns(4)
+                                                        with ar1:
+                                                            st.metric("Total Events", summary.get("total_events", 0))
+                                                        with ar2:
+                                                            st.metric("Agents Involved", len(summary.get("agents_involved", [])))
+                                                        with ar3:
+                                                            st.metric("Decision Quality", f"{float(dq.get('score', 0)):.2f}")
+                                                        with ar4:
+                                                            st.metric("Completeness", f"{float(dq.get('completeness', 0)):.2f}")
+                                                        recs = ar.get("recommendations", [])
+                                                        if recs:
+                                                            st.markdown("**Recommendations:**")
+                                                            for r in recs:
+                                                                st.markdown(f"- {r}")
+                                                        with st.expander("Full Audit Report JSON"):
+                                                            st.json(ar)
+                                                elif ar_resp.status_code == 404:
+                                                    st.warning("No events found for this trace — run a workflow first.")
+                                                else:
+                                                    st.error(f"Audit report failed ({ar_resp.status_code}): {ar_resp.text[:300]}")
+                                    else:
+                                        st.warning(
+                                            f"Trace analysis unavailable ({analysis_resp.status_code}): "
+                                            f"{analysis_resp.text[:200]}"
+                                        )
+
+                                    with st.expander("Selected Trace JSON", expanded=False):
+                                        st.json(trace)
+                                else:
+                                    st.info("No events found for selected trace.")
+                            else:
+                                st.error(f"Trace lookup failed ({trace_resp.status_code}): {trace_resp.text[:300]}")
+                        else:
+                            st.info("No observability traces yet. Run a workflow request to generate trace events.")
+                    else:
+                        st.error(f"Could not load traces ({traces_resp.status_code}): {traces_resp.text[:300]}")
+                else:
+                    st.info("No workflow requests yet. Submit a prompt above.")
+            else:
+                st.error(f"Could not load requests ({response.status_code}).")
+        except Exception as e:
+            st.error(
+                "Unable to query workflow requests. Ensure FastAPI is running: "
+                "`uvicorn agent_api:app --host 0.0.0.0 --port 8000`\n\n"
+                f"Error: {e}"
+            )
+
+
 def render_stack_anatomy(store=None):
     """Render Stack Anatomy dashboard - full-stack framework breakdown with test coverage"""
     st.subheader("🏗️ Stack Anatomy — Framework & Test Coverage Breakdown")
@@ -2954,7 +3999,7 @@ def render_stack_anatomy(store=None):
             st.error(f"System-wide readiness: **{overall_avg:.0f}%** — "
                       f"Significant gaps in test coverage and operational maturity.")
 
-def render_pipeline_flow(store: DelegationGraphStore):
+def render_pipeline_flow(store: DelegationGraphStore = None):
     """Render data flow pipeline visualization"""
     st.subheader("🔄 Pipeline Data Flow")
 
@@ -3015,6 +4060,21 @@ def render_pipeline_flow(store: DelegationGraphStore):
 
     # Data flow metrics
     st.markdown("#### Hybrid Storage Metrics")
+
+    if not store:
+        st.warning("Neo4j is offline. Showing architecture-only pipeline view.")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("**Neo4j Graph Store**")
+            st.metric("Agents (Nodes)", "n/a")
+            st.metric("Delegations (Edges)", "n/a")
+        with col2:
+            st.markdown("**Vector Store**")
+            st.info("Qdrant/Weaviate connectivity shown in Prompt Ops readiness")
+        with col3:
+            st.markdown("**Hybrid GraphRAG**")
+            st.caption("Enable Neo4j to see live delegation performance and freshness metrics.")
+        return
 
     stats = store.get_database_stats()
 
@@ -3084,9 +4144,221 @@ def render_pipeline_flow(store: DelegationGraphStore):
             st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+def render_governance_page():
+    """Agent Constitution and pre-action governance controls."""
+    st.subheader("⚖️ Agent Constitution")
+    st.markdown(
+        "Machine-readable governance policy enforced by every agent in the platform. "
+        "External agent platforms (LangGraph, CrewAI, AutoGen) can query and enforce these laws via the API."
+    )
+
+    api_base = st.text_input(
+        "Control Plane API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="gov_api_base",
+    ).rstrip("/")
+
+    try:
+        import requests as _gov_req
+    except ImportError:
+        st.error("requests library not available.")
+        return
+
+    tab_laws, tab_check, tab_rights = st.tabs(["Laws & Escalations", "Check an Action", "Agent Rights"])
+
+    with tab_laws:
+        con_resp = _gov_req.get(f"{api_base}/api/system/constitution", timeout=8)
+        if con_resp.status_code == 200:
+            con_data = con_resp.json()
+            con = con_data.get("constitution", {})
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Version", con_data.get("version", "—"))
+            m2.metric("Tier 1 Laws (DENY)", con_data.get("tier_1_count", 0))
+            m3.metric("Tier 2 Laws (Approval)", con_data.get("tier_2_count", 0))
+            m4.metric("Tier 3 Escalations", con_data.get("tier_3_count", 0))
+            st.caption(f"Effective: {con_data.get('effective_date', '—')}  |  Platform: {con_data.get('platform', '—')}")
+
+            st.markdown("---")
+            st.markdown("### 🔴 Tier 1 — Hard Laws (Always Enforced → DENY)")
+            for law in con.get("tier_1", []):
+                with st.expander(f"**{law['id']}** — {law['name']}", expanded=False):
+                    st.markdown(law.get("description", ""))
+                    applies = law.get("applies_to", {})
+                    if applies:
+                        st.code(f"Applies to action types: {', '.join(applies.get('action_types', []))}", language=None)
+
+            st.markdown("### 🟡 Tier 2 — Approval Gates (REQUIRE_APPROVAL)")
+            for law in con.get("tier_2", []):
+                with st.expander(f"**{law['id']}** — {law['name']}", expanded=False):
+                    st.markdown(law.get("description", ""))
+                    applies = law.get("applies_to", {})
+                    if applies:
+                        st.code(f"Applies to action types: {', '.join(applies.get('action_types', []))}", language=None)
+
+            st.markdown("### 🔵 Tier 3 — Escalation Triggers (Alerts, No Block)")
+            t3_rows = []
+            for trigger in con.get("tier_3", []):
+                t3_rows.append({
+                    "id": trigger.get("id"),
+                    "name": trigger.get("name"),
+                    "metric": trigger.get("metric"),
+                    "threshold": trigger.get("threshold"),
+                    "description": (trigger.get("description", "") or "")[:120],
+                })
+            if t3_rows:
+                st.dataframe(pd.DataFrame(t3_rows), use_container_width=True, hide_index=True)
+        else:
+            st.warning(
+                f"Constitution unavailable ({con_resp.status_code}). "
+                "Is the AgenticQA API running?"
+            )
+
+    with tab_check:
+        st.markdown("### Interactive Pre-Action Check")
+        st.caption(
+            "Simulate any agent action to see if it would be ALLOWED, blocked for APPROVAL, or DENIED. "
+            "Use this to validate agent integrations before deployment."
+        )
+        chk_col1, chk_col2 = st.columns(2)
+        with chk_col1:
+            chk_action = st.selectbox(
+                "Action Type",
+                options=[
+                    "read", "write", "delete", "deploy", "delegate", "log_event",
+                    "modify_infra", "bulk_delete", "publish", "insert",
+                ],
+                key="gov_action_type",
+            )
+            chk_ci = st.selectbox("CI Status", ["PASSED", "FAILED", "PENDING", "(not set)"], key="gov_ci_status")
+            chk_depth = st.number_input("Delegation Depth", min_value=0, max_value=6, value=0, step=1, key="gov_deleg_depth")
+        with chk_col2:
+            chk_env = st.selectbox("Environment", ["dev", "staging", "production"], key="gov_env")
+            chk_trace = st.text_input("Trace ID", value="trace-001", key="gov_trace_id")
+            chk_pii = st.checkbox("Contains PII?", value=False, key="gov_pii")
+            chk_records = st.number_input("Record Count", min_value=0, max_value=100000, value=0, step=100, key="gov_records")
+            chk_path = st.text_input("Target Path (for write/delete)", value="", key="gov_target_path")
+
+        if st.button("Check Action", key="gov_check_btn", type="primary"):
+            ctx: dict = {}
+            if chk_ci != "(not set)":
+                ctx["ci_status"] = chk_ci
+            if chk_trace.strip():
+                ctx["trace_id"] = chk_trace.strip()
+            ctx["delegation_depth"] = int(chk_depth)
+            ctx["environment"] = chk_env
+            ctx["contains_pii"] = chk_pii
+            ctx["record_count"] = int(chk_records)
+            if chk_path.strip():
+                ctx["target_path"] = chk_path.strip()
+
+            chk_resp = _gov_req.post(
+                f"{api_base}/api/system/constitution/check",
+                json={"action_type": chk_action, "context": ctx},
+                timeout=8,
+            )
+            if chk_resp.status_code == 200:
+                result = chk_resp.json()
+                verdict = result.get("verdict", "")
+                if verdict == "ALLOW":
+                    st.success(f"✅ **ALLOW** — Action is permitted.")
+                elif verdict == "REQUIRE_APPROVAL":
+                    st.warning(
+                        f"🟡 **REQUIRE_APPROVAL** — Law **{result.get('law')}** ({result.get('name')}) "
+                        "requires human approval before this action may proceed."
+                    )
+                    st.markdown(f"> {result.get('reason', '')}")
+                else:
+                    st.error(
+                        f"🔴 **DENY** — Law **{result.get('law')}** ({result.get('name')}) "
+                        "blocks this action."
+                    )
+                    st.markdown(f"> {result.get('reason', '')}")
+            else:
+                st.error(f"Check failed ({chk_resp.status_code}): {chk_resp.text[:300]}")
+
+    with tab_rights:
+        st.markdown("### Agent Rights")
+        st.caption(
+            "Positive guarantees that AgenticQA makes to every agent it orchestrates — "
+            "and to the operators who deploy them."
+        )
+        con_resp2 = _gov_req.get(f"{api_base}/api/system/constitution", timeout=8)
+        if con_resp2.status_code == 200:
+            rights = con_resp2.json().get("constitution", {}).get("agent_rights", [])
+            for i, right in enumerate(rights, 1):
+                st.markdown(f"**{i}.** {right}")
+        else:
+            st.warning("Constitution unavailable — start the API to view agent rights.")
+
+
+def render_plans_and_tiers():
+    """Render commercial plans and feature packaging in a standalone view."""
+    st.subheader("💼 Plans & Tiers")
+    st.markdown(
+        "Start small, prove ROI quickly, and scale into fully autonomous quality operations."
+    )
+
+    st.markdown("---")
+    st.markdown("### 🆓 Free / Community")
+    st.markdown(
+        """
+- Best for trying AgenticQA with minimal setup and zero procurement friction
+- Fast onboarding with bootstrap + health checks + JUnit ingest
+- Core dashboard visibility for quick wins in reliability and quality
+- Local-first operation for easy evaluation
+- Community support
+"""
+    )
+
+    st.markdown("### 🚀 Pro / Team")
+    st.markdown(
+        """
+- Best for teams who want measurable CI/CD improvement each sprint
+- Everything in Free, plus advanced analytics and collaboration intelligence
+- Prompt-to-workflow execution with branch/commit automation and optional PR creation
+- Graph-powered routing recommendations and policy guardrails
+- CI health diagnostics and team notifications
+"""
+    )
+
+    st.markdown("### 🏢 Enterprise")
+    st.markdown(
+        """
+- Best for regulated and large-scale organizations
+- Everything in Pro, plus enterprise governance and security controls
+- SSO/SAML, tenant isolation, advanced RBAC, and approval workflows
+- Audit exports, retention policy controls, and compliance readiness
+- Private/self-hosted deployment options, SLA, and priority support
+- Enterprise integrations (GitHub Enterprise, GitLab, Jenkins, SIEM)
+"""
+    )
+
+    st.markdown("### ➕ Add-ons")
+    st.markdown(
+        """
+- RAG+ Intelligence: richer retrieval and recommendation quality
+- Autonomous Repair: deeper self-healing workflows and recovery automation
+- Prompt Ops Automation: higher-scale prompt-to-delivery operations
+- Compliance Suite: stronger policy controls and audit posture
+"""
+    )
+
+    st.markdown("---")
+    st.markdown("[← Back to dashboard](?)")
+
+
 def main():
     """Main dashboard"""
     render_header()
+    
+    view = st.query_params.get("view", "")
+    if view == "plans":
+        render_plans_and_tiers()
+        st.caption(
+            f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | AgenticQA Plans"
+        )
+        return
 
     # Get store early so sidebar can show connection status
     store = get_graph_store()
@@ -3096,8 +4368,17 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline"]
-        default_index = pages.index("GraphRAG") if not store else 0
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance"]
+
+        selected_view = str(st.query_params.get("view", "")).strip().lower()
+        if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
+            default_index = pages.index("Operator Console")
+        elif selected_view == "graphrag":
+            default_index = pages.index("GraphRAG")
+        elif selected_view in {"governance", "constitution"}:
+            default_index = pages.index("Governance")
+        else:
+            default_index = pages.index("Operator Console")
 
         page = st.radio(
             "Select View:",
@@ -3125,6 +4406,9 @@ def main():
         st.markdown("### 📚 Resources")
         st.markdown("[Neo4j Browser](http://localhost:7474)")
         st.markdown("[Documentation](https://github.com/nhomyk/AgenticQA)")
+        st.markdown("---")
+        st.markdown("### 💼 Commercial")
+        st.markdown("[Plans & Tiers](?view=plans)")
 
         # Auto-refresh
         if auto_refresh:
@@ -3139,11 +4423,14 @@ def main():
         st.warning("Neo4j is not connected. This page requires a running Neo4j instance.")
         st.info("Start Neo4j with: `docker-compose -f docker-compose.weaviate.yml up -d neo4j`")
         st.markdown("---")
-        st.markdown("Pages available without Neo4j: **System Overview**, **GraphRAG**, **Pipeline**")
+        st.markdown("Pages available without Neo4j: **Operator Console**, **System Overview**, **GraphRAG**, **Pipeline**, **Governance**")
         return
 
     # Render selected page
-    if page == "System Overview":
+    if page == "Operator Console":
+        render_prompt_ops()
+
+    elif page == "System Overview":
         render_stack_anatomy(store)
         st.markdown("---")
         if store:
@@ -3187,6 +4474,9 @@ def main():
             render_pipeline_security(store)
         with tab_api:
             render_api_plug(store)
+
+    elif page == "Governance":
+        render_governance_page()
 
     # Footer
     st.markdown("---")

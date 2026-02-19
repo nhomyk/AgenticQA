@@ -6,6 +6,8 @@ from .delegation import (
     DelegationError,
     CircularDelegationError,
     MaxDelegationDepthError,
+    DelegationBudgetExceededError,
+    ApprovalRequiredError,
     UnauthorizedDelegationError,
 )
 from .tracker import DelegationTracker
@@ -16,6 +18,8 @@ __all__ = [
     "DelegationError",
     "CircularDelegationError",
     "MaxDelegationDepthError",
+    "DelegationBudgetExceededError",
+    "ApprovalRequiredError",
     "UnauthorizedDelegationError",
     "DelegationTracker",
 ]
