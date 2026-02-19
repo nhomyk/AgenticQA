@@ -62,3 +62,34 @@ class TestVectorProviderConfig:
 
                 assert mocked_single.call_count == 2
                 mocked_dual.assert_called_once()
+
+    def test_create_vector_store_falls_back_to_qdrant_when_weaviate_unavailable(self, monkeypatch):
+        monkeypatch.setenv("AGENTICQA_VECTOR_PROVIDER", "weaviate")
+        monkeypatch.setenv("AGENTICQA_VECTOR_AUTO_FALLBACK", "true")
+
+        with patch("src.agenticqa.rag.config.create_vector_store_for_provider") as mocked_single:
+            from src.agenticqa.rag.config import create_vector_store
+
+            fallback_store = object()
+            mocked_single.side_effect = [RuntimeError("weaviate down"), fallback_store]
+
+            store = create_vector_store()
+
+            assert store is fallback_store
+            assert mocked_single.call_count == 2
+
+    def test_create_vector_store_raises_when_fallback_disabled(self, monkeypatch):
+        monkeypatch.setenv("AGENTICQA_VECTOR_PROVIDER", "weaviate")
+        monkeypatch.setenv("AGENTICQA_VECTOR_AUTO_FALLBACK", "false")
+
+        with patch("src.agenticqa.rag.config.create_vector_store_for_provider") as mocked_single:
+            from src.agenticqa.rag.config import create_vector_store
+
+            mocked_single.side_effect = RuntimeError("weaviate down")
+
+            try:
+                create_vector_store()
+            except RuntimeError as exc:
+                assert "weaviate down" in str(exc)
+            else:
+                raise AssertionError("Expected RuntimeError when fallback is disabled")

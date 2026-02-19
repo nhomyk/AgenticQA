@@ -70,6 +70,25 @@ class ObservabilityStore:
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_parent_span ON agent_action_events(parent_span_id)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_event_type ON agent_action_events(event_type)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_obs_created ON agent_action_events(created_at)")
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_complexity_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trace_id TEXT,
+                agent TEXT NOT NULL,
+                action TEXT NOT NULL,
+                rag_docs_retrieved INTEGER DEFAULT 0,
+                avg_similarity_score REAL DEFAULT 0.0,
+                patterns_considered INTEGER DEFAULT 0,
+                strategy TEXT,
+                llm_prompt_tokens INTEGER DEFAULT 0,
+                llm_completion_tokens INTEGER DEFAULT 0,
+                timestamp TEXT NOT NULL
+            )
+            """
+        )
+        c.execute("CREATE INDEX IF NOT EXISTS idx_complexity_agent ON agent_complexity_metrics(agent)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_complexity_ts ON agent_complexity_metrics(timestamp)")
         self.conn.commit()
 
     def _ensure_columns(self, columns: List[tuple[str, str]]) -> None:
@@ -586,6 +605,113 @@ class ObservabilityStore:
             row["decision"] = {}
             row.pop("decision_json", None)
         return row
+
+    def log_complexity_metric(
+        self,
+        agent: str,
+        action: str,
+        *,
+        trace_id: Optional[str] = None,
+        rag_docs: int = 0,
+        avg_sim: float = 0.0,
+        patterns: int = 0,
+        strategy: Optional[str] = None,
+        llm_prompt_tokens: int = 0,
+        llm_completion_tokens: int = 0,
+    ) -> None:
+        """Record one complexity snapshot — works for CBR agents (rag_docs/avg_sim)
+        and LLM-based agents (llm_prompt_tokens/llm_completion_tokens)."""
+        now = datetime.now(UTC).isoformat()
+        c = self.conn.cursor()
+        c.execute(
+            """
+            INSERT INTO agent_complexity_metrics
+                (trace_id, agent, action, rag_docs_retrieved, avg_similarity_score,
+                 patterns_considered, strategy, llm_prompt_tokens, llm_completion_tokens,
+                 timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (trace_id, agent, action, rag_docs, avg_sim, patterns, strategy,
+             llm_prompt_tokens, llm_completion_tokens, now),
+        )
+        self.conn.commit()
+
+    def get_complexity_trends(
+        self, agent: str, window_days: int = 14
+    ) -> Dict[str, Any]:
+        """Return daily complexity averages and anomaly flag for an agent.
+
+        Anomaly: current 3-day avg_similarity < 14-day baseline * 0.80
+        (signals retrieval quality degradation, e.g. from a bad code change).
+        """
+        from datetime import timedelta
+
+        cutoff = (datetime.now(UTC) - timedelta(days=window_days)).isoformat()
+        c = self.conn.cursor()
+        rows = c.execute(
+            """
+            SELECT substr(timestamp, 1, 10)     AS day,
+                   AVG(rag_docs_retrieved)       AS avg_rag_docs,
+                   AVG(avg_similarity_score)     AS avg_similarity,
+                   AVG(patterns_considered)      AS avg_patterns,
+                   COUNT(*)                      AS actions,
+                   SUM(llm_prompt_tokens)        AS total_prompt_tokens,
+                   SUM(llm_completion_tokens)    AS total_completion_tokens
+            FROM agent_complexity_metrics
+            WHERE agent = ? AND timestamp >= ?
+            GROUP BY day
+            ORDER BY day ASC
+            """,
+            (agent, cutoff),
+        ).fetchall()
+
+        daily = [
+            {
+                "date": r[0],
+                "avg_rag_docs": round(r[1] or 0.0, 2),
+                "avg_similarity": round(r[2] or 0.0, 3),
+                "avg_patterns": round(r[3] or 0.0, 2),
+                "actions": r[4],
+                "llm_prompt_tokens": int(r[5] or 0),
+                "llm_completion_tokens": int(r[6] or 0),
+            }
+            for r in rows
+        ]
+
+        total_actions = sum(d["actions"] for d in daily)
+        avg_rag_docs = round(sum(d["avg_rag_docs"] for d in daily) / len(daily), 2) if daily else 0.0
+        avg_similarity = round(sum(d["avg_similarity"] for d in daily) / len(daily), 3) if daily else 0.0
+        total_prompt_tokens = sum(d["llm_prompt_tokens"] for d in daily)
+        total_completion_tokens = sum(d["llm_completion_tokens"] for d in daily)
+
+        # Anomaly: compare recent 3-day avg to full-window baseline
+        anomaly = False
+        anomaly_reason: Optional[str] = None
+        if len(daily) >= 4:
+            baseline_sim = sum(d["avg_similarity"] for d in daily[:-3]) / max(len(daily) - 3, 1)
+            recent_sim = sum(d["avg_similarity"] for d in daily[-3:]) / 3
+            if baseline_sim > 0 and recent_sim < baseline_sim * 0.80:
+                anomaly = True
+                anomaly_reason = (
+                    f"similarity_degraded: recent {round(recent_sim, 3)} "
+                    f"vs baseline {round(baseline_sim, 3)} "
+                    f"({round((1 - recent_sim / baseline_sim) * 100, 1)}% drop)"
+                )
+
+        return {
+            "agent": agent,
+            "window_days": window_days,
+            "daily": daily,
+            "summary": {
+                "total_actions": total_actions,
+                "avg_rag_docs": avg_rag_docs,
+                "avg_similarity": avg_similarity,
+                "total_llm_prompt_tokens": total_prompt_tokens,
+                "total_llm_completion_tokens": total_completion_tokens,
+            },
+            "anomaly": anomaly,
+            "anomaly_reason": anomaly_reason,
+        }
 
     def close(self) -> None:
         self.conn.close()

@@ -66,7 +66,7 @@ Agents don't work in isolation. They delegate to each other through a governed c
 
 ## Analytics Dashboard
 
-A 6-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
+An 8-page Streamlit dashboard backed by Neo4j and Plotly for full observability into the agent system.
 
 ```
 streamlit run dashboard/app.py
@@ -76,12 +76,14 @@ streamlit run dashboard/app.py
 
 | Page | What It Shows |
 |---|---|
+| **Operator Console** | Prompt intake, workflow lifecycle (approve/queue/execute/replay), chat, and full observability timeline with trace explorer, audit reports, and agent complexity trends |
 | **System Overview** | Full-stack anatomy (framework matrix, test coverage, LOC breakdown), agent metrics, and live activity |
 | **Collaboration** | Interactive network graph + delegation chain traces |
 | **Performance** | Bottleneck detection, latency trends, per-agent test results and health scores |
 | **GraphRAG** | Interactive Hybrid RAG architecture diagram with live recommendation engine |
 | **Ontology** | Design-vs-reality analysis — intended delegation paths vs. actual usage |
 | **Pipeline** | End-to-end data flow, 6-layer defense-in-depth security, and API connectivity |
+| **Governance** | Agent Constitution viewer (Tier 1/2/3 laws), interactive pre-action check tool, and agent rights declaration |
 
 ### Hybrid RAG Query Flow
 
@@ -320,8 +322,24 @@ streamlit run dashboard/app.py
 - `GET /api/observability/events` — raw action events with filters (`request_id`, `agent`, `action`, `status`, `event_type`)
 - `GET /api/observability/quality` — aggregate trace quality summary for CI/CD gating (completeness + decision quality)
 - `GET /api/observability/insights` — aggregate root-cause and policy-impact analytics for learning loops
+- `GET /api/observability/traces/{trace_id}/audit-report` — shareable compliance artifact: PASS/FAIL verdict, audit ID, decision quality score, root causes, and pre-rendered markdown for PR descriptions
+- `GET /api/observability/agent-complexity` — per-agent RAG retrieval quality trends (docs retrieved, avg similarity, LLM token usage) with 14-day baseline anomaly detection
+- `POST /api/observability/ingest` — ingest a single event from any external agent platform (LangGraph, CrewAI, AutoGen, custom) into the observability store
+- `POST /api/observability/ingest/batch` — batch ingest events from external platforms; returns per-event status array
+- `GET /api/system/constitution` — return the full Agent Constitution (version, Tier 1/2/3 laws, agent rights) as JSON; any external agent can query this to discover governance rules
+- `POST /api/system/constitution/check` — pre-action constitutional check: submit `{action_type, context}`, receive `ALLOW / REQUIRE_APPROVAL / DENY` with the specific law that triggered it
 - `GET /api/system/readiness` — dependency readiness checks (DB writeability, Neo4j, Weaviate)
 - `GET /api/workflows/evidence` — claims-to-evidence bundle for client-facing proof
+- `GET /api/workflows/portability-scorecard` — first-run portability scoring with baseline→delta comparison for any repo
+- `POST /api/workflows/portability-scorecard/baseline` — persist current scorecard as baseline for future trend tracking
+- `GET /api/workflows/portability-scorecard/roi-report` — export baseline/current/delta KPI rows for stakeholder ROI reporting
+- `POST /api/chat/sessions` — create a persisted dashboard chat session
+- `GET /api/chat/sessions` — list recent chat sessions
+- `GET /api/chat/sessions/{session_id}` — inspect a chat session with message history
+- `POST /api/chat/sessions/{session_id}/messages` — append a chat message manually
+- `POST /api/chat/turn` — persist a user chat turn and optionally create a workflow request from it
+- `GET /api/operator/config` — inspect Operator Console mode/policy and safe LLM configuration summary
+- `POST /api/operator/config/test-connection` — validate LLM provider wiring (dry check)
 - `POST /api/plugin/bootstrap` — fast plug-in onboarding for any repo
 - `POST /api/plugin/doctor` — onboarding readiness checks for any repo
 
@@ -363,6 +381,78 @@ Client value for AI observability:
      - `max_sdet_iterations` (default `3`, max `5`)
      - `enable_sdet_autofix` (default `true`)
      - `max_sdet_fix_attempts` (default `2`, max `5`)
+
+### AI Decision Audit Reports
+
+Every trace can be compiled into a shareable compliance artifact:
+
+```bash
+# Via REST (returns structured JSON or markdown)
+curl "http://localhost:8000/api/observability/traces/{trace_id}/audit-report?format=markdown"
+```
+
+The report includes:
+- **Verdict**: PASS or FAIL (quality ≥ 0.60, completeness ≥ 0.80, zero failures)
+- **Audit ID**: SHA-256 stable reference for compliance records
+- **Decision Quality Score**: weighted coverage + success rate
+- **Root Causes**: which steps failed and why
+- **Recommendations**: actionable counterfactual alternatives
+- **Markdown body**: paste directly into a PR description
+
+### Agent Constitution
+
+A machine-readable governance policy that all agents follow. Queryable by any external agent platform:
+
+```bash
+# Query the laws
+curl http://localhost:8000/api/system/constitution
+
+# Pre-action check (returns ALLOW / REQUIRE_APPROVAL / DENY)
+curl -X POST http://localhost:8000/api/system/constitution/check \
+  -H "Content-Type: application/json" \
+  -d '{"action_type": "delete", "context": {"ci_status": "FAILED", "trace_id": "tr-001"}}'
+```
+
+Three governance tiers:
+- **Tier 1 (5 laws → DENY)**: No destructive ops without CI pass, delegation depth ≤ 3, no PII in logs, no external writes without trace ID, no self-modification of governance files
+- **Tier 2 (3 laws → REQUIRE_APPROVAL)**: Production deployments, infrastructure changes, bulk operations >1,000 records
+- **Tier 3 (3 triggers → alerts)**: Low confidence, high failure rate, RAG similarity degradation
+
+The Governance dashboard page renders all laws interactively and includes a pre-action check simulator.
+
+### Cross-Platform Ingestion
+
+Any agent platform can push events into AgenticQA's observability layer:
+
+```python
+# LangGraph / LangChain — zero-config callback adapter
+from agenticqa.ingestion import LangChainCallbackAdapter
+from agenticqa.observability import ObservabilityStore
+
+store = ObservabilityStore()
+adapter = LangChainCallbackAdapter(store=store, trace_id="my-trace-123")
+chain.invoke(inputs, config={"callbacks": [adapter]})  # automatic span tracking
+
+# CrewAI / AutoGen / custom — generic dict adapter
+from agenticqa.ingestion import GenericDictAdapter
+adapter = GenericDictAdapter(store=store)
+adapter.ingest({"crew_id": "crew-xyz", "sender": "ResearchAgent", "status": "success"})
+```
+
+Field mapping is automatic: `run_id` → `span_id`, `crew_id` → `trace_id`, `sender` → `agent`, etc. Token usage (prompt + completion) flows into agent complexity trends automatically.
+
+### Agent Complexity Tracking
+
+Per-agent retrieval quality is tracked over time and surfaced in the Operator Console:
+
+| Metric | What It Measures |
+|---|---|
+| `rag_docs_retrieved` | How many RAG docs were pulled per action |
+| `avg_similarity_score` | Average vector similarity — proxy for retrieval quality |
+| `llm_prompt_tokens` | Token cost for external LLM-based agents |
+| `llm_completion_tokens` | Response token cost |
+
+Anomaly detection: if the current 3-day similarity average drops >20% below the 14-day baseline, an `anomaly_detected` flag is raised — your signal that the vector index may need reindexing.
 
 ### CI/CD observability quality report
 
@@ -414,15 +504,21 @@ This is the intake/orchestration foundation for future Slack/Teams integrations.
 ```
 AgenticQA/
 ├── src/agenticqa/
-│   ├── collaboration/    # Agent delegation, registry, guardrails
-│   ├── graph/            # Neo4j graph store, hybrid RAG
-│   ├── rag/              # Weaviate vector store, embeddings, retrieval
-│   ├── data_store/       # Artifact store, snapshots, security
-│   └── cli.py            # CLI interface
-├── dashboard/            # 6-page Streamlit analytics dashboard
-├── tests/                # 250 tests — unit, integration, RAG, delegation, UI
-├── .github/workflows/    # CI pipeline (16 jobs) + nightly self-validation
-└── examples/             # SDK usage (Python, TypeScript, Neo4j)
+│   ├── collaboration/       # Agent delegation, registry, guardrails
+│   ├── graph/               # Neo4j graph store, hybrid RAG
+│   ├── rag/                 # Weaviate/Qdrant vector store, embeddings, retrieval
+│   ├── ingestion/           # Cross-platform event ingestion (LangChain, CrewAI, AutoGen, REST)
+│   ├── verification/        # Feedback loop, outcome tracker, threshold calibrator, tracer
+│   ├── data_store/          # Artifact store, snapshots, security, pattern analyzer
+│   ├── observability.py     # SQLite observability store with complexity tracking + anomaly detection
+│   ├── audit_report.py      # AI decision audit report builder (PR-embeddable markdown artifact)
+│   ├── constitutional_gate.py  # Pre-action governance check (ALLOW/REQUIRE_APPROVAL/DENY)
+│   ├── constitution.yaml    # Agent Constitution — Tier 1/2/3 laws + agent rights
+│   └── cli.py               # CLI interface
+├── dashboard/               # 8-page Streamlit analytics dashboard
+├── tests/                   # 300+ tests — unit, integration, RAG, delegation, governance, UI
+├── .github/workflows/       # CI pipeline (16 jobs) + nightly self-validation
+└── examples/                # SDK usage (Python, TypeScript, Neo4j)
 ```
 
 ---

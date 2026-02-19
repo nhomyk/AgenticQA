@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from datetime import UTC, datetime
 from pathlib import Path
+import os
 
 from src.agents import AgentOrchestrator
 from src.data_store import SecureDataPipeline
@@ -14,11 +15,33 @@ try:
     from src.agenticqa.workflow_worker import WorkflowExecutionWorker
     from src.agenticqa.observability import ObservabilityStore
     from src.agenticqa.reliability_evidence import build_evidence_summary, check_tcp, read_latest_jsonl
+    from src.agenticqa.repo_profile import detect_repo_profile
+    from src.agenticqa.rag.config import RAGConfig
+    from src.agenticqa.portability_scorecard import (
+        build_portability_roi_report,
+        build_portability_scorecard,
+        load_baseline,
+        save_baseline,
+    )
+    from src.agenticqa.audit_report import build_audit_report
+    from src.agenticqa.ingestion.event_schema import normalize_event as _normalize_ingest_event
+    from src.agenticqa.constitutional_gate import check_action as _constitutional_check, get_constitution
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
     from agenticqa.observability import ObservabilityStore
     from agenticqa.reliability_evidence import build_evidence_summary, check_tcp, read_latest_jsonl
+    from agenticqa.repo_profile import detect_repo_profile
+    from agenticqa.rag.config import RAGConfig
+    from agenticqa.portability_scorecard import (
+        build_portability_roi_report,
+        build_portability_scorecard,
+        load_baseline,
+        save_baseline,
+    )
+    from agenticqa.audit_report import build_audit_report
+    from agenticqa.ingestion.event_schema import normalize_event as _normalize_ingest_event
+    from agenticqa.constitutional_gate import check_action as _constitutional_check, get_constitution
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -96,6 +119,43 @@ class PluginRepoRequest(BaseModel):
     force: bool = False
 
 
+class PortabilityBaselineRequest(BaseModel):
+    """Request payload to persist current portability scorecard as baseline."""
+
+    repo: str = "."
+    note: str = ""
+
+
+class ChatSessionCreateRequest(BaseModel):
+    """Create a persisted dashboard chat session."""
+
+    repo: str = "."
+    requester: str = "dashboard_chat"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ChatMessageRequest(BaseModel):
+    """Append a message to an existing chat session."""
+
+    role: str
+    content: str
+    metadata: Optional[Dict[str, Any]] = None
+    request_id: Optional[str] = None
+
+
+class ChatTurnRequest(BaseModel):
+    """Single chat turn with optional workflow request creation."""
+
+    message: str
+    session_id: Optional[str] = None
+    repo: str = "."
+    requester: str = "dashboard_chat"
+    auto_create_workflow: bool = True
+    mode: str = "deterministic"
+    tool_execution: str = "require_approval"
+    metadata: Optional[Dict[str, Any]] = None
+
+
 class ObservabilityEventsQuery(BaseModel):
     """Optional filters for observability event queries."""
 
@@ -104,6 +164,153 @@ class ObservabilityEventsQuery(BaseModel):
     agent: Optional[str] = None
     action: Optional[str] = None
     limit: int = 100
+
+
+class IngestEventRequest(BaseModel):
+    """Single normalized event from any external agent platform."""
+
+    trace_id: str
+    agent: str
+    action: str
+    status: str
+    request_id: Optional[str] = None
+    span_id: Optional[str] = None
+    parent_span_id: Optional[str] = None
+    event_type: Optional[str] = None
+    step_key: Optional[str] = None
+    latency_ms: Optional[float] = None
+    decision: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    llm_prompt_tokens: Optional[int] = None
+    llm_completion_tokens: Optional[int] = None
+
+
+class IngestBatchRequest(BaseModel):
+    events: List[IngestEventRequest]
+
+
+def _infer_operator_actions(message: str) -> List[Dict[str, Any]]:
+    """Infer a deterministic action plan from plain-language operator input."""
+    text = (message or "").lower()
+    actions: List[Dict[str, Any]] = []
+
+    if any(token in text for token in ["scorecard", "portability"]):
+        actions.append(
+            {
+                "tool": "get_portability_scorecard",
+                "label": "Fetch portability scorecard",
+                "risk": "low",
+                "requires_approval": False,
+                "kind": "read",
+            }
+        )
+    if any(token in text for token in ["baseline", "save baseline"]):
+        actions.append(
+            {
+                "tool": "save_portability_baseline",
+                "label": "Save current baseline snapshot",
+                "risk": "medium",
+                "requires_approval": True,
+                "kind": "write",
+            }
+        )
+    if any(token in text for token in ["roi", "report"]):
+        actions.append(
+            {
+                "tool": "get_portability_roi_report",
+                "label": "Generate ROI report",
+                "risk": "low",
+                "requires_approval": False,
+                "kind": "read",
+            }
+        )
+    if any(token in text for token in ["approve", "queue", "run", "replay", "cancel"]):
+        actions.append(
+            {
+                "tool": "governed_workflow_transition",
+                "label": "Run governed workflow action",
+                "risk": "high",
+                "requires_approval": True,
+                "kind": "write",
+            }
+        )
+
+    if not actions:
+        actions.append(
+            {
+                "tool": "create_workflow_request",
+                "label": "Create workflow request",
+                "risk": "medium",
+                "requires_approval": True,
+                "kind": "write",
+            }
+        )
+
+    return actions
+
+
+def _build_chat_assistant_reply(
+    message: str,
+    workflow_item: Optional[Dict[str, Any]] = None,
+    action_plan: Optional[List[Dict[str, Any]]] = None,
+    mode: str = "deterministic",
+    tool_execution: str = "require_approval",
+) -> str:
+    """Build deterministic assistant feedback for dashboard chat turns."""
+    cleaned = (message or "").strip()
+    if mode == "llm":
+        mode_text = "LLM mode selected; deterministic fallback is active until provider adapter is configured."
+    else:
+        mode_text = "Deterministic operator mode active."
+
+    action_count = len(action_plan or [])
+
+    if workflow_item:
+        req_id = workflow_item.get("id")
+        status = workflow_item.get("status")
+        next_action = workflow_item.get("next_action")
+        return (
+            f"{mode_text} "
+            f"Captured your request and saved it as workflow `{req_id}`. "
+            f"Current status: {status}. Next action: {next_action}. "
+            f"Action plan contains {action_count} governed step(s) with policy `{tool_execution}`. "
+            "You can approve/queue it from Prompt Ops controls or keep chatting to submit follow-up changes."
+        )
+    if not cleaned:
+        return "Please enter a prompt to continue."
+    return (
+        f"{mode_text} Message saved with {action_count} proposed action(s). "
+        f"Current policy is `{tool_execution}`. Enable auto-workflow to turn chat prompts into executable workflow requests."
+    )
+
+
+def _resolve_tool_policy(tool_execution: str) -> str:
+    policy = (tool_execution or "require_approval").strip().lower()
+    if policy not in {"suggest_only", "require_approval", "auto_for_safe"}:
+        return "require_approval"
+    return policy
+
+
+def _resolve_chat_mode(mode: str) -> str:
+    requested = (mode or "deterministic").strip().lower()
+    if requested not in {"deterministic", "llm"}:
+        return "deterministic"
+    return requested
+
+
+def _llm_provider_config() -> Dict[str, Any]:
+    provider = os.getenv("AGENTICQA_LLM_PROVIDER", "none").strip().lower()
+    model = os.getenv("AGENTICQA_LLM_MODEL", "deterministic-fallback")
+    base_url = os.getenv("AGENTICQA_LLM_BASE_URL", "")
+    has_key = bool(os.getenv("AGENTICQA_LLM_API_KEY"))
+    return {
+        "provider": provider,
+        "model": model,
+        "base_url": base_url,
+        "configured": provider not in {"", "none"} and has_key,
+        "api_key_configured": has_key,
+    }
 
 
 @app.get("/health")
@@ -121,11 +328,18 @@ async def system_readiness():
     """Detailed readiness checks for local dependencies and data stores."""
     try:
         home = Path.home() / ".agenticqa"
+        vector_provider = RAGConfig.get_vector_provider().value
+        weaviate_up = check_tcp("127.0.0.1", 8080)
+        qdrant_up = check_tcp("127.0.0.1", 6333)
         checks = {
             "workflow_db_writable": home.exists() or home.parent.exists(),
             "observability_db_writable": home.exists() or home.parent.exists(),
             "neo4j_tcp": check_tcp("127.0.0.1", 7687),
-            "weaviate_tcp": check_tcp("127.0.0.1", 8080),
+            "weaviate_tcp": weaviate_up,
+            "qdrant_tcp": qdrant_up,
+            "vector_provider": vector_provider,
+            "vector_provider_tcp": qdrant_up if vector_provider == "qdrant" else weaviate_up,
+            "vector_store_available": weaviate_up or qdrant_up,
         }
         ready = checks["workflow_db_writable"] and checks["observability_db_writable"]
         return {
@@ -134,6 +348,59 @@ async def system_readiness():
             "checks": checks,
             "timestamp": datetime.now(UTC).isoformat(),
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/system/constitution")
+async def get_system_constitution():
+    """Return the AgenticQA Agent Constitution.
+
+    Any external agent platform (LangGraph, CrewAI, AutoGen, etc.) can query
+    this endpoint to discover the governance rules they must enforce.
+    """
+    try:
+        constitution = get_constitution()
+        if not constitution:
+            raise HTTPException(status_code=503, detail="Constitution not loaded.")
+        return {
+            "success": True,
+            "version": constitution.get("version", "unknown"),
+            "effective_date": constitution.get("effective_date"),
+            "platform": constitution.get("platform"),
+            "tier_1_count": len(constitution.get("tier_1", [])),
+            "tier_2_count": len(constitution.get("tier_2", [])),
+            "tier_3_count": len(constitution.get("tier_3", [])),
+            "constitution": constitution,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ConstitutionalCheckRequest(BaseModel):
+    action_type: str
+    context: Dict[str, Any] = {}
+
+
+@app.post("/api/system/constitution/check")
+async def constitutional_check(request: ConstitutionalCheckRequest):
+    """Pre-action constitutional check for any agent platform.
+
+    Submit a proposed action and its context; receive ALLOW / REQUIRE_APPROVAL / DENY.
+
+    Example request:
+        {"action_type": "delete", "context": {"ci_status": "FAILED", "trace_id": "tr-001"}}
+    Example response:
+        {"verdict": "DENY", "law": "T1-001", "name": "no_destructive_without_ci", "reason": "..."}
+    """
+    try:
+        result = _constitutional_check(
+            action_type=request.action_type,
+            context=request.context,
+        )
+        return {"success": True, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -328,6 +595,210 @@ async def create_workflow_request(request: WorkflowRequestCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/chat/sessions")
+async def create_chat_session(body: ChatSessionCreateRequest):
+    """Create a new persisted chat session for dashboard operator flow."""
+    try:
+        session = workflow_store.create_chat_session(
+            repo=body.repo,
+            requester=body.requester,
+            metadata=body.metadata,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "session": session,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/chat/sessions")
+async def list_chat_sessions(limit: int = 25):
+    """List recent chat sessions."""
+    try:
+        sessions = workflow_store.list_chat_sessions(limit=limit)
+        return {
+            "success": True,
+            "count": len(sessions),
+            "sessions": sessions,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/chat/sessions/{session_id}")
+async def get_chat_session(session_id: str, limit: int = 200):
+    """Get a chat session with message history."""
+    try:
+        session = workflow_store.get_chat_session(session_id=session_id, message_limit=limit)
+        if not session:
+            raise HTTPException(status_code=404, detail="chat session not found")
+        return {
+            "success": True,
+            "session": session,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat/sessions/{session_id}/messages")
+async def add_chat_message(session_id: str, body: ChatMessageRequest):
+    """Append a message to a chat session."""
+    try:
+        content = (body.content or "").strip()
+        if not content:
+            raise HTTPException(status_code=400, detail="content cannot be empty")
+        message = workflow_store.add_chat_message(
+            session_id=session_id,
+            role=body.role,
+            content=content,
+            metadata=body.metadata,
+            request_id=body.request_id,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "message": message,
+        }
+    except ValueError as e:
+        if "chat_session_not_found" in str(e):
+            raise HTTPException(status_code=404, detail="chat session not found")
+        if "invalid_chat_role" in str(e):
+            raise HTTPException(status_code=400, detail="invalid chat role")
+        raise HTTPException(status_code=409, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat/turn")
+async def chat_turn(body: ChatTurnRequest):
+    """Persist a chat turn and optionally create a workflow request from the prompt."""
+    try:
+        message = (body.message or "").strip()
+        if not message:
+            raise HTTPException(status_code=400, detail="message cannot be empty")
+
+        session = None
+        if body.session_id:
+            session = workflow_store.get_chat_session(body.session_id, message_limit=1)
+            if not session:
+                raise HTTPException(status_code=404, detail="chat session not found")
+        else:
+            session = workflow_store.create_chat_session(
+                repo=body.repo,
+                requester=body.requester,
+                metadata={"source": "chat_turn"},
+            )
+
+        session_id = session["id"]
+        user_msg = workflow_store.add_chat_message(
+            session_id=session_id,
+            role="user",
+            content=message,
+            metadata=body.metadata,
+        )
+
+        mode = _resolve_chat_mode(body.mode)
+        tool_policy = _resolve_tool_policy(body.tool_execution)
+        action_plan = _infer_operator_actions(message)
+
+        allow_write = tool_policy != "suggest_only"
+
+        workflow_item = None
+        if body.auto_create_workflow and allow_write:
+            workflow_item = workflow_store.create_request(
+                prompt=message,
+                repo=body.repo,
+                requester=body.requester,
+                metadata={
+                    "source": "dashboard_chat",
+                    "chat_session_id": session_id,
+                    "operator_mode": mode,
+                    "tool_execution": tool_policy,
+                    "action_plan": action_plan,
+                    **(body.metadata or {}),
+                },
+            )
+
+        assistant_text = _build_chat_assistant_reply(
+            message=message,
+            workflow_item=workflow_item,
+            action_plan=action_plan,
+            mode=mode,
+            tool_execution=tool_policy,
+        )
+        assistant_msg = workflow_store.add_chat_message(
+            session_id=session_id,
+            role="assistant",
+            content=assistant_text,
+            metadata={
+                "source": "chat_orchestrator",
+                "mode": mode,
+                "tool_execution": tool_policy,
+                "action_plan": action_plan,
+            },
+            request_id=(workflow_item or {}).get("id") if workflow_item else None,
+        )
+
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "mode": mode,
+            "tool_execution": tool_policy,
+            "action_plan": action_plan,
+            "user_message": user_msg,
+            "assistant_message": assistant_msg,
+            "workflow_request": workflow_item,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/operator/config")
+async def get_operator_config():
+    """Return operator console configuration summary (safe/no secrets)."""
+    try:
+        llm = _llm_provider_config()
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "operator": {
+                "default_mode": "deterministic",
+                "tool_execution_modes": ["suggest_only", "require_approval", "auto_for_safe"],
+                "write_actions_require_approval": True,
+            },
+            "llm": llm,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/operator/config/test-connection")
+async def test_operator_llm_connection():
+    """Validate LLM configuration wiring (dry check, no remote call)."""
+    try:
+        llm = _llm_provider_config()
+        ok = bool(llm.get("configured"))
+        detail = "configured" if ok else "provider or API key missing"
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "ok": ok,
+            "detail": detail,
+            "llm": llm,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/workflows/requests")
 async def list_workflow_requests(limit: int = 25):
     """List recent workflow requests."""
@@ -442,6 +913,92 @@ async def get_workflow_evidence(limit: int = 500):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/workflows/portability-scorecard")
+async def get_portability_scorecard(repo: str = ".", limit: int = 500):
+    """Build portability scorecard and baseline delta for any target repository."""
+    try:
+        repo_root = Path(repo).expanduser().resolve()
+        profile = detect_repo_profile(repo_root).to_dict()
+        metrics = workflow_store.get_metrics(lookback_limit=limit)
+        insights = observability_store.get_global_insights(limit=limit)
+        baseline = load_baseline(str(repo_root))
+        scorecard = build_portability_scorecard(
+            repo_profile=profile,
+            workflow_metrics=metrics,
+            observability_insights=insights,
+            baseline=baseline,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "repo": str(repo_root),
+            "scorecard": scorecard,
+            "has_baseline": baseline is not None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/workflows/portability-scorecard/baseline")
+async def save_portability_scorecard_baseline(body: PortabilityBaselineRequest):
+    """Persist current portability scorecard as baseline for future delta comparisons."""
+    try:
+        repo_root = Path(body.repo).expanduser().resolve()
+        profile = detect_repo_profile(repo_root).to_dict()
+        metrics = workflow_store.get_metrics(lookback_limit=500)
+        insights = observability_store.get_global_insights(limit=500)
+        scorecard = build_portability_scorecard(
+            repo_profile=profile,
+            workflow_metrics=metrics,
+            observability_insights=insights,
+            baseline=load_baseline(str(repo_root)),
+        )
+        saved = save_baseline(
+            repo_root=str(repo_root),
+            scorecard=scorecard,
+            note=body.note,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "repo": str(repo_root),
+            "baseline": saved,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/portability-scorecard/roi-report")
+async def get_portability_roi_report(repo: str = ".", limit: int = 500):
+    """Export a compact baseline/current/delta ROI report for a repository."""
+    try:
+        repo_root = Path(repo).expanduser().resolve()
+        profile = detect_repo_profile(repo_root).to_dict()
+        metrics = workflow_store.get_metrics(lookback_limit=limit)
+        insights = observability_store.get_global_insights(limit=limit)
+        baseline = load_baseline(str(repo_root))
+        scorecard = build_portability_scorecard(
+            repo_profile=profile,
+            workflow_metrics=metrics,
+            observability_insights=insights,
+            baseline=baseline,
+        )
+        report = build_portability_roi_report(
+            repo_root=str(repo_root),
+            scorecard=scorecard,
+            workflow_metrics=metrics,
+        )
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "repo": str(repo_root),
+            "has_baseline": baseline is not None,
+            "report": report,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/workflows/worker/run-next")
 async def run_next_workflow_request(body: WorkflowRunRequest):
     """Run worker execution for the oldest queued workflow request."""
@@ -534,6 +1091,31 @@ async def get_observability_counterfactuals(trace_id: str, limit: int = 300):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/observability/traces/{trace_id}/audit-report")
+async def get_observability_audit_report(trace_id: str, format: str = "json", limit: int = 500):
+    """Build a shareable AI Decision Audit Report for a single trace.
+
+    Returns structured JSON by default. Use format=markdown to get the pre-rendered PR body.
+    Raises 404 if the trace has no recorded events.
+    """
+    try:
+        report = build_audit_report(trace_id=trace_id, obs_store=observability_store, limit=limit)
+        if format == "markdown":
+            return {
+                "success": True,
+                "trace_id": trace_id,
+                "audit_id": report["audit_id"],
+                "markdown_body": report["markdown_body"],
+            }
+        return {"success": True, "trace_id": trace_id, "report": report}
+    except ValueError as e:
+        if str(e).startswith("trace_not_found:"):
+            raise HTTPException(status_code=404, detail=f"Trace not found: {trace_id}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/observability/events")
 async def list_observability_events(
     limit: int = 100,
@@ -577,6 +1159,121 @@ async def get_observability_quality(
             "success": True,
             "timestamp": datetime.now(UTC).isoformat(),
             "quality": summary,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/observability/ingest")
+async def ingest_event(event: IngestEventRequest):
+    """Ingest a single agent event from any external platform.
+
+    Accepts events from LangGraph, LangChain, CrewAI, AutoGen, OpenAI Agents SDK,
+    or any custom agent. All existing observability endpoints (traces, audit-report,
+    counterfactuals, complexity trends) work transparently on ingested events.
+    """
+    try:
+        evt = _normalize_ingest_event(event.model_dump())
+        observability_store.log_event(
+            trace_id=evt.trace_id,
+            request_id=evt.request_id,
+            agent=evt.agent,
+            action=evt.action,
+            status=evt.status,
+            span_id=evt.span_id,
+            parent_span_id=evt.parent_span_id,
+            event_type=evt.event_type,
+            step_key=evt.step_key,
+            latency_ms=evt.latency_ms,
+            decision=evt.decision,
+            error=evt.error,
+            metadata=evt.metadata,
+        )
+        if evt.llm_prompt_tokens or evt.llm_completion_tokens:
+            observability_store.log_complexity_metric(
+                agent=evt.agent,
+                action=evt.action,
+                trace_id=evt.trace_id,
+                llm_prompt_tokens=evt.llm_prompt_tokens or 0,
+                llm_completion_tokens=evt.llm_completion_tokens or 0,
+            )
+        return {"success": True, "trace_id": evt.trace_id, "agent": evt.agent, "status": evt.status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/observability/ingest/batch")
+async def ingest_events_batch(batch: IngestBatchRequest):
+    """Ingest a batch of agent events. Processes all events; returns per-event status."""
+    results = []
+    errors = 0
+    for raw in batch.events:
+        try:
+            evt = _normalize_ingest_event(raw.model_dump())
+            observability_store.log_event(
+                trace_id=evt.trace_id,
+                request_id=evt.request_id,
+                agent=evt.agent,
+                action=evt.action,
+                status=evt.status,
+                span_id=evt.span_id,
+                parent_span_id=evt.parent_span_id,
+                event_type=evt.event_type,
+                step_key=evt.step_key,
+                latency_ms=evt.latency_ms,
+                decision=evt.decision,
+                error=evt.error,
+                metadata=evt.metadata,
+            )
+            if evt.llm_prompt_tokens or evt.llm_completion_tokens:
+                observability_store.log_complexity_metric(
+                    agent=evt.agent,
+                    action=evt.action,
+                    trace_id=evt.trace_id,
+                    llm_prompt_tokens=evt.llm_prompt_tokens or 0,
+                    llm_completion_tokens=evt.llm_completion_tokens or 0,
+                )
+            results.append({"trace_id": evt.trace_id, "agent": evt.agent, "ok": True})
+        except Exception as e:
+            errors += 1
+            results.append({"ok": False, "error": str(e)})
+    return {
+        "success": errors == 0,
+        "total": len(results),
+        "errors": errors,
+        "results": results,
+    }
+
+
+@app.get("/api/observability/agent-complexity")
+async def get_agent_complexity(agent: Optional[str] = None, window_days: int = 14):
+    """Return RAG retrieval complexity trends per agent for degradation detection.
+
+    Tracks rag_docs_retrieved, avg_similarity_score, and patterns_considered over time.
+    Anomaly flagged when recent 3-day similarity drops >20% vs window baseline.
+    """
+    try:
+        if agent:
+            trends = observability_store.get_complexity_trends(agent=agent, window_days=window_days)
+            return {"success": True, "timestamp": datetime.now(UTC).isoformat(), "complexity": trends}
+        from datetime import timedelta
+        cutoff = (datetime.now(UTC) - timedelta(days=window_days)).isoformat()
+        c = observability_store.conn.cursor()
+        agents = [
+            r[0] for r in c.execute(
+                "SELECT DISTINCT agent FROM agent_complexity_metrics WHERE timestamp >= ?", (cutoff,)
+            ).fetchall()
+        ]
+        all_trends = [
+            observability_store.get_complexity_trends(agent=a, window_days=window_days)
+            for a in agents
+        ]
+        return {
+            "success": True,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "agents": agents,
+            "complexity": all_trends,
+            "anomalies": [t for t in all_trends if t.get("anomaly")],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

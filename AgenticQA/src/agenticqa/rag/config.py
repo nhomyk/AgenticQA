@@ -103,6 +103,7 @@ class RAGConfig:
     ENV_QDRANT_URL = "QDRANT_URL"
     ENV_VECTOR_DUAL_WRITE = "AGENTICQA_VECTOR_DUAL_WRITE"
     ENV_VECTOR_SECONDARY_PROVIDER = "AGENTICQA_VECTOR_SECONDARY_PROVIDER"
+    ENV_VECTOR_AUTO_FALLBACK = "AGENTICQA_VECTOR_AUTO_FALLBACK"
 
     @staticmethod
     def get_vector_provider() -> VectorProvider:
@@ -284,6 +285,15 @@ class RAGConfig:
         return secondary
 
     @staticmethod
+    def is_auto_fallback_enabled() -> bool:
+        """Check if automatic provider fallback is enabled when primary is unavailable."""
+        return os.getenv(RAGConfig.ENV_VECTOR_AUTO_FALLBACK, "true").lower() in [
+            "true",
+            "1",
+            "yes",
+        ]
+
+    @staticmethod
     def print_config_summary() -> str:
         """
         Print configuration summary (safe, no secrets).
@@ -347,12 +357,37 @@ def create_vector_store_for_provider(provider: VectorProvider):
 def create_vector_store():
     """Factory function to create vector store by provider."""
     provider = RAGConfig.get_vector_provider()
-    primary_store = create_vector_store_for_provider(provider)
+    selected_provider = provider
+
+    try:
+        primary_store = create_vector_store_for_provider(provider)
+    except Exception as primary_exc:
+        if not RAGConfig.is_auto_fallback_enabled():
+            raise
+
+        fallback_provider = (
+            VectorProvider.QDRANT
+            if provider == VectorProvider.WEAVIATE
+            else VectorProvider.WEAVIATE
+        )
+        try:
+            print(
+                f"Warning: Primary vector store unavailable ({provider.value}): {primary_exc}. "
+                f"Falling back to {fallback_provider.value}."
+            )
+            primary_store = create_vector_store_for_provider(fallback_provider)
+            selected_provider = fallback_provider
+        except Exception as fallback_exc:
+            raise RuntimeError(
+                "Failed to initialize vector store. "
+                f"Primary ({provider.value}) error: {primary_exc}. "
+                f"Fallback ({fallback_provider.value}) error: {fallback_exc}."
+            )
 
     if not RAGConfig.is_dual_write_enabled():
         return primary_store
 
-    secondary_provider = RAGConfig.get_secondary_provider(provider)
+    secondary_provider = RAGConfig.get_secondary_provider(selected_provider)
     if secondary_provider is None:
         return primary_store
 

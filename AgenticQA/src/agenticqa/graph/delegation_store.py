@@ -73,6 +73,13 @@ class DelegationGraphStore:
             self._connected = True
             logger.info(f"Connected to Neo4j at {self.uri}")
         except (ServiceUnavailable, AuthError) as e:
+            if self.driver:
+                try:
+                    self.driver.close()
+                except Exception:
+                    pass
+            self.driver = None
+            self._connected = False
             logger.error(f"Failed to connect to Neo4j: {e}")
             raise
 

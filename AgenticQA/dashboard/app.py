@@ -30,6 +30,34 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
+def _install_streamlit_width_compat() -> None:
+    """Map deprecated use_container_width to width for Streamlit widgets.
+
+    This keeps existing call-sites stable while preventing runtime deprecation spam
+    in recent Streamlit versions.
+    """
+    original_plotly_chart = st.plotly_chart
+    original_dataframe = st.dataframe
+
+    def _translate_kwargs(kwargs: dict) -> dict:
+        copied = dict(kwargs)
+        if "use_container_width" in copied and "width" not in copied:
+            copied["width"] = "stretch" if copied.pop("use_container_width") else "content"
+        return copied
+
+    def _plotly_chart_compat(*args, **kwargs):
+        return original_plotly_chart(*args, **_translate_kwargs(kwargs))
+
+    def _dataframe_compat(*args, **kwargs):
+        return original_dataframe(*args, **_translate_kwargs(kwargs))
+
+    st.plotly_chart = _plotly_chart_compat
+    st.dataframe = _dataframe_compat
+
+
+_install_streamlit_width_compat()
+
 # Custom CSS
 st.markdown("""
 <style>
@@ -2354,10 +2382,10 @@ def render_api_plug(store=None):
 
 def render_prompt_ops():
     """Prompt-driven workflow intake and lifecycle controls."""
-    st.subheader("📝 Prompt Ops Intake")
+    st.subheader("🧭 Operator Console")
     st.markdown(
-        "Submit development requests, approve/queue execution, and track workflow state "
-        "through the FastAPI control plane."
+        "Primary intake for user intent and governed execution. Submit requests, collaborate in chat, "
+        "and run approve/queue/execute workflows from a single surface."
     )
 
     api_base = st.text_input(
@@ -2477,7 +2505,246 @@ def render_prompt_ops():
                     st.error(f"Failed to create workflow request: {e}")
 
     st.markdown("---")
-    st.markdown("### Recent Workflow Requests")
+    st.markdown("### 💬 Operator Chat (In-Dashboard)")
+    st.caption(
+        "Chat prompts are persisted and can be converted into workflow requests automatically, "
+        "so users can stay fully inside the dashboard flow."
+    )
+
+    chat_col1, chat_col2, chat_col3 = st.columns([2, 1, 1])
+    with chat_col1:
+        auto_create_from_chat = st.checkbox(
+            "Auto-create workflow requests from chat prompts",
+            value=True,
+            key="prompt_ops_chat_auto_create",
+        )
+    with chat_col2:
+        chat_repo = st.text_input("Chat Repo", value=repo, key="prompt_ops_chat_repo")
+    with chat_col3:
+        chat_requester = st.text_input("Chat Requester", value=requester, key="prompt_ops_chat_requester")
+
+    mode_col1, mode_col2 = st.columns([1, 1])
+    with mode_col1:
+        operator_mode = st.selectbox(
+            "Operator Mode",
+            options=["deterministic", "llm"],
+            index=0,
+            key="prompt_ops_operator_mode",
+            help="LLM mode currently falls back to deterministic behavior until provider adapter is configured.",
+        )
+    with mode_col2:
+        tool_execution_mode = st.selectbox(
+            "Tool Execution Policy",
+            options=["require_approval", "suggest_only", "auto_for_safe"],
+            index=0,
+            key="prompt_ops_tool_execution_mode",
+            help="Governed action policy for chat turns.",
+        )
+
+    if st.button("Check Operator Config", key="prompt_ops_operator_config_check"):
+        try:
+            import requests as req_lib
+
+            config_resp = req_lib.get(f"{api_base}/api/operator/config", timeout=8)
+            if config_resp.status_code < 300:
+                st.json(config_resp.json())
+            else:
+                st.warning(f"Operator config endpoint returned {config_resp.status_code}.")
+        except Exception as e:
+            st.warning(f"Unable to fetch operator config: {e}")
+
+    if st.button("Start New Chat Session", key="prompt_ops_chat_new_session"):
+        st.session_state["prompt_ops_chat_session_id"] = None
+        st.session_state["prompt_ops_last_action_plan"] = []
+        st.session_state["prompt_ops_last_mode"] = "deterministic"
+        st.session_state["prompt_ops_last_tool_execution"] = "require_approval"
+        st.session_state["prompt_ops_chat_reset_notice"] = True
+        st.rerun()
+
+    try:
+        import requests as req_lib
+
+        if not st.session_state.get("prompt_ops_chat_session_id"):
+            create_session_resp = req_lib.post(
+                f"{api_base}/api/chat/sessions",
+                json={
+                    "repo": chat_repo,
+                    "requester": chat_requester,
+                    "metadata": {"source": "dashboard_prompt_ops"},
+                },
+                timeout=8,
+            )
+            if create_session_resp.status_code < 300:
+                session = (create_session_resp.json() or {}).get("session") or {}
+                st.session_state["prompt_ops_chat_session_id"] = session.get("id")
+            else:
+                st.error(f"Unable to create chat session ({create_session_resp.status_code}).")
+
+        if st.session_state.pop("prompt_ops_chat_reset_notice", False):
+            st.success("Started a new chat session.")
+
+        session_id = st.session_state.get("prompt_ops_chat_session_id")
+        if session_id:
+            st.caption(f"Session: {session_id}")
+            history_resp = req_lib.get(
+                f"{api_base}/api/chat/sessions/{session_id}",
+                params={"limit": 150},
+                timeout=8,
+            )
+            if history_resp.status_code < 300:
+                session_payload = (history_resp.json() or {}).get("session") or {}
+                history = session_payload.get("messages") or []
+                for msg in history:
+                    role = msg.get("role", "assistant")
+                    with st.chat_message("assistant" if role == "assistant" else "user"):
+                        st.write(msg.get("content", ""))
+                        if msg.get("request_id"):
+                            st.caption(f"Linked workflow: {msg.get('request_id')}")
+
+        chat_input = st.chat_input("Type a request (e.g., add retries + tests to webhook flow)")
+        if chat_input and session_id:
+            turn_payload = {
+                "session_id": session_id,
+                "message": chat_input,
+                "repo": chat_repo,
+                "requester": chat_requester,
+                "auto_create_workflow": auto_create_from_chat,
+                "mode": operator_mode,
+                "tool_execution": tool_execution_mode,
+                "metadata": {
+                    "approved_by": approved_by.strip(),
+                    "policy_ticket": policy_ticket.strip(),
+                    "allow_high_risk": allow_high_risk,
+                    "auto_rollback": auto_rollback,
+                    "max_sdet_iterations": int(max_sdet_iterations),
+                    "require_sdet_loop": require_sdet_loop,
+                    "enable_sdet_autofix": enable_sdet_autofix,
+                    "max_sdet_fix_attempts": int(max_sdet_fix_attempts),
+                },
+            }
+            turn_resp = req_lib.post(f"{api_base}/api/chat/turn", json=turn_payload, timeout=20)
+            if turn_resp.status_code < 300:
+                body = turn_resp.json() or {}
+                workflow_item = body.get("workflow_request") or {}
+                st.session_state["prompt_ops_last_action_plan"] = body.get("action_plan") or []
+                st.session_state["prompt_ops_last_tool_execution"] = body.get("tool_execution")
+                st.session_state["prompt_ops_last_mode"] = body.get("mode")
+                if workflow_item.get("id"):
+                    st.success(
+                        f"Prompt saved and workflow created: {workflow_item.get('id')} "
+                        f"({workflow_item.get('status')})"
+                    )
+                st.rerun()
+            else:
+                st.error(f"Chat turn failed ({turn_resp.status_code}): {turn_resp.text[:400]}")
+
+        last_plan = st.session_state.get("prompt_ops_last_action_plan") or []
+        if last_plan:
+            st.markdown("#### 🧭 Last Operator Action Plan")
+            st.caption(
+                f"Mode: {st.session_state.get('prompt_ops_last_mode', 'deterministic')} · "
+                f"Policy: {st.session_state.get('prompt_ops_last_tool_execution', 'require_approval')}"
+            )
+            plan_rows = []
+            for step in last_plan:
+                plan_rows.append(
+                    {
+                        "tool": step.get("tool"),
+                        "label": step.get("label"),
+                        "risk": step.get("risk"),
+                        "requires_approval": step.get("requires_approval"),
+                        "kind": step.get("kind"),
+                    }
+                )
+            st.dataframe(pd.DataFrame(plan_rows), use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.warning(f"Chat UI could not connect to control plane: {e}")
+
+    st.markdown("---")
+
+    main_col, rail_col = st.columns([3, 1])
+    with main_col:
+        st.markdown("### Recent Workflow Requests")
+
+    with rail_col:
+        st.markdown("#### ⏳ Pending Approvals")
+        st.caption("Compact operator rail for fast approve/queue actions.")
+        try:
+            import requests as req_lib
+
+            pending_resp = req_lib.get(f"{api_base}/api/workflows/requests?limit=50", timeout=8)
+            if pending_resp.status_code < 300:
+                all_requests = (pending_resp.json() or {}).get("requests") or []
+                pending_items = [
+                    item for item in all_requests
+                    if item.get("status") in {"AWAITING_APPROVAL", "APPROVED"}
+                ]
+                awaiting_count = sum(1 for item in pending_items if item.get("status") == "AWAITING_APPROVAL")
+                approved_count = sum(1 for item in pending_items if item.get("status") == "APPROVED")
+
+                st.metric("Pending", len(pending_items))
+                bd1, bd2 = st.columns(2)
+                bd1.metric("Awaiting", awaiting_count)
+                bd2.metric("Approved", approved_count)
+
+                if st.button("Run Next Queued", key="rail_run_next"):
+                    run_next_resp = req_lib.post(
+                        f"{api_base}/api/workflows/worker/run-next",
+                        json={"dry_run": True, "open_pr": False},
+                        timeout=45,
+                    )
+                    if run_next_resp.status_code < 300:
+                        next_item = (run_next_resp.json() or {}).get("request")
+                        if next_item:
+                            st.success(f"Ran queued request: {next_item.get('id')}")
+                        else:
+                            st.info("No queued requests.")
+                        st.rerun()
+                    else:
+                        st.error(f"Run-next failed ({run_next_resp.status_code})")
+
+                for item in pending_items[:6]:
+                    req_id = item.get("id", "unknown")
+                    status = item.get("status", "unknown")
+                    st.markdown(f"**{req_id}**")
+                    st.caption(f"{status} · {item.get('repo', '.')}")
+
+                    action_cols = st.columns(2)
+                    with action_cols[0]:
+                        if status == "AWAITING_APPROVAL":
+                            if st.button("Approve", key=f"rail_approve_{req_id}"):
+                                resp = req_lib.post(f"{api_base}/api/workflows/requests/{req_id}/approve", timeout=10)
+                                if resp.status_code < 300:
+                                    st.success(f"Approved {req_id}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Approve failed ({resp.status_code})")
+                        else:
+                            st.write("")
+
+                    with action_cols[1]:
+                        if status in {"APPROVED", "AWAITING_APPROVAL"}:
+                            if st.button("Queue", key=f"rail_queue_{req_id}"):
+                                if status == "AWAITING_APPROVAL":
+                                    _approve = req_lib.post(f"{api_base}/api/workflows/requests/{req_id}/approve", timeout=10)
+                                    if _approve.status_code >= 300:
+                                        st.error(f"Approve before queue failed ({_approve.status_code})")
+                                        continue
+                                resp = req_lib.post(f"{api_base}/api/workflows/requests/{req_id}/queue", timeout=10)
+                                if resp.status_code < 300:
+                                    st.success(f"Queued {req_id}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"Queue failed ({resp.status_code})")
+
+                    st.markdown("---")
+
+                if not pending_items:
+                    st.success("No pending approvals")
+            else:
+                st.warning(f"Could not load pending requests ({pending_resp.status_code})")
+        except Exception as e:
+            st.warning(f"Pending approvals unavailable: {e}")
 
     try:
         import requests as req_lib
@@ -2495,11 +2762,17 @@ def render_prompt_ops():
         if readiness_resp.status_code < 300:
             readiness = readiness_resp.json() or {}
             checks = readiness.get("checks", {})
-            rc1, rc2, rc3, rc4 = st.columns(4)
+            rc1, rc2, rc3, rc4, rc5 = st.columns(5)
             rc1.metric("Workflow DB", "OK" if checks.get("workflow_db_writable") else "Issue")
             rc2.metric("Observability DB", "OK" if checks.get("observability_db_writable") else "Issue")
             rc3.metric("Neo4j", "Connected" if checks.get("neo4j_tcp") else "Offline")
             rc4.metric("Weaviate", "Connected" if checks.get("weaviate_tcp") else "Offline")
+            rc5.metric("Qdrant", "Connected" if checks.get("qdrant_tcp") else "Offline")
+
+            provider = str(checks.get("vector_provider") or "unknown").upper()
+            provider_up = bool(checks.get("vector_provider_tcp"))
+            provider_state = "Connected" if provider_up else "Offline"
+            st.caption(f"Active vector provider: {provider} ({provider_state})")
 
         evidence_resp = req_lib.get(f"{api_base}/api/workflows/evidence?limit=500", timeout=8)
         if evidence_resp.status_code < 300:
@@ -2518,6 +2791,56 @@ def render_prompt_ops():
                         }
                     )
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+        portability_resp = req_lib.get(
+            f"{api_base}/api/workflows/portability-scorecard",
+            params={"repo": repo, "limit": 500},
+            timeout=8,
+        )
+        if portability_resp.status_code < 300:
+            payload = portability_resp.json() or {}
+            scorecard = payload.get("scorecard") or {}
+            scores = scorecard.get("scores") or {}
+            delta = scorecard.get("delta") or {}
+            quick_wins = scorecard.get("quick_wins") or []
+
+            st.markdown("### 🚀 Repo Portability Scorecard")
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("Overall", f"{float(scores.get('overall', 0.0)):.1f}")
+            s2.metric("Onboarding", f"{float(scores.get('onboarding_readiness', 0.0)):.1f}")
+            s3.metric("Reliability", f"{float(scores.get('execution_reliability', 0.0)):.1f}")
+            s4.metric("Observability", f"{float(scores.get('observability_quality', 0.0)):.1f}")
+
+            if delta:
+                trend_icon = "✅" if delta.get("trend") == "improved" else "⚠️" if delta.get("trend") == "regressed" else "➖"
+                st.info(
+                    f"{trend_icon} Baseline→Delta: {delta.get('overall_delta', 0.0):+.2f} "
+                    f"(baseline {delta.get('baseline_overall', 0.0):.2f} → current {delta.get('current_overall', 0.0):.2f})"
+                )
+            else:
+                st.caption("No baseline saved yet. Save one to activate baseline→delta tracking.")
+
+            if quick_wins:
+                st.markdown("**Immediate Quick Wins**")
+                for tip in quick_wins:
+                    st.write(f"- {tip}")
+
+            baseline_note = st.text_input(
+                "Baseline note",
+                value="",
+                key="prompt_ops_portability_baseline_note",
+                help="Optional note saved with this baseline snapshot.",
+            )
+            if st.button("Save Current as Baseline", key="prompt_ops_save_portability_baseline"):
+                baseline_resp = req_lib.post(
+                    f"{api_base}/api/workflows/portability-scorecard/baseline",
+                    json={"repo": repo, "note": baseline_note},
+                    timeout=10,
+                )
+                if baseline_resp.status_code < 300:
+                    st.success("Baseline saved. Refresh to view updated delta.")
+                else:
+                    st.error(f"Failed to save baseline ({baseline_resp.status_code}): {baseline_resp.text[:300]}")
     except Exception:
         pass
 
@@ -2747,6 +3070,88 @@ def render_prompt_ops():
                     else:
                         st.warning(f"Observability insights unavailable ({insights_resp.status_code}).")
 
+                    st.markdown("---")
+                    st.markdown("### 📈 Agent Complexity Trends")
+                    st.caption(
+                        "Per-agent retrieval quality over time: RAG docs retrieved, average similarity score, "
+                        "and LLM token usage. Anomaly detection flags when similarity drops >20% below baseline."
+                    )
+                    cplx_col1, cplx_col2, cplx_col3 = st.columns([2, 1, 1])
+                    with cplx_col1:
+                        cplx_agent = st.text_input(
+                            "Agent name (blank = all)",
+                            value="",
+                            key="cplx_agent_filter",
+                            placeholder="e.g. QA_Assistant",
+                        )
+                    with cplx_col2:
+                        cplx_window = st.number_input(
+                            "Window (days)",
+                            min_value=1,
+                            max_value=90,
+                            value=14,
+                            step=1,
+                            key="cplx_window_days",
+                        )
+                    with cplx_col3:
+                        do_cplx = st.button("Load Complexity Trends", key="cplx_load_btn")
+
+                    if do_cplx:
+                        cplx_url = (
+                            f"{api_base}/api/observability/agent-complexity"
+                            f"?window_days={int(cplx_window)}"
+                            + (f"&agent={cplx_agent.strip()}" if cplx_agent.strip() else "")
+                        )
+                        cplx_resp = req_lib.get(cplx_url, timeout=10)
+                        if cplx_resp.status_code == 200:
+                            cplx_data = cplx_resp.json()
+                            if cplx_agent.strip():
+                                # Single-agent view
+                                trends = cplx_data.get("trends", {})
+                                summary = trends.get("summary", {})
+                                cplx_s1, cplx_s2, cplx_s3, cplx_s4 = st.columns(4)
+                                with cplx_s1:
+                                    st.metric("Total Actions", summary.get("total_actions", 0))
+                                with cplx_s2:
+                                    st.metric("Avg RAG Docs", f"{float(summary.get('avg_rag_docs', 0)):.1f}")
+                                with cplx_s3:
+                                    st.metric("Avg Similarity", f"{float(summary.get('avg_similarity', 0)):.3f}")
+                                with cplx_s4:
+                                    prompt_tok = summary.get("total_llm_prompt_tokens") or 0
+                                    comp_tok = summary.get("total_llm_completion_tokens") or 0
+                                    st.metric("LLM Tokens", f"{int(prompt_tok)+int(comp_tok):,}")
+                                if trends.get("anomaly"):
+                                    st.warning(f"⚠️ Anomaly: {trends.get('anomaly_reason', 'similarity degraded')}")
+                                daily = trends.get("daily", [])
+                                if daily:
+                                    daily_df = pd.DataFrame(daily)
+                                    if "avg_similarity" in daily_df.columns and "date" in daily_df.columns:
+                                        fig_sim = px.line(
+                                            daily_df, x="date", y="avg_similarity",
+                                            title=f"Avg Similarity — {cplx_agent.strip()} ({int(cplx_window)}d)",
+                                            markers=True,
+                                        )
+                                        fig_sim.update_layout(height=260)
+                                        st.plotly_chart(fig_sim, use_container_width=True)
+                                    st.dataframe(daily_df, use_container_width=True, hide_index=True)
+                            else:
+                                # All-agents summary
+                                agents_summary = cplx_data.get("agents", [])
+                                anomalies = cplx_data.get("anomalies", [])
+                                if anomalies:
+                                    st.warning(f"⚠️ {len(anomalies)} agent(s) with anomalies: {', '.join(anomalies)}")
+                                if agents_summary:
+                                    st.dataframe(
+                                        pd.DataFrame(agents_summary),
+                                        use_container_width=True,
+                                        hide_index=True,
+                                    )
+                                else:
+                                    st.info("No complexity data yet. Run workflows to populate trends.")
+                        else:
+                            st.warning(f"Complexity trends unavailable ({cplx_resp.status_code}).")
+
+                    st.markdown("---")
                     traces_resp = req_lib.get(
                         f"{api_base}/api/observability/traces?limit={int(trace_limit)}",
                         timeout=10,
@@ -2915,6 +3320,62 @@ def render_prompt_ops():
                                                 st.info("No failed/retried steps for counterfactuals in this trace.")
                                         else:
                                             st.warning(f"Counterfactual lookup unavailable ({cf_resp.status_code}).")
+
+                                        with st.expander("📋 Generate Audit Report", expanded=False):
+                                            st.caption(
+                                                "Generates a shareable compliance artifact: verdict, "
+                                                "decision quality score, root causes, and recommendations. "
+                                                "Paste the Markdown into any PR description."
+                                            )
+                                            audit_col1, audit_col2 = st.columns([3, 1])
+                                            with audit_col2:
+                                                audit_fmt = st.radio(
+                                                    "Format",
+                                                    ["structured", "markdown"],
+                                                    key="audit_report_fmt",
+                                                    horizontal=True,
+                                                )
+                                            with audit_col1:
+                                                do_audit = st.button("Generate Audit Report", key="audit_report_btn")
+                                            if do_audit:
+                                                ar_resp = req_lib.get(
+                                                    f"{api_base}/api/observability/traces/{selected_trace}/audit-report"
+                                                    f"?format={audit_fmt}",
+                                                    timeout=15,
+                                                )
+                                                if ar_resp.status_code == 200:
+                                                    ar = ar_resp.json()
+                                                    if audit_fmt == "markdown":
+                                                        st.markdown(ar.get("markdown_body", ""))
+                                                    else:
+                                                        verdict = ar.get("verdict", "")
+                                                        verdict_color = "green" if verdict == "PASS" else "red"
+                                                        st.markdown(
+                                                            f"**Verdict:** :{verdict_color}[{verdict}]"
+                                                            f"  &nbsp;  **Audit ID:** `{ar.get('audit_id')}`"
+                                                        )
+                                                        summary = ar.get("summary", {})
+                                                        dq = ar.get("decision_quality", {})
+                                                        ar1, ar2, ar3, ar4 = st.columns(4)
+                                                        with ar1:
+                                                            st.metric("Total Events", summary.get("total_events", 0))
+                                                        with ar2:
+                                                            st.metric("Agents Involved", len(summary.get("agents_involved", [])))
+                                                        with ar3:
+                                                            st.metric("Decision Quality", f"{float(dq.get('score', 0)):.2f}")
+                                                        with ar4:
+                                                            st.metric("Completeness", f"{float(dq.get('completeness', 0)):.2f}")
+                                                        recs = ar.get("recommendations", [])
+                                                        if recs:
+                                                            st.markdown("**Recommendations:**")
+                                                            for r in recs:
+                                                                st.markdown(f"- {r}")
+                                                        with st.expander("Full Audit Report JSON"):
+                                                            st.json(ar)
+                                                elif ar_resp.status_code == 404:
+                                                    st.warning("No events found for this trace — run a workflow first.")
+                                                else:
+                                                    st.error(f"Audit report failed ({ar_resp.status_code}): {ar_resp.text[:300]}")
                                     else:
                                         st.warning(
                                             f"Trace analysis unavailable ({analysis_resp.status_code}): "
@@ -3538,7 +3999,7 @@ def render_stack_anatomy(store=None):
             st.error(f"System-wide readiness: **{overall_avg:.0f}%** — "
                       f"Significant gaps in test coverage and operational maturity.")
 
-def render_pipeline_flow(store: DelegationGraphStore):
+def render_pipeline_flow(store: DelegationGraphStore = None):
     """Render data flow pipeline visualization"""
     st.subheader("🔄 Pipeline Data Flow")
 
@@ -3599,6 +4060,21 @@ def render_pipeline_flow(store: DelegationGraphStore):
 
     # Data flow metrics
     st.markdown("#### Hybrid Storage Metrics")
+
+    if not store:
+        st.warning("Neo4j is offline. Showing architecture-only pipeline view.")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("**Neo4j Graph Store**")
+            st.metric("Agents (Nodes)", "n/a")
+            st.metric("Delegations (Edges)", "n/a")
+        with col2:
+            st.markdown("**Vector Store**")
+            st.info("Qdrant/Weaviate connectivity shown in Prompt Ops readiness")
+        with col3:
+            st.markdown("**Hybrid GraphRAG**")
+            st.caption("Enable Neo4j to see live delegation performance and freshness metrics.")
+        return
 
     stats = store.get_database_stats()
 
@@ -3666,6 +4142,154 @@ def render_pipeline_flow(store: DelegationGraphStore):
         if agents_activity:
             df = pd.DataFrame(agents_activity)
             st.dataframe(df, use_container_width=True, hide_index=True)
+
+
+def render_governance_page():
+    """Agent Constitution and pre-action governance controls."""
+    st.subheader("⚖️ Agent Constitution")
+    st.markdown(
+        "Machine-readable governance policy enforced by every agent in the platform. "
+        "External agent platforms (LangGraph, CrewAI, AutoGen) can query and enforce these laws via the API."
+    )
+
+    api_base = st.text_input(
+        "Control Plane API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="gov_api_base",
+    ).rstrip("/")
+
+    try:
+        import requests as _gov_req
+    except ImportError:
+        st.error("requests library not available.")
+        return
+
+    tab_laws, tab_check, tab_rights = st.tabs(["Laws & Escalations", "Check an Action", "Agent Rights"])
+
+    with tab_laws:
+        con_resp = _gov_req.get(f"{api_base}/api/system/constitution", timeout=8)
+        if con_resp.status_code == 200:
+            con_data = con_resp.json()
+            con = con_data.get("constitution", {})
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Version", con_data.get("version", "—"))
+            m2.metric("Tier 1 Laws (DENY)", con_data.get("tier_1_count", 0))
+            m3.metric("Tier 2 Laws (Approval)", con_data.get("tier_2_count", 0))
+            m4.metric("Tier 3 Escalations", con_data.get("tier_3_count", 0))
+            st.caption(f"Effective: {con_data.get('effective_date', '—')}  |  Platform: {con_data.get('platform', '—')}")
+
+            st.markdown("---")
+            st.markdown("### 🔴 Tier 1 — Hard Laws (Always Enforced → DENY)")
+            for law in con.get("tier_1", []):
+                with st.expander(f"**{law['id']}** — {law['name']}", expanded=False):
+                    st.markdown(law.get("description", ""))
+                    applies = law.get("applies_to", {})
+                    if applies:
+                        st.code(f"Applies to action types: {', '.join(applies.get('action_types', []))}", language=None)
+
+            st.markdown("### 🟡 Tier 2 — Approval Gates (REQUIRE_APPROVAL)")
+            for law in con.get("tier_2", []):
+                with st.expander(f"**{law['id']}** — {law['name']}", expanded=False):
+                    st.markdown(law.get("description", ""))
+                    applies = law.get("applies_to", {})
+                    if applies:
+                        st.code(f"Applies to action types: {', '.join(applies.get('action_types', []))}", language=None)
+
+            st.markdown("### 🔵 Tier 3 — Escalation Triggers (Alerts, No Block)")
+            t3_rows = []
+            for trigger in con.get("tier_3", []):
+                t3_rows.append({
+                    "id": trigger.get("id"),
+                    "name": trigger.get("name"),
+                    "metric": trigger.get("metric"),
+                    "threshold": trigger.get("threshold"),
+                    "description": (trigger.get("description", "") or "")[:120],
+                })
+            if t3_rows:
+                st.dataframe(pd.DataFrame(t3_rows), use_container_width=True, hide_index=True)
+        else:
+            st.warning(
+                f"Constitution unavailable ({con_resp.status_code}). "
+                "Is the AgenticQA API running?"
+            )
+
+    with tab_check:
+        st.markdown("### Interactive Pre-Action Check")
+        st.caption(
+            "Simulate any agent action to see if it would be ALLOWED, blocked for APPROVAL, or DENIED. "
+            "Use this to validate agent integrations before deployment."
+        )
+        chk_col1, chk_col2 = st.columns(2)
+        with chk_col1:
+            chk_action = st.selectbox(
+                "Action Type",
+                options=[
+                    "read", "write", "delete", "deploy", "delegate", "log_event",
+                    "modify_infra", "bulk_delete", "publish", "insert",
+                ],
+                key="gov_action_type",
+            )
+            chk_ci = st.selectbox("CI Status", ["PASSED", "FAILED", "PENDING", "(not set)"], key="gov_ci_status")
+            chk_depth = st.number_input("Delegation Depth", min_value=0, max_value=6, value=0, step=1, key="gov_deleg_depth")
+        with chk_col2:
+            chk_env = st.selectbox("Environment", ["dev", "staging", "production"], key="gov_env")
+            chk_trace = st.text_input("Trace ID", value="trace-001", key="gov_trace_id")
+            chk_pii = st.checkbox("Contains PII?", value=False, key="gov_pii")
+            chk_records = st.number_input("Record Count", min_value=0, max_value=100000, value=0, step=100, key="gov_records")
+            chk_path = st.text_input("Target Path (for write/delete)", value="", key="gov_target_path")
+
+        if st.button("Check Action", key="gov_check_btn", type="primary"):
+            ctx: dict = {}
+            if chk_ci != "(not set)":
+                ctx["ci_status"] = chk_ci
+            if chk_trace.strip():
+                ctx["trace_id"] = chk_trace.strip()
+            ctx["delegation_depth"] = int(chk_depth)
+            ctx["environment"] = chk_env
+            ctx["contains_pii"] = chk_pii
+            ctx["record_count"] = int(chk_records)
+            if chk_path.strip():
+                ctx["target_path"] = chk_path.strip()
+
+            chk_resp = _gov_req.post(
+                f"{api_base}/api/system/constitution/check",
+                json={"action_type": chk_action, "context": ctx},
+                timeout=8,
+            )
+            if chk_resp.status_code == 200:
+                result = chk_resp.json()
+                verdict = result.get("verdict", "")
+                if verdict == "ALLOW":
+                    st.success(f"✅ **ALLOW** — Action is permitted.")
+                elif verdict == "REQUIRE_APPROVAL":
+                    st.warning(
+                        f"🟡 **REQUIRE_APPROVAL** — Law **{result.get('law')}** ({result.get('name')}) "
+                        "requires human approval before this action may proceed."
+                    )
+                    st.markdown(f"> {result.get('reason', '')}")
+                else:
+                    st.error(
+                        f"🔴 **DENY** — Law **{result.get('law')}** ({result.get('name')}) "
+                        "blocks this action."
+                    )
+                    st.markdown(f"> {result.get('reason', '')}")
+            else:
+                st.error(f"Check failed ({chk_resp.status_code}): {chk_resp.text[:300]}")
+
+    with tab_rights:
+        st.markdown("### Agent Rights")
+        st.caption(
+            "Positive guarantees that AgenticQA makes to every agent it orchestrates — "
+            "and to the operators who deploy them."
+        )
+        con_resp2 = _gov_req.get(f"{api_base}/api/system/constitution", timeout=8)
+        if con_resp2.status_code == 200:
+            rights = con_resp2.json().get("constitution", {}).get("agent_rights", [])
+            for i, right in enumerate(rights, 1):
+                st.markdown(f"**{i}.** {right}")
+        else:
+            st.warning("Constitution unavailable — start the API to view agent rights.")
 
 
 def render_plans_and_tiers():
@@ -3744,8 +4368,17 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Prompt Ops"]
-        default_index = pages.index("GraphRAG") if not store else 0
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance"]
+
+        selected_view = str(st.query_params.get("view", "")).strip().lower()
+        if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
+            default_index = pages.index("Operator Console")
+        elif selected_view == "graphrag":
+            default_index = pages.index("GraphRAG")
+        elif selected_view in {"governance", "constitution"}:
+            default_index = pages.index("Governance")
+        else:
+            default_index = pages.index("Operator Console")
 
         page = st.radio(
             "Select View:",
@@ -3790,11 +4423,14 @@ def main():
         st.warning("Neo4j is not connected. This page requires a running Neo4j instance.")
         st.info("Start Neo4j with: `docker-compose -f docker-compose.weaviate.yml up -d neo4j`")
         st.markdown("---")
-        st.markdown("Pages available without Neo4j: **System Overview**, **GraphRAG**, **Pipeline**, **Prompt Ops**")
+        st.markdown("Pages available without Neo4j: **Operator Console**, **System Overview**, **GraphRAG**, **Pipeline**, **Governance**")
         return
 
     # Render selected page
-    if page == "System Overview":
+    if page == "Operator Console":
+        render_prompt_ops()
+
+    elif page == "System Overview":
         render_stack_anatomy(store)
         st.markdown("---")
         if store:
@@ -3839,8 +4475,8 @@ def main():
         with tab_api:
             render_api_plug(store)
 
-    elif page == "Prompt Ops":
-        render_prompt_ops()
+    elif page == "Governance":
+        render_governance_page()
 
     # Footer
     st.markdown("---")

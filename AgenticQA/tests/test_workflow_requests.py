@@ -93,3 +93,30 @@ def test_metrics_returns_expected_keys(tmp_path):
     assert "flaky_reduction_pct" in metrics
 
     store.close()
+
+
+def test_chat_session_and_messages_roundtrip(tmp_path):
+    store = PromptWorkflowStore(db_path=str(tmp_path / "workflow.db"))
+
+    session = store.create_chat_session(repo=".", requester="dashboard_chat", metadata={"source": "test"})
+    assert session["id"].startswith("cs_")
+
+    user_msg = store.add_chat_message(
+        session_id=session["id"],
+        role="user",
+        content="Add retries to webhook endpoint",
+    )
+    assistant_msg = store.add_chat_message(
+        session_id=session["id"],
+        role="assistant",
+        content="Captured. I can create a workflow request next.",
+        request_id="wr_123",
+    )
+
+    loaded = store.get_chat_session(session["id"], message_limit=20)
+    assert loaded is not None
+    assert len(loaded["messages"]) == 2
+    assert loaded["messages"][0]["content"] == user_msg["content"]
+    assert loaded["messages"][1]["request_id"] == assistant_msg["request_id"]
+
+    store.close()

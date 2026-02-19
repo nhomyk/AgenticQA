@@ -72,9 +72,136 @@ class PromptWorkflowStore:
             )
             """
         )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id TEXT PRIMARY KEY,
+                repo TEXT NOT NULL,
+                requester TEXT NOT NULL,
+                metadata TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                metadata TEXT,
+                request_id TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         c.execute("CREATE INDEX IF NOT EXISTS idx_workflow_status ON workflow_requests(status)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_workflow_created ON workflow_requests(created_at DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_created ON chat_sessions(created_at DESC)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages(session_id, created_at)")
         self.conn.commit()
+
+    def create_chat_session(
+        self,
+        repo: str,
+        requester: str = "dashboard",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        now = datetime.now(UTC).isoformat()
+        session_id = f"cs_{uuid.uuid4().hex[:12]}"
+        c = self.conn.cursor()
+        c.execute(
+            """
+            INSERT INTO chat_sessions (id, repo, requester, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                repo,
+                requester,
+                json.dumps(metadata or {}),
+                now,
+                now,
+            ),
+        )
+        self.conn.commit()
+        return self.get_chat_session(session_id) or {}
+
+    def list_chat_sessions(self, limit: int = 25) -> List[Dict[str, Any]]:
+        capped = min(max(limit, 1), 200)
+        c = self.conn.cursor()
+        rows = c.execute(
+            "SELECT * FROM chat_sessions ORDER BY created_at DESC LIMIT ?",
+            (capped,),
+        ).fetchall()
+        return [self._row_to_chat_session(r) for r in rows]
+
+    def get_chat_session(self, session_id: str, message_limit: int = 200) -> Optional[Dict[str, Any]]:
+        c = self.conn.cursor()
+        row = c.execute("SELECT * FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+        if not row:
+            return None
+        session = self._row_to_chat_session(row)
+        msg_rows = c.execute(
+            """
+            SELECT id, session_id, role, content, metadata, request_id, created_at
+            FROM chat_messages
+            WHERE session_id = ?
+            ORDER BY id ASC
+            LIMIT ?
+            """,
+            (session_id, min(max(message_limit, 1), 500)),
+        ).fetchall()
+        session["messages"] = [self._row_to_chat_message(m) for m in msg_rows]
+        return session
+
+    def add_chat_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        role_normalized = (role or "").strip().lower()
+        if role_normalized not in {"system", "user", "assistant", "tool"}:
+            raise ValueError("invalid_chat_role")
+
+        c = self.conn.cursor()
+        existing = c.execute("SELECT id FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+        if not existing:
+            raise ValueError("chat_session_not_found")
+
+        now = datetime.now(UTC).isoformat()
+        c.execute(
+            """
+            INSERT INTO chat_messages (session_id, role, content, metadata, request_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                role_normalized,
+                content,
+                json.dumps(metadata or {}),
+                request_id,
+                now,
+            ),
+        )
+        message_id = c.lastrowid
+        c.execute("UPDATE chat_sessions SET updated_at = ? WHERE id = ?", (now, session_id))
+        self.conn.commit()
+
+        row = c.execute(
+            """
+            SELECT id, session_id, role, content, metadata, request_id, created_at
+            FROM chat_messages
+            WHERE id = ?
+            """,
+            (message_id,),
+        ).fetchone()
+        return self._row_to_chat_message(row)
 
     def create_request(
         self,
@@ -449,6 +576,29 @@ class PromptWorkflowStore:
             "metadata": metadata,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
+        }
+
+    def _row_to_chat_session(self, row: sqlite3.Row) -> Dict[str, Any]:
+        metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+        return {
+            "id": row["id"],
+            "repo": row["repo"],
+            "requester": row["requester"],
+            "metadata": metadata,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    def _row_to_chat_message(self, row: sqlite3.Row) -> Dict[str, Any]:
+        metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+        return {
+            "id": row["id"],
+            "session_id": row["session_id"],
+            "role": row["role"],
+            "content": row["content"],
+            "metadata": metadata,
+            "request_id": row["request_id"],
+            "created_at": row["created_at"],
         }
 
     def close(self) -> None:

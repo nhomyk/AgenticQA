@@ -156,6 +156,35 @@ class BaseAgent(ABC):
             if insights_count > 0:
                 self.log(f"RAG retrieved {insights_count} relevant insights from Weaviate", "INFO")
 
+            # --- Decision Provenance ---
+            confidences = [r.get("confidence", 0.0) for r in recs if isinstance(r.get("confidence"), (int, float))]
+            avg_sim = round(sum(confidences) / len(confidences), 3) if confidences else 0.0
+            high_conf = augmented_context.get("high_confidence_insights") or []
+            rag_provenance = {
+                "rag_docs_retrieved": len(recs),
+                "avg_similarity": avg_sim,
+                "doc_ids": self._last_retrieved_doc_ids[:5],
+                "strategy": strategy.name,
+                "high_confidence_count": len(high_conf),
+            }
+            augmented_context["_provenance"] = rag_provenance
+
+            # --- Complexity metric for degradation detection ---
+            obs = getattr(self, "observability_store", None)
+            if obs is not None:
+                try:
+                    obs.log_complexity_metric(
+                        agent=self.agent_name,
+                        action="rag_augment",
+                        trace_id=context.get("trace_id"),
+                        rag_docs=len(recs),
+                        avg_sim=avg_sim,
+                        patterns=len(self._last_retrieved_doc_ids),
+                        strategy=strategy.name,
+                    )
+                except Exception:
+                    pass
+
             return augmented_context
         except Exception as e:
             self.log(f"RAG augmentation failed: {e}. Proceeding without RAG insights.", "WARNING")
@@ -299,6 +328,8 @@ class BaseAgent(ABC):
             "extra_caution": False,
             "known_failure_types": [],
             "recent_failure_rate": 0.0,
+            "flakiness_trend": "stable",
+            "error_signatures": [],
         }
 
         if not self.use_data_store:
@@ -310,11 +341,17 @@ class BaseAgent(ABC):
             # Check if this agent is flaky — if so, be more cautious
             flaky_agents = patterns.get("flakiness", {}).get("flaky_agents", {})
             if self.agent_name in flaky_agents:
-                fail_rate = flaky_agents[self.agent_name].get("fail_rate", 0)
+                agent_flak = flaky_agents[self.agent_name]
+                fail_rate = agent_flak.get("fail_rate", 0)
                 strategy["recent_failure_rate"] = fail_rate
+                strategy["flakiness_trend"] = agent_flak.get("trend", "stable")
                 if fail_rate > 0.3:
                     strategy["extra_caution"] = True
                     strategy["confidence_adjustment"] = 1.2
+                # Escalate caution further if flakiness is accelerating
+                if strategy["flakiness_trend"] == "accelerating":
+                    strategy["extra_caution"] = True
+                    strategy["confidence_adjustment"] = max(strategy["confidence_adjustment"], 1.3)
 
             # Collect known failure types for early detection
             failure_types = patterns.get("errors", {}).get("types", {})
@@ -326,6 +363,12 @@ class BaseAgent(ABC):
             perf = patterns.get("performance", {})
             if perf.get("avg_latency_ms", 0) > 5000:
                 strategy["extra_caution"] = True
+
+            # Attach top error signatures so agents can recognise recurring failure modes
+            if hasattr(self, "pattern_analyzer") and self.pattern_analyzer is not None:
+                strategy["error_signatures"] = self.pattern_analyzer.get_error_signatures(
+                    self.agent_name
+                )
 
         except Exception as e:
             self.log(f"Pattern analysis for strategy failed: {e}", "WARNING")
@@ -371,6 +414,7 @@ class BaseAgent(ABC):
         target_agent = agent_name
         confidence = 0.5
         recommendation_source = "manual"
+        risk: Dict[str, Any] = {}
 
         # Consult GraphRAG for delegation recommendation
         try:
@@ -404,6 +448,17 @@ class BaseAgent(ABC):
             confidence = float(confidence)
         except (TypeError, ValueError):
             confidence = 0.5
+
+        # --- Delegation Provenance ---
+        task["_delegation_provenance"] = {
+            "recommendation_source": recommendation_source,
+            "requested_agent": agent_name,
+            "target_agent": target_agent,
+            "recommendation_followed": target_agent == agent_name,
+            "risk_level": risk.get("risk_level") if isinstance(risk, dict) else None,
+            "failure_probability": risk.get("failure_probability") if isinstance(risk, dict) else None,
+            "confidence": confidence,
+        }
 
         # Record prediction before execution
         if self.outcome_tracker:

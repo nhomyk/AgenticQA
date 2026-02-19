@@ -121,11 +121,14 @@ def run_doctor(repo_root: Path) -> DoctorResult:
     checks: List[Dict[str, Any]] = []
 
     config_path = repo_root / ".agenticqa" / "config.json"
+    config_ok = config_path.exists()
     checks.append({
         "name": "agenticqa_config",
-        "ok": config_path.exists(),
+        "ok": config_ok,
         "detail": str(config_path),
         "required": True,
+        "fix_command": None if config_ok else "agenticqa bootstrap --repo .",
+        "fix_description": None if config_ok else "Run bootstrap to create .agenticqa/config.json",
     })
 
     compose_exists = any(repo_root.glob("docker-compose*.yml"))
@@ -134,6 +137,8 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "ok": compose_exists,
         "detail": "docker-compose*.yml",
         "required": False,
+        "fix_command": None if compose_exists else "docker compose -f docker-compose.weaviate.yml up -d",
+        "fix_description": None if compose_exists else "Start required infrastructure (Weaviate)",
     })
 
     neo4j_reachable = _check_tcp("127.0.0.1", 7687)
@@ -142,6 +147,8 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "ok": neo4j_reachable,
         "detail": "127.0.0.1:7687",
         "required": False,
+        "fix_command": None if neo4j_reachable else "docker run -d -p 7687:7687 -p 7474:7474 -e NEO4J_AUTH=none neo4j:5",
+        "fix_description": None if neo4j_reachable else "Start Neo4j — required for graph-powered routing recommendations",
     })
 
     dashboard_exists = (repo_root / "dashboard" / "app.py").exists()
@@ -150,6 +157,8 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "ok": dashboard_exists,
         "detail": "dashboard/app.py",
         "required": True,
+        "fix_command": None if dashboard_exists else "pip install -e .[dashboard]",
+        "fix_description": None if dashboard_exists else "Install dashboard dependencies, then run: streamlit run dashboard/app.py",
     })
 
     healthy = all(item["ok"] for item in checks if item.get("required", True))
