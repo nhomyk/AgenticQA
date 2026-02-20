@@ -424,9 +424,10 @@ class BaseAgent(ABC):
 
     def _get_adaptive_strategy(self):
         """Get current execution strategy based on recent outcomes."""
-        if self._strategy_selector:
+        selector = getattr(self, "_strategy_selector", None)
+        if selector:
             try:
-                return self._strategy_selector.select_strategy(self._get_agent_type())
+                return selector.select_strategy(self._get_agent_type())
             except Exception:
                 pass
         from src.agenticqa.verification.strategy_selector import STRATEGIES
