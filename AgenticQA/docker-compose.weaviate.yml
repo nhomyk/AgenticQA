@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   weaviate:
-    image: semitechnologies/weaviate:latest
+    image: semitechnologies/weaviate:1.24.8
     ports:
       - "8080:8080"
       - "50051:50051"
@@ -16,7 +16,7 @@ services:
     volumes:
       - weaviate_data:/var/lib/weaviate
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/.well-known/ready"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
