@@ -1643,6 +1643,15 @@ class SREAgent(BaseAgent):
             "semi": "Added missing semicolon",
             "no-unused-vars": "Removed unused variable",
             "indent": "Fixed indentation",
+            # React / JSX
+            "react/no-unknown-property": "Converted HTML attribute to JSX camelCase equivalent (e.g. frameborder → frameBorder, class → className)",
+            "react/jsx-no-duplicate-props": "Removed duplicate JSX prop",
+            "react/prop-types": "Added PropTypes declaration for component props",
+            # Accessibility
+            "jsx-a11y/alt-text": "Added descriptive alt attribute to img element",
+            "jsx-a11y/anchor-is-valid": "Replaced invalid anchor with button or added valid href",
+            "jsx-a11y/click-events-have-key-events": "Added keyboard event handler alongside click handler",
+            "jsx-a11y/no-noninteractive-element-interactions": "Moved interaction to a focusable element",
         }
 
         if rule in fix_map:
@@ -1670,16 +1679,35 @@ class SREAgent(BaseAgent):
         message = error.get("message", "")
         file_path = error.get("file", "")
 
-        # Hardcoded local path in workflow
+        # Hardcoded URL in source code (e.g. https://google.com/test in href)
+        url_match = re.search(r'https?://[^\s\'"<>]+', message)
+        if url_match and rule in ("hardcoded-path", "no-hardcoded-url", "no-hardcoded-credentials"):
+            bad_url = url_match.group(0)
+            env_var = "REACT_APP_" + re.sub(r"[^A-Z0-9]", "_", bad_url.upper().split("//")[1].split("/")[0])
+            return {
+                "rule": rule,
+                "file": file_path,
+                "fix_applied": f"Replace hardcoded URL '{bad_url}' with environment variable",
+                "patch": (
+                    f"--- a/{file_path}\n"
+                    f"+++ b/{file_path}\n"
+                    f'-  href="{bad_url}"\n'
+                    f'+  href={{process.env.{env_var} || "{bad_url}"}}\n'
+                    f"# Add to .env:  {env_var}={bad_url}"
+                ),
+                "source": "ci_patch",
+                "confidence": 0.85,
+            }
+
+        # Hardcoded local filesystem path in workflow
         if rule == "hardcoded-path" or re.search(r"/Users/|/home/\w+/|C:\\\\Users\\\\", message):
             match = re.search(r"(/Users/[^\s'\"]+|/home/\w+/[^\s'\"]+|C:\\\\Users\\\\[^\s'\"]+)", message)
             bad_path = match.group(1) if match else "<local-path>"
-            # Infer the relative path from the local path's last meaningful segment
             rel_guess = re.sub(r".*/(e2e|tests?|spec|cypress)/", r"\1/", bad_path)
             return {
                 "rule": rule,
                 "file": file_path,
-                "fix_applied": f"Replace hardcoded path '{bad_path}' with relative path",
+                "fix_applied": f"Replace hardcoded local path '{bad_path}' with relative path",
                 "patch": (
                     f"--- a/{file_path}\n"
                     f"+++ b/{file_path}\n"
