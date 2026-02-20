@@ -27,8 +27,15 @@ class DoctorResult:
 def detect_stack(repo_root: Path) -> Dict[str, Any]:
     has_python = (repo_root / "pyproject.toml").exists() or (repo_root / "requirements.txt").exists()
 
-    # Node: package.json at root OR inside a subdirectory (e.g. Cypress/)
-    has_node = (repo_root / "package.json").exists() or bool(list(repo_root.glob("*/package.json"))[:1])
+    # PHP: composer.json at root OR any .php source files
+    has_php = (repo_root / "composer.json").exists() or bool(list(repo_root.glob("src/**/*.php"))[:1])
+
+    # Node: package.json at root OR nested up to 3 levels deep (e.g. tests/e2e/package.json)
+    has_node = (
+        (repo_root / "package.json").exists()
+        or bool(list(repo_root.glob("*/package.json"))[:1])
+        or bool(list(repo_root.glob("*/*/package.json"))[:1])
+    )
 
     # Test framework detection
     has_cypress = (
@@ -38,6 +45,11 @@ def detect_stack(repo_root: Path) -> Dict[str, Any]:
         or bool(list(repo_root.glob("**/*.cy.ts"))[:1])
     )
     has_jest = bool(list(repo_root.glob("jest.config*"))[:1]) or bool(list(repo_root.glob("**/*.test.js"))[:1])
+    has_playwright = (
+        bool(list(repo_root.glob("**/playwright.config*"))[:1])
+        or bool(list(repo_root.glob("**/*.spec.ts"))[:1])
+    )
+    has_phpunit = (repo_root / "phpunit.xml").exists() or (repo_root / "phpunit.xml.dist").exists()
     has_pytest = has_python and (
         (repo_root / "pytest.ini").exists()
         or (repo_root / "conftest.py").exists()
@@ -46,24 +58,34 @@ def detect_stack(repo_root: Path) -> Dict[str, Any]:
 
     markers = {
         "python": has_python,
+        "php": has_php,
         "node": has_node,
         "cypress": has_cypress,
         "jest": has_jest,
+        "playwright": has_playwright,
+        "phpunit": has_phpunit,
         "pytest": has_pytest,
         "github_actions": (repo_root / ".github" / "workflows").exists(),
-        "docker_compose": any(repo_root.glob("docker-compose*.yml")),
+        "docker_compose": any(repo_root.glob("docker-compose*.yml")) or any(repo_root.glob("compose*.yaml")),
     }
 
+    # Primary language: PHP wins over Node for PHP+Node repos (e.g. PHP app with Playwright e2e)
     if has_python:
         primary = "python"
+    elif has_php:
+        primary = "php"
     elif has_node:
         primary = "javascript"
     else:
         primary = "unknown"
 
-    # Infer test framework
-    if has_cypress:
+    # Infer primary test framework
+    if has_phpunit:
+        test_framework = "phpunit"
+    elif has_cypress:
         test_framework = "cypress"
+    elif has_playwright:
+        test_framework = "playwright"
     elif has_jest:
         test_framework = "jest"
     elif has_pytest:
@@ -243,7 +265,23 @@ def _github_workflow_template(stack: Optional[Dict[str, Any]] = None) -> str:
     primary = stack.get("primary_language", "unknown")
     framework = stack.get("test_framework", "unknown")
 
-    if primary == "javascript" or stack.get("node"):
+    if primary == "php" or stack.get("php"):
+        setup_steps = """\
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_sqlite, mbstring
+          coverage: xdebug
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist"""
+
+        test_steps = """\
+      - name: Run PHPUnit tests
+        run: composer test -- --log-junit agenticqa-junit.xml || true"""
+
+    elif primary == "javascript" or stack.get("node"):
         setup_steps = """\
       - name: Setup Node.js
         uses: actions/setup-node@v4

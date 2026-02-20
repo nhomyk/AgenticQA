@@ -1683,16 +1683,24 @@ class SREAgent(BaseAgent):
         url_match = re.search(r'https?://[^\s\'"<>]+', message)
         if url_match and rule in ("hardcoded-path", "no-hardcoded-url", "no-hardcoded-credentials"):
             bad_url = url_match.group(0)
-            env_var = "REACT_APP_" + re.sub(r"[^A-Z0-9]", "_", bad_url.upper().split("//")[1].split("/")[0])
+            host_part = re.sub(r"[^A-Z0-9]", "_", bad_url.upper().split("//")[1].split("/")[0]).strip("_")
+            env_var = f"APP_{host_part}_URL"
+            # Env var syntax depends on file language
+            if file_path.endswith(".php"):
+                env_ref = f"getenv('{env_var}') ?: '{bad_url}'"
+            elif file_path.endswith((".ts", ".tsx", ".js", ".jsx")):
+                env_ref = f"process.env.{env_var} ?? '{bad_url}'"
+            else:
+                env_ref = f"${{{env_var}:-{bad_url}}}"
             return {
                 "rule": rule,
                 "file": file_path,
-                "fix_applied": f"Replace hardcoded URL '{bad_url}' with environment variable",
+                "fix_applied": f"Replace hardcoded URL '{bad_url}' with environment variable ${env_var}",
                 "patch": (
                     f"--- a/{file_path}\n"
                     f"+++ b/{file_path}\n"
-                    f'-  href="{bad_url}"\n'
-                    f'+  href={{process.env.{env_var} || "{bad_url}"}}\n'
+                    f'-  "{bad_url}"\n'
+                    f'+  {env_ref}\n'
                     f"# Add to .env:  {env_var}={bad_url}"
                 ),
                 "source": "ci_patch",
