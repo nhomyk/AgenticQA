@@ -151,6 +151,11 @@ class BaseAgent(ABC):
             augmented_context["rag_recommendations"] = recs
             augmented_context["execution_strategy"] = strategy.name
 
+            # Apply pattern-driven guards (Phase 3) — may further filter recs and add warnings
+            exec_strategy = self._get_execution_strategy()
+            augmented_context = self._apply_pattern_guards(augmented_context, exec_strategy)
+            recs = augmented_context.get("rag_recommendations", recs)
+
             # Log RAG insights for transparency
             insights_count = augmented_context.get("rag_insights_count", 0)
             if insights_count > 0:
@@ -375,6 +380,73 @@ class BaseAgent(ABC):
 
         return strategy
 
+    def _check_constitution(self, action_type: str, context: Dict[str, Any]) -> None:
+        """Check action against the Agent Constitution. Raises ConstitutionalViolationError on DENY."""
+        try:
+            from agenticqa.constitutional_gate import check_action, ConstitutionalViolationError
+            result = check_action(action_type, context)
+            if result["verdict"] == "DENY":
+                raise ConstitutionalViolationError(
+                    result.get("reason", f"Action '{action_type}' denied by {result.get('law')}"),
+                    law=result.get("law"),
+                )
+        except ImportError:
+            pass  # Constitutional gate not available — graceful degradation
+
+    def _apply_pattern_guards(
+        self, context: Dict[str, Any], exec_strategy: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Apply pattern-driven guards to execution context (Phase 3).
+
+        Injects warnings and conservative filtering into the augmented context
+        based on historical failure patterns so agent execute() methods adapt.
+        """
+        if not exec_strategy.get("extra_caution"):
+            return context
+
+        known_failures = exec_strategy.get("known_failure_types", [])
+        flakiness_trend = exec_strategy.get("flakiness_trend", "stable")
+        failure_rate = exec_strategy.get("recent_failure_rate", 0.0)
+        confidence_adjustment = exec_strategy.get("confidence_adjustment", 1.0)
+
+        if known_failures:
+            context["pattern_warnings"] = {
+                "known_failure_types": known_failures,
+                "extra_validation": True,
+            }
+            self.log(
+                f"Pattern guard: known failure types {known_failures[:3]} detected — extra validation active",
+                "WARNING",
+            )
+
+        if flakiness_trend == "accelerating" and failure_rate > 0.5:
+            context["flakiness_warning"] = {
+                "trend": flakiness_trend,
+                "recent_failure_rate": failure_rate,
+                "recommendation": "Consider reducing batch size or adding retry logic",
+            }
+            self.log(
+                f"Pattern guard: flakiness accelerating ({failure_rate:.0%} failure rate) — flagging for review",
+                "WARNING",
+            )
+
+        # Conservative confidence filter — drop low-confidence recs when adjustment is high
+        if confidence_adjustment > 1.2 and "rag_recommendations" in context:
+            before = len(context["rag_recommendations"])
+            context["rag_recommendations"] = [
+                r for r in context["rag_recommendations"]
+                if r.get("confidence", 0) >= 0.75
+            ]
+            after = len(context["rag_recommendations"])
+            if before != after:
+                self.log(
+                    f"Pattern guard: conservative filter dropped {before - after} low-confidence recs "
+                    f"(adjustment={confidence_adjustment:.1f}x)",
+                    "INFO",
+                )
+
+        return context
+
     def _get_graph_store(self):
         """Get DelegationGraphStore if available via agent registry."""
         if hasattr(self, "_graph_store"):
@@ -416,6 +488,13 @@ class BaseAgent(ABC):
         recommendation_source = "manual"
         risk: Dict[str, Any] = {}
 
+        # Constitutional check — enforces T1-002 (delegation depth ≤ 3) in agent pipeline
+        self._check_constitution("delegate", {
+            "delegation_depth": self._delegation_depth,
+            "to_agent": agent_name,
+            "trace_id": task.get("trace_id"),
+        })
+
         # Consult GraphRAG for delegation recommendation
         try:
             graph_store = self._get_graph_store()
@@ -438,6 +517,38 @@ class BaseAgent(ABC):
                         target_agent = rec["recommended_agent"]
                         confidence = min(1.0, rec.get("priority_score", 8.0) / 10.0)
                         recommendation_source = "graphrag"
+                    elif risk.get("failure_probability", 0) > 0.7:
+                        # High risk, no better simple recommendation — try optimal path
+                        try:
+                            optimal = graph_store.find_optimal_delegation_path(
+                                self.agent_name, agent_name, max_hops=2
+                            )
+                            if optimal and optimal.get("path") and len(optimal["path"]) > 1:
+                                intermediate = optimal["path"][1]
+                                self.log(
+                                    f"GraphRAG rerouting via {intermediate} (efficiency={optimal.get('efficiency_score', 0):.2f})",
+                                    "INFO",
+                                )
+                                target_agent = intermediate
+                                confidence = min(1.0, optimal.get("efficiency_score", 0.5))
+                                recommendation_source = "graphrag_optimal_path"
+                            else:
+                                task["high_risk_warning"] = {
+                                    "risk_level": risk["risk_level"],
+                                    "failure_probability": risk["failure_probability"],
+                                    "reason": risk.get("recommendation", "High historical failure rate"),
+                                }
+                                self.log(
+                                    f"Delegation to {agent_name} is high-risk "
+                                    f"(p={risk['failure_probability']:.2f}) — no safe reroute found, flagging task",
+                                    "WARNING",
+                                )
+                        except Exception as path_err:
+                            self.log(f"Optimal path lookup failed: {path_err}", "WARNING")
+                            task["high_risk_warning"] = {
+                                "risk_level": risk.get("risk_level"),
+                                "failure_probability": risk.get("failure_probability"),
+                            }
                 elif risk.get("failure_probability") is not None:
                     confidence = 1.0 - risk["failure_probability"]
                     recommendation_source = "graphrag"
@@ -1329,11 +1440,23 @@ class SREAgent(BaseAgent):
             errors = linting_data.get("errors", [])
             fixes_applied = []
 
+            # Pattern guard: known failure types short-circuit RAG for recognised rules
+            exec_strategy = self._get_execution_strategy()
+            known_failures = set(exec_strategy.get("known_failure_types", []))
+
             # Apply fixes for common linting errors
             for error in errors:
-                fix = self._apply_linting_fix(error, augmented_context)
-                if fix:
-                    fixes_applied.append(fix)
+                rule = error.get("rule", "")
+                if known_failures and rule in known_failures:
+                    # We've seen this rule fail before — use direct fix_map, skip RAG
+                    fix = self._apply_linting_fix(error, None)
+                    if fix:
+                        fix["source"] = "pattern_memory"
+                        fixes_applied.append(fix)
+                else:
+                    fix = self._apply_linting_fix(error, augmented_context)
+                    if fix:
+                        fixes_applied.append(fix)
 
             result = {
                 "total_errors": len(errors),
@@ -1422,6 +1545,16 @@ class SDETAgent(BaseAgent):
             coverage_percent = coverage_data.get("coverage_percent", 0)
             uncovered_files = coverage_data.get("uncovered_files", [])
 
+            # Pattern guard: lower coverage adequacy threshold when flakiness is accelerating
+            exec_strategy = self._get_execution_strategy()
+            coverage_threshold = 80
+            if exec_strategy.get("flakiness_trend") == "accelerating":
+                coverage_threshold = 70
+                self.log(
+                    "Pattern guard: flakiness accelerating — lowering coverage adequacy threshold to 70%",
+                    "WARNING",
+                )
+
             # Identify coverage gaps
             gaps = self._identify_coverage_gaps(coverage_data, augmented_context)
 
@@ -1430,7 +1563,8 @@ class SDETAgent(BaseAgent):
 
             result = {
                 "current_coverage": coverage_percent,
-                "coverage_status": "adequate" if coverage_percent >= 80 else "insufficient",
+                "coverage_status": "adequate" if coverage_percent >= coverage_threshold else "insufficient",
+                "coverage_threshold_used": coverage_threshold,
                 "gaps_identified": len(gaps),
                 "gaps": gaps,
                 "recommendations": recommendations,

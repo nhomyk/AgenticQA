@@ -151,14 +151,14 @@ def run_doctor(repo_root: Path) -> DoctorResult:
         "fix_description": None if neo4j_reachable else "Start Neo4j — required for graph-powered routing recommendations",
     })
 
-    dashboard_exists = (repo_root / "dashboard" / "app.py").exists()
+    api_reachable = _check_tcp("127.0.0.1", 8000)
     checks.append({
-        "name": "dashboard_app",
-        "ok": dashboard_exists,
-        "detail": "dashboard/app.py",
-        "required": True,
-        "fix_command": None if dashboard_exists else "pip install -e .[dashboard]",
-        "fix_description": None if dashboard_exists else "Install dashboard dependencies, then run: streamlit run dashboard/app.py",
+        "name": "agenticqa_api",
+        "ok": api_reachable,
+        "detail": "127.0.0.1:8000",
+        "required": False,
+        "fix_command": None if api_reachable else "uvicorn agent_api:app --host 0.0.0.0 --port 8000",
+        "fix_description": None if api_reachable else "Start the AgenticQA API server (optional — needed for constitution endpoint)",
     })
 
     healthy = all(item["ok"] for item in checks if item.get("required", True))

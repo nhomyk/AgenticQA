@@ -141,3 +141,137 @@ class TestGraphRAGDelegation:
         assert result["status"] == "success"
         call_kwargs = agent.agent_registry.delegate_task.call_args
         assert call_kwargs[1]["to_agent"] == "SRE_Agent"
+
+
+@pytest.mark.unit
+class TestConstitutionalDelegationCheck:
+    """ConstitutionalGate is enforced inside delegate_to_agent() (Task 4)."""
+
+    def test_delegation_blocked_at_depth_3(self):
+        """Delegation raises ConstitutionalViolationError when depth >= 3."""
+        from agenticqa.constitutional_gate import ConstitutionalViolationError
+
+        agent = _make_agent_with_registry()
+        agent._delegation_depth = 3  # At the limit
+
+        with pytest.raises(ConstitutionalViolationError) as exc_info:
+            agent.delegate_to_agent("SRE_Agent", {"task": "fix"})
+
+        assert exc_info.value.law == "T1-002"
+
+    def test_delegation_blocked_at_depth_exceeding_limit(self):
+        """Delegation raises when depth > 3."""
+        from agenticqa.constitutional_gate import ConstitutionalViolationError
+
+        agent = _make_agent_with_registry()
+        agent._delegation_depth = 5
+
+        with pytest.raises(ConstitutionalViolationError):
+            agent.delegate_to_agent("Compliance_Agent", {"task": "check"})
+
+    def test_delegation_allowed_at_depth_2(self):
+        """Delegation proceeds normally when depth < 3."""
+        agent = _make_agent_with_registry()
+        agent._delegation_depth = 2
+
+        result = agent.delegate_to_agent("SRE_Agent", {"task": "fix"})
+        assert result["status"] == "success"
+
+    def test_delegation_allowed_at_depth_0(self):
+        """Delegation proceeds normally at depth 0 (first hop)."""
+        agent = _make_agent_with_registry()
+        agent._delegation_depth = 0
+
+        result = agent.delegate_to_agent("SRE_Agent", {"task": "fix"})
+        assert result["status"] == "success"
+
+    def test_check_constitution_raises_on_deny(self):
+        """_check_constitution() raises ConstitutionalViolationError for DENY verdict."""
+        from agenticqa.constitutional_gate import ConstitutionalViolationError
+
+        agent = _make_agent_with_registry()
+        # T1-002: depth >= 3 → DENY
+        with pytest.raises(ConstitutionalViolationError) as exc_info:
+            agent._check_constitution("delegate", {"delegation_depth": 3})
+        assert exc_info.value.law == "T1-002"
+
+    def test_check_constitution_no_raise_on_allow(self):
+        """_check_constitution() does not raise when action is allowed."""
+        agent = _make_agent_with_registry()
+        # Should not raise
+        agent._check_constitution("delegate", {"delegation_depth": 1})
+
+
+@pytest.mark.unit
+class TestPhase4OptimalPathRerouting:
+    """Phase 4: delegate_to_agent() uses find_optimal_delegation_path() when high-risk
+    and no simple recommendation is available."""
+
+    def test_high_risk_no_simple_rec_triggers_optimal_path(self):
+        """When risk is high, failure_prob > 0.7, and no better rec exists, tries optimal path."""
+        graph_store = MagicMock()
+        graph_store.predict_delegation_failure_risk = Mock(return_value={
+            "risk_level": "high",
+            "failure_probability": 0.8,
+            "confidence": 0.7,
+        })
+        # recommend_delegation_target returns same agent (no better option)
+        graph_store.recommend_delegation_target = Mock(return_value={
+            "recommended_agent": "SRE_Agent",  # same as requested
+            "priority_score": 6.0,
+        })
+        graph_store.find_optimal_delegation_path = Mock(return_value={
+            "path": ["QA_Assistant", "Compliance_Agent", "SRE_Agent"],
+            "hops": 2,
+            "efficiency_score": 0.75,
+        })
+
+        agent = _make_agent_with_registry(graph_store=graph_store)
+        result = agent.delegate_to_agent("SRE_Agent", {"task_type": "fix_lint"})
+
+        assert result["status"] == "success"
+        graph_store.find_optimal_delegation_path.assert_called_once()
+        # Should have routed through the intermediate agent
+        call_kwargs = agent.agent_registry.delegate_task.call_args
+        assert call_kwargs[1]["to_agent"] == "Compliance_Agent"
+
+    def test_high_risk_no_optimal_path_adds_warning(self):
+        """When high risk, no simple rec, and no optimal path found → high_risk_warning in task."""
+        graph_store = MagicMock()
+        graph_store.predict_delegation_failure_risk = Mock(return_value={
+            "risk_level": "high",
+            "failure_probability": 0.85,
+            "confidence": 0.7,
+            "recommendation": "High failure history",
+        })
+        graph_store.recommend_delegation_target = Mock(return_value={
+            "recommended_agent": "SRE_Agent",
+            "priority_score": 5.0,
+        })
+        graph_store.find_optimal_delegation_path = Mock(return_value=None)
+
+        task = {"task_type": "fix_lint"}
+        agent = _make_agent_with_registry(graph_store=graph_store)
+        agent.delegate_to_agent("SRE_Agent", task)
+
+        assert "high_risk_warning" in task
+        assert task["high_risk_warning"]["risk_level"] == "high"
+
+    def test_moderate_risk_does_not_trigger_optimal_path(self):
+        """Optimal path not consulted when failure_probability <= 0.7."""
+        graph_store = MagicMock()
+        graph_store.predict_delegation_failure_risk = Mock(return_value={
+            "risk_level": "high",
+            "failure_probability": 0.65,  # Under the 0.7 threshold
+            "confidence": 0.7,
+        })
+        graph_store.recommend_delegation_target = Mock(return_value={
+            "recommended_agent": "SRE_Agent",
+            "priority_score": 6.0,
+        })
+        graph_store.find_optimal_delegation_path = Mock()
+
+        agent = _make_agent_with_registry(graph_store=graph_store)
+        agent.delegate_to_agent("SRE_Agent", {"task_type": "fix"})
+
+        graph_store.find_optimal_delegation_path.assert_not_called()

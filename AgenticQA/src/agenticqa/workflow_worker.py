@@ -102,6 +102,17 @@ class WorkflowExecutionWorker:
 
             commit_message = f"chore(workflow): execute {request_id}"
             commit_body = f"Prompt: {req['prompt'][:220]}"
+            # Constitutional pre-commit check — enforces T1-004 (writes require trace_id)
+            try:
+                from agenticqa.constitutional_gate import check_action, ConstitutionalViolationError
+                gate = check_action("write", {"trace_id": trace_id, "agent": "WorkflowWorker"})
+                if gate["verdict"] == "DENY":
+                    raise ConstitutionalViolationError(
+                        gate.get("reason", f"Write denied by {gate.get('law')}"),
+                        law=gate.get("law"),
+                    )
+            except ImportError:
+                pass
             self._git(repo_path, ["commit", "-m", commit_message, "-m", commit_body])
             commit_sha = self._git(repo_path, ["rev-parse", "HEAD"]).strip()
 

@@ -48,9 +48,31 @@ def _load_constitution() -> Dict[str, Any]:
     return {}
 
 
+def _resolve_scopes_path() -> Path:
+    """Resolve agent scopes path with per-repo and env-var override support.
+
+    Resolution order (first found wins):
+    1. AGENTICQA_SCOPES_PATH environment variable
+    2. .agenticqa/agent_scopes.yaml in the current working directory
+    3. Package default (agent_scopes.yaml next to this file)
+    """
+    env_path = os.environ.get("AGENTICQA_SCOPES_PATH")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+
+    repo_override = Path.cwd() / ".agenticqa" / "agent_scopes.yaml"
+    if repo_override.exists():
+        return repo_override
+
+    return _SCOPES_PATH
+
+
 def _load_scopes() -> Dict[str, Any]:
-    if _yaml is not None and _SCOPES_PATH.exists():
-        with open(_SCOPES_PATH, "r") as f:
+    path = _resolve_scopes_path()
+    if _yaml is not None and path.exists():
+        with open(path, "r") as f:
             data = _yaml.safe_load(f) or {}
             # Strip top-level metadata keys (version, etc.)
             return {k: v for k, v in data.items() if isinstance(v, dict) and "read" in v or "write" in v or "deny" in v}
@@ -315,3 +337,17 @@ def _find_law(tier_key: str, law_id: str) -> Optional[Dict[str, Any]]:
         if law.get("id") == law_id:
             return law
     return None
+
+
+class ConstitutionalViolationError(Exception):
+    """Raised when an agent action is denied by the Agent Constitution."""
+
+    def __init__(self, reason: str, law: Optional[str] = None):
+        self.reason = reason
+        self.law = law
+        super().__init__(reason)
+
+    def __str__(self) -> str:
+        if self.law:
+            return f"[{self.law}] {self.reason}"
+        return self.reason
