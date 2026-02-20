@@ -25,22 +25,55 @@ class DoctorResult:
 
 
 def detect_stack(repo_root: Path) -> Dict[str, Any]:
+    has_python = (repo_root / "pyproject.toml").exists() or (repo_root / "requirements.txt").exists()
+
+    # Node: package.json at root OR inside a subdirectory (e.g. Cypress/)
+    has_node = (repo_root / "package.json").exists() or bool(list(repo_root.glob("*/package.json"))[:1])
+
+    # Test framework detection
+    has_cypress = (
+        (repo_root / "cypress.config.js").exists()
+        or (repo_root / "cypress.config.ts").exists()
+        or bool(list(repo_root.glob("**/*.cy.js"))[:1])
+        or bool(list(repo_root.glob("**/*.cy.ts"))[:1])
+    )
+    has_jest = bool(list(repo_root.glob("jest.config*"))[:1]) or bool(list(repo_root.glob("**/*.test.js"))[:1])
+    has_pytest = has_python and (
+        (repo_root / "pytest.ini").exists()
+        or (repo_root / "conftest.py").exists()
+        or bool(list(repo_root.glob("tests/**/*.py"))[:1])
+    )
+
     markers = {
-        "python": (repo_root / "pyproject.toml").exists() or (repo_root / "requirements.txt").exists(),
-        "node": (repo_root / "package.json").exists(),
+        "python": has_python,
+        "node": has_node,
+        "cypress": has_cypress,
+        "jest": has_jest,
+        "pytest": has_pytest,
         "github_actions": (repo_root / ".github" / "workflows").exists(),
         "docker_compose": any(repo_root.glob("docker-compose*.yml")),
     }
 
-    if markers["python"]:
+    if has_python:
         primary = "python"
-    elif markers["node"]:
-        primary = "node"
+    elif has_node:
+        primary = "javascript"
     else:
         primary = "unknown"
 
+    # Infer test framework
+    if has_cypress:
+        test_framework = "cypress"
+    elif has_jest:
+        test_framework = "jest"
+    elif has_pytest:
+        test_framework = "pytest"
+    else:
+        test_framework = "unknown"
+
     return {
         "primary_language": primary,
+        "test_framework": test_framework,
         **markers,
     }
 
@@ -100,7 +133,7 @@ def bootstrap_project(repo_root: Path, force: bool = False) -> BootstrapResult:
     workflow_path = repo_root / ".github" / "workflows" / "agenticqa.yml"
     workflow_path.parent.mkdir(parents=True, exist_ok=True)
     if force or not workflow_path.exists():
-        workflow_path.write_text(_github_workflow_template(), encoding="utf-8")
+        workflow_path.write_text(_github_workflow_template(stack), encoding="utf-8")
         created_files.append(workflow_path)
 
     return BootstrapResult(repo_root=repo_root, created_files=created_files, detected_stack=stack)
@@ -205,5 +238,70 @@ def ingest_junit(junit_path: Path, output_path: Optional[Path] = None) -> Dict[s
     return payload
 
 
-def _github_workflow_template() -> str:
-    return """name: AgenticQA Plug-In\n\non:\n  workflow_dispatch:\n  push:\n    branches: [ main ]\n\njobs:\n  agenticqa-ingest:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Setup Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: '3.11'\n\n      - name: Install AgenticQA\n        run: |\n          pip install -e .\n\n      - name: Run tests and export JUnit\n        run: |\n          pytest --junitxml=agenticqa-junit.xml || true\n\n      - name: Convert JUnit to AgenticQA input\n        run: |\n          agenticqa ingest-junit agenticqa-junit.xml --out .agenticqa/latest_input.json\n\n      - name: AgenticQA health check\n        run: |\n          agenticqa doctor\n"""
+def _github_workflow_template(stack: Optional[Dict[str, Any]] = None) -> str:
+    stack = stack or {}
+    primary = stack.get("primary_language", "unknown")
+    framework = stack.get("test_framework", "unknown")
+
+    if primary == "javascript" or stack.get("node"):
+        setup_steps = """\
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || yarn install --frozen-lockfile"""
+
+        if framework == "cypress":
+            test_steps = """\
+      - name: Run Cypress tests
+        run: npx cypress run --reporter junit --reporter-options mochaFile=agenticqa-junit.xml || true"""
+        else:
+            test_steps = """\
+      - name: Run tests
+        run: npx jest --reporters=jest-junit || npm test || true
+        env:
+          JEST_JUNIT_OUTPUT_FILE: agenticqa-junit.xml"""
+    else:
+        setup_steps = """\
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install AgenticQA
+        run: pip install -e ."""
+
+        test_steps = """\
+      - name: Run tests and export JUnit
+        run: pytest --junitxml=agenticqa-junit.xml || true"""
+
+    return f"""\
+name: AgenticQA Plug-In
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  agenticqa-ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+{setup_steps}
+
+{test_steps}
+
+      - name: Convert JUnit to AgenticQA input
+        run: |
+          agenticqa ingest-junit agenticqa-junit.xml --out .agenticqa/latest_input.json
+
+      - name: AgenticQA health check
+        run: |
+          agenticqa doctor
+"""

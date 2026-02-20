@@ -5,7 +5,121 @@ from datetime import datetime
 from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import json
 import os
+import re
 from src.data_store import SecureDataPipeline
+
+
+# ---------------------------------------------------------------------------
+# Input normalizers — accept multiple real-world tool output formats
+# ---------------------------------------------------------------------------
+
+def normalize_coverage_input(data: Dict) -> Dict:
+    """Normalize coverage data from various tool formats into SDET's internal shape.
+
+    Accepts:
+    - Istanbul/nyc JSON: {"total": {"lines": {"pct": 62}}, "files": {...}}
+    - coverage.py JSON: {"totals": {"percent_covered": 62}, "files": {...}}
+    - Cypress coverage: {"overall": 62, "files": [...]}
+    - Internal format (passthrough): {"coverage_percent": 62, "uncovered_files": [...]}
+    - Simple dict with overall_coverage key
+    """
+    if "coverage_percent" in data and "uncovered_files" in data:
+        return data  # already normalized
+
+    normalized: Dict[str, Any] = {}
+
+    # Istanbul/nyc JSON summary format
+    if "total" in data and isinstance(data["total"], dict):
+        total = data["total"]
+        pct = (
+            total.get("lines", {}).get("pct")
+            or total.get("statements", {}).get("pct")
+            or total.get("branches", {}).get("pct")
+            or 0
+        )
+        normalized["coverage_percent"] = pct
+        normalized["uncovered_files"] = [
+            f for f, v in data.get("files", {}).items()
+            if isinstance(v, dict) and v.get("lines", {}).get("pct", 100) < 80
+        ]
+
+    # coverage.py JSON format
+    elif "totals" in data and "percent_covered" in data.get("totals", {}):
+        normalized["coverage_percent"] = data["totals"]["percent_covered"]
+        normalized["uncovered_files"] = [
+            f for f, v in data.get("files", {}).items()
+            if isinstance(v, dict) and v.get("summary", {}).get("percent_covered", 100) < 80
+        ]
+
+    # overall_coverage dict (e.g. from our test run)
+    elif "overall_coverage" in data:
+        normalized["coverage_percent"] = data["overall_coverage"]
+        files = data.get("files", {})
+        normalized["uncovered_files"] = [
+            f for f, v in files.items()
+            if isinstance(v, dict) and v.get("coverage", 100) < 80
+        ]
+
+    # Cypress coverage summary: {"overall": 62, "files": [...]}
+    elif "overall" in data:
+        normalized["coverage_percent"] = data["overall"]
+        normalized["uncovered_files"] = [
+            f if isinstance(f, str) else f.get("path", "")
+            for f in data.get("files", [])
+            if isinstance(f, dict) and f.get("coverage", 100) < 80
+        ]
+
+    else:
+        normalized["coverage_percent"] = data.get("percent", data.get("pct", 0))
+        normalized["uncovered_files"] = data.get("uncovered_files", [])
+
+    normalized.setdefault("test_type", data.get("test_type", "unknown"))
+    normalized.setdefault("repo", data.get("repo", ""))
+    return normalized
+
+
+def normalize_linting_input(data: Dict) -> Dict:
+    """Normalize linting data from various tool formats into SRE's internal shape.
+
+    Accepts:
+    - ESLint JSON: [{"filePath": "...", "messages": [{"ruleId": "...", "message": "..."}]}]
+    - ESLint JSON wrapped: {"results": [...]}
+    - Internal format (passthrough): {"errors": [{"rule": "...", "message": "..."}]}
+    - Simple list of error dicts
+    """
+    if "errors" in data and isinstance(data["errors"], list):
+        return data  # already normalized
+
+    errors = []
+
+    raw = data
+    # ESLint wrapped
+    if "results" in data:
+        raw = data["results"]
+    # ESLint is a list at top level
+    elif isinstance(data, list):
+        raw = data
+
+    if isinstance(raw, list):
+        for file_result in raw:
+            if isinstance(file_result, dict):
+                file_path = file_result.get("filePath", file_result.get("file", ""))
+                messages = file_result.get("messages", file_result.get("errors", []))
+                for msg in messages:
+                    if isinstance(msg, dict):
+                        errors.append({
+                            "rule": msg.get("ruleId") or msg.get("rule", "unknown"),
+                            "message": msg.get("message", ""),
+                            "file": file_path,
+                            "severity": "error" if msg.get("severity") == 2 else "warning",
+                            "line": msg.get("line"),
+                        })
+
+    return {
+        "errors": errors,
+        "file_path": data.get("file_path", "") if isinstance(data, dict) else "",
+        "repo": data.get("repo", "") if isinstance(data, dict) else "",
+    }
 
 if TYPE_CHECKING:
     from src.agenticqa.collaboration import AgentRegistry
@@ -862,21 +976,43 @@ class ComplianceAgent(BaseAgent):
             self.log(f"Compliance check failed: {str(e)}", "ERROR")
             raise
 
+    def _infer_project_context(self, data: Dict) -> Dict[str, bool]:
+        """Infer what kind of project this is to avoid false-positive compliance rules."""
+        context_hints = str(data.get("context", "")).lower()
+        repo = str(data.get("repo", "")).lower()
+        tags = [str(t).lower() for t in data.get("tags", [])]
+        all_hints = context_hints + " " + repo + " " + " ".join(tags)
+
+        return {
+            "is_test_only": any(w in all_hints for w in ("test", "cypress", "jest", "spec", "e2e", "qa")),
+            "has_user_data": any(w in all_hints for w in ("database", "db", "postgres", "mysql", "redis", "pii", "user", "auth")),
+            "is_infra_repo": any(w in all_hints for w in ("terraform", "k8s", "kubernetes", "infra", "deploy")),
+            "is_frontend_only": any(w in all_hints for w in ("frontend", "ui", "react", "vue", "angular", "css", "html")),
+        }
+
     def _check_violations(self, data: Dict, augmented_context: Optional[Dict] = None) -> List[str]:
         """
         Check for compliance violations with RAG insights.
 
         Uses both:
-        1. Basic compliance rules
+        1. Context-aware compliance rules (skips infra checks for test-only / frontend repos)
         2. Semantic insights from Weaviate (applicable compliance rules)
         """
         violations = []
+        project = self._infer_project_context(data)
 
-        # Basic rule-based violations
-        if not data.get("encrypted"):
-            violations.append("Data encryption required but not enabled")
-        if not data.get("pii_masked"):
-            violations.append("PII masking required but not enabled")
+        # Skip data-at-rest / PII rules for repos that don't handle user data
+        applies_data_rules = (
+            not project["is_test_only"]
+            and not project["is_frontend_only"]
+            or project["has_user_data"]
+        )
+
+        if applies_data_rules:
+            if not data.get("encrypted"):
+                violations.append("Data encryption required but not enabled")
+            if not data.get("pii_masked"):
+                violations.append("PII masking required but not enabled")
 
         # RAG-enhanced compliance rules from Weaviate
         if augmented_context:
@@ -1424,8 +1560,10 @@ class SREAgent(BaseAgent):
         Analyze linting errors and apply auto-fixes with RAG-augmented insights.
 
         Learns from past fixes stored in Weaviate to improve fix quality.
+        Accepts ESLint JSON, raw error lists, or internal format — normalized automatically.
         """
         self.log("Analyzing linting errors and applying fixes")
+        linting_data = normalize_linting_input(linting_data)
 
         try:
             # Augment context with RAG insights from Weaviate
@@ -1515,6 +1653,69 @@ class SREAgent(BaseAgent):
                 "confidence": 0.8,
             }
 
+        # CI YAML patch generation — SRE owns .github/** so can generate diffs
+        ci_patch = self._generate_ci_patch(error)
+        if ci_patch:
+            return ci_patch
+
+        return None
+
+    def _generate_ci_patch(self, error: Dict) -> Optional[Dict]:
+        """Generate a corrective patch for known CI YAML issues.
+
+        Returns a dict with 'patch' key containing a unified-diff-style suggestion,
+        or None if the rule is not a recognised CI issue.
+        """
+        rule = error.get("rule", "")
+        message = error.get("message", "")
+        file_path = error.get("file", "")
+
+        # Hardcoded local path in workflow
+        if rule == "hardcoded-path" or re.search(r"/Users/|/home/\w+/|C:\\\\Users\\\\", message):
+            match = re.search(r"(/Users/[^\s'\"]+|/home/\w+/[^\s'\"]+|C:\\\\Users\\\\[^\s'\"]+)", message)
+            bad_path = match.group(1) if match else "<local-path>"
+            # Infer the relative path from the local path's last meaningful segment
+            rel_guess = re.sub(r".*/(e2e|tests?|spec|cypress)/", r"\1/", bad_path)
+            return {
+                "rule": rule,
+                "file": file_path,
+                "fix_applied": f"Replace hardcoded path '{bad_path}' with relative path",
+                "patch": (
+                    f"--- a/{file_path}\n"
+                    f"+++ b/{file_path}\n"
+                    f"-          {bad_path}\n"
+                    f"+          ./{rel_guess}"
+                ),
+                "source": "ci_patch",
+                "confidence": 0.9,
+            }
+
+        # Duplicate config file
+        if rule == "duplicate-config":
+            return {
+                "rule": rule,
+                "file": file_path,
+                "fix_applied": "Remove duplicate config — keep root-level file, delete nested copy",
+                "patch": f"rm {file_path}  # keep root cypress.config.js",
+                "source": "ci_patch",
+                "confidence": 0.85,
+            }
+
+        # Duplicate support folder
+        if rule == "duplicate-folder":
+            return {
+                "rule": rule,
+                "file": file_path,
+                "fix_applied": "Consolidate duplicate support/ directories into one canonical location",
+                "patch": (
+                    f"# Merge contents then remove duplicate:\n"
+                    f"cp -r Cypress/support/* Cypress/cypress/support/\n"
+                    f"rm -rf Cypress/support"
+                ),
+                "source": "ci_patch",
+                "confidence": 0.8,
+            }
+
         return None
 
 
@@ -1529,8 +1730,10 @@ class SDETAgent(BaseAgent):
         Analyze test coverage and identify gaps with RAG-augmented insights.
 
         Learns from historical coverage improvements stored in Weaviate.
+        Accepts Istanbul/nyc JSON, coverage.py JSON, Cypress coverage, or internal format.
         """
         self.log("Analyzing test coverage and identifying gaps")
+        coverage_data = normalize_coverage_input(coverage_data)
 
         try:
             # Augment context with RAG insights from Weaviate
