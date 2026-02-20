@@ -9,6 +9,7 @@ Implements GraphRAG pattern:
 
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
+import json
 import os
 import logging
 from contextlib import contextmanager
@@ -185,14 +186,18 @@ class DelegationGraphStore:
         Returns:
             Delegation ID
         """
+        task_type = str(task.get("task_type", "unknown")) if isinstance(task, dict) else "unknown"
+        task_json = json.dumps(task, default=str)
+
         with self.session() as session:
-            session.run("""
+            result = session.run("""
                 MERGE (from:Agent {name: $from_agent})
                 MERGE (to:Agent {name: $to_agent})
                 CREATE (from)-[d:DELEGATES_TO {
                     delegation_id: $delegation_id,
                     execution_id: $execution_id,
-                    task: $task,
+                    task_type: $task_type,
+                    task_json: $task_json,
                     timestamp: datetime(),
                     depth: $depth,
                     status: 'pending',
@@ -206,10 +211,12 @@ class DelegationGraphStore:
                 to_agent=to_agent,
                 delegation_id=delegation_id,
                 execution_id=execution_id,
-                task=task,
+                task_type=task_type,
+                task_json=task_json,
                 depth=depth,
                 deployment_id=deployment_id
             )
+            result.consume()
 
         logger.debug(f"Recorded delegation: {from_agent} -> {to_agent} (depth: {depth})")
         return delegation_id
@@ -232,21 +239,24 @@ class DelegationGraphStore:
             result: Result data (optional)
             error_message: Error message if failed (optional)
         """
+        result_json = json.dumps(result, default=str) if result is not None else None
+
         with self.session() as session:
-            session.run("""
+            result = session.run("""
                 MATCH ()-[d:DELEGATES_TO {delegation_id: $delegation_id}]->()
                 SET d.status = $status,
                     d.duration_ms = $duration_ms,
-                    d.result = $result,
+                    d.result_json = $result_json,
                     d.error_message = $error_message,
                     d.completed_at = datetime()
             """,
                 delegation_id=delegation_id,
                 status=status,
                 duration_ms=duration_ms,
-                result=result,
+                result_json=result_json,
                 error_message=error_message
             )
+            result.consume()
 
         logger.debug(f"Updated delegation {delegation_id}: {status} ({duration_ms}ms)")
 
@@ -479,7 +489,7 @@ class DelegationGraphStore:
         with self.session() as session:
             result = session.run("""
                 MATCH (from:Agent {name: $from_agent})-[d:DELEGATES_TO]->(to:Agent)
-                WHERE d.task.task_type = $task_type
+                                WHERE d.task_type = $task_type
                   AND d.status = 'success'
                   AND d.duration_ms < $acceptable_duration_ms
                 WITH to.name as recommended_agent,
@@ -525,12 +535,13 @@ class DelegationGraphStore:
         with self.session() as session:
             result = session.run("""
                 MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)
-                WHERE d.task.task_type = $task_type
+                  WHERE d.task_type = $task_type
                   AND d.status = $status
                 RETURN from.name as from_agent,
                        to.name as to_agent,
-                       d.task as task,
-                       d.result as result,
+                      d.task_type as task_type,
+                      d.task_json as task_json,
+                       d.result_json as result_json,
                        d.duration_ms as duration_ms,
                        d.timestamp as timestamp
                 ORDER BY d.timestamp DESC
@@ -621,7 +632,7 @@ class DelegationGraphStore:
             # Get historical performance for this agent pair
             result = session.run("""
                 MATCH (from:Agent {name: $from_agent})-[d:DELEGATES_TO]->(to:Agent {name: $to_agent})
-                WHERE d.task.task_type = $task_type
+                 WHERE d.task_type = $task_type
                 WITH count(d) as total,
                      sum(CASE WHEN d.status = 'failed' THEN 1 ELSE 0 END) as failures,
                      avg(d.duration_ms) as avg_duration,
@@ -707,7 +718,7 @@ class DelegationGraphStore:
             result = session.run("""
                 MATCH path = (start:Agent {name: $from_agent})-[:DELEGATES_TO*1..$max_hops]->(end:Agent)
                 MATCH (end)-[d:DELEGATES_TO]->()
-                WHERE d.task.task_type = $target_capability
+                                WHERE d.task_type = $target_capability
                   AND d.status = 'success'
                 WITH path,
                      end,

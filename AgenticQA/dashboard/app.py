@@ -88,12 +88,21 @@ st.markdown("""
 
 
 @st.cache_resource
+def _create_graph_store():
+    """Create and cache a live Neo4j connection."""
+    store = DelegationGraphStore()
+    store.connect()
+    return store
+
+
 def get_graph_store():
-    """Get cached Neo4j connection"""
+    """Get Neo4j connection, returning None when unavailable.
+
+    Important: do not cache failed attempts. If Neo4j starts after dashboard boot,
+    subsequent reruns should reconnect automatically.
+    """
     try:
-        store = DelegationGraphStore()
-        store.connect()
-        return store
+        return _create_graph_store()
     except Exception:
         return None
 
