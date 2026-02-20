@@ -137,7 +137,15 @@ The platform uses **Case-Based Reasoning (CBR)** — deterministic pattern match
 | **Explainable decisions?** | No | **Yes** |
 | **Gets better over time?** | Requires retraining | **Automatic** |
 
-The learning loop: every execution stores `rag_docs_retrieved`, `avg_similarity_score`, and `patterns_considered`. EWMA flakiness trends (α=0.3) detect when an agent is degrading. Anomaly detection fires when RAG retrieval similarity drops >20% below the 14-day baseline — your signal that the vector index needs attention before a human even notices.
+**The closed ML learning loop (5 phases):**
+
+1. **Feedback loop** — every RAG retrieval is tracked by doc ID; outcomes boost or penalize future retrieval scores; results are reranked before each decision
+2. **Adaptive thresholds** — `ThresholdCalibrator` replaces hardcoded similarity thresholds (0.5/0.6/0.7) with calibration-informed values from live outcome data
+3. **Pattern-driven execution** — agents query EWMA flakiness trends and failure patterns before acting; cautious strategy activates automatically when failure rate >30% or flakiness is accelerating
+4. **GraphRAG-informed delegation** — `delegate_to_agent()` consults Neo4j failure risk prediction before routing; outcome recorded to `OutcomeTracker` for future calibration
+5. **Adaptive strategy selection** — agents choose `aggressive` (≥85% success rate), `standard`, or `conservative` (≤60%) strategies; max recommendations and confidence multipliers adjust automatically
+
+Every execution stores `rag_docs_retrieved`, `avg_similarity_score`, and `patterns_considered`. EWMA flakiness trends (α=0.3) detect when an agent is degrading. Anomaly detection fires when RAG retrieval similarity drops >20% below the 14-day baseline — your signal that the vector index needs attention before a human even notices.
 
 ---
 
@@ -194,10 +202,11 @@ Seven specialized agents collaborate under constitutional governance across your
 
 | Capability | What Happens | Measured Result |
 |---|---|---|
-| **Self-Healing** | SRE detects linting errors, retrieves proven fixes, commits | 90% of errors fixed autonomously |
-| **Coverage Intelligence** | SDET identifies gaps, prioritizes by business criticality | 100% of critical gaps detected |
+| **Self-Healing** | SRE detects linting errors across 10+ languages (Python, JS/TS, Go, Ruby, Java, Rust, C#, PHP), retrieves proven fixes, commits | 90% of errors fixed autonomously |
+| **Coverage Intelligence** | SDET identifies gaps, prioritizes by business criticality, lowers threshold when flakiness accelerating | 100% of critical gaps detected |
+| **Performance Regression** | Performance agent detects latency >2× baseline and flags `regression_detected` before deploy | Catches regressions CI would miss |
 | **Code Generation** | Fullstack generates from prompt → compliance → tests → commit | 80% of simple features automated |
-| **Pattern Learning** | Every run stored as embeddings, retrieved before next decision | 96% confidence after 50 deployments |
+| **Pattern Learning** | Closed feedback loop: boost/penalize docs, adaptive thresholds, strategy selection per success rate | 96% confidence after 50 deployments |
 | **Self-Validation** | Nightly pipeline injects intentional errors to verify agents | 99.5% pipeline uptime |
 | **Constitutional Enforcement** | Pre-action check before every destructive or sensitive operation | Zero unauthorized destructive actions |
 
@@ -232,7 +241,7 @@ pip install -e .
 # Start infrastructure (optional — most features work without it)
 docker compose -f docker-compose.weaviate.yml up -d
 
-# Run 300+ tests
+# Run 575+ tests
 pytest tests/ -v
 
 # Launch control plane
@@ -336,7 +345,7 @@ Every agent execution passes through 6 validation layers — and now a 7th const
 | **API** | FastAPI + Pydantic |
 | **Dashboard** | Streamlit + Plotly |
 | **CI/CD** | GitHub Actions (16 jobs) |
-| **Testing** | Pytest (300+ tests), Playwright, Pa11y |
+| **Testing** | Pytest (575+ tests), Playwright, Pa11y |
 | **Language** | Python 3.8+ |
 
 ---
@@ -360,7 +369,7 @@ AgenticQA/
 │   └── cli.py                   # CLI: bootstrap, doctor, ingest-junit
 ├── dashboard/                   # 8-page Streamlit analytics dashboard
 ├── agent_api.py                 # FastAPI control plane (30+ endpoints)
-├── tests/                       # 360+ tests — unit, integration, governance, agent scopes, RAG, UI
+├── tests/                       # 575+ tests — unit, integration, governance, agent scopes, RAG, UI
 └── .github/workflows/           # 16-job CI pipeline + nightly self-validation benchmark
 ```
 
