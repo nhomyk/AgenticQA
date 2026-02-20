@@ -25,10 +25,14 @@ class DoctorResult:
 
 
 def detect_stack(repo_root: Path) -> Dict[str, Any]:
+    # ── Language markers ────────────────────────────────────────────────────────
     has_python = (repo_root / "pyproject.toml").exists() or (repo_root / "requirements.txt").exists()
-
-    # PHP: composer.json at root OR any .php source files
-    has_php = (repo_root / "composer.json").exists() or bool(list(repo_root.glob("src/**/*.php"))[:1])
+    has_php    = (repo_root / "composer.json").exists() or bool(list(repo_root.glob("src/**/*.php"))[:1])
+    has_go     = (repo_root / "go.mod").exists()
+    has_ruby   = (repo_root / "Gemfile").exists() or (repo_root / "Rakefile").exists()
+    has_java   = (repo_root / "pom.xml").exists() or bool(list(repo_root.glob("build.gradle*"))[:1])
+    has_rust   = (repo_root / "Cargo.toml").exists()
+    has_csharp = bool(list(repo_root.glob("**/*.csproj"))[:1]) or bool(list(repo_root.glob("**/*.sln"))[:1])
 
     # Node: package.json at root OR nested up to 3 levels deep (e.g. tests/e2e/package.json)
     has_node = (
@@ -37,61 +41,76 @@ def detect_stack(repo_root: Path) -> Dict[str, Any]:
         or bool(list(repo_root.glob("*/*/package.json"))[:1])
     )
 
-    # Test framework detection
-    has_cypress = (
+    # ── Test framework markers ───────────────────────────────────────────────────
+    has_pytest    = has_python and (
+        (repo_root / "pytest.ini").exists()
+        or (repo_root / "conftest.py").exists()
+        or bool(list(repo_root.glob("tests/**/*.py"))[:1])
+    )
+    has_phpunit   = (repo_root / "phpunit.xml").exists() or (repo_root / "phpunit.xml.dist").exists()
+    has_jest      = bool(list(repo_root.glob("jest.config*"))[:1]) or bool(list(repo_root.glob("**/*.test.js"))[:1])
+    has_cypress   = (
         (repo_root / "cypress.config.js").exists()
         or (repo_root / "cypress.config.ts").exists()
         or bool(list(repo_root.glob("**/*.cy.js"))[:1])
         or bool(list(repo_root.glob("**/*.cy.ts"))[:1])
     )
-    has_jest = bool(list(repo_root.glob("jest.config*"))[:1]) or bool(list(repo_root.glob("**/*.test.js"))[:1])
-    has_playwright = (
-        bool(list(repo_root.glob("**/playwright.config*"))[:1])
-        or bool(list(repo_root.glob("**/*.spec.ts"))[:1])
-    )
-    has_phpunit = (repo_root / "phpunit.xml").exists() or (repo_root / "phpunit.xml.dist").exists()
-    has_pytest = has_python and (
-        (repo_root / "pytest.ini").exists()
-        or (repo_root / "conftest.py").exists()
-        or bool(list(repo_root.glob("tests/**/*.py"))[:1])
-    )
+    has_playwright = bool(list(repo_root.glob("**/playwright.config*"))[:1])
+    has_rspec     = bool(list(repo_root.glob("spec/**/*_spec.rb"))[:1])
+    has_junit_java = bool(list(repo_root.glob("**/*Test.java"))[:1]) or bool(list(repo_root.glob("**/*Tests.java"))[:1])
+    has_go_test   = bool(list(repo_root.glob("**/*_test.go"))[:1])
+    has_cargo_test = has_rust and bool(list(repo_root.glob("tests/**/*.rs"))[:1])
+    has_dotnet_test = has_csharp and bool(list(repo_root.glob("**/*Tests.cs"))[:1])
 
     markers = {
-        "python": has_python,
-        "php": has_php,
-        "node": has_node,
-        "cypress": has_cypress,
-        "jest": has_jest,
+        # Languages
+        "python":     has_python,
+        "php":        has_php,
+        "node":       has_node,
+        "go":         has_go,
+        "ruby":       has_ruby,
+        "java":       has_java,
+        "rust":       has_rust,
+        "csharp":     has_csharp,
+        # Test frameworks
+        "pytest":     has_pytest,
+        "phpunit":    has_phpunit,
+        "jest":       has_jest,
+        "cypress":    has_cypress,
         "playwright": has_playwright,
-        "phpunit": has_phpunit,
-        "pytest": has_pytest,
+        "rspec":      has_rspec,
+        "junit":      has_junit_java,
+        "go_test":    has_go_test,
+        "cargo_test": has_cargo_test,
+        "dotnet_test": has_dotnet_test,
+        # Infrastructure
         "github_actions": (repo_root / ".github" / "workflows").exists(),
         "docker_compose": any(repo_root.glob("docker-compose*.yml")) or any(repo_root.glob("compose*.yaml")),
     }
 
-    # Primary language: PHP wins over Node for PHP+Node repos (e.g. PHP app with Playwright e2e)
-    if has_python:
-        primary = "python"
-    elif has_php:
-        primary = "php"
-    elif has_node:
-        primary = "javascript"
-    else:
-        primary = "unknown"
+    # Primary language priority: Python > PHP > Go > Java > Ruby > Rust > C# > JS > unknown
+    if has_python:       primary = "python"
+    elif has_php:        primary = "php"
+    elif has_go:         primary = "go"
+    elif has_java:       primary = "java"
+    elif has_ruby:       primary = "ruby"
+    elif has_rust:       primary = "rust"
+    elif has_csharp:     primary = "csharp"
+    elif has_node:       primary = "javascript"
+    else:                primary = "unknown"
 
-    # Infer primary test framework
-    if has_phpunit:
-        test_framework = "phpunit"
-    elif has_cypress:
-        test_framework = "cypress"
-    elif has_playwright:
-        test_framework = "playwright"
-    elif has_jest:
-        test_framework = "jest"
-    elif has_pytest:
-        test_framework = "pytest"
-    else:
-        test_framework = "unknown"
+    # Primary test framework (most specific first)
+    if has_phpunit:       test_framework = "phpunit"
+    elif has_pytest:      test_framework = "pytest"
+    elif has_rspec:       test_framework = "rspec"
+    elif has_junit_java:  test_framework = "junit"
+    elif has_go_test:     test_framework = "go_test"
+    elif has_cargo_test:  test_framework = "cargo_test"
+    elif has_dotnet_test: test_framework = "dotnet_test"
+    elif has_cypress:     test_framework = "cypress"
+    elif has_playwright:  test_framework = "playwright"
+    elif has_jest:        test_framework = "jest"
+    else:                 test_framework = "unknown"
 
     return {
         "primary_language": primary,
@@ -276,10 +295,75 @@ def _github_workflow_template(stack: Optional[Dict[str, Any]] = None) -> str:
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist"""
-
         test_steps = """\
       - name: Run PHPUnit tests
         run: composer test -- --log-junit agenticqa-junit.xml || true"""
+
+    elif primary == "go" or stack.get("go"):
+        setup_steps = """\
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'"""
+        test_steps = """\
+      - name: Run Go tests
+        run: go test ./... -v 2>&1 | go-junit-report > agenticqa-junit.xml || true"""
+
+    elif primary == "java" or stack.get("java"):
+        build_tool = "mvn" if (Path(".") / "pom.xml").exists() else "gradle"
+        if build_tool == "mvn":
+            setup_steps = """\
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'"""
+            test_steps = """\
+      - name: Run Maven tests
+        run: mvn test --no-transfer-progress || true"""
+        else:
+            setup_steps = """\
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'"""
+            test_steps = """\
+      - name: Run Gradle tests
+        run: ./gradlew test || true"""
+
+    elif primary == "ruby" or stack.get("ruby"):
+        setup_steps = """\
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true"""
+        test_steps = """\
+      - name: Run RSpec tests
+        run: bundle exec rspec --format RspecJunitFormatter --out agenticqa-junit.xml || true"""
+
+    elif primary == "rust" or stack.get("rust"):
+        setup_steps = """\
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy"""
+        test_steps = """\
+      - name: Run Cargo tests
+        run: cargo test -- --format junit > agenticqa-junit.xml 2>&1 || cargo test || true"""
+
+    elif primary == "csharp" or stack.get("csharp"):
+        setup_steps = """\
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0'"""
+        test_steps = """\
+      - name: Run .NET tests
+        run: dotnet test --logger "junit;LogFilePath=agenticqa-junit.xml" || true"""
 
     elif primary == "javascript" or stack.get("node"):
         setup_steps = """\
@@ -291,7 +375,6 @@ def _github_workflow_template(stack: Optional[Dict[str, Any]] = None) -> str:
 
       - name: Install dependencies
         run: npm ci || yarn install --frozen-lockfile"""
-
         if framework == "cypress":
             test_steps = """\
       - name: Run Cypress tests
@@ -302,7 +385,8 @@ def _github_workflow_template(stack: Optional[Dict[str, Any]] = None) -> str:
         run: npx jest --reporters=jest-junit || npm test || true
         env:
           JEST_JUNIT_OUTPUT_FILE: agenticqa-junit.xml"""
-    else:
+
+    else:  # Python default
         setup_steps = """\
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -311,7 +395,6 @@ def _github_workflow_template(stack: Optional[Dict[str, Any]] = None) -> str:
 
       - name: Install AgenticQA
         run: pip install -e ."""
-
         test_steps = """\
       - name: Run tests and export JUnit
         run: pytest --junitxml=agenticqa-junit.xml || true"""

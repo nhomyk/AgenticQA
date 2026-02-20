@@ -1637,21 +1637,60 @@ class SREAgent(BaseAgent):
                         "confidence": rec.get("confidence"),
                     }
 
-        # Basic fix patterns
+        # Basic fix patterns — universal + per-language
         fix_map = {
-            "quotes": "Changed quotes to doublequote",
-            "semi": "Added missing semicolon",
-            "no-unused-vars": "Removed unused variable",
-            "indent": "Fixed indentation",
+            # Universal
+            "quotes":           "Changed to consistent quote style",
+            "semi":             "Added missing semicolon",
+            "no-unused-vars":   "Removed unused variable",
+            "indent":           "Fixed indentation",
+            "trailing-spaces":  "Removed trailing whitespace",
+            "eol-last":         "Added newline at end of file",
             # React / JSX
-            "react/no-unknown-property": "Converted HTML attribute to JSX camelCase equivalent (e.g. frameborder → frameBorder, class → className)",
-            "react/jsx-no-duplicate-props": "Removed duplicate JSX prop",
-            "react/prop-types": "Added PropTypes declaration for component props",
+            "react/no-unknown-property":     "Converted HTML attribute to JSX camelCase (e.g. frameborder → frameBorder, class → className)",
+            "react/jsx-no-duplicate-props":  "Removed duplicate JSX prop",
+            "react/prop-types":              "Added PropTypes declaration for component props",
+            "react/display-name":            "Added displayName to component",
+            "react-hooks/exhaustive-deps":   "Added missing dependency to useEffect/useCallback/useMemo dep array",
             # Accessibility
-            "jsx-a11y/alt-text": "Added descriptive alt attribute to img element",
-            "jsx-a11y/anchor-is-valid": "Replaced invalid anchor with button or added valid href",
-            "jsx-a11y/click-events-have-key-events": "Added keyboard event handler alongside click handler",
-            "jsx-a11y/no-noninteractive-element-interactions": "Moved interaction to a focusable element",
+            "jsx-a11y/alt-text":                              "Added descriptive alt attribute to img element",
+            "jsx-a11y/anchor-is-valid":                       "Replaced invalid anchor with button or added valid href",
+            "jsx-a11y/click-events-have-key-events":          "Added keyboard event handler alongside click handler",
+            "jsx-a11y/no-noninteractive-element-interactions":"Moved interaction to a focusable element",
+            # TypeScript
+            "@typescript-eslint/no-explicit-any":             "Replaced 'any' with a typed alternative",
+            "@typescript-eslint/no-unused-vars":              "Removed unused TypeScript variable or import",
+            "@typescript-eslint/explicit-function-return-type":"Added explicit return type annotation",
+            # PHP / PHPStan / PHP-CS-Fixer
+            "phpstan":     "Applied PHPStan fix: added type declaration or removed dead code",
+            "phpcs":       "Applied PHP_CodeSniffer fix: corrected coding standard violation",
+            "php-cs-fixer":"Applied php-cs-fixer: corrected code style",
+            # Go
+            "golint":      "Applied golint fix: added comment or renamed to match Go conventions",
+            "go-vet":      "Applied go vet fix: corrected suspicious code construct",
+            "errcheck":    "Added error return value check",
+            "gofmt":       "Ran gofmt: corrected Go formatting",
+            # Ruby / RuboCop
+            "rubocop":                          "Applied RuboCop autocorrect",
+            "Style/FrozenStringLiteralComment": "Added # frozen_string_literal: true comment",
+            "Style/StringLiterals":             "Changed to consistent single-quoted string style",
+            "Lint/UnusedVariable":              "Removed unused Ruby variable",
+            "Metrics/MethodLength":             "Extracted long method into smaller methods",
+            # Java
+            "checkstyle":   "Applied Checkstyle fix: corrected Java code style",
+            "pmd":          "Applied PMD fix: resolved code quality issue",
+            "spotbugs":     "Applied SpotBugs fix: resolved potential bug",
+            "unused-import":"Removed unused Java import",
+            # Rust / Clippy
+            "clippy":          "Applied Clippy suggestion",
+            "dead-code":       "Removed or annotated dead code with #[allow(dead_code)]",
+            "unused-variable": "Prefixed unused Rust variable with _",
+            # C# / .NET Roslyn
+            "CA1822":   "Marked method as static — does not access instance data",
+            "CA2007":   "Added ConfigureAwait(false) to awaited task",
+            "CS0168":   "Removed unused C# variable",
+            "CS8600":   "Added null check or non-null assertion for nullable type",
+            "CS8602":   "Added null guard before dereferencing nullable reference",
         }
 
         if rule in fix_map:
@@ -1690,8 +1729,20 @@ class SREAgent(BaseAgent):
                 env_ref = f"getenv('{env_var}') ?: '{bad_url}'"
             elif file_path.endswith((".ts", ".tsx", ".js", ".jsx")):
                 env_ref = f"process.env.{env_var} ?? '{bad_url}'"
+            elif file_path.endswith(".go"):
+                env_ref = f'os.Getenv("{env_var}")'
+            elif file_path.endswith(".rb"):
+                env_ref = f"ENV.fetch('{env_var}', '{bad_url}')"
+            elif file_path.endswith(".java") or file_path.endswith(".kt"):
+                env_ref = f'System.getenv("{env_var}")'
+            elif file_path.endswith(".rs"):
+                env_ref = f'std::env::var("{env_var}").unwrap_or_else(|_| "{bad_url}".to_string())'
+            elif file_path.endswith(".cs"):
+                env_ref = f'Environment.GetEnvironmentVariable("{env_var}") ?? "{bad_url}"'
+            elif file_path.endswith(".py"):
+                env_ref = f"os.getenv('{env_var}', '{bad_url}')"
             else:
-                env_ref = f"${{{env_var}:-{bad_url}}}"
+                env_ref = f"${{{env_var}:-{bad_url}}}"  # shell/generic fallback
             return {
                 "rule": rule,
                 "file": file_path,
