@@ -166,7 +166,7 @@ class RAGRetriever:
                             "type": "test_pattern",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": {**result.document.metadata, "doc_id": result.document.id},
+                            "source": {**result.document.metadata, "doc_id": str(result.document.id)},
                         }
                     )
 
@@ -183,7 +183,7 @@ class RAGRetriever:
                             "type": "optimization",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": {**result.document.metadata, "doc_id": result.document.id},
+                            "source": {**result.document.metadata, "doc_id": str(result.document.id)},
                         }
                     )
 
@@ -200,7 +200,7 @@ class RAGRetriever:
                             "type": "compliance_rule",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": {**result.document.metadata, "doc_id": result.document.id},
+                            "source": {**result.document.metadata, "doc_id": str(result.document.id)},
                         }
                     )
 
@@ -217,7 +217,7 @@ class RAGRetriever:
                             "type": "error_resolution",
                             "insight": result.insight,
                             "confidence": result.similarity,
-                            "source": {**result.document.metadata, "doc_id": result.document.id},
+                            "source": {**result.document.metadata, "doc_id": str(result.document.id)},
                         }
                     )
 

@@ -883,10 +883,15 @@ class PerformanceAgent(BaseAgent):
                 }
             )
 
+            baseline = execution_data.get("baseline_ms", 0) or 0
+            regression = baseline > 0 and duration > baseline * 2
+            perf_status = "degraded" if duration >= 5000 or regression else "optimal"
             analysis = {
                 "duration_ms": duration,
+                "baseline_ms": baseline,
                 "memory_mb": memory,
-                "status": "optimal" if duration < 5000 else "degraded",
+                "status": perf_status,
+                "regression_detected": regression,
                 "optimizations": self._suggest_optimizations(execution_data, augmented_context),
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
@@ -961,8 +966,8 @@ class ComplianceAgent(BaseAgent):
             )
 
             checks = {
-                "data_encryption": compliance_data.get("encrypted", False),
-                "pii_protection": compliance_data.get("pii_masked", False),
+                "data_encryption": bool(compliance_data.get("encrypted") or compliance_data.get("encryption_enabled")),
+                "pii_protection": bool(compliance_data.get("pii_masked") or compliance_data.get("pii_masking")),
                 "audit_logs": compliance_data.get("audit_enabled", False),
                 "violations": self._check_violations(compliance_data, augmented_context),
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
@@ -1010,9 +1015,11 @@ class ComplianceAgent(BaseAgent):
         )
 
         if applies_data_rules:
-            if not data.get("encrypted"):
+            encrypted = data.get("encrypted") or data.get("encryption_enabled")
+            pii_masked = data.get("pii_masked") or data.get("pii_masking")
+            if not encrypted:
                 violations.append("Data encryption required but not enabled")
-            if not data.get("pii_masked"):
+            if not pii_masked:
                 violations.append("PII masking required but not enabled")
 
         # RAG-enhanced compliance rules from Weaviate
@@ -1600,6 +1607,7 @@ class SREAgent(BaseAgent):
             result = {
                 "total_errors": len(errors),
                 "fixes_applied": len(fixes_applied),
+                "fix_rate": len(fixes_applied) / len(errors) if errors else 0.0,
                 "fixes": fixes_applied,
                 "status": "success" if len(fixes_applied) == len(errors) else "partial",
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
@@ -1640,6 +1648,64 @@ class SREAgent(BaseAgent):
 
         # Basic fix patterns — universal + per-language
         fix_map = {
+            # Python / flake8 / pyflakes / pycodestyle
+            "E101":  "Fixed indentation — replaced tabs with spaces",
+            "E111":  "Fixed indentation — corrected indentation increment",
+            "E117":  "Fixed over-indented code",
+            "E121":  "Fixed continuation line under-indented for hanging indent",
+            "E122":  "Fixed continuation line missing indentation or outdented",
+            "E123":  "Fixed closing bracket indentation",
+            "E124":  "Fixed closing bracket alignment to visual indentation",
+            "E125":  "Fixed continuation line indentation for visual indent",
+            "E126":  "Fixed continuation line over-indented for hanging indent",
+            "E127":  "Fixed continuation line over-indented for visual indent",
+            "E128":  "Fixed continuation line under-indented for visual indent",
+            "E131":  "Fixed continuation line unaligned for closing bracket",
+            "E201":  "Removed whitespace after '(' or '['",
+            "E202":  "Removed whitespace before ')' or ']'",
+            "E203":  "Removed whitespace before ':' or ','",
+            "E211":  "Removed whitespace before '(' or '['",
+            "E221":  "Fixed multiple spaces before operator",
+            "E222":  "Fixed multiple spaces after operator",
+            "E225":  "Added missing whitespace around operator",
+            "E226":  "Added missing whitespace around arithmetic operator",
+            "E228":  "Added missing whitespace around modulo operator",
+            "E231":  "Added missing whitespace after ','",
+            "E241":  "Fixed multiple spaces after ','",
+            "E251":  "Removed unexpected spaces around keyword / parameter default",
+            "E261":  "Fixed inline comment — at least two spaces before '#'",
+            "E262":  "Fixed inline comment — must start with '# '",
+            "E265":  "Fixed block comment — must start with '# '",
+            "E266":  "Fixed block comment — must start with '# ' not '##'",
+            "E271":  "Fixed multiple spaces after keyword",
+            "E272":  "Fixed multiple spaces before keyword",
+            "E301":  "Added expected blank line before function/class definition",
+            "E302":  "Added expected 2 blank lines before top-level definition",
+            "E303":  "Removed extra blank lines (max 2)",
+            "E304":  "Removed blank lines found after function decorator",
+            "E305":  "Added expected 2 blank lines after function/class definition",
+            "E401":  "Moved multiple imports to separate lines",
+            "E501":  "Wrapped long line to fit within max line length",
+            "E502":  "Removed unnecessary backslash (implicit continuation inside brackets)",
+            "E711":  "Replaced == None comparison with 'is None'",
+            "E712":  "Replaced == True/False with boolean check",
+            "E714":  "Replaced 'not x is' with 'x is not'",
+            "E721":  "Replaced type comparison with isinstance()",
+            "E741":  "Renamed ambiguous variable name (l, O, I)",
+            "W191":  "Replaced tabs with spaces for indentation",
+            "W291":  "Removed trailing whitespace",
+            "W292":  "Added newline at end of file",
+            "W293":  "Removed whitespace on blank line",
+            "W391":  "Removed blank line at end of file",
+            "W503":  "Moved line break before binary operator",
+            "W504":  "Moved line break after binary operator",
+            "W605":  "Fixed invalid escape sequence — used raw string or double-escaped",
+            "F401":  "Removed unused import",
+            "F811":  "Removed redefined unused name from import",
+            "F841":  "Removed or prefixed unused local variable",
+            "F821":  "Resolved undefined name — checked for missing import",
+            "F824":  "Removed unused nonlocal declaration",
+            "C901":  "Refactored complex function — extracted sub-functions to reduce complexity",
             # Universal
             "quotes":           "Changed to consistent quote style",
             "semi":             "Added missing semicolon",
@@ -1697,6 +1763,8 @@ class SREAgent(BaseAgent):
         if rule in fix_map:
             return {
                 "rule": rule,
+                "file": error.get("file"),
+                "line": error.get("line"),
                 "fix_applied": fix_map[rule],
                 "source": "basic",
                 "confidence": 0.8,
