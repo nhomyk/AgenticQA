@@ -1,6 +1,6 @@
 {
   "name": "agentic-qa-engineer",
-  "version": "0.2.55",
+  "version": "0.2.56",
   "description": "Production-ready Agentic QA Engineer: scans webpages for console errors, DOM issues, and security vulnerabilities",
   "main": "server.js",
   "license": "MIT",
