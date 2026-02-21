@@ -54,6 +54,19 @@ try:
 except Exception:  # pragma: no cover - optional compatibility import
     AgentOrchestrator = None
 
+try:
+    from data_store.artifact_store import TestArtifactStore
+    from data_store.secure_pipeline import SecureDataPipeline
+    from data_store.data_quality_pipeline import DataQualityValidatedPipeline
+    from .data_store.code_change_tracker import CodeChangeTracker
+    from .data_store.snapshot_pipeline import SnapshotValidatingPipeline
+except Exception:  # pragma: no cover - optional data_store imports
+    TestArtifactStore = None
+    SecureDataPipeline = None
+    DataQualityValidatedPipeline = None
+    CodeChangeTracker = None
+    SnapshotValidatingPipeline = None
+
 __version__ = "2.0.0"
 
 __all__ = [
@@ -86,4 +99,10 @@ __all__ = [
     "create_vector_store_for_provider",
     "create_rag_system",
     "AgentOrchestrator",
+    # Data store (optional, requires data_store package on path)
+    "TestArtifactStore",
+    "SecureDataPipeline",
+    "DataQualityValidatedPipeline",
+    "CodeChangeTracker",
+    "SnapshotValidatingPipeline",
 ]

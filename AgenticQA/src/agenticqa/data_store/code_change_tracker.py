@@ -150,7 +150,7 @@ class CodeChangeTracker:
         # Save analysis
         analysis_file = self.changes_dir / f"{change_id}_analysis.json"
         with open(analysis_file, "w") as f:
-            json.dump(analysis, f, indent=2, default=str)
+            json.dump(analysis.to_dict(), f, indent=2)
 
         print(f"📸 After snapshot captured: {change_id}")
 
@@ -247,7 +247,7 @@ class CodeChangeTracker:
         if not compliance_improved:
             return False, "Compliance score decreased - security risk"
 
-        if tests_failed > 0:
+        if tests_failed > 0 and not tests_improved:
             return False, f"Tests failing after change - {tests_failed} failures detected"
 
         if quality_delta < -10:

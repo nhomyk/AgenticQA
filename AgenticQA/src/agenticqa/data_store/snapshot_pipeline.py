@@ -8,7 +8,8 @@ to ensure data accuracy, correctness, and consistency across all deployments.
 from datetime import datetime
 from typing import Dict, List, Any
 from agenticqa.data_store.snapshot_manager import SnapshotManager
-from agenticqa.data_store.data_quality_tester import DataQualityTester
+from data_store.data_quality_tester import DataQualityTester
+from data_store.artifact_store import TestArtifactStore
 
 
 class SnapshotValidatingPipeline:
@@ -29,7 +30,8 @@ class SnapshotValidatingPipeline:
             snapshot_dir: Directory for storing snapshots
         """
         self.snapshot_mgr = SnapshotManager(snapshot_dir)
-        self.quality_tester = DataQualityTester()
+        self._artifact_store = TestArtifactStore(snapshot_dir + "/artifacts")
+        self.quality_tester = DataQualityTester(self._artifact_store)
         self.validation_results: Dict[str, Any] = {}
 
     def validate_with_snapshots(self, test_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -75,12 +77,12 @@ class SnapshotValidatingPipeline:
             if not comparison["matches"]:
                 results["agent_outputs_match"] = False
                 results["all_validations_passed"] = False
-                snapshot_entry["differences"] = comparison["differences"]
+                snapshot_entry["differences"] = comparison.get("differences", {})
 
             results["snapshots_validated"].append(snapshot_entry)
 
         # Run quality tests
-        quality_results = self.quality_tester.run_all_tests(test_data, agent_results)
+        quality_results = self.quality_tester.run_all_tests()
 
         results["quality_checks_passed"] = quality_results.get("passed_tests", 0)
         results["quality_checks_failed"] = quality_results.get("failed_tests", 0)

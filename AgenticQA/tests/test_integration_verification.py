@@ -92,7 +92,8 @@ class TestAgentExecutionWithStore:
 
         # Verify results exist
         assert results is not None
-        assert "qa_agent" in results or "qassistant" in [r.lower() for r in results.keys()]
+        agent_keys = [k.lower() for k in results.keys()]
+        assert any(k in agent_keys for k in ("qa_agent", "qa", "qassistant"))
 
 
 class TestSnapshotIntegration:
@@ -163,12 +164,14 @@ class TestDataQualityIntegration:
 
         test_data = {"code": "x = 1 + 1", "tests": "assert x == 2"}
 
-        # Execute with validation
+        # Execute with validation — returns (is_valid: bool, result: dict)
         results = pipeline.validate_input_data(test_data)
 
         # Verify validation results exist
         assert results is not None
-        assert isinstance(results, dict)
+        assert isinstance(results, tuple)
+        is_valid, result_dict = results
+        assert isinstance(result_dict, dict)
 
 
 class TestEndToEndPipeline:
@@ -201,8 +204,14 @@ assert fibonacci(10) == 55
             """,
         }
 
-        # Execute pipeline
-        results = pipeline.validate_input_data(test_data)
+        # Execute pipeline via execute_with_validation which stores artifacts
+        execution_result = {
+            "timestamp": "2026-01-01T00:00:00",
+            "agent_name": "qa_agent",
+            "status": "passed",
+            "output": {"tests_passed": 4, "tests_failed": 0},
+        }
+        results = pipeline.execute_with_validation("qa_agent", execution_result)
 
         # Verify artifact store has data
         index = artifact_store.get_master_index()
@@ -226,11 +235,13 @@ class TestDataIntegrity:
             test_data, artifact_type="test", source="test", tags=["integrity"]
         )
 
-        # Retrieve and verify
+        # Retrieve and verify raw artifact data
         retrieved = store.get_artifact(artifact_id)
+        assert retrieved == test_data
 
-        assert retrieved["data"] == test_data
-        assert retrieved["checksum"] is not None
+        # Checksum is stored in the metadata index
+        index = store.get_master_index()
+        assert index[artifact_id]["checksum"] is not None
 
 
 class TestArtifactIndexing:

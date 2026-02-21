@@ -11,9 +11,9 @@ from agenticqa.data_store.change_executor import SafeCodeChangeExecutor, ChangeH
 
 
 @pytest.fixture
-def change_tracker():
+def change_tracker(tmp_path):
     """Create code change tracker."""
-    return CodeChangeTracker(".test_changes")
+    return CodeChangeTracker(str(tmp_path / ".test_changes"))
 
 
 @pytest.fixture

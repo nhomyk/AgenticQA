@@ -43,6 +43,10 @@ class TestArtifactStore:
                 keyed[artifact_id] = artifact
         return keyed
 
+    def get_master_index(self) -> Dict[str, Dict[str, Any]]:
+        """Return artifact index keyed by artifact ID."""
+        return self.master_index
+
     def _ensure_directories(self):
         """Create all necessary directories"""
         for directory in [
