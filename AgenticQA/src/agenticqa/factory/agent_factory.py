@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from agenticqa.factory.constitutional_wrapper import ConstitutionalWrapper
 from agenticqa.factory.adapters.generic_adapter import GenericAdapter
 from agenticqa.factory.adapters.langgraph_adapter import LangGraphAdapter
+from agenticqa.factory.adapters.sandboxed_adapter import SandboxedAgentAdapter
 
 SUPPORTED_FRAMEWORKS: Dict[str, Any] = {
     "langgraph": LangGraphAdapter,
@@ -14,6 +15,7 @@ SUPPORTED_FRAMEWORKS: Dict[str, Any] = {
     "crewai": GenericAdapter,
     "autogen": GenericAdapter,
     "custom": GenericAdapter,
+    "sandboxed": SandboxedAgentAdapter,
 }
 
 
@@ -66,6 +68,8 @@ class AgentFactory:
 
         if framework == "langgraph":
             code = adapter.scaffold(agent_name, capabilities)
+        elif framework == "sandboxed":
+            code = SandboxedAgentAdapter.scaffold(agent_name, capabilities)
         else:
             code = GenericAdapter.scaffold(agent_name, capabilities, framework=framework)
 
@@ -119,5 +123,6 @@ def _install_hint(framework: str) -> str:
         "crewai": "pip install crewai",
         "autogen": "pip install pyautogen",
         "custom": "",
+        "sandboxed": "",
     }
     return hints.get(framework, "")

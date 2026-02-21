@@ -30,6 +30,7 @@ try:
         check_file_scope as _check_file_scope, get_agent_scopes,
     )
     from src.agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
+    from src.agenticqa.factory import SandboxedAgentAdapter
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
@@ -50,6 +51,7 @@ except Exception:
         check_file_scope as _check_file_scope, get_agent_scopes,
     )
     from agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
+    from agenticqa.factory import SandboxedAgentAdapter
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -1410,6 +1412,57 @@ async def scaffold_agent(request: AgentScaffoldRequest):
             capabilities=request.capabilities,
         )
         return {"success": True, **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SandboxWrapRequest(BaseModel):
+    agent_name: str
+    script_path: str
+    capabilities: List[str] = []
+    allowed_dir: str = "."
+    timeout_s: int = 30
+    env_passthrough: List[str] = []
+    block_on_flag: bool = True
+
+
+@app.post("/api/agent-factory/sandbox-wrap")
+async def sandbox_wrap_agent(request: SandboxWrapRequest):
+    """
+    Register a sandboxed agent: subprocess isolation + constitutional gate + output scanner.
+
+    The script_path must point to a standalone Python script that reads JSON from stdin
+    and writes JSON to stdout. The agent runs in a clean environment (no inherited secrets),
+    with cwd locked to allowed_dir and a hard timeout.
+    """
+    if not request.agent_name.strip():
+        raise HTTPException(status_code=400, detail="agent_name cannot be empty.")
+    if not request.script_path.strip():
+        raise HTTPException(status_code=400, detail="script_path cannot be empty.")
+
+    try:
+        wrapper = SandboxedAgentAdapter.wrap(
+            script_path=request.script_path.strip(),
+            agent_name=request.agent_name.strip(),
+            capabilities=request.capabilities,
+            allowed_dir=request.allowed_dir,
+            timeout_s=request.timeout_s,
+            env_passthrough=request.env_passthrough,
+            block_on_flag=request.block_on_flag,
+        )
+        return {
+            "success": True,
+            "agent_name": wrapper.agent_name,
+            "framework": wrapper.framework,
+            "governed": True,
+            "capabilities": wrapper.capabilities,
+            "sandbox": {
+                "allowed_dir": request.allowed_dir,
+                "timeout_s": request.timeout_s,
+                "env_passthrough": request.env_passthrough,
+                "block_on_flag": request.block_on_flag,
+            },
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

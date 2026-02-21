@@ -2,5 +2,7 @@
 
 from .constitutional_wrapper import ConstitutionalWrapper
 from .agent_factory import AgentFactory, SUPPORTED_FRAMEWORKS
+from .adapters.sandboxed_adapter import SandboxedAgentAdapter, SandboxOutputFlaggedError
 
-__all__ = ["ConstitutionalWrapper", "AgentFactory", "SUPPORTED_FRAMEWORKS"]
+__all__ = ["ConstitutionalWrapper", "AgentFactory", "SUPPORTED_FRAMEWORKS",
+           "SandboxedAgentAdapter", "SandboxOutputFlaggedError"]

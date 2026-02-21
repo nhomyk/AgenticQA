@@ -156,10 +156,10 @@ class TestAgentFactoryScaffold:
 
 @pytest.mark.unit
 def test_supported_frameworks_keys():
-    expected = {"langgraph", "langchain", "crewai", "autogen", "custom"}
+    expected = {"langgraph", "langchain", "crewai", "autogen", "custom", "sandboxed"}
     assert set(SUPPORTED_FRAMEWORKS.keys()) == expected
 
 
 @pytest.mark.unit
 def test_supported_frameworks_count():
-    assert len(SUPPORTED_FRAMEWORKS) == 5
+    assert len(SUPPORTED_FRAMEWORKS) == 6

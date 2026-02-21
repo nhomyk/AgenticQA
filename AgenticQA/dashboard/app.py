@@ -2676,15 +2676,27 @@ def render_prompt_ops():
         st.caption("Scaffold a new agent with the constitutional gate, scopes, and ML loop pre-wired.")
         fc_fw = st.selectbox(
             "Framework",
-            ["langgraph", "langchain", "crewai", "autogen", "custom"],
+            ["langgraph", "langchain", "crewai", "autogen", "custom", "sandboxed"],
             key="factory_framework",
         )
         fc_name = st.text_input("Agent name", placeholder="my_agent", key="factory_name")
         fc_caps = st.multiselect(
             "Capabilities",
-            ["search", "summarize", "write_code", "review", "delegate"],
+            ["search", "summarize", "write_code", "review", "delegate", "shell", "email", "filesystem"],
             key="factory_caps",
         )
+
+        # Sandbox-specific config
+        sb_script = sb_dir = sb_timeout = sb_env = sb_block = None
+        if fc_fw == "sandboxed":
+            st.info("Sandboxed agents run in a clean subprocess — no inherited secrets, restricted cwd, output scanner enabled.")
+            sb_script = st.text_input("Script path", placeholder="/path/to/agent.py", key="sb_script")
+            sb_dir = st.text_input("Allowed directory (cwd)", value=".", key="sb_dir")
+            sb_timeout = st.number_input("Timeout (s)", min_value=5, max_value=300, value=30, key="sb_timeout")
+            sb_env_raw = st.text_input("Env vars to pass through (comma-separated)", placeholder="API_KEY,MODEL_NAME", key="sb_env")
+            sb_env = [v.strip() for v in sb_env_raw.split(",") if v.strip()] if sb_env_raw else []
+            sb_block = st.toggle("Block on flagged output", value=True, key="sb_block")
+
         if st.button("Scaffold Agent", key="factory_scaffold_btn"):
             if not fc_name.strip():
                 st.warning("Enter an agent name.")
@@ -2708,6 +2720,16 @@ def render_prompt_ops():
                             mime="text/plain",
                             key="factory_download",
                         )
+                        if fc_fw == "sandboxed" and sb_script:
+                            st.caption("Register this script as a sandboxed agent:")
+                            st.json({
+                                "agent_name": fc_name.strip(),
+                                "script_path": sb_script,
+                                "allowed_dir": sb_dir,
+                                "timeout_s": int(sb_timeout),
+                                "env_passthrough": sb_env,
+                                "block_on_flag": sb_block,
+                            })
                     else:
                         st.error(f"API error {resp.status_code}: {resp.text[:200]}")
                 except Exception as e:
