@@ -29,6 +29,7 @@ try:
         check_action as _constitutional_check, get_constitution,
         check_file_scope as _check_file_scope, get_agent_scopes,
     )
+    from src.agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
@@ -48,6 +49,7 @@ except Exception:
         check_action as _constitutional_check, get_constitution,
         check_file_scope as _check_file_scope, get_agent_scopes,
     )
+    from agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -1359,6 +1361,55 @@ async def get_observability_insights(limit: int = 500):
             "timestamp": datetime.now(UTC).isoformat(),
             "insights": insights,
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Agent Factory endpoints
+# ---------------------------------------------------------------------------
+
+class AgentScaffoldRequest(BaseModel):
+    framework: str
+    agent_name: str
+    capabilities: List[str] = []
+
+
+@app.get("/api/agent-factory/frameworks")
+async def list_agent_frameworks():
+    """List all supported agent frameworks for scaffolding."""
+    return {
+        "success": True,
+        "frameworks": list(SUPPORTED_FRAMEWORKS.keys()),
+        "count": len(SUPPORTED_FRAMEWORKS),
+    }
+
+
+@app.post("/api/agent-factory/scaffold")
+async def scaffold_agent(request: AgentScaffoldRequest):
+    """
+    Generate governed agent starter code for the requested framework.
+
+    The generated code has AgenticQA's constitutional gate, feedback loop,
+    and outcome tracker pre-wired. Save the output as a .py file to use.
+    """
+    if request.framework not in SUPPORTED_FRAMEWORKS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported framework '{request.framework}'. "
+                   f"Supported: {list(SUPPORTED_FRAMEWORKS.keys())}",
+        )
+    if not request.agent_name.strip():
+        raise HTTPException(status_code=400, detail="agent_name cannot be empty.")
+
+    try:
+        factory = AgentFactory()
+        result = factory.scaffold(
+            framework=request.framework,
+            agent_name=request.agent_name.strip(),
+            capabilities=request.capabilities,
+        )
+        return {"success": True, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

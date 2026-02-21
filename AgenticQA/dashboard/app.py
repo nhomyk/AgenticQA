@@ -2671,6 +2671,50 @@ def render_prompt_ops():
 
     st.markdown("---")
 
+    # ── Agent Factory ──────────────────────────────────────────────────────
+    with st.expander("🏗️ Build a Governed Agent", expanded=False):
+        st.caption("Scaffold a new agent with the constitutional gate, scopes, and ML loop pre-wired.")
+        fc_fw = st.selectbox(
+            "Framework",
+            ["langgraph", "langchain", "crewai", "autogen", "custom"],
+            key="factory_framework",
+        )
+        fc_name = st.text_input("Agent name", placeholder="my_agent", key="factory_name")
+        fc_caps = st.multiselect(
+            "Capabilities",
+            ["search", "summarize", "write_code", "review", "delegate"],
+            key="factory_caps",
+        )
+        if st.button("Scaffold Agent", key="factory_scaffold_btn"):
+            if not fc_name.strip():
+                st.warning("Enter an agent name.")
+            else:
+                try:
+                    import requests as _req
+                    resp = _req.post(
+                        f"{api_base}/api/agent-factory/scaffold",
+                        json={"framework": fc_fw, "agent_name": fc_name.strip(), "capabilities": fc_caps},
+                        timeout=10,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        st.success(f"Generated `{fc_name}` ({fc_fw})")
+                        code_str = data.get("generated_code", "")
+                        st.code(code_str, language="python")
+                        st.download_button(
+                            "Download .py",
+                            data=code_str,
+                            file_name=f"{fc_name.strip()}.py",
+                            mime="text/plain",
+                            key="factory_download",
+                        )
+                    else:
+                        st.error(f"API error {resp.status_code}: {resp.text[:200]}")
+                except Exception as e:
+                    st.error(f"Could not reach API: {e}")
+
+    st.markdown("---")
+
     main_col, rail_col = st.columns([3, 1])
     with main_col:
         st.markdown("### Recent Workflow Requests")
