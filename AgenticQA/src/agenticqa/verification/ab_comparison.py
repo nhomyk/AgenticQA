@@ -9,7 +9,7 @@ import time
 import json
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -141,7 +141,7 @@ class ABComparison:
             "avg_rag_latency_ms": round(avg_rag_ms, 1),
             "avg_no_rag_latency_ms": round(avg_no_rag_ms, 1),
             "latency_overhead_ms": round(avg_rag_ms - avg_no_rag_ms, 1),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "details": [
                 {
                     "case_id": r.case_id,

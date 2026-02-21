@@ -1,7 +1,7 @@
 """Data Quality Testing Integration with Secure Pipeline"""
 
 from typing import Dict, Any, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .artifact_store import TestArtifactStore
 from .data_quality_tester import DataQualityTester
@@ -84,7 +84,7 @@ class DataQualityValidatedPipeline(SecureDataPipeline):
         print("=" * 80 + "\n")
 
         deployment_result = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "validation_type": "deployment",
             "checks": {},
         }

@@ -2,7 +2,7 @@
 
 import json
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -34,7 +34,7 @@ class PatternAnalyzer:
             )
 
         pattern_data = {
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(timezone.utc).isoformat(),
             "total_failures": len(failures),
             "failure_by_type": dict(failure_map),
             "error_details": dict(error_types),
@@ -59,7 +59,7 @@ class PatternAnalyzer:
             agent_performance[artifact_meta["source"]].append(duration)
 
         pattern_data = {
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(timezone.utc).isoformat(),
             "total_executions": len(executions),
             "avg_latency_ms": sum(latencies) / len(latencies) if latencies else 0,
             "p95_latency_ms": (sorted(latencies)[int(len(latencies) * 0.95)] if latencies else 0),
@@ -76,7 +76,7 @@ class PatternAnalyzer:
 
     def analyze_flakiness(self, window_days: int = 7) -> Dict[str, Any]:
         """Detect flaky agents with EWMA trend (accelerating/stable/recovering)."""
-        cutoff = datetime.utcnow() - timedelta(days=window_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
         all_artifacts = self.store.search_artifacts()
 
         recent = [a for a in all_artifacts if datetime.fromisoformat(a["timestamp"]) > cutoff]
@@ -128,7 +128,7 @@ class PatternAnalyzer:
                     }
 
         pattern_data = {
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(timezone.utc).isoformat(),
             "window_days": window_days,
             "flaky_agents": flaky_agents,
         }
@@ -154,7 +154,7 @@ class PatternAnalyzer:
         Each signature is ``error_type:location_hint`` — a stable fingerprint that
         survives message-text variation and is safe to store in execution strategy.
         """
-        cutoff = datetime.utcnow() - timedelta(days=window_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
         failures = self.store.search_artifacts(artifact_type="error")
 
         sig_counts: Dict[str, Dict[str, Any]] = defaultdict(lambda: {"count": 0, "last_seen": None})

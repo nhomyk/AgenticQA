@@ -1,7 +1,7 @@
 """Base Agent class with data store integration"""
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import json
 import os
@@ -334,7 +334,7 @@ class BaseAgent(ABC):
         # 1. Record to artifact store (structured data)
         if self.use_data_store:
             execution_result = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "agent_name": self.agent_name,
                 "status": status,
                 "output": output,
@@ -363,7 +363,7 @@ class BaseAgent(ABC):
                     "status": status,
                     "output": output,
                     "metadata": metadata or {},
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "artifact_id": artifact_id,
                 }
                 self.rag.log_agent_execution(agent_type, execution_result)
@@ -769,7 +769,7 @@ class BaseAgent(ABC):
 
     def log(self, message: str, level: str = "INFO"):
         """Log message with timestamp"""
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         log_entry = f"[{timestamp}] [{self.agent_name}] [{level}] {message}"
         print(log_entry)
 
@@ -1334,7 +1334,7 @@ class ComplianceAgent(BaseAgent):
             # Create document for storage
             document = {
                 "fix_type": fix_type,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "validation_passed": validation_passed,
                 "agent_type": "compliance",
                 **fix_details
@@ -1403,7 +1403,7 @@ class ComplianceAgent(BaseAgent):
             document = {
                 "pattern_type": "accessibility_success",
                 "violations_found": 0,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "run_id": run_id,
                 "files_checked": ["public/index.html"],  # Could be parameterized
                 "wcag_level": "AA",
@@ -1489,7 +1489,7 @@ class ComplianceAgent(BaseAgent):
             "fixes_applied": len(fixes_applied),
             "errors_fixed": errors_fixed,
             "success_rate": (errors_fixed / errors_before) if errors_before > 0 else 0.0,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "run_id": run_id
         }
 
@@ -2175,5 +2175,5 @@ class AgentOrchestrator:
 
     def log(self, message: str):
         """Log orchestrator messages"""
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         print(f"[{timestamp}] [ORCHESTRATOR] {message}")

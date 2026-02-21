@@ -10,7 +10,7 @@ This is critical for ensuring data quality across deployments.
 import json
 import hashlib
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from dataclasses import asdict
 
@@ -41,7 +41,7 @@ class SnapshotManager:
             Snapshot hash
         """
         snapshot_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "name": name,
             "data": data,
             "hash": self._compute_hash(data),

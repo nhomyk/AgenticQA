@@ -8,7 +8,7 @@ enabling measurement of whether agent recommendations are accurate.
 import sqlite3
 import json
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -84,7 +84,7 @@ class OutcomeTracker:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (delegation_id, from_agent, to_agent, task_type,
              predicted_confidence, recommendation_source,
-             json.dumps(metadata or {}), datetime.utcnow().isoformat()),
+             json.dumps(metadata or {}), datetime.now(timezone.utc).isoformat()),
         )
         self.conn.commit()
 
@@ -100,7 +100,7 @@ class OutcomeTracker:
             """UPDATE delegation_outcomes
                SET actual_success = ?, duration_ms = ?, outcome_recorded_at = ?
                WHERE delegation_id = ?""",
-            (actual_success, duration_ms, datetime.utcnow().isoformat(), delegation_id),
+            (actual_success, duration_ms, datetime.now(timezone.utc).isoformat(), delegation_id),
         )
         self.conn.commit()
 

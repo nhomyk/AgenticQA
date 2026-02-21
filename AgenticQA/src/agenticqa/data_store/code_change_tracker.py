@@ -10,7 +10,7 @@ This is critical for safe code deployments and preventing quality degradation.
 import json
 import hashlib
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, asdict
 
@@ -102,13 +102,13 @@ class CodeChangeTracker:
         """
         self.current_change = change_name
         self.before_snapshot = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "name": change_name,
             "data": before_data,
             "hash": self._compute_hash(before_data),
         }
 
-        change_id = f"{change_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        change_id = f"{change_name}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
         # Save before snapshot
         before_file = self.changes_dir / f"{change_id}_before.json"
@@ -133,7 +133,7 @@ class CodeChangeTracker:
             raise ValueError("No active change. Call start_change() first.")
 
         after_snapshot = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "name": self.current_change,
             "data": after_data,
             "hash": self._compute_hash(after_data),
@@ -206,7 +206,7 @@ class CodeChangeTracker:
 
         metrics = BeforeAfterMetrics(
             change_name=before["name"],
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             before_hash=before["hash"],
             after_hash=after["hash"],
             changed=before["hash"] != after["hash"],

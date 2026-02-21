@@ -1,7 +1,7 @@
 """Delegation system with guardrails for safe agent collaboration"""
 
 from typing import Dict, List, Set, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class DelegationError(Exception):
@@ -84,7 +84,7 @@ class DelegationGuardrails:
     def reset(self):
         """Reset guardrail state for new request"""
         self.delegation_counts = {}
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(timezone.utc)
 
     @classmethod
     def normalize_agent_name(cls, agent_name: str) -> str:

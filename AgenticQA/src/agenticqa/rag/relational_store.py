@@ -11,7 +11,7 @@ Complements Weaviate vector store with a relational database for:
 import sqlite3
 import json
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
 import os
@@ -147,7 +147,7 @@ class RelationalStore:
         cursor = self.conn.cursor()
 
         if timestamp is None:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
 
         metadata_json = json.dumps(metadata or {})
 
@@ -179,7 +179,7 @@ class RelationalStore:
         cursor = self.conn.cursor()
 
         if timestamp is None:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
 
         metadata_json = json.dumps(metadata or {})
 

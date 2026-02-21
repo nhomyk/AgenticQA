@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import uuid
 
@@ -107,7 +107,7 @@ class QdrantVectorStore:
         self._ensure_collection_exists(vector_size)
 
         doc_id = metadata.get("id") or str(uuid.uuid4())
-        timestamp = metadata.get("timestamp", datetime.utcnow().isoformat())
+        timestamp = metadata.get("timestamp", datetime.now(timezone.utc).isoformat())
 
         payload = {
             "content": content,

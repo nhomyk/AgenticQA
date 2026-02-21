@@ -9,7 +9,7 @@ historical baselines.
 import sqlite3
 import json
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -75,7 +75,7 @@ class RagasTracker:
     ):
         """Record a set of RAGAS scores for a CI run."""
         cursor = self.conn.cursor()
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         meta_json = json.dumps(metadata or {})
 
         for metric_name, score in scores.items():

@@ -9,7 +9,7 @@ penalized. Over time, better documents float to the top.
 import sqlite3
 import json
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -60,7 +60,7 @@ class RelevanceFeedback:
     def record_retrieval(self, doc_id: str, doc_type: str, delegation_id: Optional[str] = None):
         """Record that a document was retrieved for a decision."""
         cursor = self.conn.cursor()
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         cursor.execute(
             """INSERT INTO document_scores (doc_id, doc_type, times_retrieved, last_updated)
                VALUES (?, ?, 1, ?)
@@ -82,7 +82,7 @@ class RelevanceFeedback:
         """Record whether using this document led to success or failure."""
         adj = (boost or self.DEFAULT_BOOST) if success else -(penalty or self.DEFAULT_PENALTY)
         outcome = "helpful" if success else "unhelpful"
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
 
         cursor = self.conn.cursor()
         # Update running score

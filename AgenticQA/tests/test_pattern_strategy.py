@@ -222,10 +222,10 @@ class TestPatternAnalyzerEWMA:
     def test_get_error_signatures_returns_ranked_list(self):
         """get_error_signatures returns dicts with signature/count/last_seen, ranked by count."""
         from data_store.pattern_analyzer import PatternAnalyzer
-        from datetime import datetime, timedelta
+        from datetime import datetime, timezone, timedelta
 
         mock_store = MagicMock()
-        today = datetime.utcnow()
+        today = datetime.now(timezone.utc)
         mock_store.search_artifacts.return_value = [
             {"artifact_id": "e1", "timestamp": (today - timedelta(days=1)).isoformat(), "source": "qa"},
             {"artifact_id": "e2", "timestamp": (today - timedelta(days=2)).isoformat(), "source": "qa"},

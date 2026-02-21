@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from .benchmark import BenchmarkSuite, BenchmarkResult
@@ -152,7 +152,7 @@ class EvalHarness:
         )
 
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "components": {
                 "benchmark": benchmark_score,
                 "outcome_accuracy": outcome_score,

@@ -10,7 +10,7 @@ import json
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -114,7 +114,7 @@ class BenchmarkSuite:
             "failures": [
                 {"case_id": r.case_id, "errors": r.errors} for r in failed
             ],
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 

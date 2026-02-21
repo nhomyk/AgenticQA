@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from ..collaboration.delegation import DelegationGuardrails as CollaborationGuardrails
@@ -49,7 +49,7 @@ class OntologyContract:
 
         return cls(
             version=version,
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(timezone.utc).isoformat(),
             task_agent_map=task_agent_map,
             allowed_delegations=allowed_delegations,
             canonical_agents=canonical_agents,

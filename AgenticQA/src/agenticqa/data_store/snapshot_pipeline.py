@@ -5,7 +5,7 @@ Extends the data quality pipeline to include comprehensive snapshot validation
 to ensure data accuracy, correctness, and consistency across all deployments.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any
 from agenticqa.data_store.snapshot_manager import SnapshotManager
 from data_store.data_quality_tester import DataQualityTester
@@ -47,7 +47,7 @@ class SnapshotValidatingPipeline:
         from agenticqa import AgentOrchestrator
 
         results = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "snapshots_validated": [],
             "quality_checks_passed": 0,
             "quality_checks_failed": 0,

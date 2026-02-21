@@ -9,7 +9,7 @@ import json
 import hashlib
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 
 
@@ -37,14 +37,14 @@ class VectorStore:
         self, content: str, embedding: List[float], metadata: Dict, doc_type: str
     ) -> str:
         """Add document to vector store"""
-        doc_id = hashlib.md5(f"{content}{datetime.utcnow().isoformat()}".encode()).hexdigest()
+        doc_id = hashlib.md5(f"{content}{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest()
 
         doc = VectorDocument(
             id=doc_id,
             content=content,
             embedding=embedding,
             metadata=metadata,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             doc_type=doc_type,
         )
 

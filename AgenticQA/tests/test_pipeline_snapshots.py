@@ -6,7 +6,7 @@ to ensure consistency and detect unintended changes in data quality.
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from agenticqa import AgentOrchestrator
 from agenticqa.data_store import TestArtifactStore, SecureDataPipeline
 from agenticqa.data_store.snapshot_manager import SnapshotManager
@@ -138,7 +138,7 @@ class TestDataStoreSnapshots:
         """Snapshot test for artifact metadata consistency."""
         store = TestArtifactStore(str(tmp_path / ".test-artifact-store"))
         first_artifact_id = store.store_artifact(
-            artifact_data={"status": "ok", "created_at": datetime.utcnow().isoformat()},
+            artifact_data={"status": "ok", "created_at": datetime.now(timezone.utc).isoformat()},
             artifact_type="execution",
             source="snapshot_test",
             tags=["snapshot"],
@@ -163,7 +163,7 @@ class TestPipelineSnapshots:
         """Snapshot test for complete pipeline execution."""
         pipeline = SecureDataPipeline()
         execution_payload = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "agent_name": "qa_agent",
             "status": "passed",
             "output": test_data,

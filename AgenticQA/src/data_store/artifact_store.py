@@ -3,7 +3,7 @@
 import json
 import uuid
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -75,7 +75,7 @@ class TestArtifactStore:
         # Store metadata
         metadata = {
             "artifact_id": artifact_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "source": source,
             "artifact_type": artifact_type,
             "tags": tags or [],
@@ -111,7 +111,7 @@ class TestArtifactStore:
             index = {"artifacts": []}
 
         index["artifacts"].append(metadata)
-        index["last_updated"] = datetime.utcnow().isoformat()
+        index["last_updated"] = datetime.now(timezone.utc).isoformat()
 
         with open(self.index_file, "w") as f:
             json.dump(index, f, indent=2)

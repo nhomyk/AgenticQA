@@ -6,7 +6,7 @@ Tests ensure data consistency, integrity, and compliance across all deployments.
 import json
 import hashlib
 from typing import Dict, Any, List, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from collections import defaultdict
 
@@ -17,7 +17,7 @@ class DataQualityTester:
     def __init__(self, artifact_store):
         self.store = artifact_store
         self.test_results = []
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def run_all_tests(self) -> Dict[str, Any]:
         """Run complete data quality test suite"""
@@ -313,7 +313,7 @@ class DataQualityTester:
                 failures.append(f"Invalid timestamp in {artifact_meta['artifact_id']}")
 
         # Check for future-dated artifacts
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for artifact_id, ts in timestamps:
             if ts > now:
                 failures.append(f"Future timestamp detected in {artifact_id}: {ts}")
