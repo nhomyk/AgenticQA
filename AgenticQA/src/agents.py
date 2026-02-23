@@ -140,9 +140,15 @@ class BaseAgent(ABC):
 
         # Initialize data store pipeline
         self.pattern_analyzer = None
+        self.repo_profile = None
         if use_data_store:
             self.pipeline = SecureDataPipeline(use_great_expectations=False)
             self.pattern_analyzer = self.pipeline.pattern_analyzer
+            try:
+                from src.data_store.repo_profile import RepoProfile
+                self.repo_profile = RepoProfile.for_current_repo()
+            except Exception:
+                pass
 
         # Initialize RAG system for semantic learning and retrieval
         self.rag = None
@@ -1592,6 +1598,24 @@ class DevOpsAgent(BaseAgent):
 class SREAgent(BaseAgent):
     """SRE (Site Reliability Engineering) Agent - Fixes linting and code quality issues"""
 
+    # Rules that cannot be auto-fixed without human architectural decisions.
+    # These are excluded from the fix_rate denominator so the rate reflects
+    # what the agent can actually accomplish, not the structural ceiling of
+    # the codebase. Clients see these as a separate 'architectural_violations'
+    # category rather than as "failed" fixes.
+    ARCHITECTURAL_RULES = frozenset({
+        # Star imports — fixing requires knowing which names are actually used
+        "F403", "F405",
+        # Module-level import not at top — often load-order-dependent
+        "E402",
+        # Function too complex — requires human refactoring
+        "C901",
+        # Duplicate code — structural, no safe auto-merge
+        "R0801",
+        # Abstract method not overridden — class-design decision
+        "W0223",
+    })
+
     def __init__(self):
         super().__init__("SRE_Agent")
 
@@ -1618,15 +1642,19 @@ class SREAgent(BaseAgent):
             errors = linting_data.get("errors", [])
             fixes_applied = []
 
+            # Split errors: architectural violations are reported separately and
+            # excluded from the fix_rate so the rate reflects achievable outcomes.
+            architectural = [e for e in errors if e.get("rule", "") in self.ARCHITECTURAL_RULES]
+            fixable_errors = [e for e in errors if e.get("rule", "") not in self.ARCHITECTURAL_RULES]
+
             # Pattern guard: known failure types short-circuit RAG for recognised rules
             exec_strategy = self._get_execution_strategy()
             known_failures = set(exec_strategy.get("known_failure_types", []))
 
-            # Apply fixes for common linting errors
-            for error in errors:
+            # Apply fixes only to fixable errors
+            for error in fixable_errors:
                 rule = error.get("rule", "")
                 if known_failures and rule in known_failures:
-                    # We've seen this rule fail before — use direct fix_map, skip RAG
                     fix = self._apply_linting_fix(error, None)
                     if fix:
                         fix["source"] = "pattern_memory"
@@ -1636,17 +1664,44 @@ class SREAgent(BaseAgent):
                     if fix:
                         fixes_applied.append(fix)
 
+            fixable_count = len(fixable_errors)
+            arch_by_rule: Dict[str, int] = {}
+            for e in architectural:
+                arch_by_rule[e.get("rule", "unknown")] = arch_by_rule.get(e.get("rule", "unknown"), 0) + 1
+
             result = {
                 "total_errors": len(errors),
+                "fixable_errors": fixable_count,
                 "fixes_applied": len(fixes_applied),
-                "fix_rate": len(fixes_applied) / len(errors) if errors else 0.0,
+                # fix_rate is over fixable errors only — honest about what the agent can do
+                "fix_rate": len(fixes_applied) / fixable_count if fixable_count else 0.0,
+                "architectural_violations": len(architectural),
+                "architectural_violations_by_rule": arch_by_rule,
                 "fixes": fixes_applied,
-                "status": "success" if len(fixes_applied) == len(errors) else "partial",
+                "status": "success" if len(fixes_applied) == fixable_count else "partial",
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
 
             self._record_execution("success", result, tags=["linting_fix"])
-            self.log(f"Applied {len(fixes_applied)}/{len(errors)} linting fixes")
+            self.log(
+                f"Applied {len(fixes_applied)}/{fixable_count} fixable linting errors "
+                f"({len(architectural)} architectural violations excluded from rate)"
+            )
+
+            # Update repo-specific institutional memory
+            if getattr(self, "repo_profile", None):
+                try:
+                    self.repo_profile.record_run(
+                        run_id=linting_data.get("run_id", "unknown"),
+                        fix_rate=result["fix_rate"],
+                        fixes_applied=result["fixes_applied"],
+                        fixable_errors=fixable_count,
+                        architectural_violations=arch_by_rule,
+                        language=linting_data.get("language"),
+                    )
+                except Exception:
+                    pass
+
             return result
 
         except Exception as e:
