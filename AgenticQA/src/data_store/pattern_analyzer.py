@@ -215,6 +215,58 @@ class PatternAnalyzer:
                 return clean[:40]
         return message[:40].strip() or "unknown"
 
+    def sync_delegation_outcomes(self) -> Dict[str, Any]:
+        """Read delegation outcomes from outcomes.db and merge into performance.json.
+
+        Bridges the gap between OutcomeTracker (write path) and PatternAnalyzer
+        (read path) so that real delegation success rates flow into the pattern
+        files that agents consult during strategy selection.
+        """
+        import sqlite3
+
+        outcomes_db = Path.home() / ".agenticqa" / "outcomes.db"
+        if not outcomes_db.exists():
+            return {"synced_pairs": 0, "skipped": "outcomes.db not found"}
+
+        try:
+            conn = sqlite3.connect(str(outcomes_db))
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT from_agent, to_agent,
+                       COUNT(*) as total,
+                       AVG(actual_success) as success_rate,
+                       AVG(duration_ms) as avg_ms,
+                       MAX(timestamp) as last_seen
+                FROM delegation_outcomes
+                WHERE actual_success IS NOT NULL
+                GROUP BY from_agent, to_agent
+                ORDER BY total DESC
+            """)
+            rows = [
+                dict(zip(["from_agent", "to_agent", "total", "success_rate", "avg_ms", "last_seen"], r))
+                for r in cur.fetchall()
+            ]
+            conn.close()
+        except Exception as e:
+            return {"synced_pairs": 0, "error": str(e)}
+
+        perf_file = self.patterns_dir / "performance.json"
+        perf_data: Dict[str, Any] = {}
+        if perf_file.exists():
+            try:
+                with open(perf_file) as f:
+                    perf_data = json.load(f)
+            except Exception:
+                pass
+
+        perf_data["delegation_stats"] = rows
+        perf_data["delegation_synced_at"] = datetime.now(timezone.utc).isoformat()
+
+        with open(perf_file, "w") as f:
+            json.dump(perf_data, f, indent=2)
+
+        return {"synced_pairs": len(rows)}
+
     def get_agent_failure_rate(self, agent_name: str, window_days: int = 7) -> float:
         """Get failure rate for a specific agent over the given window."""
         flakiness = self.analyze_flakiness(window_days)

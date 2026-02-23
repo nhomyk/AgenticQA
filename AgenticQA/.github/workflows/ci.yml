@@ -1010,6 +1010,15 @@ jobs:
     name: "Phase 1️⃣ SDET Agent"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore learning databases
+        uses: actions/cache@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            agenticqa-learning-v1-${{ runner.os }}-
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -1076,6 +1085,13 @@ jobs:
           echo "✅ SDET agent artifacts ingested"
         continue-on-error: true
 
+      - name: Save learning databases
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+
   # Phase 1: Compliance Agent
   compliance-agent:
     needs: [phase-1-testing, phase-1-compliance-scans]
@@ -1085,6 +1101,15 @@ jobs:
     name: "Phase 1️⃣ Compliance Agent"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore learning databases
+        uses: actions/cache@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            agenticqa-learning-v1-${{ runner.os }}-
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -1141,6 +1166,13 @@ jobs:
             exit 0
           fi
           echo "✅ Compliance audit passed"
+
+      - name: Save learning databases
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 2: Compliance Summary
   compliance-summary:
