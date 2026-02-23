@@ -1,9 +1,9 @@
 """Great Expectations integration for data quality validation"""
 
 from typing import Any, Dict, Optional
-import pandas as pd
 
 try:
+    import pandas as pd
     from great_expectations.data_context import DataContext
     from great_expectations.core.batch import RuntimeBatchRequest
 
