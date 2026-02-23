@@ -139,8 +139,10 @@ class BaseAgent(ABC):
         self._delegation_depth = 0
 
         # Initialize data store pipeline
+        self.pattern_analyzer = None
         if use_data_store:
             self.pipeline = SecureDataPipeline(use_great_expectations=False)
+            self.pattern_analyzer = self.pipeline.pattern_analyzer
 
         # Initialize RAG system for semantic learning and retrieval
         self.rag = None
