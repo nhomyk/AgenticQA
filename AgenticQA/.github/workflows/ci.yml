@@ -169,7 +169,7 @@ jobs:
         if: always()
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Verify Hybrid RAG Configuration
@@ -380,7 +380,7 @@ jobs:
       - name: Install migration dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir qdrant-client>=1.7.0
           pip install --no-cache-dir -e ./AgenticQA
 
@@ -510,7 +510,7 @@ jobs:
         if: always()
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Validate vector migration toolkit (non-blocking)
@@ -724,7 +724,7 @@ jobs:
         if: matrix.check == 'accessibility'
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Ingest Pa11y Report to Weaviate
@@ -932,7 +932,7 @@ jobs:
         if: matrix.check == 'security'
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Ingest Security Audit to Weaviate
@@ -1011,7 +1011,7 @@ jobs:
       - name: Install AgenticQA Python package
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Ingest Coverage to Weaviate
@@ -1078,7 +1078,7 @@ jobs:
       - name: Install AgenticQA Python package
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Ingest Compliance Report to Weaviate
@@ -1305,7 +1305,7 @@ jobs:
       - name: Install AgenticQA package
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir weaviate-client>=4.0.0
+          pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir -e ./AgenticQA
       
       - name: Collect Pipeline Failure Details
