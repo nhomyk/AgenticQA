@@ -48,7 +48,7 @@ _MAX_FILES = 1_000
 _PII_PATTERNS: Dict[str, str] = {
     "email": r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}",
     "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
-    "credit_card": r"\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b",
+    "credit_card": r"(?<![.\d])\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}(?![.\d])",
     "private_key": r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
     "aws_access_key": r"\bAKIA[0-9A-Z]{16}\b",
     "generic_secret": (
