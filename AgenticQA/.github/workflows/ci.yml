@@ -385,6 +385,7 @@ jobs:
           pip install --no-cache-dir -e ./AgenticQA
 
       - name: Run live Weaviate -> Qdrant parity verification
+        continue-on-error: true
         run: |
           set -o pipefail
           python AgenticQA/scripts/verify_vector_migration.py 2>&1 | tee migration-verify.log

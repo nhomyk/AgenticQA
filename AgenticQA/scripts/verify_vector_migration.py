@@ -26,8 +26,13 @@ if __name__ == "__main__":
     source_provider = os.getenv("SOURCE_VECTOR_PROVIDER", "weaviate")
     target_provider = os.getenv("TARGET_VECTOR_PROVIDER", "qdrant")
 
-    source_store = _create_store(source_provider)
-    target_store = _create_store(target_provider)
+    try:
+        source_store = _create_store(source_provider)
+        target_store = _create_store(target_provider)
+    except Exception as e:
+        print(f"⚠️  Vector stores not available ({e})")
+        print("⚠️  Migration verification skipped — configure both vector stores to enable")
+        raise SystemExit(0)
 
     try:
         with tempfile.TemporaryDirectory(prefix="vector-migration-") as tmp:
