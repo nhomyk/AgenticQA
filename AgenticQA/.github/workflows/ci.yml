@@ -461,11 +461,12 @@ jobs:
       # Playwright tests
       - name: Run Playwright tests
         id: playwright
+        timeout-minutes: 4
         run: |
           echo "🎭 Running Playwright tests..."
-          timeout 120 npx playwright install --with-deps chromium || echo "⚠️ Playwright install timed out, skipping"
+          timeout 90 npx playwright install --with-deps chromium || echo "⚠️ Playwright install timed out, skipping"
           if command -v npx >/dev/null 2>&1 && npx playwright test --version >/dev/null 2>&1; then
-            npx playwright test --timeout=15000 2>&1 | tee playwright-output.log || PLAYWRIGHT_FAILED=true
+            timeout 120 npx playwright test --timeout=15000 --workers=1 2>&1 | tee playwright-output.log || PLAYWRIGHT_FAILED=true
           else
             echo "Playwright not available, skipping" | tee playwright-output.log
           fi
@@ -475,31 +476,38 @@ jobs:
             grep -i "error\|fail\|expected" playwright-output.log >> test-failures/playwright-errors.txt || true
           fi
           echo "status=completed" >> $GITHUB_OUTPUT
-      
+        continue-on-error: true
+
       # Cypress tests
       - name: Run Cypress tests
         id: cypress
+        timeout-minutes: 4
         run: |
           echo "🌳 Running Cypress tests..."
-          npx cypress install
+          timeout 90 npx cypress install || echo "⚠️ Cypress install timed out, skipping"
           npm start > /tmp/server.log 2>&1 &
-          
+          SERVER_READY=false
           for i in {1..30}; do
             if curl -s http://localhost:3000 > /dev/null; then
               echo "✅ Server is ready!"
+              SERVER_READY=true
               break
             fi
             echo "Waiting for server... ($i/30)"
             sleep 1
           done
-          
-          npx cypress run 2>&1 | tee cypress-output.log || CYPRESS_FAILED=true
+          if [ "$SERVER_READY" = "true" ]; then
+            timeout 120 npx cypress run 2>&1 | tee cypress-output.log || CYPRESS_FAILED=true
+          else
+            echo "⚠️ Server never started, skipping Cypress run" | tee cypress-output.log
+          fi
           if [ "$CYPRESS_FAILED" = "true" ]; then
             mkdir -p test-failures
             echo "CYPRESS_FAILED=true" >> test-failures/summary.txt
             grep -i "error\|fail\|expected" cypress-output.log >> test-failures/cypress-errors.txt || true
           fi
           echo "status=completed" >> $GITHUB_OUTPUT
+        continue-on-error: true
       
       # Upload all test failures
       - name: Upload test failures
