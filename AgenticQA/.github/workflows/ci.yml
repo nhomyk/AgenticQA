@@ -648,7 +648,7 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Sync delegation outcomes to pattern files
+      - name: Sync delegation outcomes and record learning snapshot
         if: always()
         working-directory: AgenticQA
         run: |
@@ -656,9 +656,41 @@ jobs:
           import sys; sys.path.insert(0,'src')
           from data_store.artifact_store import TestArtifactStore
           from data_store.pattern_analyzer import PatternAnalyzer
-          pa = PatternAnalyzer(TestArtifactStore())
-          result = pa.sync_delegation_outcomes()
-          print(f'Synced {result.get(\"synced_pairs\",0)} delegation pairs to pattern files')
+          from data_store.learning_metrics import LearningMetricsSnapshot
+
+          store = TestArtifactStore()
+          pa = PatternAnalyzer(store)
+
+          # Sync delegation outcomes -> performance.json
+          sync = pa.sync_delegation_outcomes()
+          print(f'Synced {sync.get(\"synced_pairs\",0)} delegation pairs to pattern files')
+
+          # Pull latest SRE fix_rate from artifact store
+          sre_fix_rate = None
+          sre_arch_violations = None
+          sre_execs = store.search_artifacts(source='SRE_Agent', artifact_type='execution')
+          if sre_execs:
+              latest = store.get_artifact(sre_execs[-1]['artifact_id'])
+              sre_fix_rate = latest.get('fix_rate')
+              sre_arch_violations = latest.get('architectural_violations')
+
+          # Snapshot this run's metrics so improvement curves can be computed
+          artifact_count = len(store.search_artifacts())
+          snap = LearningMetricsSnapshot()
+          snap.record(
+            run_id='${{ github.run_id }}',
+            artifact_count=artifact_count,
+            delegation_pairs=sync.get('synced_pairs', 0),
+            repo_id='${{ github.repository }}',
+            fix_rate=sre_fix_rate,
+            architectural_violations=sre_arch_violations,
+          )
+          summary = snap.summary(repo_id='${{ github.repository }}')
+          runs = summary['runs']
+          trend = summary.get('fix_rate_trend') or 'n/a'
+          avg_fix = summary.get('avg_fix_rate')
+          fix_str = f'{avg_fix:.1%}' if avg_fix is not None else 'n/a'
+          print(f'Learning snapshot recorded (run #{runs}, avg_fix_rate={fix_str}, trend={trend})')
           " || echo "Pattern sync skipped"
         continue-on-error: true
 
