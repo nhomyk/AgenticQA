@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import json
 import os
@@ -1521,7 +1522,10 @@ class DevOpsAgent(BaseAgent):
                 "deployment_status": "success",
                 "version": deployment_config.get("version"),
                 "environment": deployment_config.get("environment"),
-                "health_checks": self._run_health_checks(augmented_context),
+                "health_checks": self._run_health_checks(
+                    augmented_context,
+                    health_check_urls=deployment_config.get("health_check_urls"),
+                ),
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
 
@@ -1534,17 +1538,29 @@ class DevOpsAgent(BaseAgent):
             self.log(f"Deployment failed: {str(e)}", "ERROR")
             raise
 
-    def _run_health_checks(self, augmented_context: Optional[Dict] = None) -> Dict[str, bool]:
-        """
-        Run health checks with RAG insights.
+    def _run_health_checks(
+        self,
+        augmented_context: Optional[Dict] = None,
+        health_check_urls: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, bool]:
+        """Run health checks — pings real URLs when provided, otherwise assumes healthy.
 
-        Uses RAG to check for known deployment errors and resolutions.
+        health_check_urls: mapping of check_name → URL, e.g.
+            {"api_health": "https://api.example.com/health",
+             "database_connection": "https://db.example.com/ping"}
         """
-        health_checks = {
-            "api_health": True,
-            "database_connection": True,
-            "cache_available": True,
-        }
+        # Ping real endpoints if URLs are configured
+        if health_check_urls:
+            results: Dict[str, bool] = {}
+            for check_name, url in health_check_urls.items():
+                results[check_name] = self._ping_url(url)
+        else:
+            # No endpoints configured — default to assumed-healthy (behaviour unchanged)
+            results = {
+                "api_health": True,
+                "database_connection": True,
+                "cache_available": True,
+            }
 
         # Add RAG-enhanced health insights
         if augmented_context:
@@ -1552,9 +1568,23 @@ class DevOpsAgent(BaseAgent):
             for rec in rag_recommendations:
                 if rec.get("confidence", 0) > 0.6:
                     check_name = rec.get("type", "unknown_check")
-                    health_checks[f"rag_{check_name}"] = True
+                    results.setdefault(f"rag_{check_name}", True)
 
-        return health_checks
+        return results
+
+    def _ping_url(self, url: str, timeout: int = 5) -> bool:
+        """Return True if url responds with HTTP 2xx/3xx within timeout seconds."""
+        try:
+            from urllib import request as url_request
+            from urllib import error as url_error
+
+            req = url_request.Request(url, method="HEAD")
+            req.add_header("User-Agent", "AgenticQA-HealthCheck/1.0")
+            with url_request.urlopen(req, timeout=timeout) as resp:
+                return resp.status < 400
+        except Exception as exc:
+            self.log(f"Health check failed for {url}: {exc}", "WARNING")
+            return False
 
 
 class SREAgent(BaseAgent):
@@ -1761,11 +1791,15 @@ class SREAgent(BaseAgent):
         }
 
         if rule in fix_map:
+            file_path = error.get("file_path") or error.get("file")
+            line_no = error.get("line", 0)
+            actually_applied = self._apply_fix_to_file(file_path, rule, line_no) if file_path else False
             return {
                 "rule": rule,
-                "file": error.get("file"),
-                "line": error.get("line"),
+                "file": file_path,
+                "line": line_no,
                 "fix_applied": fix_map[rule],
+                "fix_written_to_disk": actually_applied,
                 "source": "basic",
                 "confidence": 0.8,
             }
@@ -1776,6 +1810,87 @@ class SREAgent(BaseAgent):
             return ci_patch
 
         return None
+
+    def _apply_fix_to_file(self, file_path: str, rule: str, line_no: int) -> bool:
+        """Apply a deterministic fix directly to the source file on disk.
+
+        Only handles rules whose fixes are unambiguously safe to apply automatically
+        (whitespace, blank-line counts). Returns True if the file was actually modified.
+        """
+        _AUTO_FIXABLE = {
+            "W291", "W293",  # trailing whitespace
+            "W292",          # no newline at end of file
+            "W391",          # blank line at end of file
+            "E265",          # block comment should start with '# '
+            "E266",          # too many leading '#' for block comment
+            "E303",          # too many blank lines (N)
+            "W503",          # line break before binary operator — whitespace only
+        }
+        if rule not in _AUTO_FIXABLE:
+            return False
+        try:
+            path = Path(file_path)
+            if not path.exists() or not path.is_file():
+                return False
+
+            content = path.read_text(encoding="utf-8", errors="replace")
+            lines = content.splitlines(keepends=True)
+            modified = False
+
+            if rule in ("W291", "W293"):
+                new_lines = [
+                    (ln.rstrip() + ("\n" if ln.endswith("\n") else ""))
+                    for ln in lines
+                ]
+                if new_lines != lines:
+                    lines, modified = new_lines, True
+
+            elif rule == "W292":
+                if lines and not lines[-1].endswith("\n"):
+                    lines[-1] += "\n"
+                    modified = True
+
+            elif rule == "W391":
+                while lines and lines[-1].strip() == "":
+                    lines.pop()
+                    modified = True
+                if modified and lines:
+                    lines[-1] = lines[-1].rstrip("\n") + "\n"
+
+            elif rule == "E265":
+                if 0 < line_no <= len(lines):
+                    old = lines[line_no - 1]
+                    new = re.sub(r"^(\s*)#([^ !#\n])", r"\1# \2", old)
+                    if new != old:
+                        lines[line_no - 1], modified = new, True
+
+            elif rule == "E266":
+                if 0 < line_no <= len(lines):
+                    old = lines[line_no - 1]
+                    new = re.sub(r"^(\s*)#{2,}", r"\1##", old)
+                    if new != old:
+                        lines[line_no - 1], modified = new, True
+
+            elif rule == "E303":
+                new_lines: list = []
+                blank_run = 0
+                for ln in lines:
+                    if ln.strip() == "":
+                        blank_run += 1
+                        if blank_run <= 2:
+                            new_lines.append(ln)
+                    else:
+                        blank_run = 0
+                        new_lines.append(ln)
+                if new_lines != lines:
+                    lines, modified = new_lines, True
+
+            if modified:
+                path.write_text("".join(lines), encoding="utf-8")
+                return True
+        except Exception as exc:
+            self.log(f"SRE auto-fix failed for {file_path}:{rule}: {exc}", "WARNING")
+        return False
 
     def _generate_ci_patch(self, error: Dict) -> Optional[Dict]:
         """Generate a corrective patch for known CI YAML issues.
@@ -2056,23 +2171,64 @@ class FullstackAgent(BaseAgent):
             self.log(f"Code generation failed: {str(e)}", "ERROR")
             raise
 
+    def _call_llm(
+        self, title: str, category: str, description: str, augmented_context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """Call the Anthropic API to generate real code. Returns None if unavailable."""
+        try:
+            import anthropic  # type: ignore
+
+            rag_context = ""
+            if augmented_context:
+                insights = augmented_context.get("high_confidence_insights", [])
+                if insights:
+                    rag_context = "\n\nRelevant patterns from past implementations:\n" + "\n".join(
+                        f"- {i.get('insight', '')}" for i in insights[:3] if i.get("insight")
+                    )
+
+            prompt = (
+                f"Generate production-ready code for the following feature.\n\n"
+                f"Title: {title}\n"
+                f"Category: {category}\n"
+                f"Description: {description}"
+                f"{rag_context}\n\n"
+                f"Requirements:\n"
+                f"- Write complete, working code with proper error handling\n"
+                f"- Follow best practices for the language/framework\n"
+                f"- Keep it focused and minimal — no boilerplate beyond what is needed\n"
+                f"- Output only the code, no explanation or markdown fences"
+            )
+
+            client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = message.content[0].text.strip()
+            # Strip markdown code fences if the model wrapped its output
+            text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+            text = re.sub(r"\n?```$", "", text)
+            return text.strip() if text else None
+        except Exception as exc:
+            self.log(f"LLM code generation unavailable: {exc}", "WARNING")
+            return None
+
     def _generate_code(
         self, title: str, category: str, description: str, augmented_context: Optional[Dict] = None
     ) -> Optional[str]:
         """
-        Generate code with RAG insights.
+        Generate code — tries real LLM first, falls back to templates.
 
-        Uses historical successful patterns from Weaviate to guide generation.
+        Primary path: Anthropic API (claude-haiku) with RAG context injected into prompt.
+        Fallback: deterministic templates when ANTHROPIC_API_KEY is not set or API fails.
         """
-        # RAG-enhanced code generation
-        if augmented_context:
-            rag_recommendations = augmented_context.get("high_confidence_insights", [])
-            for rec in rag_recommendations:
-                if rec.get("confidence", 0) > 0.8:
-                    # Use RAG-suggested implementation pattern
-                    return f"// Generated using RAG insight\n// {rec.get('insight', '')}\n\n// Implementation for: {title}\n// {description}"
+        # Primary: real LLM generation
+        llm_code = self._call_llm(title, category, description, augmented_context)
+        if llm_code:
+            return llm_code
 
-        # Basic code generation templates
+        # Fallback: template-based generation
         if category == "api":
             return f"""
 // API Endpoint: {title}
@@ -2080,7 +2236,7 @@ class FullstackAgent(BaseAgent):
 
 async function {self._to_function_name(title)}(req, res) {{
     try {{
-        // Implementation here
+        // TODO: implement {title}
         res.json({{ success: true, message: '{title} executed successfully' }});
     }} catch (error) {{
         res.status(500).json({{ success: false, error: error.message }});
@@ -2100,7 +2256,7 @@ module.exports = {{ {self._to_function_name(title)} }};
 </div>
 
 <script>
-// Component logic here
+// TODO: add component logic for {title}
 </script>
 """
         else:
