@@ -2671,6 +2671,79 @@ def render_prompt_ops():
 
     st.markdown("---")
 
+    # ── Natural-language agent builder ─────────────────────────────────────
+    with st.expander("💬 Describe Your Agent (AI-assisted)", expanded=False):
+        st.caption(
+            "Describe what you need in plain English. "
+            "AI extracts the name, capabilities, framework, and file scope automatically."
+        )
+        nl_description = st.text_area(
+            "Agent description",
+            placeholder=(
+                "Example: An agent that scans Python files for security vulnerabilities, "
+                "checks for hardcoded secrets, and reports findings as structured JSON."
+            ),
+            height=120,
+            key="nl_agent_description",
+        )
+        nl_framework_override = st.selectbox(
+            "Override framework (optional — leave blank to let AI decide)",
+            ["", "langgraph", "langchain", "crewai", "autogen", "custom", "sandboxed"],
+            key="nl_framework_override",
+        )
+        nl_persist = st.toggle(
+            "Save to .agenticqa/custom_agents/",
+            value=True,
+            key="nl_persist_toggle",
+        )
+
+        if st.button("Generate from Description", key="nl_generate_btn"):
+            if not nl_description.strip():
+                st.warning("Enter a description first.")
+            else:
+                try:
+                    import requests as _req
+
+                    payload: dict = {
+                        "description": nl_description.strip(),
+                        "persist": nl_persist,
+                    }
+                    if nl_framework_override:
+                        payload["framework"] = nl_framework_override
+
+                    resp = _req.post(
+                        f"{api_base}/api/agent-factory/from-prompt",
+                        json=payload,
+                        timeout=30,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        spec = data.get("spec", {})
+                        st.success(
+                            f"Generated `{spec.get('agent_name')}` "
+                            f"({spec.get('framework')})"
+                        )
+                        st.markdown("#### Extracted Spec")
+                        st.json(spec)
+                        code_str = data.get("generated_code", "")
+                        st.markdown("#### Generated Code")
+                        st.code(code_str, language="python")
+                        st.download_button(
+                            "Download .py",
+                            data=code_str,
+                            file_name=f"{spec.get('agent_name', 'agent')}.py",
+                            mime="text/plain",
+                            key="nl_download_btn",
+                        )
+                        if data.get("persisted_path"):
+                            st.info(f"Saved to: `{data['persisted_path']}`")
+                    else:
+                        st.error(f"API error {resp.status_code}: {resp.text[:200]}")
+                except Exception as e:
+                    st.error(f"Could not reach API: {e}")
+
+    st.markdown("---")
+
     # ── Agent Factory ──────────────────────────────────────────────────────
     with st.expander("🏗️ Build a Governed Agent", expanded=False):
         st.caption("Scaffold a new agent with the constitutional gate, scopes, and ML loop pre-wired.")

@@ -31,6 +31,7 @@ try:
     )
     from src.agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
     from src.agenticqa.factory import SandboxedAgentAdapter
+    from src.agenticqa.factory.spec_extractor import NaturalLanguageSpecExtractor, AgentSpec
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
@@ -52,6 +53,7 @@ except Exception:
     )
     from agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
     from agenticqa.factory import SandboxedAgentAdapter
+    from agenticqa.factory.spec_extractor import NaturalLanguageSpecExtractor, AgentSpec
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -1463,6 +1465,65 @@ async def sandbox_wrap_agent(request: SandboxWrapRequest):
                 "block_on_flag": request.block_on_flag,
             },
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class FromPromptRequest(BaseModel):
+    description: str
+    framework: Optional[str] = None  # overrides LLM-inferred framework
+    persist: bool = True
+
+
+@app.post("/api/agent-factory/from-prompt")
+async def scaffold_agent_from_prompt(request: FromPromptRequest):
+    """
+    Natural language → governed agent.
+
+    1. LLM extracts an AgentSpec from the description.
+    2. Optional framework override is applied.
+    3. AgentFactory scaffolds governed code.
+    4. If persist=True, saves to .agenticqa/custom_agents/{agent_name}.py in CWD.
+    """
+    if not request.description.strip():
+        raise HTTPException(status_code=400, detail="description cannot be empty.")
+
+    try:
+        spec = NaturalLanguageSpecExtractor().extract(request.description)
+
+        if request.framework:
+            if request.framework not in SUPPORTED_FRAMEWORKS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported framework '{request.framework}'. "
+                           f"Supported: {list(SUPPORTED_FRAMEWORKS.keys())}",
+                )
+            spec.framework = request.framework
+
+        scaffold_result = AgentFactory().scaffold(
+            framework=spec.framework,
+            agent_name=spec.agent_name,
+            capabilities=spec.capabilities,
+        )
+
+        persisted_path = None
+        if request.persist:
+            out_dir = Path(".agenticqa") / "custom_agents"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_file = out_dir / f"{spec.agent_name}.py"
+            out_file.write_text(scaffold_result["generated_code"])
+            persisted_path = str(out_file)
+
+        return {
+            "success": True,
+            "spec": spec.to_dict(),
+            "generated_code": scaffold_result["generated_code"],
+            "install_hint": scaffold_result["install_hint"],
+            "usage": scaffold_result["usage"],
+            "persisted_path": persisted_path,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
