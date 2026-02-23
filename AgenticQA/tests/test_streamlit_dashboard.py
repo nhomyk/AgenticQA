@@ -150,15 +150,66 @@ class TestRenderOverviewMetrics:
         mock_st.columns.assert_called_with(2)
 
 
+class TestRenderCollaborationNetwork:
+    """Tests for render_collaboration_network function"""
+
+    def test_collaboration_network_with_data_renders_plot(self, mock_st, mock_store):
+        original_plotly_chart = mock_st.plotly_chart
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        def _run(query):
+            if "MATCH (from:Agent)-[d:DELEGATES_TO]->(to:Agent)" in query:
+                return [
+                    {
+                        "from_agent": "SDET_Agent",
+                        "to_agent": "SRE_Agent",
+                        "total": 2,
+                        "successes": 2,
+                        "success_rate": 1.0,
+                        "avg_duration_ms": 120.0,
+                    }
+                ]
+            return [{"name": "SDET_Agent"}, {"name": "SRE_Agent"}]
+
+        mock_session.run = MagicMock(side_effect=_run)
+        mock_store.session.return_value = mock_session
+
+        app = _import_app(mock_st)
+
+        app.render_collaboration_network(mock_store)
+
+        assert original_plotly_chart.called
+        # No "no data" info message expected on happy path
+        assert not mock_st.info.called
+
+    def test_collaboration_network_empty_shows_info(self, mock_st, mock_store):
+        # Override store.session to return no delegations and no agents
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run = MagicMock(return_value=[])
+        mock_store.session.return_value = mock_session
+
+        app = _import_app(mock_st)
+        app.render_collaboration_network(mock_store)
+
+        mock_st.info.assert_called()
+
+
 class TestRenderTopAgents:
     """Tests for render_top_agents function"""
 
     def test_top_agents_with_data(self, mock_st, mock_store):
+        original_plotly_chart = mock_st.plotly_chart
         app = _import_app(mock_st)
-        app.render_top_agents(mock_store)
+        with patch.object(app.px, "bar", return_value=MagicMock()):
+            app.render_top_agents(mock_store)
         mock_store.get_most_delegated_agents.assert_called_once_with(limit=10)
-        # plotly_chart is called on mock_st (the streamlit module mock)
-        assert mock_st.plotly_chart.called
+        # app import wraps st.plotly_chart for Streamlit width compatibility,
+        # so assert against the original mock captured before import.
+        assert original_plotly_chart.called
 
     def test_top_agents_empty_data(self, mock_st, mock_store):
         mock_store.get_most_delegated_agents.return_value = []

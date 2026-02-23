@@ -51,6 +51,8 @@ _PII_PATTERNS: Dict[str, str] = {
     "credit_card": r"(?<![.\d])\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}(?![.\d])",
     "private_key": r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
     "aws_access_key": r"\bAKIA[0-9A-Z]{16}\b",
+    "aws_temp_access_key": r"\bASIA[0-9A-Z]{16}\b",
+    "github_pat": r"\bghp_[A-Za-z0-9]{36}\b",
     "generic_secret": (
         r"(?i)(?:password|secret|api[_\-]?key|auth[_\-]?token)\s*[=:]\s*"
         r"['\"]?[a-zA-Z0-9_\-\.\/+]{8,}['\"]?"
@@ -200,7 +202,7 @@ class RepoScanner:
     def _scan_pii_secrets(self, repo_path: Path) -> PiiScanResult:
         findings: List[Dict[str, Any]] = []
         files_scanned = 0
-        secret_types = {"private_key", "aws_access_key"}
+        secret_types = {"private_key", "aws_access_key", "aws_temp_access_key", "github_pat"}
 
         for file_path in self._iter_text_files(repo_path):
             if files_scanned >= _MAX_FILES:

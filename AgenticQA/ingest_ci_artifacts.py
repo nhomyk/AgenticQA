@@ -32,7 +32,9 @@ class CIArtifactIngestion:
     def __init__(self):
         self.ingested_count = 0
         self.rag = None
+        self.artifact_store = None
         self._initialize_rag()
+        self._initialize_artifact_store()
 
     def _initialize_rag(self):
         """Initialize RAG system"""
@@ -42,8 +44,35 @@ class CIArtifactIngestion:
             print("✅ Connected to Weaviate")
         except Exception as e:
             print(f"⚠️  RAG initialization failed: {e}")
-            print("   Artifacts will not be ingested. Enable Weaviate for learning.")
+            print("   Falling back to local artifact store.")
             self.rag = None
+
+    def _initialize_artifact_store(self):
+        """Initialize local artifact store as Weaviate fallback."""
+        try:
+            from src.data_store.artifact_store import TestArtifactStore
+            store_path = os.getenv("AGENTICQA_ARTIFACT_STORE", ".test-artifact-store")
+            self.artifact_store = TestArtifactStore(store_path)
+        except Exception:
+            self.artifact_store = None
+
+    def _fallback_to_local_store(self, agent_type: str, document: dict) -> bool:
+        """Write document to local artifact store when Weaviate is unavailable."""
+        if not self.artifact_store:
+            return False
+        try:
+            self.artifact_store.store_artifact(
+                artifact_data=document,
+                artifact_type=document.get("artifact_type", "ci_artifact"),
+                source=agent_type,
+                tags=document.get("tags", []),
+            )
+            self.ingested_count += 1
+            print(f"  📦 Stored to local artifact cache (Weaviate unavailable)")
+            return True
+        except Exception as e:
+            print(f"  ⚠️  Local fallback failed: {e}")
+            return False
 
     def close(self):
         """Close RAG connections (vector store and/or relational store)"""
@@ -70,9 +99,6 @@ class CIArtifactIngestion:
 
         This enables the ComplianceAgent to learn from past accessibility issues.
         """
-        if not self.rag:
-            return False
-
         try:
             with open(report_path, 'r') as f:
                 content = f.read()
@@ -80,19 +106,20 @@ class CIArtifactIngestion:
             # Parse report
             violations = self._parse_pa11y_violations(content)
 
-            # Create structured document for Weaviate
             document = {
                 "artifact_type": "pa11y_report",
                 "timestamp": datetime.utcnow().isoformat(),
                 "run_id": run_id or "unknown",
                 "violation_count": len(violations),
                 "violations": violations,
-                "raw_content": content[:5000],  # Truncate for storage
+                "raw_content": content[:5000],
                 "agent_type": "compliance",
                 "tags": ["accessibility", "wcag", "pa11y"]
             }
 
-            # Store in Weaviate
+            if not self.rag:
+                return self._fallback_to_local_store("compliance", document)
+
             self.rag.log_agent_execution("compliance", document)
             self.ingested_count += 1
 
@@ -115,9 +142,6 @@ class CIArtifactIngestion:
 
         This enables SDET/QA agents to learn from test failures.
         """
-        if not self.rag:
-            return False
-
         try:
             with open(results_path, 'r') as f:
                 if results_path.endswith('.json'):
@@ -134,6 +158,9 @@ class CIArtifactIngestion:
                 "agent_type": "qa",
                 "tags": ["testing", test_framework, "results"]
             }
+
+            if not self.rag:
+                return self._fallback_to_local_store("qa", document)
 
             self.rag.log_agent_execution("qa", document)
             self.ingested_count += 1
@@ -156,9 +183,6 @@ class CIArtifactIngestion:
 
         This enables SDET agent to identify testing gaps.
         """
-        if not self.rag:
-            return False
-
         try:
             with open(coverage_path, 'r') as f:
                 coverage = json.load(f)
@@ -171,6 +195,9 @@ class CIArtifactIngestion:
                 "agent_type": "qa",
                 "tags": ["coverage", "testing", "sdet"]
             }
+
+            if not self.rag:
+                return self._fallback_to_local_store("qa", document)
 
             self.rag.log_agent_execution("qa", document)
             self.ingested_count += 1
@@ -194,9 +221,6 @@ class CIArtifactIngestion:
 
         This enables DevOps agent to learn from security patterns.
         """
-        if not self.rag:
-            return False
-
         try:
             with open(audit_path, 'r') as f:
                 audit = json.load(f)
@@ -209,6 +233,9 @@ class CIArtifactIngestion:
                 "agent_type": "devops",
                 "tags": ["security", "audit", "npm"]
             }
+
+            if not self.rag:
+                return self._fallback_to_local_store("devops", document)
 
             self.rag.log_agent_execution("devops", document)
             self.ingested_count += 1
@@ -230,14 +257,10 @@ class CIArtifactIngestion:
         - Status
         - URL scanned
         """
-        if not self.rag:
-            return False
-
         try:
             with open(json_path, 'r') as f:
                 data = json.load(f)
 
-            # Create document for Weaviate
             document = {
                 "artifact_type": "pa11y_json",
                 "timestamp": data.get("timestamp") or datetime.utcnow().isoformat(),
@@ -249,12 +272,14 @@ class CIArtifactIngestion:
                 "tags": ["accessibility", "pa11y", "structured"]
             }
 
-            # If this is a revalidation report
             if "errorCountBefore" in data:
                 document["error_count_before"] = data.get("errorCountBefore")
                 document["error_count_after"] = data.get("errorCountAfter")
                 document["errors_fixed"] = data.get("errorsFixed")
                 document["artifact_type"] = "pa11y_revalidation"
+
+            if not self.rag:
+                return self._fallback_to_local_store("compliance", document)
 
             self.rag.log_agent_execution("compliance", document)
             self.ingested_count += 1
@@ -276,14 +301,10 @@ class CIArtifactIngestion:
         - Success/failure messages
         - Execution context
         """
-        if not self.rag:
-            return False
-
         try:
             with open(log_path, 'r') as f:
                 content = f.read()
 
-            # Parse log for key information
             fixes_applied = content.count("Fixes Applied")
             errors_found = content.count("Error:")
             warnings_found = content.count("Warning:")
@@ -296,9 +317,12 @@ class CIArtifactIngestion:
                 "fixes_applied": fixes_applied,
                 "errors": errors_found,
                 "warnings": warnings_found,
-                "log_content": content[:10000],  # Truncate for storage
+                "log_content": content[:10000],
                 "tags": [agent_type, "execution", "log"]
             }
+
+            if not self.rag:
+                return self._fallback_to_local_store(agent_type, document)
 
             self.rag.log_agent_execution(agent_type, document)
             self.ingested_count += 1
@@ -319,9 +343,6 @@ class CIArtifactIngestion:
         - Failure patterns
         - Framework-specific failures
         """
-        if not self.rag:
-            return False
-
         failures_path = Path(failures_dir)
         if not failures_path.exists():
             print(f"  ⚠️  Test failures directory not found: {failures_dir}")
@@ -337,7 +358,6 @@ class CIArtifactIngestion:
                 if not content.strip():
                     continue
 
-                # Extract framework from filename (e.g., jest-errors.txt → jest)
                 framework = failure_file.stem.replace('-errors', '')
 
                 document = {
@@ -346,12 +366,15 @@ class CIArtifactIngestion:
                     "run_id": run_id or "unknown",
                     "framework": framework,
                     "error_count": content.count('\n'),
-                    "errors": content[:5000],  # Truncate for storage
+                    "errors": content[:5000],
                     "agent_type": "qa",
                     "tags": ["test", "failure", framework]
                 }
 
-                self.rag.log_agent_execution("qa", document)
+                if self.rag:
+                    self.rag.log_agent_execution("qa", document)
+                else:
+                    self._fallback_to_local_store("qa", document)
                 failures_ingested += 1
 
             self.ingested_count += failures_ingested
@@ -371,8 +394,6 @@ class CIArtifactIngestion:
         - System health metrics
         - Critical failures
         """
-        if not self.rag:
-            return False
 
         try:
             with open(health_log, 'r') as f:
@@ -394,6 +415,9 @@ class CIArtifactIngestion:
                 "agent_type": "sre",
                 "tags": ["pipeline", "health", "validation"]
             }
+
+            if not self.rag:
+                return self._fallback_to_local_store("sre", document)
 
             self.rag.log_agent_execution("sre", document)
             self.ingested_count += 1
@@ -511,9 +535,11 @@ def main():
     ingestion = CIArtifactIngestion()
 
     if not ingestion.rag:
-        print("\n❌ Weaviate not available. Artifacts will not be ingested.")
-        print("   Configure Weaviate connection to enable learning.")
-        return 1
+        print("\n⚠️  Weaviate not available. Using local artifact store as fallback.")
+        if ingestion.artifact_store:
+            print("   📦 Artifacts will be stored locally for learning.")
+        else:
+            print("   ❌ No storage available. Configure Weaviate or local store.")
 
     # Ingest based on provided arguments
     if args.artifact_dir:

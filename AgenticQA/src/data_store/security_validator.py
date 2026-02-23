@@ -3,12 +3,20 @@
 import json
 import hashlib
 import re
-import pickle
 from typing import Dict, Any, Tuple, List
 
 
 class DataSecurityValidator:
     """Deep security validation for stored data"""
+
+    _ALLOWED_SCHEMA_TYPES = {
+        "str": str,
+        "int": int,
+        "float": float,
+        "bool": bool,
+        "dict": dict,
+        "list": list,
+    }
 
     @staticmethod
     def validate_data_immutability(original: Dict, current: Dict) -> Tuple[bool, str]:
@@ -29,15 +37,16 @@ class DataSecurityValidator:
             if field not in data:
                 errors.append(f"Missing required field: {field}")
             else:
-                try:
-                    expected_type = eval(field_type)
-                    if not isinstance(data[field], expected_type):
-                        errors.append(
-                            f"Field {field} type mismatch: "
-                            f"expected {field_type}, got {type(data[field])}"
-                        )
-                except (NameError, TypeError):
+                expected_type = DataSecurityValidator._ALLOWED_SCHEMA_TYPES.get(field_type)
+                if expected_type is None:
                     errors.append(f"Invalid type specification: {field_type}")
+                    continue
+
+                if not isinstance(data[field], expected_type):
+                    errors.append(
+                        f"Field {field} type mismatch: "
+                        f"expected {field_type}, got {type(data[field])}"
+                    )
 
         return len(errors) == 0, errors
 
@@ -52,7 +61,7 @@ class DataSecurityValidator:
         }
 
         found_pii = []
-        data_str = json.dumps(data)
+        data_str = json.dumps(data, default=str)
 
         for pii_type, pattern in pii_patterns.items():
             if re.search(pattern, data_str):
@@ -64,8 +73,7 @@ class DataSecurityValidator:
     def validate_encryption_ready(data: Dict) -> Tuple[bool, str]:
         """Ensure data can be encrypted"""
         try:
-            json_str = json.dumps(data)
-            pickle.dumps(data)
+            json.dumps(data, default=str)
             return True, "Data is encryption-ready"
         except Exception as e:
             return False, f"Data cannot be encrypted: {str(e)}"

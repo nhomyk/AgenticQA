@@ -4,7 +4,7 @@ import json
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 
 class PatternAnalyzer:
@@ -79,7 +79,11 @@ class PatternAnalyzer:
         cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
         all_artifacts = self.store.search_artifacts()
 
-        recent = [a for a in all_artifacts if datetime.fromisoformat(a["timestamp"]) > cutoff]
+        recent = []
+        for artifact_meta in all_artifacts:
+            ts = self._parse_timestamp_utc(artifact_meta.get("timestamp"))
+            if ts and ts > cutoff:
+                recent.append(artifact_meta)
 
         agent_results = defaultdict(lambda: {"pass": 0, "fail": 0})
         # (agent, YYYY-MM-DD) → pass/fail counts for EWMA
@@ -139,6 +143,20 @@ class PatternAnalyzer:
         return pattern_data
 
     @staticmethod
+    def _parse_timestamp_utc(value: Any) -> Optional[datetime]:
+        """Parse ISO timestamp and normalize it to timezone-aware UTC."""
+        if not value:
+            return None
+        try:
+            ts = datetime.fromisoformat(str(value))
+        except Exception:
+            return None
+
+        if ts.tzinfo is None:
+            return ts.replace(tzinfo=timezone.utc)
+        return ts.astimezone(timezone.utc)
+
+    @staticmethod
     def _compute_ewma(daily_rates: List[float], alpha: float = 0.3) -> float:
         """Exponentially weighted moving average over daily fail rates."""
         if not daily_rates:
@@ -162,9 +180,8 @@ class PatternAnalyzer:
         for meta in failures:
             if meta.get("source") != agent_name:
                 continue
-            try:
-                ts = datetime.fromisoformat(meta["timestamp"])
-            except Exception:
+            ts = self._parse_timestamp_utc(meta.get("timestamp"))
+            if not ts:
                 continue
             if ts < cutoff:
                 continue

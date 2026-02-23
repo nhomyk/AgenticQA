@@ -416,6 +416,15 @@ jobs:
     name: "Phase 1️⃣ Consolidated Testing"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore learning databases
+        uses: actions/cache@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            agenticqa-learning-v1-${{ runner.os }}-
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -630,6 +639,27 @@ jobs:
             echo "ℹ️  Database will be created when first artifact is ingested"
           fi
         continue-on-error: true
+
+      - name: Sync delegation outcomes to pattern files
+        if: always()
+        working-directory: AgenticQA
+        run: |
+          python -c "
+          import sys; sys.path.insert(0,'src')
+          from data_store.artifact_store import TestArtifactStore
+          from data_store.pattern_analyzer import PatternAnalyzer
+          pa = PatternAnalyzer(TestArtifactStore())
+          result = pa.sync_delegation_outcomes()
+          print(f'Synced {result.get(\"synced_pairs\",0)} delegation pairs to pattern files')
+          " || echo "Pattern sync skipped"
+        continue-on-error: true
+
+      - name: Save learning databases
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
       - name: Summary
         run: |
