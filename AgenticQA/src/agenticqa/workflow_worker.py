@@ -21,6 +21,7 @@ from urllib import request as url_request
 
 from .prompt_ops_orchestrator import PromptOpsOrchestrator
 from .repo_profile import detect_repo_profile, resolve_generated_test_command
+from .repo_scanner import RepoScanner
 from .workflow_requests import PromptWorkflowStore
 try:
     from .observability import ObservabilityStore
@@ -80,6 +81,9 @@ class WorkflowExecutionWorker:
             metadata["root_span_id"] = root_span_id
             repo_profile = detect_repo_profile(repo_path)
             metadata["repo_profile"] = repo_profile.to_dict()
+            scan_results = RepoScanner().scan(repo_path, repo_profile)
+            metadata.update(scan_results.to_metadata_patch())
+            metadata["repo_scan"] = scan_results.to_dict()
             req["metadata"] = metadata
             self.store.start_request(request_id)
 
@@ -90,6 +94,7 @@ class WorkflowExecutionWorker:
             self._git(repo_path, ["checkout", "-B", branch_name])
 
             generated_paths, orchestration = self._generate_and_apply_code(repo_path=repo_path, req=req)
+            orchestration["pre_scan_analysis"] = self._run_pre_scan_agents(scan_results, req)
             orchestration["trace_id"] = trace_id
             artifact_path = self._write_execution_artifact(
                 repo_path=repo_path,
@@ -388,6 +393,54 @@ class WorkflowExecutionWorker:
             },
         }
         return written, orchestration
+
+    def _run_pre_scan_agents(self, scan_results: Any, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Run SRE, QA, and Performance agents against real scan data from the repo.
+
+        These agents are not called by the PromptOpsOrchestrator (which handles code
+        generation review). This method runs them as an independent pre-scan analysis
+        phase so real lint errors, test results, and timing appear in the workflow output.
+
+        Never raises — failures are captured in the returned dict.
+        """
+        results: Dict[str, Any] = {}
+        try:
+            try:
+                from src.agents import PerformanceAgent, QAAssistantAgent, SREAgent  # type: ignore
+            except Exception:
+                from agents import PerformanceAgent, QAAssistantAgent, SREAgent  # type: ignore
+
+            repo_name = req.get("repo", "unknown").rstrip("/").split("/")[-1]
+
+            if scan_results.linting.available and scan_results.linting.errors:
+                results["sre"] = SREAgent().execute({"errors": scan_results.linting.errors})
+
+            if scan_results.tests.available:
+                t = scan_results.tests
+                results["qa"] = QAAssistantAgent().execute({
+                    "test_name": f"{repo_name}_suite",
+                    "test_type": "unit",
+                    "status": "passed" if t.failed == 0 else "failed",
+                    "passed": t.passed,
+                    "failed": t.failed,
+                    "total": t.total,
+                    "coverage": t.coverage_percent,
+                })
+
+            if scan_results.performance.available:
+                p = scan_results.performance
+                perf_payload: Dict[str, Any] = {
+                    "operation": "test_suite",
+                    "duration_ms": p.duration_ms,
+                }
+                if p.baseline_ms is not None:
+                    perf_payload["baseline_ms"] = p.baseline_ms
+                results["performance"] = PerformanceAgent().execute(perf_payload)
+
+        except Exception as exc:
+            results["error"] = str(exc)
+
+        return results
 
     def _run_sdet_test_loop(
         self,
