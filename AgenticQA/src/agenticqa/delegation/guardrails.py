@@ -39,6 +39,10 @@ class DelegationGuardrails:
         "refactor": ["Fullstack_Agent"],
         "ci_cd": ["DevOps_Agent"],
         "infrastructure": ["DevOps_Agent", "SRE_Agent"],
+        # Red Team — adversarial security hardening
+        "adversarial_test": ["RedTeam_Agent"],
+        "security_probe": ["RedTeam_Agent"],
+        "governance_audit": ["RedTeam_Agent", "Compliance_Agent"],
     }
 
     @classmethod

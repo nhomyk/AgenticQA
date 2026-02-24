@@ -2582,23 +2582,30 @@ class AgentOrchestrator:
             "performance": PerformanceAgent(),
             "compliance": ComplianceAgent(),
             "devops": DevOpsAgent(),
+            "sre": SREAgent(),
+            "sdet": SDETAgent(),
+            "fullstack": FullstackAgent(),
+            "red_team": RedTeamAgent(),
         }
-        self.log("Agent Orchestrator initialized with 4 agents")
+        self.log("Agent Orchestrator initialized with 8 agents")
 
     def execute_all_agents(self, data: Dict) -> Dict[str, Any]:
         """Execute all agents with their respective tasks"""
         results = {}
 
+        _route = {
+            "qa":         data.get("test_results", {}),
+            "performance": data.get("execution_data", {}),
+            "compliance": data.get("compliance_data", {}),
+            "devops":     data.get("deployment_config", {}),
+            "sre":        data.get("linting_data", {}),
+            "sdet":       data.get("coverage_data", {}),
+            "fullstack":  data.get("feature_request", {}),
+            "red_team":   data.get("red_team_config", {"mode": "fast", "target": "both", "auto_patch": True}),
+        }
         for agent_name, agent in self.agents.items():
             try:
-                if agent_name == "qa":
-                    results[agent_name] = agent.execute(data.get("test_results", {}))
-                elif agent_name == "performance":
-                    results[agent_name] = agent.execute(data.get("execution_data", {}))
-                elif agent_name == "compliance":
-                    results[agent_name] = agent.execute(data.get("compliance_data", {}))
-                elif agent_name == "devops":
-                    results[agent_name] = agent.execute(data.get("deployment_config", {}))
+                results[agent_name] = agent.execute(_route[agent_name])
             except Exception as e:
                 results[agent_name] = {"error": str(e), "status": "failed"}
 

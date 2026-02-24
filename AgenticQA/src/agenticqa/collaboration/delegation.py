@@ -75,6 +75,8 @@ class DelegationGuardrails:
         "DevOps_Agent": [],  # DevOps can't delegate (prevents loops)
         "QA_Assistant": [],  # QA doesn't delegate (analysis only)
         "Performance_Agent": [],  # Performance doesn't delegate (analysis only)
+        # RedTeam is invoked directly; it can propose but cannot auto-apply governance changes
+        "RedTeam_Agent": [],  # No delegation — T1-005 prevents self-modification
     }
 
     def __init__(self):

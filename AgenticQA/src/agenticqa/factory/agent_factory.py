@@ -113,6 +113,20 @@ class AgentFactory:
             except Exception:
                 pass
 
+        # Register capabilities as task types in the delegation ontology so the
+        # new agent is reachable via delegate_to_agent() and GraphRAG routing.
+        try:
+            from agenticqa.delegation.guardrails import DelegationGuardrails
+            for cap in getattr(wrapper, "capabilities", []):
+                task_type = cap.lower().replace(" ", "_")
+                if task_type not in DelegationGuardrails.TASK_AGENT_MAP:
+                    DelegationGuardrails.TASK_AGENT_MAP[task_type] = []
+                if wrapper.agent_name not in DelegationGuardrails.TASK_AGENT_MAP[task_type]:
+                    DelegationGuardrails.TASK_AGENT_MAP[task_type].append(wrapper.agent_name)
+            registered.append("ontology")
+        except Exception:
+            pass
+
         return {"agent_name": wrapper.agent_name, "registered_in": registered}
 
 
