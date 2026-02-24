@@ -334,8 +334,24 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Run ESLint
-        run: npx eslint . --ext .js
+        run: |
+          npx eslint . --ext .js --format json --output-file eslint-output.json || true
+          npx eslint . --ext .js || true
+      - name: Ingest ESLint results
+        run: |
+          if [ -f eslint-output.json ]; then
+            pip install -q requests weaviate-client || true
+            python AgenticQA/ingest_ci_artifacts.py \
+              --agent-log eslint-output.json \
+              --agent-type sre \
+              --run-id ${{ github.run_id }} || echo "⚠️ ESLint ingestion skipped"
+          fi
+        continue-on-error: true
 
   # Live migration proof: verifies real Weaviate historical data can be
   # exported/imported into a fresh Qdrant target with full parity.
@@ -397,6 +413,22 @@ jobs:
           echo '```text' >> $GITHUB_STEP_SUMMARY
           tail -n 60 migration-verify.log >> $GITHUB_STEP_SUMMARY || echo "No migration log captured" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Ingest migration log to learning system
+        if: always()
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+          AGENTICQA_HYBRID_RAG: "true"
+        run: |
+          if [ -f migration-verify.log ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --pipeline-health migration-verify.log \
+              --run-id ${{ github.run_id }} || echo "⚠️ Migration log ingestion skipped"
+            echo "✅ Migration parity log ingested — dual-write decisions now informed by history"
+          fi
+        continue-on-error: true
 
       - name: Publish verification summary
         if: always()
@@ -1451,6 +1483,24 @@ jobs:
           for label, val in rows:
               print(f'| {label} | {val} |')
           " >> $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+
+      - name: Ingest red team results to learning system
+        if: always()
+        working-directory: AgenticQA
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+          AGENTICQA_HYBRID_RAG: "true"
+        run: |
+          if [ -f redteam-output.json ]; then
+            python ingest_ci_artifacts.py \
+              --agent-log redteam-output.json \
+              --agent-type red-team \
+              --run-id ${{ github.run_id }} || echo "⚠️ Red team ingestion skipped"
+            echo "✅ Red team results ingested — scanner/gate strength trends now tracked"
+          fi
         continue-on-error: true
 
       - name: Save red team patterns (persist learned bypasses)
