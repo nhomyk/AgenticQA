@@ -1,0 +1,217 @@
+name: Red Team Governance Scan
+
+# Two triggers:
+# 1. Scheduled — weekly (Sunday 3 AM UTC): catches new bypass techniques even with no code changes
+# 2. Path-triggered — on changes to governance files: validates no regression was introduced
+# 3. Manual — workflow_dispatch for on-demand scans
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'   # Every Sunday at 3 AM UTC
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/agenticqa/constitutional_gate.py'
+      - 'src/agenticqa/constitution.yaml'
+      - 'src/agenticqa/agent_scopes.yaml'
+      - 'src/agenticqa/factory/sandbox/output_scanner.py'
+      - 'src/agenticqa/redteam/**'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Scan mode'
+        required: false
+        default: 'fast'
+        type: choice
+        options: [fast, thorough]
+      target:
+        description: 'Governance target'
+        required: false
+        default: 'both'
+        type: choice
+        options: [both, scanner, gate]
+
+concurrency:
+  group: red-team-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  red-team-scan:
+    name: Red Team Governance Probe
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to commit red_team_patterns.json
+      issues: write     # to open constitutional proposal issues
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[rag,dev]" --quiet
+
+      - name: Restore learning cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Run Red Team scan
+        id: scan
+        env:
+          SCAN_MODE: ${{ github.event.inputs.mode || 'fast' }}
+          SCAN_TARGET: ${{ github.event.inputs.target || 'both' }}
+          DB_PATH: ${{ github.workspace }}/.agenticqa/rag.db
+          AGENTICQA_DB_PATH: ${{ github.workspace }}/.agenticqa/rag.db
+        run: |
+          python - <<'PYEOF'
+          import sys, json, os
+          sys.path.insert(0, "src")
+
+          mode   = os.getenv("SCAN_MODE", "fast")
+          target = os.getenv("SCAN_TARGET", "both")
+
+          from agents import RedTeamAgent
+          agent = RedTeamAgent()
+          result = agent.execute({"mode": mode, "target": target, "auto_patch": True})
+
+          print(f"bypass_attempts={result['bypass_attempts']}")
+          print(f"successful_bypasses={result['successful_bypasses']}")
+          print(f"patches_applied={result['patches_applied']}")
+          print(f"proposals_generated={result['proposals_generated']}")
+          print(f"scanner_strength={result['scanner_strength']:.1%}")
+          print(f"gate_strength={result['gate_strength']:.1%}")
+          print(f"status={result['status']}")
+
+          # Write GitHub Actions outputs
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"bypass_attempts={result['bypass_attempts']}\n")
+              fh.write(f"successful_bypasses={result['successful_bypasses']}\n")
+              fh.write(f"patches_applied={result['patches_applied']}\n")
+              fh.write(f"proposals_generated={result['proposals_generated']}\n")
+              fh.write(f"scanner_strength={result['scanner_strength']:.4f}\n")
+              fh.write(f"gate_strength={result['gate_strength']:.4f}\n")
+              fh.write(f"status={result['status']}\n")
+              fh.write(f"has_proposals={'true' if result['proposals_generated'] > 0 else 'false'}\n")
+              fh.write(f"has_patches={'true' if result['patches_applied'] > 0 else 'false'}\n")
+
+          # Write scan summary to file for the summary step
+          with open("/tmp/rt_result.json", "w") as f:
+              json.dump(result, f, indent=2)
+
+          # Exit non-zero only if unpatched bypasses remain
+          if result["status"] == "bypasses_found":
+              sys.exit(1)
+          PYEOF
+
+      - name: Write job summary
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import json, os
+          try:
+              result = json.load(open("/tmp/rt_result.json"))
+          except Exception:
+              print("No scan result available.")
+              exit(0)
+
+          status_emoji = {"clean": "✅", "patched": "🔧", "bypasses_found": "🚨"}.get(result["status"], "❓")
+
+          summary = f"""## {status_emoji} Red Team Governance Scan
+
+          | Metric | Value |
+          |--------|-------|
+          | Bypass attempts | {result['bypass_attempts']} |
+          | Successful bypasses | {result['successful_bypasses']} |
+          | Auto-patches applied | {result['patches_applied']} |
+          | Constitutional proposals | {result['proposals_generated']} |
+          | Scanner strength | {result['scanner_strength']:.1%} |
+          | Gate strength | {result['gate_strength']:.1%} |
+          | Status | **{result['status'].upper()}** |
+          """
+
+          if result.get("vulnerabilities"):
+              summary += "\n### Bypasses Detected\n\n| Technique | Category | Escaped |\n|-----------|----------|---------|\n"
+              for v in result["vulnerabilities"]:
+                  escaped = "Scanner" if v.get("escaped_scanner") else "Gate"
+                  summary += f"| {v.get('name','')} | {v.get('category','')} | {escaped} |\n"
+
+          if result.get("constitutional_proposals"):
+              summary += f"\n### Constitutional Proposals\n{len(result['constitutional_proposals'])} proposal(s) written to `.agenticqa/constitutional_proposals.json` — require human review.\n"
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(summary)
+          PYEOF
+
+      # Commit any auto-patched scanner patterns back to the repo
+      - name: Commit red_team_patterns.json
+        if: steps.scan.outputs.has_patches == 'true'
+        run: |
+          git config user.name  "red-team-agent[bot]"
+          git config user.email "red-team-agent[bot]@users.noreply.github.com"
+          git add .agenticqa/red_team_patterns.json
+          git commit -m "chore(security): red team auto-patch — $(date -u +%Y-%m-%d) [skip ci]
+
+          ${{ steps.scan.outputs.patches_applied }} new scanner pattern(s) discovered and applied.
+          scanner_strength=${{ steps.scan.outputs.scanner_strength }}
+          gate_strength=${{ steps.scan.outputs.gate_strength }}
+
+          Co-Authored-By: RedTeamAgent <red-team-agent[bot]@users.noreply.github.com>" || echo "Nothing to commit"
+          git push || echo "Push skipped"
+
+      # Open a GitHub issue when constitutional proposals need human review
+      - name: Open constitutional proposal issue
+        if: steps.scan.outputs.has_proposals == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let proposals = [];
+            try {
+              const data = JSON.parse(fs.readFileSync('.agenticqa/constitutional_proposals.json', 'utf8'));
+              proposals = data.proposals || [];
+            } catch (e) {}
+
+            const body = [
+              '## Constitutional Proposal(s) Require Review',
+              '',
+              'The Red Team Agent discovered governance gate bypasses that require human review.',
+              '`constitutional_gate.py` is protected by **T1-005** and cannot be auto-patched.',
+              '',
+              '### Proposals',
+              ...proposals.map(p => [
+                `**${p.proposal_id}** — \`${p.bypass_technique}\``,
+                `- Category: ${p.category}`,
+                `- Bypassed action: \`${p.bypassed_action}\``,
+                `- Description: ${p.description}`,
+                `- Suggested fix: ${p.suggested_fix}`,
+                ''
+              ].join('\n')),
+              '### Action Required',
+              '1. Review `.agenticqa/constitutional_proposals.json`',
+              '2. Update `src/agenticqa/constitutional_gate.py` to close the gap',
+              '3. Close this issue when resolved',
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Red Team] ${proposals.length} constitutional proposal(s) require review`,
+              body,
+              labels: ['security', 'governance'],
+            });
+
+      - name: Save learning cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
