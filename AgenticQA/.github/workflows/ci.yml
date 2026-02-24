@@ -420,7 +420,9 @@ jobs:
       - name: Restore learning databases
         uses: actions/cache@v4
         with:
-          path: ~/.agenticqa/
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -707,7 +709,9 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: ~/.agenticqa/
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
       - name: Summary
@@ -1063,7 +1067,9 @@ jobs:
       - name: Restore learning databases
         uses: actions/cache@v4
         with:
-          path: ~/.agenticqa/
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -1138,7 +1144,9 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: ~/.agenticqa/
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 1: Compliance Agent
@@ -1154,7 +1162,9 @@ jobs:
       - name: Restore learning databases
         uses: actions/cache@v4
         with:
-          path: ~/.agenticqa/
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -1220,7 +1230,9 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: ~/.agenticqa/
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 2: Compliance Summary
@@ -1356,10 +1368,90 @@ jobs:
           PHASE: "production-fixes"
         run: node agentic_sre_engineer.js
 
+  # Red Team Agent — adversarial scan, auto-patch scanner, propose constitutional amendments
+  red-team-scan:
+    needs: [sre-agent]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: "🔴 Red Team Security Scan"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore red team patterns
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "AgenticQA[dev,quality]"
+
+      - name: Run Red Team scan
+        id: redteam
+        working-directory: AgenticQA
+        run: |
+          mkdir -p .agenticqa
+          python -c "
+          import sys, json
+          sys.path.insert(0, 'src')
+          from agents import RedTeamAgent
+          agent = RedTeamAgent()
+          result = agent.execute({'mode': 'fast', 'target': 'both', 'auto_patch': True})
+          print(json.dumps(result, indent=2))
+          # Surface key metrics to env
+          print(f'SCANNER_STRENGTH={result[\"scanner_strength\"]}')
+          print(f'GATE_STRENGTH={result[\"gate_strength\"]}')
+          print(f'BYPASSES={result[\"successful_bypasses\"]}')
+          print(f'PATCHES={result[\"patches_applied\"]}')
+          " | tee redteam-output.json
+          # Write step summary
+          echo "## 🔴 Red Team Scan Results" >> $GITHUB_STEP_SUMMARY
+          python -c "
+          import json, sys
+          with open('redteam-output.json') as f:
+              lines = [l for l in f if l.startswith('{') or f.tell()]
+          try:
+              data = json.load(open('redteam-output.json'))
+          except Exception:
+              sys.exit(0)
+          print(f'| Metric | Value |', flush=True)
+          print(f'|---|---|', flush=True)
+          print(f'| Scanner Strength | {data[\"scanner_strength\"]:.1%} |', flush=True)
+          print(f'| Gate Strength | {data[\"gate_strength\"]:.1%} |', flush=True)
+          print(f'| Bypass Attempts | {data[\"bypass_attempts\"]} |', flush=True)
+          print(f'| Successful Bypasses | {data[\"successful_bypasses\"]} |', flush=True)
+          print(f'| Patches Applied | {data[\"patches_applied\"]} |', flush=True)
+          print(f'| Proposals Generated | {data[\"proposals_generated\"]} |', flush=True)
+          print(f'| Status | {data[\"status\"]} |', flush=True)
+          " >> $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+
+      - name: Save red team patterns (persist learned bypasses)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+
   # FINAL GATE: Pipeline health verification
   # This ensures the pipeline doesn't get stuck in a failed state
   pipeline-health-check:
-    needs: [sre-agent]
+    needs: [red-team-scan]
     runs-on: ubuntu-latest
     name: 🏥 Pipeline Health Verification
     if: always()
@@ -1401,6 +1493,7 @@ jobs:
       sdet-agent,
       compliance-agent,
       sre-agent,
+      red-team-scan,
       pipeline-health-check
     ]
     runs-on: ubuntu-latest
