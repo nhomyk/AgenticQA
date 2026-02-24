@@ -133,7 +133,7 @@ curl -X POST http://localhost:8000/api/agent-factory/from-prompt \
 # → {"spec": {...}, "scaffold": "class StorageMonitor_Agent(BaseAgent): ...", "persisted": true}
 ```
 
-The `NaturalLanguageSpecExtractor` uses Claude Haiku to parse the description into a typed `AgentSpec` (name, capabilities, input/output schema, governance constraints) with a zero-network keyword fallback when no API key is present. The dashboard exposes a "Describe Your Agent" natural-language form before the manual builder.
+The `NaturalLanguageSpecExtractor` uses Claude Haiku to parse the description into a typed `AgentSpec` (name, capabilities, input/output schema, governance constraints) with a zero-network keyword fallback when no API key is present. On registration, the factory automatically inserts the agent's capabilities into the Task-Agent Ontology — new agent types are instantly routable without any manual YAML edits. The dashboard exposes a "Describe Your Agent" natural-language form before the manual builder.
 
 ---
 
@@ -390,7 +390,7 @@ Every agent execution passes through 6 validation layers plus a constitutional l
   │     max depth=3 · max total=5 · timeout=30s · whitelist  │
   ├──────────────────────────────────────────────────────────┤
   │  3. Task-Agent Ontology                                  │
-  │     18 task types · confidence scoring · 70% min success │
+  │     20 task types · confidence scoring · 70% min success │
   ├──────────────────────────────────────────────────────────┤
   │  4. Schema & PII Validation                              │
   │     4 PII patterns · schema compliance · encryption      │
@@ -420,7 +420,7 @@ Every agent execution passes through 6 validation layers plus a constitutional l
 | **Quality Metrics** | Ragas |
 | **API** | FastAPI + Pydantic (52 endpoints) |
 | **Dashboard** | Streamlit + Plotly (9 pages) |
-| **CI/CD** | GitHub Actions (16 jobs, nightly self-validation) |
+| **CI/CD** | GitHub Actions (16 jobs, nightly self-validation, data-to-learning ingestion) |
 | **Testing** | Pytest (830+ tests), Playwright, Pa11y |
 | **Language** | Python 3.8+ |
 
@@ -449,6 +449,7 @@ AgenticQA/
 ├── dashboard/                   # 9-page Streamlit analytics dashboard
 ├── agent_api.py                 # FastAPI control plane (52 endpoints)
 ├── src/agents.py                # 8 agents: QA, Performance, Compliance, DevOps, SRE, SDET, Fullstack, RedTeam
+├── ingest_ci_artifacts.py       # CI data bridge — ESLint, red-team, migration results → learning system
 ├── tests/                       # 830+ tests — unit, integration, governance, red team, agent factory
 └── .github/workflows/           # 16-job CI pipeline + nightly self-validation benchmark
 ```
