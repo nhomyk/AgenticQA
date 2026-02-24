@@ -423,6 +423,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -712,6 +713,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
       - name: Summary
@@ -1070,6 +1072,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -1147,6 +1150,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 1: Compliance Agent
@@ -1165,6 +1169,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -1233,6 +1238,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 2: Compliance Summary
@@ -1384,6 +1390,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -1402,40 +1409,47 @@ jobs:
       - name: Run Red Team scan
         id: redteam
         working-directory: AgenticQA
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+          AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
+          AGENTICQA_HYBRID_RAG: "true"
         run: |
           mkdir -p .agenticqa
+          # Write JSON result to file, log lines to stderr so tee captures clean JSON
           python -c "
           import sys, json
           sys.path.insert(0, 'src')
           from agents import RedTeamAgent
           agent = RedTeamAgent()
           result = agent.execute({'mode': 'fast', 'target': 'both', 'auto_patch': True})
-          print(json.dumps(result, indent=2))
-          # Surface key metrics to env
-          print(f'SCANNER_STRENGTH={result[\"scanner_strength\"]}')
-          print(f'GATE_STRENGTH={result[\"gate_strength\"]}')
-          print(f'BYPASSES={result[\"successful_bypasses\"]}')
-          print(f'PATCHES={result[\"patches_applied\"]}')
-          " | tee redteam-output.json
-          # Write step summary
+          # Clean JSON to stdout only
+          sys.stdout.write(json.dumps(result, indent=2))
+          # Metrics to stderr (visible in logs, not in file)
+          print(f'scanner_strength={result[\"scanner_strength\"]:.1%}  gate_strength={result[\"gate_strength\"]:.1%}  bypasses={result[\"successful_bypasses\"]}  patches={result[\"patches_applied\"]}', file=sys.stderr)
+          " > redteam-output.json 2>&1
+          # Write step summary from clean JSON
           echo "## 🔴 Red Team Scan Results" >> $GITHUB_STEP_SUMMARY
           python -c "
           import json, sys
-          with open('redteam-output.json') as f:
-              lines = [l for l in f if l.startswith('{') or f.tell()]
           try:
               data = json.load(open('redteam-output.json'))
-          except Exception:
+          except Exception as e:
+              print(f'Parse error: {e}', file=sys.stderr)
               sys.exit(0)
-          print(f'| Metric | Value |', flush=True)
-          print(f'|---|---|', flush=True)
-          print(f'| Scanner Strength | {data[\"scanner_strength\"]:.1%} |', flush=True)
-          print(f'| Gate Strength | {data[\"gate_strength\"]:.1%} |', flush=True)
-          print(f'| Bypass Attempts | {data[\"bypass_attempts\"]} |', flush=True)
-          print(f'| Successful Bypasses | {data[\"successful_bypasses\"]} |', flush=True)
-          print(f'| Patches Applied | {data[\"patches_applied\"]} |', flush=True)
-          print(f'| Proposals Generated | {data[\"proposals_generated\"]} |', flush=True)
-          print(f'| Status | {data[\"status\"]} |', flush=True)
+          rows = [
+              ('Scanner Strength', f'{data[\"scanner_strength\"]:.1%}'),
+              ('Gate Strength',    f'{data[\"gate_strength\"]:.1%}'),
+              ('Bypass Attempts',  data['bypass_attempts']),
+              ('Successful Bypasses', data['successful_bypasses']),
+              ('Patches Applied',  data['patches_applied']),
+              ('Proposals Generated', data['proposals_generated']),
+              ('Status',           data['status']),
+          ]
+          print('| Metric | Value |')
+          print('|---|---|')
+          for label, val in rows:
+              print(f'| {label} | {val} |')
           " >> $GITHUB_STEP_SUMMARY || true
         continue-on-error: true
 
@@ -1446,6 +1460,7 @@ jobs:
           path: |
             ~/.agenticqa/
             .agenticqa/
+            .test-artifact-store/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # FINAL GATE: Pipeline health verification
