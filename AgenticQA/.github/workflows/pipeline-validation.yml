@@ -110,8 +110,7 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest
+          pip install -e ".[dev,quality]"
 
       - name: Test SRE Agent Detects and Fixes Linting Errors
         id: sre_test
@@ -158,8 +157,7 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest
+          pip install -e ".[dev,quality]"
 
       - name: Test SDET Agent Coverage Gap Detection
         run: |
@@ -202,8 +200,7 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest
+          pip install -e ".[dev,quality]"
 
       - name: Test Fullstack Agent API Generation
         run: |
@@ -248,8 +245,7 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest
+          pip install -e ".[dev,quality]"
 
       - name: Test SRE → SDET Workflow
         run: |
@@ -290,8 +286,7 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest
+          pip install -e ".[dev,quality,graph]"
 
       - name: Test Delegation Guardrails
         run: |
@@ -368,8 +363,8 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest weaviate-client ragas datasets
+          pip install -e ".[dev,quality,rag]"
+          pip install datasets
 
       - name: Set Weaviate Environment
         run: |
@@ -461,8 +456,8 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest pandas numpy
+          pip install -e ".[dev,quality]"
+          pip install pandas
 
       - name: Test Data Validation
         run: |
@@ -530,8 +525,7 @@ PY
 
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest pytest-cov black flake8
+          pip install -e ".[dev,quality]"
           npm install -g eslint
 
       - name: Test Linting Tools
