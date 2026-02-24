@@ -4588,6 +4588,101 @@ def render_plans_and_tiers():
     st.markdown("[← Back to dashboard](?)")
 
 
+def render_red_team():
+    """Red Team Agent — adversarial governance probing and self-patching."""
+    import requests as _req
+
+    st.subheader("Red Team Agent")
+    st.markdown(
+        "Probe the governance stack for bypass vulnerabilities. "
+        "Discovered scanner bypasses are auto-patched. "
+        "Constitutional gate gaps generate human-review proposals."
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="red_team_api_base",
+    ).rstrip("/")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        mode = st.selectbox("Mode", ["fast", "thorough"], key="rt_mode",
+                            help="fast=built-in library (20 techniques); thorough=+LLM variants")
+    with col2:
+        target = st.selectbox("Target", ["both", "scanner", "gate"], key="rt_target",
+                              help="scanner=OutputScanner; gate=ConstitutionalGate; both=all")
+    with col3:
+        auto_patch = st.toggle("Auto-patch scanner", value=True, key="rt_auto_patch",
+                               help="Auto-apply new regex patterns for discovered scanner bypasses")
+
+    if st.button("Run Red Team Scan", key="rt_scan_btn", type="primary"):
+        with st.spinner("Probing governance stack..."):
+            try:
+                resp = _req.post(
+                    f"{api_base}/api/red-team/scan",
+                    json={"mode": mode, "target": target, "auto_patch": auto_patch},
+                    timeout=60,
+                )
+            except Exception as exc:
+                st.error(f"Could not reach API: {exc}")
+                return
+
+        if resp.status_code != 200:
+            st.error(f"API error {resp.status_code}: {resp.text[:300]}")
+            return
+
+        data = resp.json()
+        status = data.get("status", "unknown")
+        color = {"clean": "green", "patched": "blue", "bypasses_found": "red"}.get(status, "gray")
+        st.markdown(f"**Status:** :{color}[{status.upper()}]")
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Attempts", data["bypass_attempts"])
+        m2.metric("Bypasses Found", data["successful_bypasses"])
+        m3.metric("Patches Applied", data["patches_applied"])
+        m4.metric("Proposals", data["proposals_generated"])
+
+        st.markdown("#### Governance Strength")
+        sc, gc = st.columns(2)
+        with sc:
+            st.caption("Scanner strength")
+            st.progress(data["scanner_strength"], text=f"{data['scanner_strength']*100:.1f}%")
+        with gc:
+            st.caption("Gate strength")
+            st.progress(data["gate_strength"], text=f"{data['gate_strength']*100:.1f}%")
+
+        if data["vulnerabilities"]:
+            st.markdown("#### Bypasses Detected")
+            import pandas as pd
+            df = pd.DataFrame([
+                {
+                    "Technique": v.get("name", ""),
+                    "Category": v.get("category", ""),
+                    "Description": v.get("description", ""),
+                    "Escaped Scanner": v.get("escaped_scanner", False),
+                    "Escaped Gate": v.get("escaped_gate", False),
+                }
+                for v in data["vulnerabilities"]
+            ])
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+        if data.get("constitutional_proposals"):
+            st.markdown("#### Constitutional Proposals (human review required)")
+            st.info(
+                f"{len(data['constitutional_proposals'])} proposal(s) written to "
+                "`.agenticqa/constitutional_proposals.json`. "
+                "Review and update `constitutional_gate.py` manually."
+            )
+            st.json(data["constitutional_proposals"])
+
+        if auto_patch and data["patches_applied"] > 0:
+            st.success(
+                f"{data['patches_applied']} pattern(s) added to `.agenticqa/red_team_patterns.json`. "
+                "OutputScanner will load these on next initialization."
+            )
+
+
 def main():
     """Main dashboard"""
     render_header()
@@ -4608,7 +4703,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance"]
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Red Team"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -4717,6 +4812,9 @@ def main():
 
     elif page == "Governance":
         render_governance_page()
+
+    elif page == "Red Team":
+        render_red_team()
 
     # Footer
     st.markdown("---")

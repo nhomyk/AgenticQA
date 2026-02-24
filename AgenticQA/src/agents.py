@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import json
 import os
 import re
+import tempfile
 from src.data_store import SecureDataPipeline
 
 
@@ -1682,6 +1683,19 @@ class SREAgent(BaseAgent):
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
 
+            # Self-healing test repair — if caller provides failing_tests list
+            repair_results: List[Dict] = []
+            for ft in linting_data.get("failing_tests", []):
+                repair = self._attempt_test_repair(
+                    ft.get("file", ""),
+                    ft.get("error", ""),
+                    ft.get("test_name", ""),
+                )
+                repair_results.append(repair)
+            if repair_results:
+                result["test_repairs"] = repair_results
+                result["tests_repaired"] = sum(1 for r in repair_results if r["repaired"])
+
             self._record_execution("success", result, tags=["linting_fix"])
             self.log(
                 f"Applied {len(fixes_applied)}/{fixable_count} fixable linting errors "
@@ -1708,6 +1722,83 @@ class SREAgent(BaseAgent):
             self._record_execution("error", {"error": str(e)}, tags=["error"])
             self.log(f"Linting fix failed: {str(e)}", "ERROR")
             raise
+
+    def _attempt_test_repair(
+        self,
+        test_file: str,
+        error_message: str,
+        test_name: str,
+    ) -> Dict[str, Any]:
+        """Self-healing CI: use Haiku to generate a fix for a failing test.
+
+        Verifies the fix passes in a subprocess sandbox before applying to disk.
+        Returns {"repaired": bool, "patch_applied": bool, "fix_summary": str}.
+        """
+        if not test_file or not Path(test_file).exists():
+            return {"repaired": False, "patch_applied": False, "fix_summary": "test file not found"}
+
+        try:
+            import anthropic  # deferred — mock via sys.modules in tests
+            source = Path(test_file).read_text()[:4000]  # token budget
+            client = anthropic.Anthropic()
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                system=(
+                    "You are a test repair assistant. Given a failing Python test file and "
+                    "its error message, output ONLY the corrected complete file content. "
+                    "No explanation. No markdown fences. Just the Python code."
+                ),
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        f"Test file ({test_file}):\n{source}\n\n"
+                        f"Failing test: {test_name}\n\n"
+                        f"Error:\n{error_message}"
+                    ),
+                }],
+            )
+            fixed_code = message.content[0].text.strip()
+            # Strip markdown fences if present
+            fixed_code = re.sub(r"^```[a-zA-Z]*\n?", "", fixed_code)
+            fixed_code = re.sub(r"\n?```$", "", fixed_code).strip()
+        except Exception as exc:
+            return {"repaired": False, "patch_applied": False, "fix_summary": f"LLM unavailable: {exc}"}
+
+        # Verify the fix compiles before any sandbox execution
+        try:
+            compile(fixed_code, test_file, "exec")
+        except SyntaxError as exc:
+            return {"repaired": False, "patch_applied": False, "fix_summary": f"Generated code has syntax error: {exc}"}
+
+        # Write to a temp file and run pytest on it in a clean subprocess
+        try:
+            import subprocess
+            with tempfile.NamedTemporaryFile(
+                suffix=".py", mode="w", delete=False, dir=Path(test_file).parent
+            ) as tmp:
+                tmp.write(fixed_code)
+                tmp_path = tmp.name
+
+            proc = subprocess.run(
+                ["python", "-m", "pytest", tmp_path, "-x", "-q", "--tb=no", "--no-header"],
+                capture_output=True, text=True, timeout=30,
+            )
+            success = proc.returncode == 0
+        except Exception as exc:
+            success = False
+            return {"repaired": False, "patch_applied": False, "fix_summary": f"Sandbox run failed: {exc}"}
+        finally:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        if success:
+            Path(test_file).write_text(fixed_code)
+            return {"repaired": True, "patch_applied": True, "fix_summary": f"Fixed {test_name}"}
+
+        return {"repaired": False, "patch_applied": False, "fix_summary": "Generated fix did not pass verification"}
 
     def _apply_linting_fix(
         self, error: Dict, augmented_context: Optional[Dict] = None
@@ -2346,6 +2437,140 @@ module.exports = {{ {self._to_function_name(title)} }};
             return ["components/Feature.html", "styles/feature.css"]
         else:
             return ["src/feature.js"]
+
+
+class RedTeamAgent(BaseAgent):
+    """Adversarial agent (#8) that probes AgenticQA's governance stack for bypasses.
+
+    Two-tier self-patching:
+    - Level 1 (auto): extends OutputScanner via .agenticqa/red_team_patterns.json
+    - Level 2 (proposed): writes .agenticqa/constitutional_proposals.json for human review
+      (constitutional_gate.py is protected by T1-005 — agents cannot auto-modify it)
+    """
+
+    def __init__(self):
+        super().__init__("RedTeam_Agent")
+        try:
+            from agenticqa.redteam import AdversarialGenerator, PatternPatcher
+            self._generator = AdversarialGenerator()
+            self._patcher = PatternPatcher()
+        except ImportError:
+            self._generator = None
+            self._patcher = None
+
+    def execute(self, scan_data: Dict) -> Dict[str, Any]:
+        """Probe governance stack for bypasses and optionally self-patch.
+
+        Args:
+            scan_data: {
+                "mode": "fast" | "thorough"  (default "fast"),
+                "target": "scanner" | "gate" | "both"  (default "both"),
+                "auto_patch": bool  (default True),
+            }
+
+        Returns:
+            {
+                "bypass_attempts": int,
+                "successful_bypasses": int,
+                "patches_applied": int,
+                "proposals_generated": int,
+                "scanner_strength": float,
+                "gate_strength": float,
+                "vulnerabilities": List[dict],       # raw output field stripped
+                "constitutional_proposals": List[str],
+                "status": "clean" | "bypasses_found" | "patched",
+            }
+        """
+        if self._generator is None or self._patcher is None:
+            raise RuntimeError("RedTeam module not available. Install agenticqa.redteam.")
+
+        mode = scan_data.get("mode", "fast")
+        target = scan_data.get("target", "both")
+        auto_patch = scan_data.get("auto_patch", True)
+
+        samples = self._generator.generate(mode=mode)
+
+        try:
+            from agenticqa.factory.sandbox.output_scanner import OutputScanner
+            scanner = OutputScanner()
+        except ImportError:
+            scanner = None
+
+        try:
+            from agenticqa.constitutional_gate import check_action
+        except ImportError:
+            check_action = None  # type: ignore
+
+        vulnerabilities: List[Dict[str, Any]] = []
+        proposals: List[str] = []
+        patches_applied = 0
+
+        for technique in samples:
+            category = technique.get("category", "")
+
+            if category == "constitutional_gate" and target in ("gate", "both"):
+                if check_action is None:
+                    continue
+                action = technique.get("action", "agent_invoke")
+                ctx = technique.get("context", {})
+                verdict = check_action(action, ctx)
+                if verdict["verdict"] == "ALLOW":
+                    vuln = {
+                        k: v for k, v in technique.items()
+                        if k not in ("output",)
+                    }
+                    vuln["escaped_gate"] = True
+                    vuln["verdict"] = verdict
+                    vulnerabilities.append(vuln)
+                    proposal_id = self._patcher.propose_constitutional_amendment(technique, action)
+                    proposals.append(proposal_id)
+
+            elif category != "constitutional_gate" and target in ("scanner", "both"):
+                if scanner is None:
+                    continue
+                output = technique.get("output", {})
+                scan_result = scanner.scan(output)
+                if scan_result["clean"]:
+                    vuln = {
+                        k: v for k, v in technique.items()
+                        if k not in ("output",)
+                    }
+                    vuln["escaped_scanner"] = True
+                    vulnerabilities.append(vuln)
+                    if auto_patch:
+                        applied = self._patcher.patch_scanner(technique, None)
+                        if applied:
+                            patches_applied += 1
+
+        scanner_samples = [t for t in samples if t.get("category") != "constitutional_gate"]
+        gate_samples = [t for t in samples if t.get("category") == "constitutional_gate"]
+        scanner_bypasses = sum(1 for v in vulnerabilities if v.get("escaped_scanner"))
+        gate_bypasses = sum(1 for v in vulnerabilities if v.get("escaped_gate"))
+
+        scanner_strength = 1.0 - (scanner_bypasses / max(len(scanner_samples), 1))
+        gate_strength = 1.0 - (gate_bypasses / max(len(gate_samples), 1))
+
+        status = "clean"
+        if vulnerabilities:
+            status = "patched" if patches_applied > 0 else "bypasses_found"
+
+        result = {
+            "bypass_attempts": len(samples),
+            "successful_bypasses": len(vulnerabilities),
+            "patches_applied": patches_applied,
+            "proposals_generated": len(proposals),
+            "scanner_strength": round(scanner_strength, 4),
+            "gate_strength": round(gate_strength, 4),
+            "vulnerabilities": vulnerabilities,
+            "constitutional_proposals": proposals,
+            "status": status,
+        }
+        self._record_execution("success", result, tags=["red_team", "security"])
+        self.log(
+            f"Red Team: {len(samples)} attempts, {len(vulnerabilities)} bypasses, "
+            f"{patches_applied} patched, {len(proposals)} proposals"
+        )
+        return result
 
 
 class AgentOrchestrator:

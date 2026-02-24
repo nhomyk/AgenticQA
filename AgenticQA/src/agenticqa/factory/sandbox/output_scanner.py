@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Dict, List
 
 # Patterns that suggest credential leakage, path traversal, or injected shell commands.
@@ -31,8 +32,20 @@ class OutputScanner:
     """
 
     def __init__(self, extra_patterns: List[tuple[str, str]] | None = None):
-        self._patterns = DANGER_PATTERNS + (extra_patterns or [])
+        self._patterns = DANGER_PATTERNS + (extra_patterns or []) + self._load_red_team_patterns()
         self._compiled = [(label, re.compile(pattern)) for label, pattern in self._patterns]
+
+    @staticmethod
+    def _load_red_team_patterns() -> List[tuple[str, str]]:
+        """Load patterns discovered by RedTeamAgent from .agenticqa/red_team_patterns.json."""
+        rt_file = Path(".agenticqa/red_team_patterns.json")
+        if rt_file.exists():
+            try:
+                data = json.loads(rt_file.read_text())
+                return [(p["label"], p["regex"]) for p in data.get("patterns", [])]
+            except Exception:
+                pass
+        return []
 
     def scan(self, result: Any) -> Dict[str, Any]:
         """

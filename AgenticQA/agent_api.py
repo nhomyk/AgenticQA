@@ -32,6 +32,7 @@ try:
     from src.agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
     from src.agenticqa.factory import SandboxedAgentAdapter
     from src.agenticqa.factory.spec_extractor import NaturalLanguageSpecExtractor, AgentSpec
+    from src.agents import RedTeamAgent
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
@@ -54,6 +55,7 @@ except Exception:
     from agenticqa.factory import AgentFactory, SUPPORTED_FRAMEWORKS
     from agenticqa.factory import SandboxedAgentAdapter
     from agenticqa.factory.spec_extractor import NaturalLanguageSpecExtractor, AgentSpec
+    from agents import RedTeamAgent
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
@@ -1524,6 +1526,35 @@ async def scaffold_agent_from_prompt(request: FromPromptRequest):
         }
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Red Team Agent
+# ---------------------------------------------------------------------------
+
+class RedTeamScanRequest(BaseModel):
+    mode: str = "fast"        # "fast" | "thorough"
+    target: str = "both"      # "scanner" | "gate" | "both"
+    auto_patch: bool = True
+
+
+@app.post("/api/red-team/scan")
+async def red_team_scan(request: RedTeamScanRequest):
+    """Probe governance stack for bypasses and optionally self-patch OutputScanner patterns."""
+    if request.mode not in ("fast", "thorough"):
+        raise HTTPException(status_code=400, detail="mode must be 'fast' or 'thorough'")
+    if request.target not in ("scanner", "gate", "both"):
+        raise HTTPException(status_code=400, detail="target must be 'scanner', 'gate', or 'both'")
+    try:
+        agent = RedTeamAgent()
+        result = agent.execute({
+            "mode": request.mode,
+            "target": request.target,
+            "auto_patch": request.auto_patch,
+        })
+        return {"success": True, **result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
