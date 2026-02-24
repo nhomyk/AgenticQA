@@ -412,7 +412,7 @@ jobs:
   phase-1-testing:
     needs: [lint]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     name: "Phase 1️⃣ Consolidated Testing"
     steps:
       - uses: actions/checkout@v4
@@ -458,14 +458,23 @@ jobs:
           fi
           echo "status=completed" >> $GITHUB_OUTPUT
       
-      # Playwright tests
+      # Playwright tests — browsers cached to avoid hanging apt-get install
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: playwright-chromium-${{ runner.os }}-
+
       - name: Run Playwright tests
         id: playwright
-        timeout-minutes: 4
+        timeout-minutes: 5
         run: |
           echo "🎭 Running Playwright tests..."
-          timeout 90 npx playwright install --with-deps chromium || echo "⚠️ Playwright install timed out, skipping"
-          if command -v npx >/dev/null 2>&1 && npx playwright test --version >/dev/null 2>&1; then
+          # Install only chromium binary (no OS deps via apt — avoids hanging subprocesses)
+          npx playwright install chromium 2>&1 | tail -5 || echo "⚠️ Playwright install failed, skipping"
+          if npx playwright --version >/dev/null 2>&1; then
             timeout 120 npx playwright test --timeout=15000 --workers=1 2>&1 | tee playwright-output.log || PLAYWRIGHT_FAILED=true
           else
             echo "Playwright not available, skipping" | tee playwright-output.log
@@ -481,20 +490,20 @@ jobs:
       # Cypress tests
       - name: Run Cypress tests
         id: cypress
-        timeout-minutes: 4
+        timeout-minutes: 5
         run: |
           echo "🌳 Running Cypress tests..."
-          timeout 90 npx cypress install || echo "⚠️ Cypress install timed out, skipping"
+          npx cypress install 2>&1 | tail -5 || echo "⚠️ Cypress install failed, skipping"
           npm start > /tmp/server.log 2>&1 &
           SERVER_READY=false
-          for i in {1..30}; do
+          for i in {1..15}; do
             if curl -s http://localhost:3000 > /dev/null; then
               echo "✅ Server is ready!"
               SERVER_READY=true
               break
             fi
-            echo "Waiting for server... ($i/30)"
-            sleep 1
+            echo "Waiting for server... ($i/15)"
+            sleep 2
           done
           if [ "$SERVER_READY" = "true" ]; then
             timeout 120 npx cypress run 2>&1 | tee cypress-output.log || CYPRESS_FAILED=true
