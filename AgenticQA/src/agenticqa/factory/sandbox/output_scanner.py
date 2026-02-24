@@ -2,33 +2,61 @@
 OutputScanner — scans agent output for exfiltration and injection patterns.
 
 Checks the serialized result dict against a set of regex danger patterns.
-Returns a scan report rather than raising, so callers decide how to act.
+Also performs a decode pass (base64, URL-encoding, Unicode normalization) to
+catch obfuscated payloads.  Returns a scan report rather than raising, so
+callers decide how to act.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import re
+import unicodedata
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List
 
 # Patterns that suggest credential leakage, path traversal, or injected shell commands.
 DANGER_PATTERNS: List[tuple[str, str]] = [
     # label, regex
-    ("credential_pattern", r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+"),
-    ("openai_key_shape",   r"sk-[A-Za-z0-9]{20,}"),
-    ("anthropic_key_shape", r"sk-ant-[A-Za-z0-9\-]{20,}"),
-    ("path_traversal",     r"\.\./\.\./"),
-    ("destructive_shell",  r"(?i)rm\s+-rf"),
-    ("curl_pipe_sh",       r"(?i)curl\s+[^\n]*\|\s*(ba)?sh"),
-    ("base64_eval",        r"(?i)(eval|exec)\s*\(\s*(base64|b64)"),
+    # --- Credentials ---
+    ("credential_pattern",   r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+"),
+    ("openai_key_shape",     r"sk-[A-Za-z0-9]{20,}"),
+    ("anthropic_key_shape",  r"sk-ant-[A-Za-z0-9\-]{20,}"),
+    # --- Path traversal (direct + obfuscated) ---
+    ("path_traversal",       r"\.\./\.\./"),
+    ("url_encoded_traversal", r"(?i)(%2e%2e|%252e%252e)(%2f|%5c|/)"),
+    ("dot_traversal",        r"\.{3,}[/\\]"),
+    ("win_traversal",        r"\.\.[/\\]\.\.[/\\]"),
+    # --- Destructive shell (direct + split args) ---
+    ("destructive_shell",    r"(?i)rm\s+-rf"),
+    ("rf_split_arg",         r'(?i)"-rf\s*[/\\]|-rf\s+[/\\]'),
+    # --- Remote code execution ---
+    ("curl_pipe_sh",         r"(?i)curl\s+[^\n]*\|\s*(ba)?sh"),
+    ("newline_curl_pipe",    r"(?i)curl\s+https?://[^\s]+\s*[\n\\n]+\s*\|"),
+    ("base64_eval",          r"(?i)(eval|exec)\s*\(\s*(base64|b64)"),
+    # --- Hex-escape credential sequences (4+ consecutive \xNN escapes) ---
+    ("hex_escape_seq",       r"(\\x[0-9a-fA-F]{2}){4,}"),
+]
+
+# Well-known base64 payloads (pre-computed to avoid false-positive decode attempts)
+_B64_SHELL_FRAGMENTS = [
+    b"curl ",
+    b"rm -rf",
+    b"| bash",
+    b"|bash",
+    b"sk-ant-",
+    b"sk-",
 ]
 
 
 class OutputScanner:
     """
-    Scans a result dict for danger patterns by serializing it to a string
-    and applying all DANGER_PATTERNS regexes.
+    Scans a result dict for danger patterns via three passes:
+      1. Raw JSON text — regex on serialized output
+      2. Decoded text — base64 + URL-decode of each string value, then regex
+      3. Normalized text — NFKC Unicode normalization to catch lookalike chars
     """
 
     def __init__(self, extra_patterns: List[tuple[str, str]] | None = None):
@@ -47,25 +75,97 @@ class OutputScanner:
                 pass
         return []
 
-    def scan(self, result: Any) -> Dict[str, Any]:
-        """
-        Serialize result to JSON string and scan for danger patterns.
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
 
-        Returns:
-            {
-                "clean": bool,
-                "flags": [{"label": str, "match": str}, ...]
-            }
-        """
-        try:
-            text = json.dumps(result, default=str)
-        except Exception:
-            text = str(result)
-
+    def _match_text(self, text: str, source_label: str) -> List[Dict]:
         flags = []
         for label, pattern in self._compiled:
             m = pattern.search(text)
             if m:
-                flags.append({"label": label, "match": m.group(0)[:100]})
+                flags.append({"label": label, "match": m.group(0)[:100], "source": source_label})
+        return flags
 
-        return {"clean": len(flags) == 0, "flags": flags}
+    @staticmethod
+    def _extract_strings(obj: Any) -> List[str]:
+        """Recursively collect all string leaf values from a dict/list."""
+        out: List[str] = []
+        if isinstance(obj, str):
+            out.append(obj)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                out.extend(OutputScanner._extract_strings(v))
+        elif isinstance(obj, (list, tuple)):
+            for item in obj:
+                out.extend(OutputScanner._extract_strings(item))
+        return out
+
+    @staticmethod
+    def _try_b64_decode(s: str) -> str | None:
+        """Try to base64-decode s; return decoded UTF-8 string or None."""
+        # Base64 strings are typically 20+ chars and end with = or alphanumeric
+        stripped = s.strip().rstrip("=")
+        if len(stripped) < 16:
+            return None
+        try:
+            padded = s + "=" * (-len(s) % 4)
+            decoded = base64.b64decode(padded)
+            return decoded.decode("utf-8", errors="replace")
+        except Exception:
+            return None
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def scan(self, result: Any) -> Dict[str, Any]:
+        """
+        Scan result through three passes and return a unified report.
+
+        Returns:
+            {
+                "clean": bool,
+                "flags": [{"label": str, "match": str, "source": str}, ...]
+            }
+        """
+        seen_labels: set[str] = set()
+        all_flags: List[Dict] = []
+
+        def _add(flags: List[Dict]) -> None:
+            for f in flags:
+                if f["label"] not in seen_labels:
+                    seen_labels.add(f["label"])
+                    all_flags.append(f)
+
+        # Pass 1: raw JSON text
+        try:
+            raw_text = json.dumps(result, default=str)
+        except Exception:
+            raw_text = str(result)
+        _add(self._match_text(raw_text, "raw"))
+
+        # Pass 2: Unicode-normalized text (catches lookalike characters)
+        normalized = unicodedata.normalize("NFKC", raw_text)
+        if normalized != raw_text:
+            _add(self._match_text(normalized, "unicode_normalized"))
+
+        # Pass 3: base64-decode each string value and scan decoded content
+        try:
+            parsed = json.loads(raw_text) if isinstance(result, (dict, list)) else result
+        except Exception:
+            parsed = result
+        for s in self._extract_strings(parsed):
+            decoded = self._try_b64_decode(s)
+            if decoded:
+                _add(self._match_text(decoded, "base64_decoded"))
+
+        # Pass 4: URL-decode the raw text (catches %2e%2e etc.)
+        try:
+            url_decoded = urllib.parse.unquote(raw_text)
+            if url_decoded != raw_text:
+                _add(self._match_text(url_decoded, "url_decoded"))
+        except Exception:
+            pass
+
+        return {"clean": len(all_flags) == 0, "flags": all_flags}

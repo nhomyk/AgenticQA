@@ -209,10 +209,28 @@ _GOVERNANCE_FILES = {
     "observability.py",
 }
 
+# Canonical action sets with semantic aliases and common typos included.
+# This prevents bypass via alternate phrasing or single-character typos.
+_DESTRUCTIVE_ACTIONS = {
+    "delete", "delet",          # common typo
+    "drop", "truncate", "force_push", "purge",
+    "clean", "wipe", "erase",  # semantic aliases for destructive ops
+}
+
+_DEPLOY_ACTIONS = {
+    "deploy",
+    "release", "ship", "go_live",  # semantic deploy aliases
+}
+
+_BULK_ACTIONS = {
+    "bulk_delete", "bulk_update", "migrate",
+    "sync", "replicate", "mirror",  # bulk operation aliases
+}
+
 _TIER1_CHECKS = {
     # id → callable(action_type, context) → bool (True = law violated → DENY)
     "T1-001": lambda a, c: (
-        a in {"delete", "drop", "truncate", "force_push", "purge"}
+        a in _DESTRUCTIVE_ACTIONS
         and str(c.get("ci_status", "")).upper() != "PASSED"
     ),
     "T1-002": lambda a, c: (
@@ -235,14 +253,14 @@ _TIER1_CHECKS = {
 
 _TIER2_CHECKS = {
     "T2-001": lambda a, c: (
-        a == "deploy"
+        a in _DEPLOY_ACTIONS
         and str(c.get("environment", "")).lower() == "production"
     ),
     "T2-002": lambda a, c: (
         a in {"modify_infra", "update_iam", "change_dns", "update_firewall"}
     ),
     "T2-003": lambda a, c: (
-        a in {"bulk_delete", "bulk_update", "migrate"}
+        a in _BULK_ACTIONS
         and int(c.get("record_count", 0)) > 1000
     ),
 }
