@@ -1690,7 +1690,15 @@ class SREAgent(BaseAgent):
         "complexity", "oxc/no-accumulating-spread",
         # Circular dependencies are structural
         "import/no-cycle",
+        # shellcheck: structural issues that require human attention
+        # SC2046: unquoted command substitution — fixing changes semantics
+        "SC2046",
+        # SC2206/SC2207: array splitting — fixing requires understanding intent
+        "SC2206", "SC2207",
     })
+
+    # shellcheck codes that map to structural/security categories
+    _SC_SECURITY = frozenset({"SC2086", "SC2046", "SC2006", "SC2091", "SC2001"})
 
     def __init__(self):
         super().__init__("SRE_Agent")
@@ -1726,6 +1734,11 @@ class SREAgent(BaseAgent):
                 import os as _os
                 if _os.path.exists(_os.path.join(repo_path, "tsconfig.json")):
                     errors = self._run_typescript_linter(repo_path)
+
+            # Auto-detect shell scripts and run shellcheck
+            shell_errors = linting_data.get("shell_errors", [])
+            if not shell_errors and lang in ("shell", "bash", "sh", ""):
+                shell_errors = self._run_shell_linter(repo_path)
 
             fixes_applied = []
 
@@ -1788,6 +1801,8 @@ class SREAgent(BaseAgent):
                 "fixes": fixes_applied,
                 "status": "success" if len(fixes_applied) == fixable_count else "partial",
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
+                "shell_errors": shell_errors,
+                "shell_error_count": len(shell_errors),
             }
 
             # Self-healing test repair — if caller provides failing_tests list
@@ -1867,6 +1882,51 @@ class SREAgent(BaseAgent):
             self._record_execution("error", {"error": str(e)}, tags=["error"])
             self.log(f"Linting fix failed: {str(e)}", "ERROR")
             raise
+
+    def _run_shell_linter(self, repo_path: str) -> List[Dict]:
+        """Run shellcheck on all .sh files in repo_path. Returns normalized error dicts.
+
+        shellcheck must be installed (pre-installed on GitHub Actions runners).
+        Returns [] if not available or no shell files found — never raises.
+        """
+        import subprocess as _sp, json as _j, glob as _gl, os as _os
+
+        sh_files = (
+            _gl.glob(_os.path.join(repo_path, "**", "*.sh"), recursive=True)
+            + _gl.glob(_os.path.join(repo_path, "**", "*.bash"), recursive=True)
+        )
+        # Exclude .git
+        sh_files = [f for f in sh_files if "/.git/" not in f]
+        if not sh_files:
+            return []
+
+        try:
+            result = _sp.run(
+                ["shellcheck", "--format=json", "--severity=warning"] + sh_files[:50],
+                capture_output=True, text=True, timeout=60,
+            )
+        except (FileNotFoundError, _sp.TimeoutExpired):
+            return []
+        except Exception:
+            return []
+
+        try:
+            raw = _j.loads(result.stdout or "[]")
+        except ValueError:
+            return []
+
+        errors = []
+        for item in raw:
+            code = f"SC{item.get('code', 0)}"
+            errors.append({
+                "rule": code,
+                "file": item.get("file", ""),
+                "line": item.get("line", 1),
+                "col": item.get("column", 1),
+                "message": item.get("message", ""),
+                "severity": item.get("level", "warning"),
+            })
+        return errors
 
     def _run_typescript_linter(self, repo_path: str) -> List[Dict]:
         """Run oxlint (preferred) or eslint (fallback) and return normalized error dicts.

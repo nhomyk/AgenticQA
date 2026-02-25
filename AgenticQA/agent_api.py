@@ -1,6 +1,6 @@
 """FastAPI integration for agent orchestration and data store access"""
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
@@ -1874,6 +1874,32 @@ async def repo_profile_endpoint(repo_path: str = "."):
         return {"success": True, "repo_id": repo_id, "profile": profile._data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/export/sarif")
+async def export_sarif(request: Request):
+    """
+    Convert agent results to SARIF 2.1.0 for GitHub Code Scanning.
+
+    Body: {sre?: {...}, compliance?: {...}, redteam?: {...}, repo_root?: str}
+    Returns SARIF JSON (application/json).
+    """
+    try:
+        body = await request.json()
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).parent / "src"))
+        from agenticqa.export.sarif import SARIFExporter
+        exporter = SARIFExporter(repo_root=body.get("repo_root", "."))
+        total = 0
+        if body.get("sre"):
+            total += exporter.add_sre_result(body["sre"])
+        if body.get("compliance"):
+            total += exporter.add_compliance_result(body["compliance"])
+        if body.get("redteam"):
+            total += exporter.add_redteam_result(body["redteam"])
+        return {"sarif": exporter.to_dict(), "finding_count": total}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":

@@ -1549,6 +1549,60 @@ jobs:
           path: sre-ts-output.json
           retention-days: 7
 
+      - name: Shell script linting (shellcheck)
+        run: |
+          python - <<'PYEOF'
+          import sys, json
+          sys.path.insert(0, 'src')
+          from agents import SREAgent
+          from unittest.mock import MagicMock
+          agent = SREAgent.__new__(SREAgent)
+          agent._strategy_selector = None
+          agent.log = MagicMock()
+          errors = agent._run_shell_linter('.')
+          with open('sre-shell-output.json', 'w') as f:
+              json.dump({"shell_errors": errors, "shell_error_count": len(errors)}, f, indent=2)
+          print(f"shellcheck: {len(errors)} issue(s) found")
+          for e in errors[:10]:
+              print(f"  {e['file']}:{e['line']} [{e['rule']}] {e['message'][:80]}")
+          PYEOF
+        continue-on-error: true
+
+      - name: Export findings as SARIF
+        if: always()
+        run: |
+          # Merge SRE Python + TS + shell findings into one SARIF file
+          python - <<'PYEOF'
+          import sys, json
+          from pathlib import Path
+          sys.path.insert(0, 'src')
+          from agenticqa.export.sarif import SARIFExporter
+          exporter = SARIFExporter(repo_root='.')
+          for fname in ('sre-output.json', 'sre-ts-output.json'):
+              if Path(fname).exists():
+                  try:
+                      exporter.add_sre_result(json.loads(Path(fname).read_text()))
+                  except Exception as e:
+                      print(f'Warning: {fname}: {e}')
+          if Path('sre-shell-output.json').exists():
+              try:
+                  shell_data = json.loads(Path('sre-shell-output.json').read_text())
+                  exporter.add_sre_result(shell_data)
+              except Exception as e:
+                  print(f'Warning: shell SARIF: {e}')
+          n = exporter.write('agenticqa-results.sarif')
+          print(f'SARIF: {n} finding(s) written to agenticqa-results.sarif')
+          PYEOF
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: agenticqa-results.sarif
+          category: agenticqa-sre
+        continue-on-error: true
+
       - name: Save learning databases
         uses: actions/cache/save@v4
         if: always()
