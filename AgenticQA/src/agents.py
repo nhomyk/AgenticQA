@@ -102,9 +102,37 @@ def normalize_linting_input(data: Dict) -> Dict:
     elif isinstance(data, list):
         raw = data
 
+    # oxlint JSON: {"diagnostics": [...], "summary": {...}}
+    if isinstance(raw, dict) and "diagnostics" in raw:
+        for diag in raw["diagnostics"]:
+            if isinstance(diag, dict):
+                errors.append({
+                    "rule": diag.get("rule_id", diag.get("rule", "unknown")),
+                    "message": diag.get("message", ""),
+                    "file": diag.get("filename", ""),
+                    "severity": diag.get("severity", "error").lower(),
+                    "line": (diag.get("start") or {}).get("line"),
+                    "col": (diag.get("start") or {}).get("column"),
+                })
+        return {
+            **({k: v for k, v in data.items() if k not in ("diagnostics", "summary")} if isinstance(data, dict) else {}),
+            "errors": errors,
+        }
+
     if isinstance(raw, list):
         for file_result in raw:
             if isinstance(file_result, dict):
+                # oxlint flat-array diagnostic: has "filename" + "rule_id"
+                if "filename" in file_result and "rule_id" in file_result:
+                    errors.append({
+                        "rule": file_result.get("rule_id", "unknown"),
+                        "message": file_result.get("message", ""),
+                        "file": file_result.get("filename", ""),
+                        "severity": file_result.get("severity", "error").lower(),
+                        "line": (file_result.get("start") or {}).get("line"),
+                        "col": (file_result.get("start") or {}).get("column"),
+                    })
+                    continue
                 file_path = file_result.get("filePath", file_result.get("file", ""))
                 messages = file_result.get("messages", file_result.get("errors", []))
                 for msg in messages:
@@ -117,11 +145,9 @@ def normalize_linting_input(data: Dict) -> Dict:
                             "line": msg.get("line"),
                         })
 
-    return {
-        "errors": errors,
-        "file_path": data.get("file_path", "") if isinstance(data, dict) else "",
-        "repo": data.get("repo", "") if isinstance(data, dict) else "",
-    }
+    # Preserve all passthrough keys (repo_path, language, run_id, etc.) from the source dict
+    base = {k: v for k, v in data.items() if k not in ("results",)} if isinstance(data, dict) else {}
+    return {**base, "errors": errors}
 
 if TYPE_CHECKING:
     from src.agenticqa.collaboration import AgentRegistry
@@ -1647,6 +1673,15 @@ class SREAgent(BaseAgent):
         "R0801",
         # Abstract method not overridden — class-design decision
         "W0223",
+        # TypeScript / oxlint architectural rules
+        # Replacing `any` requires type knowledge of the whole call chain
+        "typescript/no-explicit-any", "@typescript-eslint/no-explicit-any",
+        # Shadow requires understanding of all enclosing scopes
+        "no-shadow", "typescript/no-shadow",
+        # Complexity requires human decomposition
+        "complexity", "oxc/no-accumulating-spread",
+        # Circular dependencies are structural
+        "import/no-cycle",
     })
 
     def __init__(self):
@@ -1673,6 +1708,17 @@ class SREAgent(BaseAgent):
             )
 
             errors = linting_data.get("errors", [])
+
+            # Auto-detect TypeScript repo and run linter if no errors were pre-supplied
+            lang = (linting_data.get("language") or "").lower()
+            repo_path = linting_data.get("repo_path", ".")
+            if not errors and lang in ("typescript", "javascript", "ts", "js", "tsx", "jsx"):
+                errors = self._run_typescript_linter(repo_path)
+            elif not errors and not lang:
+                import os as _os
+                if _os.path.exists(_os.path.join(repo_path, "tsconfig.json")):
+                    errors = self._run_typescript_linter(repo_path)
+
             fixes_applied = []
 
             # Split errors: architectural violations are reported separately and
@@ -1813,6 +1859,65 @@ class SREAgent(BaseAgent):
             self._record_execution("error", {"error": str(e)}, tags=["error"])
             self.log(f"Linting fix failed: {str(e)}", "ERROR")
             raise
+
+    def _run_typescript_linter(self, repo_path: str) -> List[Dict]:
+        """Run oxlint (preferred) or eslint (fallback) and return normalized error dicts.
+
+        Tries local node_modules binary first to avoid slow npx network calls.
+        Returns an empty list if neither tool is available — never raises.
+        """
+        import subprocess as _sp, json as _j, os as _os
+
+        def _parse(stdout: str) -> List[Dict]:
+            try:
+                raw = _j.loads(stdout or "[]")
+            except ValueError:
+                return []
+            norm = normalize_linting_input(raw if isinstance(raw, dict) else {"results": raw if isinstance(raw, list) else []})
+            return norm.get("errors", [])
+
+        # Candidate entry points for oxlint
+        oxlint_bins = [
+            _os.path.join(repo_path, "node_modules", ".bin", "oxlint"),
+            "oxlint",
+        ]
+        src_dirs = [d for d in ["src", "packages", "apps", "."] if _os.path.isdir(_os.path.join(repo_path, d))]
+        scan_targets = src_dirs[:3]  # cap to avoid overly long commands
+
+        for bin_path in oxlint_bins:
+            try:
+                proc = _sp.run(
+                    [bin_path, "--format", "json", *scan_targets],
+                    capture_output=True, text=True, timeout=90, cwd=repo_path,
+                )
+                errors = _parse(proc.stdout)
+                if errors or proc.returncode in (0, 1):
+                    self.log(f"oxlint found {len(errors)} issue(s) in {repo_path}")
+                    return errors
+            except (FileNotFoundError, PermissionError, _sp.TimeoutExpired):
+                continue
+
+        # Fallback: eslint JSON
+        eslint_bins = [
+            _os.path.join(repo_path, "node_modules", ".bin", "eslint"),
+            "eslint",
+        ]
+        ext_args = ["--ext", ".ts,.tsx,.js,.jsx"]
+        for bin_path in eslint_bins:
+            try:
+                proc = _sp.run(
+                    [bin_path, "--format", "json", *scan_targets, *ext_args],
+                    capture_output=True, text=True, timeout=90, cwd=repo_path,
+                )
+                errors = _parse(proc.stdout)
+                if errors or proc.returncode in (0, 1):
+                    self.log(f"eslint found {len(errors)} issue(s) in {repo_path}")
+                    return errors
+            except (FileNotFoundError, PermissionError, _sp.TimeoutExpired):
+                continue
+
+        self.log("No TypeScript linter (oxlint/eslint) found — skipping TS analysis", "WARNING")
+        return []
 
     def _attempt_test_repair(
         self,
@@ -1993,10 +2098,42 @@ class SREAgent(BaseAgent):
             "jsx-a11y/anchor-is-valid":                       "Replaced invalid anchor with button or added valid href",
             "jsx-a11y/click-events-have-key-events":          "Added keyboard event handler alongside click handler",
             "jsx-a11y/no-noninteractive-element-interactions":"Moved interaction to a focusable element",
-            # TypeScript
-            "@typescript-eslint/no-explicit-any":             "Replaced 'any' with a typed alternative",
-            "@typescript-eslint/no-unused-vars":              "Removed unused TypeScript variable or import",
-            "@typescript-eslint/explicit-function-return-type":"Added explicit return type annotation",
+            # TypeScript (eslint-plugin-typescript and oxlint namespaced)
+            "@typescript-eslint/no-explicit-any":              "Replaced 'any' with a typed alternative",
+            "@typescript-eslint/no-unused-vars":               "Removed unused TypeScript variable or import",
+            "@typescript-eslint/explicit-function-return-type": "Added explicit return type annotation",
+            "@typescript-eslint/no-non-null-assertion":        "Replaced non-null assertion with proper null check",
+            # oxlint uses plugin-namespaced IDs: typescript/*, unicorn/*, oxc/*
+            "typescript/no-unused-vars":    "Removed unused TypeScript variable or import",
+            "typescript/no-non-null-assertion": "Replaced non-null assertion with proper null check",
+            "typescript/prefer-as-const":   "Changed type assertion to 'as const'",
+            "typescript/no-empty-interface": "Replaced empty interface with type alias or extended type",
+            "typescript/ban-ts-comment":    "Removed or replaced @ts-ignore with typed alternative",
+            # Common ESLint / oxlint rules (no namespace)
+            "no-var":           "Replaced 'var' with 'let' or 'const'",
+            "prefer-const":     "Changed 'let' to 'const' for non-reassigned bindings",
+            "eqeqeq":           "Replaced '==' with '===' for strict equality",
+            "no-debugger":      "Removed debugger statement",
+            "no-console":       "Removed or replaced console.log with logger",
+            "no-unused-expressions": "Removed unused expression or assigned to variable",
+            "no-duplicate-imports": "Merged duplicate import statements",
+            "object-shorthand": "Used object shorthand property syntax",
+            "prefer-arrow-callback": "Converted function expression to arrow function",
+            "prefer-template": "Replaced string concatenation with template literal",
+            "no-useless-concat": "Removed unnecessary string concatenation",
+            "no-extra-semi":    "Removed unnecessary semicolon",
+            "curly":            "Added curly braces to control flow statement",
+            "dot-notation":     "Used dot notation instead of bracket notation",
+            "no-else-return":   "Removed unnecessary else block after return",
+            # unicorn (oxlint plugin)
+            "unicorn/prefer-includes": "Replaced indexOf check with .includes()",
+            "unicorn/prefer-string-starts-ends-with": "Replaced regex with .startsWith()/.endsWith()",
+            "unicorn/no-array-for-each": "Converted .forEach to for...of loop",
+            "unicorn/prefer-number-properties": "Used Number.isNaN / Number.isFinite instead of global",
+            "unicorn/prefer-array-flat":  "Replaced .reduce concat with .flat()",
+            "unicorn/prefer-ternary":     "Converted simple if/else to ternary expression",
+            "unicorn/throw-new-error":    "Added 'new' keyword before thrown Error",
+            "unicorn/no-useless-undefined": "Removed explicit undefined return/assignment",
             # PHP / PHPStan / PHP-CS-Fixer
             "phpstan":     "Applied PHPStan fix: added type declaration or removed dead code",
             "phpcs":       "Applied PHP_CodeSniffer fix: corrected coding standard violation",

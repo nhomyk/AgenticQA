@@ -1413,6 +1413,43 @@ jobs:
         run: node agentic_sre_engineer.js
         continue-on-error: true
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install AgenticQA
+        run: pip install -e . -q
+        continue-on-error: true
+
+      - name: "🔍 TypeScript SRE Analysis (oxlint/eslint)"
+        run: |
+          python - <<'PYEOF'
+          import sys, json, subprocess, os
+          sys.path.insert(0, 'src')
+          from agents import SREAgent
+          agent = SREAgent()
+          result = agent.execute({
+              'repo_path': '.',
+              'language': 'typescript',
+              'run_id': '${{ github.run_id }}',
+          })
+          print(json.dumps(result, indent=2, default=str))
+          with open('sre-ts-output.json', 'w') as f:
+              json.dump(result, f, indent=2, default=str)
+          print(f"TypeScript SRE: {result.get('total_errors',0)} errors, "
+                f"{result.get('fixes_applied',0)} fixes, "
+                f"fix_rate={result.get('fix_rate',0):.1%}")
+          PYEOF
+        continue-on-error: true
+
+      - name: Upload TypeScript SRE results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sre-ts-output
+          path: sre-ts-output.json
+          retention-days: 7
+
   # Red Team Agent — adversarial scan, auto-patch scanner, propose constitutional amendments
   red-team-scan:
     needs: [sre-agent]
