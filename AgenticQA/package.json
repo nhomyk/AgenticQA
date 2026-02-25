@@ -14,8 +14,7 @@
   "devDependencies": {
     "js-yaml": "^4.1.0",
     "@playwright/test": "^1.40.0",
-    "pa11y-ci": "^4.0.1",
-    "puppeteer": "^24.37.2"
+    "pa11y-ci": "^4.0.1"
   },
   "dependencies": {
     "express": "^5.2.1"
