@@ -1,6 +1,6 @@
 # AgenticQA
 
-**The world's first autonomous AI agent platform with constitutional governance, forensic decision traceability, self-healing CI, and adversarial red-team hardening — without LLMs.**
+**The world's first autonomous AI agent platform with constitutional governance, forensic decision traceability, self-healing CI, adversarial red-team hardening, and SARIF-native security output — without LLMs.**
 
 [![CI Pipeline](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml)
 [![Pipeline Validation](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml)
@@ -206,6 +206,83 @@ The platform uses **Case-Based Reasoning (CBR)** — deterministic pattern match
 
 ---
 
+### 🏥 DataflowHealthMonitor — Ontology-Aware Infra Health
+
+Most health checks tell you "the database is down." AgenticQA's monitor tells you **which of the 8 agents are degraded and why** — because it reads the Task-Agent Ontology to map infrastructure failures directly to affected capabilities:
+
+```bash
+# CLI — instant health check
+python -m agenticqa.monitoring.dataflow_health
+
+# → ✅ qdrant       vector_store   healthy   786 pts  (critical)
+# → ✅ weaviate     vector_store   healthy   v1.27.0  (secondary)
+# → ✅ neo4j        graph_db       healthy   delegation store
+# → ✅ artifact_store file_system  healthy   1534 artifacts
+# → ✅ learning_metrics file_system healthy  metrics history
+
+# API
+curl http://localhost:8000/api/health/dataflow
+# → {"healthy": true, "broken_nodes": [], "affected_agents": {}}
+```
+
+When Qdrant goes down, the response names all 8 agents as affected. When Neo4j fails, it names only the 4 delegation-capable agents (Compliance, SDET, Fullstack, DevOps) — not SRE or Performance which don't use graph traversal. **The monitor knows the difference because it reads the same ontology the agents use.**
+
+Weaviate version detection is built in: version < 1.27.0 is flagged as a critical failure with the message *"RAG writes will be silently discarded"* — the exact root cause that caused months of silent data loss before this was built.
+
+```python
+# Probes injected for full testability — no real infrastructure needed in CI
+monitor = DataflowHealthMonitor(probes={
+    "qdrant": my_probe,
+    "weaviate": my_probe,
+    ...
+})
+report = monitor.check_all()
+report.to_dict()  # JSON-serializable; 503 from /api/health/dataflow if broken
+```
+
+---
+
+### 📊 SARIF 2.1.0 Export — AgenticQA Findings in GitHub Code Scanning
+
+AgenticQA findings now appear natively in **GitHub's Code Scanning dashboard** alongside CodeQL — with rule IDs, line numbers, security-severity scores, and help links:
+
+```bash
+# Convert any combination of agent outputs to SARIF
+python -m agenticqa.export.sarif \
+  --sre sre-output.json \
+  --compliance compliance-output.json \
+  --redteam redteam-output.json \
+  --out results.sarif
+
+# Or via API
+curl -X POST http://localhost:8000/api/export/sarif \
+  -H "Content-Type: application/json" \
+  -d '{"sre": {...}, "compliance": {...}, "repo_root": "."}'
+```
+
+SARIF output includes security-severity scores mapped to CVSS-like values — `B602` (subprocess shell=True) scores `9.5`, `SC2086` (unquoted variable / word splitting risk) scores `5.0`, `reachable_cve` scores `9.0`. GitHub renders these in the Security tab with direct code location links.
+
+The CI pipeline now uploads SARIF on every push via `github/codeql-action/upload-sarif@v3`.
+
+---
+
+### 🐚 Shellcheck Integration — Shell Script Security in the Learning Loop
+
+SREAgent now lints `.sh` files automatically using `shellcheck --format=json`:
+
+```python
+sre.execute({"errors": [], "repo_path": "."})
+# → {"shell_errors": [
+#     {"rule": "SC2086", "file": "deploy.sh", "line": 12, "col": 6,
+#      "message": "Double quote to prevent globbing and word splitting.",
+#      "severity": "warning"}
+#   ], "shell_error_count": 1}
+```
+
+Shell findings flow into the same ARCHITECTURAL_RULES exclusion system as Python linting — `SC2046` (unquoted command substitution) and `SC2206` (array split) are classified as architectural violations excluded from the fix rate, while `SC2086` (unquoted variable) is in `_SC_SECURITY` and gets a `5.0` security-severity score in SARIF. All shell findings are ingested into the learning system for trend tracking.
+
+---
+
 ## The System
 
 Eight specialized agents collaborate under constitutional governance across your entire CI/CD pipeline:
@@ -303,8 +380,8 @@ pip install -e .
 # Start infrastructure (optional — most features work without it)
 docker compose -f docker-compose.weaviate.yml up -d
 
-# Run 830+ tests
-pytest tests/ -v
+# Run 531+ unit tests
+pytest tests/ -m unit -v
 
 # Launch control plane
 uvicorn agent_api:app --host 0.0.0.0 --port 8000
@@ -358,6 +435,10 @@ pip install -e .[dev,quality,rag,graph]     # full validation stack
 
 **Red Team**
 - `POST /api/red-team/scan` — adversarial scan (mode: fast|thorough, target: scanner|gate|both, auto_patch: bool)
+
+**Security Output**
+- `POST /api/export/sarif` — convert SRE/Compliance/RedTeam results to SARIF 2.1.0 for GitHub Code Scanning
+- `GET  /api/health/dataflow` — ontology-aware infra health; names affected agents; 503 on critical failure
 
 **Workflow Control Plane**
 - `POST /api/workflows/requests` — submit prompt-driven workflow
@@ -413,15 +494,18 @@ Every agent execution passes through 6 validation layers plus a constitutional l
 | **Adversarial Hardening** | RedTeamAgent · AdversarialGenerator · PatternPatcher · OutputScanner (4-pass) |
 | **Agent Factory** | NaturalLanguageSpecExtractor · Claude Haiku (spec extraction) · scaffold generator |
 | **Self-Healing CI** | SREAgent._attempt_test_repair · SubprocessRunner sandbox · Haiku-generated patches |
-| **Vector DB** | Weaviate / Qdrant (pluggable) |
+| **Infra Health** | DataflowHealthMonitor · ontology-aware probes · Weaviate version detection |
+| **Security Output** | SARIFExporter · SARIF 2.1.0 · GitHub Code Scanning upload · shellcheck SC codes |
+| **Shell Linting** | shellcheck (SC codes) · SREAgent._run_shell_linter · ARCHITECTURAL_RULES exclusion |
+| **Vector DB** | Qdrant (primary) / Weaviate 1.27.0+ (secondary, pluggable) |
 | **Graph DB** | Neo4j |
 | **Relational DB** | SQLite / PostgreSQL |
 | **Embeddings** | Sentence-Transformers |
 | **Quality Metrics** | Ragas |
-| **API** | FastAPI + Pydantic (52 endpoints) |
+| **API** | FastAPI + Pydantic (54 endpoints) |
 | **Dashboard** | Streamlit + Plotly (9 pages) |
-| **CI/CD** | GitHub Actions (16 jobs, nightly self-validation, data-to-learning ingestion) |
-| **Testing** | Pytest (830+ tests), Playwright, Pa11y |
+| **CI/CD** | GitHub Actions (16 jobs, SARIF upload, nightly self-validation, data-to-learning ingestion) |
+| **Testing** | Pytest (531+ unit tests), Playwright, Pa11y |
 | **Language** | Python 3.8+ |
 
 ---
@@ -445,6 +529,8 @@ AgenticQA/
 │   ├── redteam/                 # AdversarialGenerator (20 techniques) · PatternPatcher
 │   ├── factory/                 # NaturalLanguageSpecExtractor · agent scaffold generator
 │   │   └── sandbox/             # SubprocessRunner · OutputScanner (4-pass decode)
+│   ├── monitoring/              # DataflowHealthMonitor · 5 probes · ontology-aware agent impact
+│   ├── export/                  # SARIFExporter · SARIF 2.1.0 · GitHub Code Scanning
 │   └── cli.py                   # CLI: bootstrap, doctor, ingest-junit
 ├── dashboard/                   # 9-page Streamlit analytics dashboard
 ├── agent_api.py                 # FastAPI control plane (52 endpoints)
