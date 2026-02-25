@@ -1789,6 +1789,27 @@ async def cve_reachability(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/temporal/violations")
+async def temporal_violations(
+    repo_id: str,
+    days: int = 30,
+    granularity: str = "day",
+):
+    """Return time-bucketed violation counts from Neo4j temporal graph."""
+    try:
+        from agenticqa.graph.temporal_graph import TemporalViolationStore
+        store = TemporalViolationStore()
+        return {
+            "success": True,
+            "trend": store.get_violation_trend(repo_id, days=days, granularity=granularity),
+            "fix_rate": store.get_fix_rate_trend(repo_id, days=days),
+            "top_rules": store.get_top_rules_over_time(repo_id, days=days, top_n=10),
+            "agents": store.get_agent_comparison(repo_id, days=days),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/learning-metrics")
 async def learning_metrics(repo_id: str = "", limit: int = 30):
     """Return per-run learning metrics history and improvement curve."""

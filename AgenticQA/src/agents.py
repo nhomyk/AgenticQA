@@ -1782,6 +1782,31 @@ class SREAgent(BaseAgent):
                 except Exception:
                     pass
 
+            # Record timestamped violation snapshot in Neo4j temporal graph — non-blocking
+            try:
+                from agenticqa.graph.temporal_graph import TemporalViolationStore
+                import hashlib as _hl3, subprocess as _sp4
+                _cwd3 = linting_data.get("repo_path", ".")
+                _p4 = _sp4.run(["git", "remote", "get-url", "origin"],
+                               capture_output=True, text=True, timeout=5, cwd=_cwd3)
+                _url4 = _p4.stdout.strip().lower().rstrip("/").removesuffix(".git")
+                _rid = _hl3.sha1(_url4.encode()).hexdigest()[:12] if _url4 else "unknown"
+                _all_by_rule: Dict[str, int] = dict(arch_by_rule)
+                for _e in fixable_errors:
+                    _r = _e.get("rule", "unknown")
+                    _all_by_rule[_r] = _all_by_rule.get(_r, 0) + 1
+                TemporalViolationStore().record_run(
+                    run_id=linting_data.get("run_id", "unknown"),
+                    repo_id=_rid,
+                    agent="SRE_Agent",
+                    violations_by_rule=_all_by_rule,
+                    fix_rate=result["fix_rate"],
+                    fixes_applied=result["fixes_applied"],
+                    total_errors=result["total_errors"],
+                )
+            except Exception:
+                pass
+
             return result
 
         except Exception as e:

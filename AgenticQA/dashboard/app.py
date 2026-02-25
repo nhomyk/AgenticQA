@@ -4823,8 +4823,8 @@ def render_agent_learning():
     st.markdown("---")
     st.markdown("### Trend Visualizations")
 
-    t_drift, t_fix, t_metrics = st.tabs(
-        ["Compliance Drift", "Repo Fix Rate", "Learning Metrics"]
+    t_drift, t_fix, t_metrics, t_temporal = st.tabs(
+        ["Compliance Drift", "Repo Fix Rate", "Learning Metrics", "Temporal Graphs"]
     )
 
     with t_drift:
@@ -5004,6 +5004,117 @@ def render_agent_learning():
                             st.info("No metrics history yet. Run CI pipelines to populate this chart.")
                     else:
                         st.error(f"API error {mr.status_code}")
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+
+    with t_temporal:
+        st.caption(
+            "Violation trends stored as timestamped nodes in Neo4j — "
+            "query by day/week to see how your codebase health evolves."
+        )
+        t_days = st.slider("Lookback (days)", 7, 90, 30, step=7, key="temporal_days")
+        t_gran = st.selectbox("Granularity", ["day", "week"], key="temporal_gran")
+        if st.button("Load Temporal Graphs", key="temporal_load_btn"):
+            with st.spinner("Querying Neo4j temporal graph..."):
+                import hashlib as _hl_dash, subprocess as _sp_dash
+                try:
+                    _p5 = _sp_dash.run(
+                        ["git", "remote", "get-url", "origin"],
+                        capture_output=True, text=True, timeout=5, cwd=repo_path,
+                    )
+                    _url5 = _p5.stdout.strip().lower().rstrip("/").removesuffix(".git")
+                    _repo_id_dash = _hl_dash.sha1(_url5.encode()).hexdigest()[:12] if _url5 else "unknown"
+                except Exception:
+                    _repo_id_dash = _hl_dash.sha1(repo_path.encode()).hexdigest()[:12]
+
+                try:
+                    tr = _req.get(
+                        f"{api_base}/api/temporal/violations",
+                        params={"repo_id": _repo_id_dash, "days": t_days, "granularity": t_gran},
+                        timeout=15,
+                    )
+                    if tr.status_code == 200:
+                        tdata = tr.json()
+                        trend = tdata.get("trend", [])
+                        fix_trend = tdata.get("fix_rate", [])
+                        top_rules = tdata.get("top_rules", [])
+                        agents = tdata.get("agents", [])
+
+                        if not trend and not fix_trend:
+                            st.info(
+                                "No temporal data yet. "
+                                "The SRE agent writes a :ViolationSnapshot node to Neo4j after each run."
+                            )
+                        else:
+                            import plotly.graph_objects as _go5
+                            import pandas as _pd5
+
+                            # ── Violation count over time ──
+                            if trend:
+                                tdf = _pd5.DataFrame(trend)
+                                fig_t = _go5.Figure()
+                                fig_t.add_trace(_go5.Bar(
+                                    x=tdf["period"],
+                                    y=tdf["total_errors"],
+                                    name="Total Errors",
+                                    marker_color="#e74c3c",
+                                ))
+                                fig_t.add_trace(_go5.Scatter(
+                                    x=tdf["period"],
+                                    y=tdf["avg_fix_rate"],
+                                    name="Avg Fix Rate",
+                                    mode="lines+markers",
+                                    line=dict(color="#1f77b4"),
+                                    yaxis="y2",
+                                ))
+                                fig_t.update_layout(
+                                    height=300,
+                                    margin=dict(l=0, r=0, t=30, b=0),
+                                    title=f"Violations per {t_gran.capitalize()} (Neo4j)",
+                                    yaxis=dict(title="Violations"),
+                                    yaxis2=dict(
+                                        title="Fix Rate",
+                                        overlaying="y", side="right",
+                                        range=[0, 1.05], showgrid=False,
+                                    ),
+                                    barmode="overlay",
+                                    legend=dict(x=0, y=1.1, orientation="h"),
+                                )
+                                st.plotly_chart(fig_t, use_container_width=True)
+
+                            # ── Top rules bar ──
+                            if top_rules:
+                                st.markdown("**Top Violation Rules**")
+                                rdf = _pd5.DataFrame(top_rules)
+                                fig_r = _go5.Figure(_go5.Bar(
+                                    x=rdf["total_count"],
+                                    y=rdf["rule"],
+                                    orientation="h",
+                                    marker_color="#f39c12",
+                                ))
+                                fig_r.update_layout(
+                                    height=max(200, len(rdf) * 28),
+                                    margin=dict(l=0, r=0, t=20, b=0),
+                                    yaxis={"categoryorder": "total ascending"},
+                                )
+                                st.plotly_chart(fig_r, use_container_width=True)
+
+                            # ── Agent comparison ──
+                            if agents:
+                                st.markdown("**Agent Comparison**")
+                                adf = _pd5.DataFrame(agents)
+                                st.dataframe(
+                                    adf.rename(columns={
+                                        "agent": "Agent",
+                                        "runs": "Runs",
+                                        "avg_fix_rate": "Avg Fix Rate",
+                                        "total_errors": "Total Errors",
+                                    }),
+                                    use_container_width=True,
+                                    hide_index=True,
+                                )
+                    else:
+                        st.error(f"API error {tr.status_code}: {tr.text[:200]}")
                 except Exception as exc:
                     st.error(f"Could not reach API: {exc}")
 
