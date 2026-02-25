@@ -102,12 +102,20 @@ def normalize_linting_input(data: Dict) -> Dict:
     elif isinstance(data, list):
         raw = data
 
-    # oxlint JSON: {"diagnostics": [...], "summary": {...}}
+    # oxlint JSON: {"diagnostics": [...], "number_of_files": N, ...}
+    # rule field may be a string ("no-var") or an object {"name": "no-var", "plugin": "eslint"}
     if isinstance(raw, dict) and "diagnostics" in raw:
         for diag in raw["diagnostics"]:
             if isinstance(diag, dict):
+                rule_raw = diag.get("rule", diag.get("rule_id", "unknown"))
+                if isinstance(rule_raw, dict):
+                    plugin = rule_raw.get("plugin", "")
+                    name = rule_raw.get("name", "unknown")
+                    rule_str = f"{plugin}/{name}" if plugin and plugin not in ("eslint",) else name
+                else:
+                    rule_str = str(rule_raw)
                 errors.append({
-                    "rule": diag.get("rule_id", diag.get("rule", "unknown")),
+                    "rule": rule_str,
                     "message": diag.get("message", ""),
                     "file": diag.get("filename", ""),
                     "severity": diag.get("severity", "error").lower(),
@@ -1876,18 +1884,33 @@ class SREAgent(BaseAgent):
             norm = normalize_linting_input(raw if isinstance(raw, dict) else {"results": raw if isinstance(raw, list) else []})
             return norm.get("errors", [])
 
-        # Candidate entry points for oxlint
-        oxlint_bins = [
-            _os.path.join(repo_path, "node_modules", ".bin", "oxlint"),
-            "oxlint",
+        # Candidate entry points for oxlint.
+        # pnpm sometimes creates a broken .bin/oxlint.js symlink, so we also
+        # probe the real package bin/ directly and invoke via `node`.
+        _nm = _os.path.join(repo_path, "node_modules")
+        oxlint_candidates: list = [
+            # Standard npm/yarn: executable binary
+            (_os.path.join(_nm, ".bin", "oxlint"), False),
+            # pnpm: real script under package bin/ — needs `node`
+            (_os.path.join(_nm, "oxlint", "bin", "oxlint"), True),
+            # System-wide
+            ("oxlint", False),
         ]
         src_dirs = [d for d in ["src", "packages", "apps", "."] if _os.path.isdir(_os.path.join(repo_path, d))]
         scan_targets = src_dirs[:3]  # cap to avoid overly long commands
 
-        for bin_path in oxlint_bins:
+        for bin_path, use_node in oxlint_candidates:
+            if not _os.path.exists(bin_path) and use_node:
+                continue
+            config_args: list = []
+            for cfg in (".oxlintrc.json", "oxlint.json"):
+                if _os.path.exists(_os.path.join(repo_path, cfg)):
+                    config_args = ["-c", cfg]
+                    break
+            cmd = (["node", bin_path] if use_node else [bin_path]) + ["--format", "json", *config_args, *scan_targets]
             try:
                 proc = _sp.run(
-                    [bin_path, "--format", "json", *scan_targets],
+                    cmd,
                     capture_output=True, text=True, timeout=90, cwd=repo_path,
                 )
                 errors = _parse(proc.stdout)
