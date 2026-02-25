@@ -456,6 +456,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -746,6 +747,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
       - name: Summary
@@ -1097,9 +1099,23 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Start Qdrant vector store
+        run: |
+          mkdir -p qdrant_storage
+          docker run -d --name agenticqa-qdrant \
+            -p 6333:6333 \
+            -v "$(pwd)/qdrant_storage:/qdrant/storage" \
+            qdrant/qdrant:v1.9.0
+          for i in $(seq 1 12); do
+            curl -sf http://localhost:6333/healthz && echo "Qdrant ready" && break
+            echo "Waiting for Qdrant... ($i/12)"; sleep 3
+          done
+        continue-on-error: true
 
       - uses: actions/setup-node@v4
         with:
@@ -1112,6 +1128,12 @@ jobs:
           path: ./coverage
         continue-on-error: true
       - name: "🧪 Run SDET Agent - Test Analysis"
+        env:
+          VECTOR_PROVIDER: qdrant
+          QDRANT_URL: http://localhost:6333
+          AGENTICQA_VECTOR_DUAL_WRITE: "true"
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
         run: node sdet-agent.js
       - uses: actions/upload-artifact@v4
         with:
@@ -1176,6 +1198,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 1: Compliance Agent
@@ -1195,9 +1218,23 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Start Qdrant vector store
+        run: |
+          mkdir -p qdrant_storage
+          docker run -d --name agenticqa-qdrant \
+            -p 6333:6333 \
+            -v "$(pwd)/qdrant_storage:/qdrant/storage" \
+            qdrant/qdrant:v1.9.0
+          for i in $(seq 1 12); do
+            curl -sf http://localhost:6333/healthz && echo "Qdrant ready" && break
+            echo "Waiting for Qdrant... ($i/12)"; sleep 3
+          done
+        continue-on-error: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -1207,6 +1244,12 @@ jobs:
         run: npm ci
         continue-on-error: true
       - name: "🛡️  Run Compliance Agent - Analysis"
+        env:
+          VECTOR_PROVIDER: qdrant
+          QDRANT_URL: http://localhost:6333
+          AGENTICQA_VECTOR_DUAL_WRITE: "true"
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
         run: |
           npm run compliance-agent 2>/dev/null || \
             echo "# Compliance Agent\n\nDelegated to Python ComplianceAgent (src/agents.py)" \
@@ -1275,6 +1318,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # Phase 2: Compliance Summary
@@ -1392,6 +1436,32 @@ jobs:
       actions: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore learning databases
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
+            .test-artifact-store/
+            qdrant_storage/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Start Qdrant vector store
+        run: |
+          mkdir -p qdrant_storage
+          docker run -d --name agenticqa-qdrant \
+            -p 6333:6333 \
+            -v "$(pwd)/qdrant_storage:/qdrant/storage" \
+            qdrant/qdrant:v1.9.0
+          for i in $(seq 1 12); do
+            curl -sf http://localhost:6333/healthz && echo "Qdrant ready" && break
+            echo "Waiting for Qdrant... ($i/12)"; sleep 3
+          done
+        continue-on-error: true
+
       - name: "⏳ Waiting for Phase 2 fixes to complete"
         run: echo "🔄 Fullstack agent has completed code fixes"
       - name: Set up Node.js
@@ -1410,6 +1480,11 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PHASE: "production-fixes"
+          VECTOR_PROVIDER: qdrant
+          QDRANT_URL: http://localhost:6333
+          AGENTICQA_VECTOR_DUAL_WRITE: "true"
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
         run: node agentic_sre_engineer.js
         continue-on-error: true
 
@@ -1422,6 +1497,12 @@ jobs:
         continue-on-error: true
 
       - name: "🔍 TypeScript SRE Analysis (oxlint/eslint)"
+        env:
+          VECTOR_PROVIDER: qdrant
+          QDRANT_URL: http://localhost:6333
+          AGENTICQA_VECTOR_DUAL_WRITE: "true"
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
         run: |
           python - <<'PYEOF'
           import sys, json, subprocess, os
@@ -1450,6 +1531,17 @@ jobs:
           path: sre-ts-output.json
           retention-days: 7
 
+      - name: Save learning databases
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
+            .test-artifact-store/
+            qdrant_storage/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+
   # Red Team Agent — adversarial scan, auto-patch scanner, propose constitutional amendments
   red-team-scan:
     needs: [sre-agent]
@@ -1467,9 +1559,23 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Start Qdrant vector store
+        run: |
+          mkdir -p qdrant_storage
+          docker run -d --name agenticqa-qdrant \
+            -p 6333:6333 \
+            -v "$(pwd)/qdrant_storage:/qdrant/storage" \
+            qdrant/qdrant:v1.9.0
+          for i in $(seq 1 12); do
+            curl -sf http://localhost:6333/healthz && echo "Qdrant ready" && break
+            echo "Waiting for Qdrant... ($i/12)"; sleep 3
+          done
+        continue-on-error: true
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -1485,6 +1591,9 @@ jobs:
       - name: Run Red Team scan
         id: redteam
         env:
+          VECTOR_PROVIDER: qdrant
+          QDRANT_URL: http://localhost:6333
+          AGENTICQA_VECTOR_DUAL_WRITE: "true"
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
           AGENTICQA_RAG_MODE: ${{ secrets.AGENTICQA_RAG_MODE || 'local' }}
@@ -1553,6 +1662,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # FINAL GATE: Pipeline health verification
@@ -1695,6 +1805,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             agenticqa-learning-v1-${{ runner.os }}-
@@ -1757,6 +1868,7 @@ jobs:
             ~/.agenticqa/
             .agenticqa/
             .test-artifact-store/
+            qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
   # ── PR Comment ─────────────────────────────────────────────────────────────
