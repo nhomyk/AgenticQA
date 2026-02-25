@@ -1789,6 +1789,45 @@ async def cve_reachability(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/learning-metrics")
+async def learning_metrics(repo_id: str = "", limit: int = 30):
+    """Return per-run learning metrics history and improvement curve."""
+    try:
+        from data_store.learning_metrics import LearningMetricsSnapshot
+        snap = LearningMetricsSnapshot()
+        rid = repo_id or None
+        history = snap.load_history(repo_id=rid, limit=limit)
+        summary = snap.summary(repo_id=rid, window=min(limit, 10))
+        curves = {
+            metric: snap.get_improvement_curve(metric, repo_id=rid, window=limit)
+            for metric in ("fix_rate", "artifact_count", "delegation_pairs")
+        }
+        return {"success": True, "summary": summary, "history": history, "curves": curves}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/repo-profile")
+async def repo_profile_endpoint(repo_path: str = "."):
+    """Return the current repo's RepoProfile including run_history for trend charts."""
+    try:
+        from data_store.repo_profile import RepoProfile
+        import hashlib, subprocess as _sp
+        try:
+            _proc = _sp.run(
+                ["git", "remote", "get-url", "origin"],
+                capture_output=True, text=True, timeout=5, cwd=repo_path,
+            )
+            _url = _proc.stdout.strip().lower().rstrip("/").removesuffix(".git")
+            repo_id = hashlib.sha1(_url.encode()).hexdigest()[:12] if _url else "unknown"
+        except Exception:
+            repo_id = hashlib.sha1(repo_path.encode()).hexdigest()[:12]
+        profile = RepoProfile(repo_id)
+        return {"success": True, "repo_id": repo_id, "profile": profile._data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 

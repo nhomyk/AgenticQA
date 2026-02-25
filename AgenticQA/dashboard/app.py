@@ -4819,6 +4819,194 @@ def render_agent_learning():
             "Scores compound across CI runs — the longer AgenticQA runs, the more accurate this becomes."
         )
 
+    # ── Compliance Drift & Learning Trends ────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Trend Visualizations")
+
+    t_drift, t_fix, t_metrics = st.tabs(
+        ["Compliance Drift", "Repo Fix Rate", "Learning Metrics"]
+    )
+
+    with t_drift:
+        st.caption("Violation count per CI run — watch compliance drift over time.")
+        if st.button("Load Compliance Drift", key="drift_load_btn"):
+            with st.spinner("Fetching drift history..."):
+                try:
+                    dr = _req.get(
+                        f"{api_base}/api/compliance/drift",
+                        params={"repo_path": repo_path, "lookback": 30},
+                        timeout=10,
+                    )
+                    if dr.status_code == 200:
+                        drift_data = dr.json()
+                        drift = drift_data.get("drift", {})
+                        history = drift_data.get("history", [])
+
+                        direction = drift.get("direction", "unknown")
+                        delta = drift.get("delta", 0)
+                        arrow = {"improving": "↓", "worsening": "↑", "stable": "→"}.get(direction, "?")
+                        color = {"improving": "green", "worsening": "red", "stable": "gray"}.get(direction, "gray")
+
+                        d1, d2, d3 = st.columns(3)
+                        d1.metric("Direction", f"{arrow} {direction.capitalize()}")
+                        d2.metric("Violation Delta (vs prior)", f"{delta:+d}")
+                        d3.metric("Runs Analysed", drift.get("runs_analysed", 0))
+
+                        trending = drift.get("trending_rules", [])
+                        if trending:
+                            st.warning(f"Trending rules: {', '.join(r['rule'] for r in trending[:5])}")
+
+                        if history:
+                            import plotly.graph_objects as _go2
+                            import pandas as _pd3
+                            hdf = _pd3.DataFrame(history)
+                            fig_drift = _go2.Figure()
+                            fig_drift.add_trace(_go2.Scatter(
+                                x=hdf["recorded_at"],
+                                y=hdf["violations"],
+                                mode="lines+markers",
+                                name="Violations",
+                                line=dict(color="#e74c3c" if direction == "worsening" else "#27ae60"),
+                                fill="tozeroy",
+                                fillcolor="rgba(231,76,60,0.08)" if direction == "worsening" else "rgba(39,174,96,0.08)",
+                            ))
+                            fig_drift.update_layout(
+                                height=280,
+                                margin=dict(l=0, r=0, t=30, b=0),
+                                xaxis_title="Run",
+                                yaxis_title="Violations",
+                                title="Compliance Violations per Run",
+                            )
+                            st.plotly_chart(fig_drift, use_container_width=True)
+                        else:
+                            st.info("No drift history yet — run the compliance agent to start tracking.")
+                    else:
+                        st.error(f"API error {dr.status_code}")
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+
+    with t_fix:
+        st.caption("EWMA fix rate per run for this repo — improves as SRE agent learns unfixable rules.")
+        if st.button("Load Repo Fix Rate", key="fixrate_load_btn"):
+            with st.spinner("Fetching repo profile..."):
+                try:
+                    rp = _req.get(
+                        f"{api_base}/api/repo-profile",
+                        params={"repo_path": repo_path},
+                        timeout=10,
+                    )
+                    if rp.status_code == 200:
+                        rp_data = rp.json()
+                        profile = rp_data.get("profile", {})
+                        run_history = profile.get("run_history", [])
+
+                        p1, p2, p3 = st.columns(3)
+                        p1.metric("Total Runs", profile.get("total_runs", 0))
+                        langs = profile.get("fix_rates_by_language", {})
+                        p2.metric("Languages", len(langs))
+                        unfixable = profile.get("known_unfixable_rules", [])
+                        p3.metric("Known Unfixable Rules", len(unfixable))
+
+                        if unfixable:
+                            st.info(f"Unfixable: {', '.join(unfixable[:10])}")
+
+                        if run_history:
+                            import plotly.graph_objects as _go3
+                            import pandas as _pd4
+                            rdf = _pd4.DataFrame(run_history)
+                            fig_fix = _go3.Figure()
+                            if "fix_rate" in rdf.columns:
+                                fig_fix.add_trace(_go3.Scatter(
+                                    x=rdf.get("timestamp", list(range(len(rdf)))),
+                                    y=rdf["fix_rate"],
+                                    mode="lines+markers",
+                                    name="Fix Rate",
+                                    line=dict(color="#1f77b4"),
+                                ))
+                                fig_fix.add_hline(y=1.0, line_dash="dot", line_color="gray",
+                                                  annotation_text="100%")
+                                fig_fix.update_layout(
+                                    height=280,
+                                    margin=dict(l=0, r=0, t=30, b=0),
+                                    yaxis_title="Fix Rate",
+                                    yaxis=dict(range=[0, 1.05]),
+                                    title="SRE Fix Rate per Run",
+                                )
+                                st.plotly_chart(fig_fix, use_container_width=True)
+                            else:
+                                st.dataframe(rdf, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No run history yet — run the SRE agent to populate this chart.")
+                    else:
+                        st.error(f"API error {rp.status_code}")
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+
+    with t_metrics:
+        st.caption("System-wide improvement curve — fix rate, artifact count, and delegation pairs over time.")
+        if st.button("Load Learning Metrics", key="metrics_load_btn"):
+            with st.spinner("Fetching metrics history..."):
+                try:
+                    mr = _req.get(
+                        f"{api_base}/api/learning-metrics",
+                        params={"repo_id": "", "limit": 30},
+                        timeout=10,
+                    )
+                    if mr.status_code == 200:
+                        mdata = mr.json()
+                        summary = mdata.get("summary", {})
+                        curves = mdata.get("curves", {})
+
+                        s1, s2, s3, s4 = st.columns(4)
+                        s1.metric("Runs", summary.get("runs", 0))
+                        s2.metric("Avg Fix Rate", f"{summary.get('avg_fix_rate') or 0:.1%}")
+                        s3.metric("Fix Rate Trend", summary.get("fix_rate_trend") or "n/a")
+                        s4.metric("Avg Artifacts", summary.get("avg_artifact_count") or 0)
+
+                        fix_curve = curves.get("fix_rate", [])
+                        art_curve = curves.get("artifact_count", [])
+
+                        if fix_curve or art_curve:
+                            import plotly.graph_objects as _go4
+                            fig_m = _go4.Figure()
+                            if fix_curve:
+                                fig_m.add_trace(_go4.Scatter(
+                                    x=[p["recorded_at"] for p in fix_curve],
+                                    y=[p["value"] for p in fix_curve],
+                                    mode="lines+markers",
+                                    name="Fix Rate",
+                                    line=dict(color="#1f77b4"),
+                                    yaxis="y1",
+                                ))
+                            if art_curve:
+                                fig_m.add_trace(_go4.Scatter(
+                                    x=[p["recorded_at"] for p in art_curve],
+                                    y=[p["value"] for p in art_curve],
+                                    mode="lines",
+                                    name="Artifacts",
+                                    line=dict(color="#ff7f0e", dash="dot"),
+                                    yaxis="y2",
+                                ))
+                            fig_m.update_layout(
+                                height=300,
+                                margin=dict(l=0, r=0, t=30, b=0),
+                                title="System Learning Improvement Curve",
+                                yaxis=dict(title="Fix Rate", range=[0, 1.05]),
+                                yaxis2=dict(
+                                    title="Artifact Count",
+                                    overlaying="y", side="right",
+                                    showgrid=False,
+                                ),
+                                legend=dict(x=0, y=1.1, orientation="h"),
+                            )
+                            st.plotly_chart(fig_m, use_container_width=True)
+                        else:
+                            st.info("No metrics history yet. Run CI pipelines to populate this chart.")
+                    else:
+                        st.error(f"API error {mr.status_code}")
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+
     # ── Org Memory ────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("### Cross-Repo Org Memory")
