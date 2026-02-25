@@ -1117,6 +1117,12 @@ jobs:
           done
         continue-on-error: true
 
+      - name: Dataflow health preflight check
+        run: python -m agenticqa.monitoring.dataflow_health --json 2>/dev/null || true
+        continue-on-error: true
+        env:
+          QDRANT_URL: http://localhost:6333
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -1235,6 +1241,12 @@ jobs:
             echo "Waiting for Qdrant... ($i/12)"; sleep 3
           done
         continue-on-error: true
+
+      - name: Dataflow health preflight check
+        run: python -m agenticqa.monitoring.dataflow_health --json 2>/dev/null || true
+        continue-on-error: true
+        env:
+          QDRANT_URL: http://localhost:6333
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -1462,6 +1474,12 @@ jobs:
           done
         continue-on-error: true
 
+      - name: Dataflow health preflight check
+        run: python -m agenticqa.monitoring.dataflow_health --json 2>/dev/null || true
+        continue-on-error: true
+        env:
+          QDRANT_URL: http://localhost:6333
+
       - name: "⏳ Waiting for Phase 2 fixes to complete"
         run: echo "🔄 Fullstack agent has completed code fixes"
       - name: Set up Node.js
@@ -1576,6 +1594,12 @@ jobs:
             echo "Waiting for Qdrant... ($i/12)"; sleep 3
           done
         continue-on-error: true
+
+      - name: Dataflow health preflight check
+        run: python -m agenticqa.monitoring.dataflow_health --json 2>/dev/null || true
+        continue-on-error: true
+        env:
+          QDRANT_URL: http://localhost:6333
 
       - name: Set up Python
         uses: actions/setup-python@v4

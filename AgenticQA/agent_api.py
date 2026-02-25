@@ -338,6 +338,33 @@ async def health_check():
     }
 
 
+@app.get("/api/health/dataflow")
+async def dataflow_health():
+    """
+    Check all infrastructure nodes in the agent pipeline.
+
+    Returns a structured report showing which nodes are healthy/broken
+    and which agents are affected by any broken link.
+    """
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).parent / "src"))
+        from agenticqa.monitoring.dataflow_health import DataflowHealthMonitor
+        report = DataflowHealthMonitor().check_all()
+        d = report.to_dict()
+        d["http_status"] = 200 if report.is_healthy else 503
+        return d
+    except Exception as e:
+        return {
+            "is_healthy": False,
+            "summary": f"Monitor error: {e}",
+            "broken_nodes": [],
+            "healthy_nodes": [],
+            "affected_agents": {},
+            "http_status": 500,
+        }
+
+
 @app.get("/api/system/readiness")
 async def system_readiness():
     """Detailed readiness checks for local dependencies and data stores."""
