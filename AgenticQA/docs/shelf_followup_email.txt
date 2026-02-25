@@ -1,0 +1,56 @@
+TO: [Shelf Recruiter Name]
+SUBJECT: Re: Head of Automation at Shelf — A Demonstration
+
+Hi [Name],
+
+Thank you for the update. I'd genuinely welcome any feedback on where I fell
+short — even a sentence would help.
+
+Before I close this out, I want to show you something concrete. I've been
+building AgenticQA: a multi-agent CI/CD platform that autonomously analyzes
+codebases, attributes violations to developers via git blame, auto-applies
+fixes, and compounds its accuracy with every run.
+
+I ran it against three of your top repos this week:
+
+  Repo                        Stars   Issues Found   Auto-Fixed   Developer Risk
+  --------------------------  ------  -------------  -----------  --------------
+  chrome-aws-lambda-layer     748★    0              —            Clean
+  jest-mongodb                602★    11             0            0.99 / 0.94
+  jest-dynamodb               196★    11             1            0.83
+
+Specific findings in jest-mongodb and jest-dynamodb — your two core testing
+libraries:
+
+  - 3 test files (mongo-parallelism*.test.ts) contain conditionals inside Jest
+    tests. These can silently mask failures and produce non-deterministic
+    results — exactly the class of bug that makes test suites untrustworthy.
+
+  - loadConfig in src/helpers.ts has cyclomatic complexity of 10 (your own
+    ESLint limit is 5). The function is difficult to unit test and fragile as
+    config options expand.
+
+  - 6 require() imports scattered across jest-dynamodb's TypeScript source
+    files — flagged as errors by your own ESLint config. These bypass module
+    resolution and tree-shaking.
+
+  - 4 deprecated @ts-ignore comments across both repos. TypeScript's own team
+    deprecated this directive; on error-free lines it does nothing, silently
+    hiding intent.
+
+The two developers responsible for these patterns have EWMA risk scores of
+0.993 and 0.942 — meaning their violations have been consistently unresolved
+across multiple runs. AgenticQA identified them in seconds via git blame.
+
+This is a small sample. Across your full 55-repo org, the signal compounds —
+every new repo makes the model smarter about which patterns are structural vs.
+fixable.
+
+I built this because I believe the future of QA isn't more manual processes —
+it's autonomous agents that learn. I think Shelf would agree, given what
+you're building.
+
+If there's any appetite for a 20-minute demo, I'd welcome it.
+
+Best,
+Nick Homyk

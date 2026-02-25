@@ -1,0 +1,48 @@
+TO: Machinify People Team
+SUBJECT: Re: Staff Automation Engineer, QA — A Brief Demonstration
+
+Hi,
+
+Thank you for the update. I understand you received many applicants and
+appreciate you letting me know.
+
+Before moving on, I wanted to show you something concrete — not a pitch, just
+a demonstration. I ran AgenticQA, the multi-agent CI/CD platform I've been
+building, against your public mcp-server-apache-airflow repository.
+
+Here is what it found in under 10 seconds:
+
+  Category              Finding
+  --------------------  -------------------------------------------------------
+  Linting (46 issues)   45 E501 line-length violations across 12 source files;
+                        1 unused import (typing.Optional in dagstats.py)
+  Auto-fixed            46 / 46 — 100% fix rate, zero manual intervention
+  User-facing bug       src/main.py:66 — CLI help text reads "Host to rum MCP
+                        srvice..." ("rum" and "srvice" are shipped to every
+                        user who runs --help)
+  Test coverage gap     10 of 21 source modules have zero test coverage:
+                        dagrun, dagstats, dataset, eventlog, importerror,
+                        monitoring, plugin, provider, xcom — the primary
+                        Airflow API integration layer
+  Incomplete feature    src/airflow/dagrun.py:44 — TODO: add state filtering
+                        (commented out, ships in production)
+
+The 46 linting violations were auto-applied by the SRE agent. The coverage
+gaps were identified by the SDET agent, which can generate targeted pytest
+files for the untested modules using Haiku. The typo and the TODO were
+surfaced by pattern analysis that runs on every commit.
+
+Developer attribution (via git blame + EWMA risk scoring): one primary author,
+risk score 0.000 — meaning every violation was consistently auto-fixed. That
+is the best-case outcome. AgenticQA learns which patterns are fixable vs.
+architectural over time, so the signal compounds with every repo.
+
+I built this because I believe the future of QA is autonomous agents that
+learn — not more manual process. Machinify is solving a genuinely hard problem
+in healthcare automation, and I think this kind of tooling is directly relevant
+to the reliability bar you need to hold.
+
+If there is any appetite for a 20-minute demo, I would welcome it.
+
+Best,
+Nick Homyk

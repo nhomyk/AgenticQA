@@ -4683,6 +4683,184 @@ def render_red_team():
             )
 
 
+def render_agent_learning():
+    """Agent Learning — developer risk profiles and repo learning metrics."""
+    import requests as _req
+    import pandas as pd
+
+    st.subheader("Agent Learning")
+    st.markdown(
+        "Per-developer risk memory accumulated across CI runs. "
+        "Risk scores (0–1) are EWMA-weighted: unfixed violations raise risk, "
+        "auto-fixed violations lower it. Scores compound over time."
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="learning_api_base",
+    ).rstrip("/")
+
+    repo_path = st.text_input(
+        "Repo path",
+        value=os.getenv("AGENTICQA_REPO_PATH", "."),
+        key="learning_repo_path",
+        help="Path to the git repository to analyse (used for repo_id detection)"
+    )
+
+    top_n = st.slider("Top N developers", min_value=5, max_value=50, value=10, step=5,
+                      key="learning_top_n")
+
+    if st.button("Load Developer Risk Profiles", key="learning_load_btn", type="primary"):
+        with st.spinner("Fetching developer profiles..."):
+            try:
+                resp = _req.get(
+                    f"{api_base}/api/developer-profiles",
+                    params={"repo_path": repo_path, "top_n": top_n},
+                    timeout=15,
+                )
+            except Exception as exc:
+                st.error(f"Could not reach API: {exc}")
+                return
+
+        if resp.status_code != 200:
+            st.error(f"API error {resp.status_code}: {resp.text[:300]}")
+            return
+
+        data = resp.json()
+        leaderboard = data.get("leaderboard", [])
+
+        if not leaderboard:
+            st.info("No developer profiles recorded yet. Run the SRE agent on a real repo to start accumulating data.")
+            return
+
+        # ── Metrics row ──────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown(f"**Repo ID:** `{data.get('repo_id', 'unknown')}`")
+
+        high_risk = sum(1 for d in leaderboard if d.get("risk_score", 0) > 0.3)
+        med_risk  = sum(1 for d in leaderboard if 0.1 < d.get("risk_score", 0) <= 0.3)
+        low_risk  = len(leaderboard) - high_risk - med_risk
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Developers Tracked", len(leaderboard))
+        m2.metric("High Risk (>0.3)", high_risk, delta=None)
+        m3.metric("Medium Risk (0.1–0.3)", med_risk)
+        m4.metric("Low Risk (<0.1)", low_risk)
+
+        # ── Horizontal bar chart ──────────────────────────────────────────────
+        st.markdown("#### Developer Risk Leaderboard")
+        import plotly.express as px
+
+        df = pd.DataFrame(leaderboard)
+        df["dev_label"] = df["dev_hash"].str[:8]  # show first 8 chars for readability
+        df = df.sort_values("risk_score", ascending=True)  # plotly bar goes bottom→top
+
+        color_map = []
+        for score in df["risk_score"]:
+            if score > 0.3:
+                color_map.append("#e74c3c")   # red
+            elif score > 0.1:
+                color_map.append("#f39c12")   # amber
+            else:
+                color_map.append("#27ae60")   # green
+
+        fig = px.bar(
+            df,
+            x="risk_score",
+            y="dev_label",
+            orientation="h",
+            labels={"risk_score": "Risk Score (0–1)", "dev_label": "Developer (hash)"},
+            title=f"Top {len(df)} Developers by Risk Score",
+            color="risk_score",
+            color_continuous_scale=[[0, "#27ae60"], [0.3, "#f39c12"], [1.0, "#e74c3c"]],
+            range_color=[0, 1],
+        )
+        fig.update_layout(
+            height=max(300, len(df) * 30),
+            margin=dict(l=0, r=0, t=40, b=0),
+            coloraxis_showscale=False,
+            yaxis={"categoryorder": "total ascending"},
+        )
+        fig.add_vline(x=0.1, line_dash="dot", line_color="gray", annotation_text="medium",
+                      annotation_position="top right")
+        fig.add_vline(x=0.3, line_dash="dot", line_color="gray", annotation_text="high",
+                      annotation_position="top right")
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ── Dataframe ──────────────────────────────────────────────────────────
+        st.markdown("#### Detail Table")
+        display_df = df[["dev_label", "risk_score", "total_violations", "total_fixes", "last_seen"]].rename(
+            columns={
+                "dev_label": "Dev Hash (prefix)",
+                "risk_score": "Risk Score",
+                "total_violations": "Total Violations",
+                "total_fixes": "Total Fixes",
+                "last_seen": "Last Seen",
+            }
+        ).sort_values("Risk Score", ascending=False)
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Risk Score": st.column_config.ProgressColumn(
+                    "Risk Score",
+                    min_value=0.0,
+                    max_value=1.0,
+                    format="%.3f",
+                ),
+            },
+        )
+
+        st.caption(
+            "Risk score is an EWMA (α=0.3) of violation observations. "
+            "Unfixed violations contribute 1.0; auto-fixed contribute 0.0. "
+            "Scores compound across CI runs — the longer AgenticQA runs, the more accurate this becomes."
+        )
+
+    # ── Org Memory ────────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Cross-Repo Org Memory")
+    st.caption("Patterns discovered in one repo instantly inform every other repo in the org.")
+
+    if st.button("Load Org Memory", key="org_mem_btn"):
+        try:
+            org_resp = _req.get(
+                f"{api_base}/api/org-memory",
+                params={"repo_path": repo_path},
+                timeout=10,
+            )
+            if org_resp.status_code == 200:
+                org = org_resp.json()
+                o1, o2, o3 = st.columns(3)
+                o1.metric("Org", org.get("org_name", "unknown"))
+                o2.metric("Repos Seen", org.get("repos_seen", 0))
+                o3.metric("Total Runs", org.get("total_runs", 0))
+
+                if org.get("unfixable_rules"):
+                    st.warning(f"Org-wide unfixable rules: {', '.join(org['unfixable_rules'])}")
+
+                if org.get("top_rules"):
+                    st.markdown("#### Top Violation Rules (org-wide)")
+                    import pandas as _pd2
+                    rules_df = _pd2.DataFrame([
+                        {
+                            "Rule": r["rule"],
+                            "Total Violations": r["total_violations"],
+                            "Total Fixes": r["total_fixes"],
+                            "Fix Rate": f"{r['fix_rate']:.1%}",
+                            "Repos": len(r.get("repos", [])),
+                        }
+                        for r in org["top_rules"]
+                    ])
+                    st.dataframe(rules_df, use_container_width=True, hide_index=True)
+            else:
+                st.error(f"API error {org_resp.status_code}")
+        except Exception as exc:
+            st.error(f"Could not reach API: {exc}")
+
+
 def main():
     """Main dashboard"""
     render_header()
@@ -4703,7 +4881,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Red Team"]
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Red Team", "Agent Learning"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -4815,6 +4993,9 @@ def main():
 
     elif page == "Red Team":
         render_red_team()
+
+    elif page == "Agent Learning":
+        render_agent_learning()
 
     # Footer
     st.markdown("---")

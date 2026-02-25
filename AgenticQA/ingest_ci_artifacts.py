@@ -385,6 +385,47 @@ class CIArtifactIngestion:
             print(f"  ❌ Failed to ingest test failures: {e}")
             return False
 
+    def ingest_python_audit(self, audit_path: str, run_id: str = None) -> bool:
+        """
+        Ingest pip-audit CVE reachability results into the learning system.
+
+        Stores:
+        - Total and reachable CVE counts
+        - Risk score (weighted by severity of reachable CVEs)
+        - Full audit data for downstream analysis
+
+        This enables ComplianceAgent to learn from Python dependency vulnerability patterns.
+        """
+        try:
+            with open(audit_path, 'r') as f:
+                audit = json.load(f)
+
+            vuln_count = len(audit.get("dependencies", []))
+            reachable_count = audit.get("reachable_count", 0)
+
+            document = {
+                "artifact_type": "pip_audit",
+                "timestamp": datetime.utcnow().isoformat(),
+                "run_id": run_id or "unknown",
+                "audit_data": audit,
+                "vulnerability_count": vuln_count,
+                "reachable_count": reachable_count,
+                "agent_type": "compliance",
+                "tags": ["security", "pip-audit", "python", "cve", "reachability"]
+            }
+
+            if not self.rag:
+                return self._fallback_to_local_store("compliance", document)
+
+            self.rag.log_agent_execution("compliance", document)
+            self.ingested_count += 1
+            print(f"  ✅ Ingested pip-audit: {vuln_count} vulnerabilities, {reachable_count} reachable")
+            return True
+
+        except Exception as e:
+            print(f"  ❌ Failed to ingest pip-audit: {e}")
+            return False
+
     def ingest_pipeline_health(self, health_log: str, run_id: str = None) -> bool:
         """
         Ingest pipeline health check results.
@@ -524,6 +565,7 @@ def main():
     parser.add_argument('--agent-type', help='Agent type (for --agent-log)', default='unknown')
     parser.add_argument('--test-failures', help='Path to test-failures directory')
     parser.add_argument('--pipeline-health', help='Path to pipeline health log')
+    parser.add_argument('--python-audit', help='Path to pip-audit JSON output (CVE reachability)')
     parser.add_argument('--run-id', help='CI run ID for tracking', default=os.getenv('GITHUB_RUN_ID', 'local'))
     parser.add_argument('--test-framework', help='Test framework name (for --test-results)', default='unknown')
 
@@ -576,6 +618,9 @@ def main():
 
         if args.pipeline_health:
             ingestion.ingest_pipeline_health(args.pipeline_health, args.run_id)
+
+        if args.python_audit:
+            ingestion.ingest_python_audit(args.python_audit, args.run_id)
 
     print(f"\n✅ Total artifacts ingested: {ingestion.ingested_count}")
     print("\n💡 Agents will now learn from these artifacts in future runs!")

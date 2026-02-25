@@ -1,6 +1,6 @@
 """FastAPI integration for agent orchestration and data store access"""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
@@ -82,6 +82,7 @@ class ExecutionRequest(BaseModel):
 
     test_results: Optional[Dict[str, Any]] = None
     execution_data: Optional[Dict[str, Any]] = None
+    linting_data: Optional[Dict[str, Any]] = None
     compliance_data: Optional[Dict[str, Any]] = None
     deployment_config: Optional[Dict[str, Any]] = None
 
@@ -1555,6 +1556,235 @@ async def red_team_scan(request: RedTeamScanRequest):
             "auto_patch": request.auto_patch,
         })
         return {"success": True, **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sdet/generated-tests")
+async def sdet_generated_tests(repo_path: str = "."):
+    """List all LLM-generated test files in .agenticqa/generated_tests/."""
+    try:
+        from pathlib import Path as _Path
+        gen_dir = _Path(repo_path) / ".agenticqa" / "generated_tests"
+        if not gen_dir.exists():
+            return {"success": True, "files": [], "count": 0}
+        files = []
+        for test_file in sorted(gen_dir.glob("test_*.py")):
+            try:
+                files.append({
+                    "name": test_file.name,
+                    "path": str(test_file),
+                    "size_bytes": test_file.stat().st_size,
+                    "preview": test_file.read_text()[:500],
+                })
+            except Exception:
+                continue
+        return {"success": True, "files": files, "count": len(files)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/developer-profiles")
+async def developer_profiles(repo_path: str = ".", top_n: int = 10):
+    """Return the developer risk leaderboard for the given repo."""
+    try:
+        import hashlib
+        import subprocess as _sp
+        from data_store.developer_profile import DeveloperRiskLeaderboard
+        try:
+            _proc = _sp.run(
+                ["git", "remote", "get-url", "origin"],
+                capture_output=True, text=True, timeout=5, cwd=repo_path,
+            )
+            _url = _proc.stdout.strip().lower().rstrip("/").removesuffix(".git")
+            repo_id = hashlib.sha1(_url.encode()).hexdigest()[:12] if _url else "unknown"
+        except Exception:
+            repo_id = hashlib.sha1(repo_path.encode()).hexdigest()[:12]
+        board = DeveloperRiskLeaderboard(repo_id)
+        return {"success": True, "repo_id": repo_id, "leaderboard": board.top_n(top_n)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/org-memory")
+async def org_memory(repo_path: str = "."):
+    """Return cross-repo org memory for the org owning the given repo."""
+    try:
+        from data_store.org_memory import OrgMemory
+        mem = OrgMemory.for_repo(repo_path)
+        return {"success": True, **mem.summary()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/semantic-diff")
+async def semantic_diff(
+    repo_path: str = ".",
+    base: str = "HEAD~1",
+    head: str = "HEAD",
+):
+    """
+    Analyze what semantically changed between two git refs.
+
+    Returns high/medium risk removals: null checks, error handlers, auth decorators,
+    input validation, timeouts, and assertions.
+    """
+    try:
+        from agenticqa.diff.semantic_diff import SemanticDiffAnalyzer
+        result = SemanticDiffAnalyzer().analyze_git_range(base=base, head=head, cwd=repo_path)
+        return {"success": True, **result.summary()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/compliance/drift")
+async def compliance_drift(repo_path: str = ".", lookback: int = 10):
+    """Return compliance violation drift between the last two runs for this repo."""
+    try:
+        from agenticqa.compliance.drift_detector import ComplianceDriftDetector
+        detector = ComplianceDriftDetector()
+        drift = detector.detect_drift(repo_path, lookback=lookback)
+        history = detector.history(repo_path, limit=30)
+        return {"success": True, "drift": drift, "history": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/risk-gate")
+async def risk_gate(
+    repo_path: str = ".",
+    files: List[str] = Query(default=[]),
+    threshold: float = 0.70,
+):
+    """
+    Evaluate changed files against developer risk scores.
+
+    Pass ?files=src/foo.py&files=src/bar.py to check specific files.
+    Returns gate=pass|block with per-file risk details.
+    """
+    try:
+        import hashlib
+        import subprocess as _sp
+        from agenticqa.gates.risk_gate import DeveloperRiskGate
+        try:
+            _proc = _sp.run(
+                ["git", "remote", "get-url", "origin"],
+                capture_output=True, text=True, timeout=5, cwd=repo_path,
+            )
+            _url = _proc.stdout.strip().lower().rstrip("/").removesuffix(".git")
+            repo_id = hashlib.sha1(_url.encode()).hexdigest()[:12] if _url else "unknown"
+        except Exception:
+            repo_id = hashlib.sha1(repo_path.encode()).hexdigest()[:12]
+        gate = DeveloperRiskGate(threshold=threshold)
+        result = gate.evaluate(files, repo_id=repo_id, cwd=repo_path)
+        return {"success": True, "repo_id": repo_id, **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/github/pr-inline-comments")
+async def post_inline_comments(request: dict):
+    """Post inline review comments on specific PR diff lines."""
+    try:
+        from agenticqa.github.pr_commenter import PRCommenter
+        commenter = PRCommenter()
+        pr_number = request.get("pr_number")
+        if not pr_number:
+            pr_number = commenter._detect_pr_number()
+        if not pr_number:
+            return {"success": False, "reason": "no PR detected"}
+        posted = commenter.post_inline_comments(
+            pr_number=int(pr_number),
+            findings=request.get("findings", []),
+            commit_sha=request.get("commit_sha"),
+        )
+        return {"success": True, "posted": posted}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/github/pr-comment")
+async def post_pr_comment_endpoint(request: dict):
+    """Post or update AgenticQA CI results as a PR comment."""
+    try:
+        from agenticqa.github.pr_commenter import CIResultBundle, PRCommenter
+
+        redteam = request.get("redteam") or {}
+        sdet = request.get("sdet") or {}
+        compliance = request.get("compliance") or {}
+        sre = request.get("sre") or {}
+        qa = request.get("qa") or {}
+
+        bundle = CIResultBundle(
+            run_id=request.get("run_id", "unknown"),
+            commit_sha=request.get("commit_sha", "unknown"),
+            total_tests=qa.get("total_tests"),
+            tests_passed=qa.get("passed"),
+            tests_failed=qa.get("failed"),
+            coverage_percent=sdet.get("current_coverage"),
+            coverage_status=sdet.get("coverage_status"),
+            tests_generated=sdet.get("tests_generated"),
+            sre_total_errors=sre.get("total_errors"),
+            sre_fix_rate=sre.get("fix_rate"),
+            sre_fixes_applied=sre.get("fixes_applied"),
+            scanner_strength=redteam.get("scanner_strength"),
+            gate_strength=redteam.get("gate_strength"),
+            successful_bypasses=redteam.get("successful_bypasses"),
+            compliance_violations=len(compliance.get("violations", [])) if compliance else None,
+            reachable_cves=compliance.get("reachable_cves"),
+            cve_risk_score=compliance.get("cve_risk_score"),
+        )
+        commenter = PRCommenter()
+        pr_number = request.get("pr_number")
+        success = commenter.post_results(bundle, pr_number=pr_number)
+        return {"success": success, "pr_number": pr_number}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/security/cve-reachability")
+async def cve_reachability(repo_path: str = "."):
+    """Scan the repo for CVEs (pip-audit + npm audit) and determine import-level reachability."""
+    try:
+        from agenticqa.security.cve_reachability import CVEReachabilityAnalyzer
+        analyzer = CVEReachabilityAnalyzer()
+        py_result = analyzer.scan_python(repo_path)
+        js_result = analyzer.scan_javascript(repo_path)
+        return {
+            "success": True,
+            "python": {
+                "total_cves": len(py_result.cves),
+                "reachable_cves": [
+                    {
+                        "package": c.package,
+                        "cve_id": c.cve_id,
+                        "severity": c.severity,
+                        "fixed_version": c.fixed_version,
+                        "reachable_via": c.reachable_via,
+                    }
+                    for c in py_result.reachable_cves
+                ],
+                "unreachable_count": len(py_result.unreachable_cves),
+                "risk_score": py_result.risk_score,
+                "scan_error": py_result.scan_error,
+            },
+            "javascript": {
+                "total_cves": len(js_result.cves),
+                "reachable_cves": [
+                    {
+                        "package": c.package,
+                        "cve_id": c.cve_id,
+                        "severity": c.severity,
+                        "fixed_version": c.fixed_version,
+                        "reachable_via": c.reachable_via,
+                    }
+                    for c in js_result.reachable_cves
+                ],
+                "unreachable_count": len(js_result.unreachable_cves),
+                "risk_score": js_result.risk_score,
+                "scan_error": js_result.scan_error,
+            },
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

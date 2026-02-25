@@ -1255,6 +1255,12 @@ jobs:
           fi
         continue-on-error: true
 
+      - name: Run pip-audit CVE scan and record compliance drift
+        continue-on-error: true
+        run: |
+          pip install pip-audit --quiet || true
+          python AgenticQA/scripts/ci_compliance_drift.py || echo "⚠️ CVE/drift scan skipped"
+
       - name: Check for compliance critical issues
         run: |
           if grep -q "🔴 Critical Issues.*must be resolved" compliance-audit-report.md; then
@@ -1516,7 +1522,7 @@ jobs:
   # FINAL GATE: Pipeline health verification
   # This ensures the pipeline doesn't get stuck in a failed state
   pipeline-health-check:
-    needs: [red-team-scan]
+    needs: [red-team-scan, custom-agents]
     runs-on: ubuntu-latest
     name: 🏥 Pipeline Health Verification
     if: always()
@@ -1559,6 +1565,7 @@ jobs:
       compliance-agent,
       sre-agent,
       red-team-scan,
+      custom-agents,
       pipeline-health-check
     ]
     runs-on: ubuntu-latest
@@ -1630,4 +1637,147 @@ jobs:
           echo "   - Identify patterns in pipeline failures"
           echo "   - Auto-fix common issues"
           echo "   - Prevent similar failures in future runs"
+        continue-on-error: true
+
+  # ── Custom Agent Runner ────────────────────────────────────────────────────
+  # Discovers and executes agents created via the Agent Factory.
+  # Runs early (needs only pipeline-framework) so custom agents participate
+  # in the same run as built-in agents. Never blocks the pipeline.
+  custom-agents:
+    needs: [pipeline-framework]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: 🤖 Custom Agent Runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore learning databases
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
+            .test-artifact-store/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            agenticqa-learning-v1-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install AgenticQA
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -e ./AgenticQA
+
+      - name: List discovered custom agents
+        run: |
+          python AgenticQA/run_custom_agents.py --list || echo "No custom agents found"
+
+      - name: Run custom agents
+        run: |
+          if [ -d AgenticQA/.agenticqa/custom_agents ] && \
+             ls AgenticQA/.agenticqa/custom_agents/*.py 2>/dev/null | head -1 > /dev/null; then
+            python AgenticQA/run_custom_agents.py \
+              --run-id ${{ github.run_id }} \
+              --agents-dir AgenticQA/.agenticqa/custom_agents \
+            || echo "Custom agent run completed with errors"
+          else
+            echo "No custom agents to run"
+          fi
+        continue-on-error: true
+
+      - name: Upload custom agent results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-agents-output
+          path: custom-agents-output.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Ingest custom agent results
+        if: always()
+        env:
+          WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
+          WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
+        run: |
+          if [ -f custom-agents-output.json ]; then
+            python AgenticQA/ingest_ci_artifacts.py \
+              --agent-log custom-agents-output.json \
+              --agent-type custom \
+              --run-id ${{ github.run_id }} || echo "Ingestion skipped"
+          fi
+        continue-on-error: true
+
+      - name: Save learning databases
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.agenticqa/
+            .agenticqa/
+            .test-artifact-store/
+          key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
+
+  # ── PR Comment ─────────────────────────────────────────────────────────────
+  # Aggregates all agent results into one structured PR comment.
+  # Only runs on pull_request events — not on direct pushes.
+  post-pr-comment:
+    needs: [pipeline-health-check, red-team-scan, sdet-agent, compliance-agent, sre-agent]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: 💬 Post PR Comment
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download agent output artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-output"
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install AgenticQA
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -e ./AgenticQA
+
+      - name: Run semantic diff and post inline risk comments
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python AgenticQA/scripts/ci_semantic_diff.py \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.sha }}" \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+          || echo "Semantic diff step skipped"
+        continue-on-error: true
+
+      - name: Post CI results to PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python AgenticQA/post_pr_comment.py \
+            --run-id "${{ github.run_id }}" \
+            --commit-sha "${{ github.sha }}" \
+            --redteam-json redteam-output.json \
+            --sdet-json sdet-output.json \
+            --compliance-json compliance-output.json \
+            --sre-json sre-output.json \
+            --qa-json qa-output.json \
+          || echo "PR comment step skipped (non-PR context or no token)"
         continue-on-error: true

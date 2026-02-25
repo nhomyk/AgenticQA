@@ -983,6 +983,38 @@ class ComplianceAgent(BaseAgent):
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
 
+            # CVE Reachability — non-blocking; gracefully skipped if pip-audit not installed
+            try:
+                from agenticqa.security.cve_reachability import CVEReachabilityAnalyzer
+                _repo_path = compliance_data.get("repo_path", ".")
+                _reach = CVEReachabilityAnalyzer().scan_python(_repo_path)
+                if _reach.scan_error is None:
+                    for _cve in _reach.reachable_cves:
+                        checks["violations"].append({
+                            "type": "reachable_cve",
+                            "package": _cve.package,
+                            "cve_id": _cve.cve_id,
+                            "severity": _cve.severity,
+                            "reachable_via": _cve.reachable_via[:5],
+                        })
+                    checks["cve_risk_score"] = _reach.risk_score
+                    checks["reachable_cves"] = len(_reach.reachable_cves)
+                    checks["total_cves"] = len(_reach.cves)
+            except Exception:
+                pass  # pip-audit unavailable or import error — non-blocking
+
+            # Compliance drift detection — non-blocking
+            try:
+                import os as _os
+                from agenticqa.compliance.drift_detector import ComplianceDriftDetector
+                _run_id = _os.getenv("GITHUB_RUN_ID", "local")
+                _repo_path = compliance_data.get("repo_path", ".")
+                _drift_detector = ComplianceDriftDetector()
+                _drift_detector.record_run(_run_id, checks["violations"], repo_path=_repo_path)
+                checks["drift"] = _drift_detector.detect_drift(_repo_path)
+            except Exception:
+                pass
+
             self._record_execution("success", checks, tags=["compliance"])
             self.log("Compliance check complete")
             return checks
@@ -1665,6 +1697,27 @@ class SREAgent(BaseAgent):
                     if fix:
                         fixes_applied.append(fix)
 
+                # Developer risk attribution — non-blocking, best-effort
+                try:
+                    import hashlib as _hl, subprocess as _sp2
+                    from data_store.developer_profile import DeveloperProfile
+                    _cwd = linting_data.get("repo_path", ".")
+                    _proc2 = _sp2.run(
+                        ["git", "remote", "get-url", "origin"],
+                        capture_output=True, text=True, timeout=5, cwd=_cwd,
+                    )
+                    _url2 = _proc2.stdout.strip().lower().rstrip("/").removesuffix(".git")
+                    _repo_id = _hl.sha1(_url2.encode()).hexdigest()[:12] if _url2 else "unknown"
+                    _dp = DeveloperProfile.for_file(
+                        error.get("file", ""),
+                        repo_id=_repo_id,
+                        cwd=_cwd,
+                    )
+                    if _dp:
+                        _dp.record_violation(rule or "unknown", fixed=bool(fix))
+                except Exception:
+                    pass
+
             fixable_count = len(fixable_errors)
             arch_by_rule: Dict[str, int] = {}
             for e in architectural:
@@ -1701,6 +1754,19 @@ class SREAgent(BaseAgent):
                 f"Applied {len(fixes_applied)}/{fixable_count} fixable linting errors "
                 f"({len(architectural)} architectural violations excluded from rate)"
             )
+
+            # Update org-level cross-repo memory — non-blocking
+            try:
+                from data_store.org_memory import OrgMemory
+                import hashlib as _hl2, subprocess as _sp3
+                _cwd2 = linting_data.get("repo_path", ".")
+                _p3 = _sp3.run(["git","remote","get-url","origin"],
+                               capture_output=True, text=True, timeout=5, cwd=_cwd2)
+                _url3 = _p3.stdout.strip().lower().rstrip("/").removesuffix(".git")
+                _repo_id2 = _hl2.sha1(_url3.encode()).hexdigest()[:12] if _url3 else "unknown"
+                OrgMemory.for_repo(_cwd2).update_from_sre_result(_repo_id2, result)
+            except Exception:
+                pass
 
             # Update repo-specific institutional memory
             if getattr(self, "repo_profile", None):
@@ -2183,6 +2249,21 @@ class SDETAgent(BaseAgent):
             # Generate test recommendations
             recommendations = self._generate_test_recommendations(gaps, augmented_context)
 
+            # LLM-generated tests for high-priority gaps — non-blocking
+            generated_test_files = []
+            tests_generated = 0
+            repo_path = coverage_data.get("repo_path", ".")
+            for gap in gaps:
+                if gap.get("priority") == "high" and gap.get("file") != "RAG-identified":
+                    gen = self._generate_tests_for_gap(gap, repo_path)
+                    if gen["generated"]:
+                        generated_test_files.append(gen["file_path"])
+                        tests_generated += 1
+                    self.log(
+                        f"Test generation for {gap.get('file', '?')}: "
+                        f"{'OK' if gen['generated'] else gen.get('error', 'failed')}"
+                    )
+
             result = {
                 "current_coverage": coverage_percent,
                 "coverage_status": "adequate" if coverage_percent >= coverage_threshold else "insufficient",
@@ -2191,6 +2272,8 @@ class SDETAgent(BaseAgent):
                 "gaps": gaps,
                 "recommendations": recommendations,
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
+                "tests_generated": tests_generated,
+                "generated_test_files": generated_test_files,
             }
 
             self._record_execution("success", result, tags=["coverage_analysis"])
@@ -2267,6 +2350,134 @@ class SDETAgent(BaseAgent):
                         recommendations.append(f"[RAG] {insight}")
 
         return recommendations
+
+    def _generate_tests_for_gap(
+        self, gap: Dict[str, Any], repo_path: str = "."
+    ) -> Dict[str, Any]:
+        """
+        Generate a pytest test file for a coverage gap using Claude Haiku.
+
+        Mirrors SREAgent._attempt_test_repair() pattern exactly:
+        1. Read source file (first 4000 chars for token budget)
+        2. Call claude-haiku-4-5-20251001 — system prompt requests pure pytest, no fences
+        3. Strip any markdown fences from response
+        4. compile() gate — SyntaxError caught before touching disk
+        5. Skip if output path already exists (never overwrite)
+        6. Write to tempfile → pytest --collect-only validates collection
+        7. Atomic write to .agenticqa/generated_tests/test_{module}.py only if valid
+
+        Returns:
+            {"generated": bool, "file_path": str, "error": str}
+        """
+        from pathlib import Path as _Path
+        source_file = gap.get("file", "")
+        if not source_file:
+            return {"generated": False, "file_path": "", "error": "no source file in gap"}
+
+        source_path = _Path(repo_path) / source_file
+        if not source_path.exists() or source_path.suffix != ".py":
+            return {
+                "generated": False,
+                "file_path": "",
+                "error": f"source file not found or not Python: {source_path}",
+            }
+
+        # Step 1: Read source (cap at 4000 chars for token budget)
+        source = source_path.read_text(errors="replace")[:4000]
+
+        # Step 2: Call Haiku to generate the test file
+        try:
+            import anthropic as _anthropic
+            _client = _anthropic.Anthropic()
+            _msg = _client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2048,
+                system=(
+                    "You are a test generation assistant. Given a Python source file and "
+                    "its coverage gap description, output ONLY a complete pytest test file. "
+                    "No explanation. No markdown fences. Just the Python test code. "
+                    "Import the module under test using its module path. "
+                    "Generate at minimum 3 test functions covering the described gap."
+                ),
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        f"Source file ({source_file}):\n{source}\n\n"
+                        f"Coverage gap type: {gap.get('type', 'untested_file')}\n"
+                        f"Priority: {gap.get('priority', 'medium')}\n"
+                        f"Additional context: {gap.get('insight', '')}\n\n"
+                        f"Generate a pytest test file for this module."
+                    ),
+                }],
+            )
+            test_code = _msg.content[0].text.strip()
+        except Exception as exc:
+            return {"generated": False, "file_path": "", "error": f"LLM unavailable: {exc}"}
+
+        # Step 3: Strip markdown fences (same pattern as _attempt_test_repair)
+        test_code = re.sub(r"^```[a-zA-Z]*\n?", "", test_code)
+        test_code = re.sub(r"\n?```$", "", test_code).strip()
+
+        # Step 4: compile() syntax gate — fast check before any disk I/O
+        try:
+            compile(test_code, "<generated>", "exec")
+        except SyntaxError as exc:
+            return {"generated": False, "file_path": "", "error": f"Syntax error in generated code: {exc}"}
+
+        # Step 5: Determine output path — never overwrite existing tests
+        module_name = source_path.stem
+        out_dir = _Path(repo_path) / ".agenticqa" / "generated_tests"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"test_{module_name}.py"
+        if out_path.exists():
+            return {
+                "generated": False,
+                "file_path": str(out_path),
+                "error": "file already exists — skipping to avoid overwrite",
+            }
+
+        # Step 6: Write to temp file and validate with pytest --collect-only
+        import subprocess as _sp
+        import tempfile as _tempfile
+        tmp_path_str = None
+        collection_ok = False
+        try:
+            with _tempfile.NamedTemporaryFile(
+                suffix=".py", mode="w", delete=False, dir=out_dir
+            ) as _tmp:
+                _tmp.write(test_code)
+                tmp_path_str = _tmp.name
+
+            _proc = _sp.run(
+                [
+                    "python", "-m", "pytest", tmp_path_str,
+                    "--collect-only", "-q", "--tb=no", "--no-header",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            collection_ok = _proc.returncode == 0
+        except Exception:
+            collection_ok = False
+        finally:
+            if tmp_path_str:
+                try:
+                    _Path(tmp_path_str).unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        if not collection_ok:
+            return {
+                "generated": False,
+                "file_path": "",
+                "error": "Generated tests failed pytest --collect-only validation",
+            }
+
+        # Step 7: Atomic write — only after validation passes
+        out_path.write_text(test_code)
+        self.log(f"Generated test file: {out_path}")
+        return {"generated": True, "file_path": str(out_path), "error": ""}
 
 
 class FullstackAgent(BaseAgent):
