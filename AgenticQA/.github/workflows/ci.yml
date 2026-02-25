@@ -128,13 +128,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ./AgenticQA
+          pip install -e .
           pip install pytest pytest-cov
       
       - name: Run critical pipeline health checks
         run: |
           echo "🏥 Running Pipeline Framework Health Checks..."
-          pytest AgenticQA/tests/test_pipeline_framework.py \
+          pytest tests/test_pipeline_framework.py \
             -m critical -v --tb=short 2>&1 | tee pipeline-health.log || true
       
       - name: Generate health check summary
@@ -170,7 +170,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Verify Hybrid RAG Configuration
         if: always()
@@ -211,7 +211,7 @@ jobs:
           echo "🔀 Hybrid RAG Mode: ENABLED (Vector + Relational Storage)"
 
           if [ -f pipeline-health.log ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --pipeline-health pipeline-health.log \
               --run-id ${{ github.run_id }} || echo "⚠️  Pipeline health ingestion skipped"
           fi
@@ -346,7 +346,7 @@ jobs:
         run: |
           if [ -f eslint-output.json ]; then
             pip install -q requests weaviate-client || true
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --agent-log eslint-output.json \
               --agent-type sre \
               --run-id ${{ github.run_id }} || echo "⚠️ ESLint ingestion skipped"
@@ -398,13 +398,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
           pip install --no-cache-dir qdrant-client>=1.7.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Run live Weaviate -> Qdrant parity verification
         continue-on-error: true
         run: |
           set -o pipefail
-          python AgenticQA/scripts/verify_vector_migration.py 2>&1 | tee migration-verify.log
+          python scripts/verify_vector_migration.py 2>&1 | tee migration-verify.log
 
       - name: Attach migration verification log snippet
         if: always()
@@ -423,7 +423,7 @@ jobs:
           AGENTICQA_HYBRID_RAG: "true"
         run: |
           if [ -f migration-verify.log ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --pipeline-health migration-verify.log \
               --run-id ${{ github.run_id }} || echo "⚠️ Migration log ingestion skipped"
             echo "✅ Migration parity log ingested — dual-write decisions now informed by history"
@@ -573,7 +573,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Validate vector migration toolkit (non-blocking)
         if: always()
@@ -581,9 +581,9 @@ jobs:
         run: |
           echo "🧪 Validating vector provider/migration/dual-write tests..."
           PYTHONPATH=AgenticQA pytest \
-            AgenticQA/tests/test_vector_provider_config.py \
-            AgenticQA/tests/test_vector_migration.py \
-            AgenticQA/tests/test_dual_write_vector_store.py \
+            tests/test_vector_provider_config.py \
+            tests/test_vector_migration.py \
+            tests/test_dual_write_vector_store.py \
             -v --tb=short
 
       - name: Ingest Test Results to Weaviate
@@ -599,7 +599,7 @@ jobs:
 
           # Ingest Jest results if available
           if [ -f jest-output.log ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --test-results jest-output.log \
               --test-framework jest \
               --run-id ${{ github.run_id }} || echo "⚠️  Jest ingestion skipped"
@@ -607,7 +607,7 @@ jobs:
 
           # Ingest Vitest results if available
           if [ -f vitest-output.log ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --test-results vitest-output.log \
               --test-framework vitest \
               --run-id ${{ github.run_id }} || echo "⚠️  Vitest ingestion skipped"
@@ -615,7 +615,7 @@ jobs:
 
           # Ingest Playwright results if available
           if [ -f playwright-output.log ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --test-results playwright-output.log \
               --test-framework playwright \
               --run-id ${{ github.run_id }} || echo "⚠️  Playwright ingestion skipped"
@@ -623,7 +623,7 @@ jobs:
 
           # Ingest Cypress results if available
           if [ -f cypress-output.log ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --test-results cypress-output.log \
               --test-framework cypress \
               --run-id ${{ github.run_id }} || echo "⚠️  Cypress ingestion skipped"
@@ -644,7 +644,7 @@ jobs:
           echo "🔀 Hybrid RAG Mode: ENABLED (Vector + Relational Storage)"
 
           if [ -d test-failures ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --test-failures test-failures/ \
               --run-id ${{ github.run_id }} || echo "⚠️  Test failures ingestion skipped"
           fi
@@ -694,7 +694,6 @@ jobs:
 
       - name: Sync delegation outcomes and record learning snapshot
         if: always()
-        working-directory: AgenticQA
         run: |
           python -c "
           import sys; sys.path.insert(0,'src')
@@ -777,20 +776,17 @@ jobs:
       - name: Cache Puppeteer Chromium
         uses: actions/cache@v4
         with:
-          path: AgenticQA/.cache/puppeteer
-          key: puppeteer-${{ runner.os }}-${{ hashFiles('AgenticQA/package-lock.json') }}
+          path: .cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             puppeteer-${{ runner.os }}-
 
       - name: Install dependencies
-        run: |
-          cd AgenticQA
-          npm ci
+        run: npm ci
 
       - name: Run Accessibility Scan (Pa11y)
         if: matrix.check == 'accessibility'
         id: pa11y
-        working-directory: AgenticQA
         run: |
           echo "Starting development server..."
           npm run start:server > /tmp/server.log 2>&1 &
@@ -843,11 +839,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Ingest Pa11y Report to Weaviate
         if: matrix.check == 'accessibility' && always()
-        working-directory: AgenticQA
         env:
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
@@ -872,7 +867,6 @@ jobs:
 
       - name: Store Success Patterns to Weaviate (Every Run)
         if: matrix.check == 'accessibility' && always()
-        working-directory: AgenticQA
         env:
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
@@ -898,7 +892,6 @@ jobs:
       - name: Auto-Fix Accessibility Violations
         if: matrix.check == 'accessibility' && steps.pa11y.outputs.error_count > 0
         id: autofix
-        working-directory: AgenticQA
         run: |
           echo "🔧 Found ${{ steps.pa11y.outputs.error_count }} accessibility violations"
           echo "Running ComplianceAgent auto-fix..."
@@ -916,7 +909,6 @@ jobs:
 
       - name: Ingest Auto-Fix Log to Weaviate
         if: matrix.check == 'accessibility' && steps.pa11y.outputs.error_count > 0
-        working-directory: AgenticQA
         env:
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
@@ -936,7 +928,6 @@ jobs:
 
       - name: Re-validate with Pa11y (after auto-fix)
         if: matrix.check == 'accessibility' && steps.autofix.outputs.fixes_applied == 'true'
-        working-directory: AgenticQA
         env:
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
@@ -1007,7 +998,6 @@ jobs:
 
       - name: Commit auto-fixes (if any)
         if: matrix.check == 'accessibility' && steps.autofix.outputs.fixes_applied == 'true'
-        working-directory: AgenticQA
         run: |
           git config --global user.name "compliance-agent[bot]"
           git config --global user.email "compliance-agent[bot]@users.noreply.github.com"
@@ -1051,7 +1041,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Ingest Security Audit to Weaviate
         if: matrix.check == 'security' && always()
@@ -1063,7 +1053,7 @@ jobs:
         run: |
           echo "🧠 Ingesting security audit to Weaviate for DevOps agent learning..."
           echo "🔀 Hybrid RAG Mode: ENABLED (Vector + Relational Storage)"
-          python AgenticQA/ingest_ci_artifacts.py \
+          python ingest_ci_artifacts.py \
             --security-audit audit-report.json \
             --run-id ${{ github.run_id }} || echo "⚠️  Weaviate ingestion skipped (not configured)"
         continue-on-error: true
@@ -1074,8 +1064,8 @@ jobs:
         with:
           name: pa11y-report
           path: |
-            AgenticQA/pa11y-report.json
-            AgenticQA/pa11y-report.txt
+            pa11y-report.json
+            pa11y-report.txt
           retention-days: 30
         continue-on-error: true
       
@@ -1142,7 +1132,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Ingest Coverage to Weaviate
         env:
@@ -1158,11 +1148,11 @@ jobs:
           if [ -d coverage ]; then
             # Look for coverage summary file
             if [ -f coverage/coverage-summary.json ]; then
-              python AgenticQA/ingest_ci_artifacts.py \
+              python ingest_ci_artifacts.py \
                 --coverage coverage/coverage-summary.json \
                 --run-id ${{ github.run_id }} || echo "⚠️  Coverage ingestion skipped"
             elif [ -f coverage/coverage-final.json ]; then
-              python AgenticQA/ingest_ci_artifacts.py \
+              python ingest_ci_artifacts.py \
                 --coverage coverage/coverage-final.json \
                 --run-id ${{ github.run_id }} || echo "⚠️  Coverage ingestion skipped"
             else
@@ -1231,7 +1221,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Ingest Compliance Report to Weaviate
         env:
@@ -1244,7 +1234,7 @@ jobs:
           echo "🔀 Hybrid RAG Mode: ENABLED (Vector + Relational Storage)"
 
           if [ -f compliance-audit-report.md ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --agent-log compliance-audit-report.md \
               --agent-type compliance \
               --run-id ${{ github.run_id }} || echo "⚠️  Compliance report ingestion skipped"
@@ -1259,7 +1249,7 @@ jobs:
         continue-on-error: true
         run: |
           pip install pip-audit --quiet || true
-          python AgenticQA/scripts/ci_compliance_drift.py || echo "⚠️ CVE/drift scan skipped"
+          python scripts/ci_compliance_drift.py || echo "⚠️ CVE/drift scan skipped"
 
       - name: Check for compliance critical issues
         run: |
@@ -1446,7 +1436,6 @@ jobs:
 
       - name: Run Red Team scan
         id: redteam
-        working-directory: AgenticQA
         env:
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
@@ -1493,7 +1482,6 @@ jobs:
 
       - name: Ingest red team results to learning system
         if: always()
-        working-directory: AgenticQA
         env:
           WEAVIATE_HOST: ${{ secrets.WEAVIATE_HOST }}
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
@@ -1583,7 +1571,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir weaviate-client>=4.0.0 numpy>=1.26.0
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
       
       - name: Collect Pipeline Failure Details
         id: collect-failures
@@ -1628,7 +1616,7 @@ jobs:
           echo "🧠 Ingesting pipeline failure to Weaviate for SRE agent learning..."
           echo "🔀 Hybrid RAG Mode: ENABLED (Vector + Relational Storage)"
           
-          python AgenticQA/ingest_ci_artifacts.py \
+          python ingest_ci_artifacts.py \
             --pipeline-health pipeline-failure.json \
             --run-id ${{ github.run_id }} || echo "⚠️  Pipeline failure ingestion skipped"
           
@@ -1671,19 +1659,19 @@ jobs:
       - name: Install AgenticQA
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: List discovered custom agents
         run: |
-          python AgenticQA/run_custom_agents.py --list || echo "No custom agents found"
+          python run_custom_agents.py --list || echo "No custom agents found"
 
       - name: Run custom agents
         run: |
-          if [ -d AgenticQA/.agenticqa/custom_agents ] && \
-             ls AgenticQA/.agenticqa/custom_agents/*.py 2>/dev/null | head -1 > /dev/null; then
-            python AgenticQA/run_custom_agents.py \
+          if [ -d .agenticqa/custom_agents ] && \
+             ls .agenticqa/custom_agents/*.py 2>/dev/null | head -1 > /dev/null; then
+            python run_custom_agents.py \
               --run-id ${{ github.run_id }} \
-              --agents-dir AgenticQA/.agenticqa/custom_agents \
+              --agents-dir .agenticqa/custom_agents \
             || echo "Custom agent run completed with errors"
           else
             echo "No custom agents to run"
@@ -1706,7 +1694,7 @@ jobs:
           WEAVIATE_API_KEY: ${{ secrets.WEAVIATE_API_KEY }}
         run: |
           if [ -f custom-agents-output.json ]; then
-            python AgenticQA/ingest_ci_artifacts.py \
+            python ingest_ci_artifacts.py \
               --agent-log custom-agents-output.json \
               --agent-type custom \
               --run-id ${{ github.run_id }} || echo "Ingestion skipped"
@@ -1752,13 +1740,13 @@ jobs:
       - name: Install AgenticQA
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir -e ./AgenticQA
+          pip install --no-cache-dir -e .
 
       - name: Run semantic diff and post inline risk comments
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python AgenticQA/scripts/ci_semantic_diff.py \
+          python scripts/ci_semantic_diff.py \
             --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.sha }}" \
             --pr-number "${{ github.event.pull_request.number }}" \
@@ -1771,7 +1759,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python AgenticQA/post_pr_comment.py \
+          python post_pr_comment.py \
             --run-id "${{ github.run_id }}" \
             --commit-sha "${{ github.sha }}" \
             --redteam-json redteam-output.json \
