@@ -1,6 +1,6 @@
 # AgenticQA
 
-**The world's first autonomous AI agent platform with constitutional governance, forensic decision traceability, self-healing CI, adversarial red-team hardening, and SARIF-native security output — without LLMs.**
+**The world's first autonomous AI agent platform with constitutional governance, forensic decision traceability, self-healing CI, adversarial red-team hardening, HIPAA/GDPR/EU AI Act compliance scanning, prompt injection detection, LLM model regression testing, and cryptographic output provenance — without LLMs.**
 
 [![CI Pipeline](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml)
 [![Pipeline Validation](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml)
@@ -59,7 +59,8 @@ curl -X POST http://localhost:8000/api/red-team/scan \
   -H "Content-Type: application/json" \
   -d '{"mode": "fast", "target": "both", "auto_patch": true}'
 # → {"bypass_attempts": 20, "scanner_strength": 0.64, "gate_strength": 1.0,
-#    "patches_applied": 3, "proposals_generated": 2, "status": "patched"}
+#    "patches_applied": 3, "proposals_generated": 2,
+#    "prompt_injection_surface": 0.0, "prompt_injection_findings": 0, "status": "patched"}
 ```
 
 **20 bypass techniques across 4 attack categories:**
@@ -72,6 +73,133 @@ curl -X POST http://localhost:8000/api/red-team/scan \
 | **constitutional_gate** | typosquatted actions, destructive aliases, deploy aliases, depth-as-string, bulk aliases, empty trace_id |
 
 OutputScanner defends with **4-pass decode architecture**: raw JSON → Unicode NFKC normalization → base64 decode → URL decode. Discovered bypass patterns are persisted to `.agenticqa/red_team_patterns.json` and auto-loaded on every future scan. Constitutional vulnerabilities are written to `.agenticqa/constitutional_proposals.json` for human review — T1-005 prevents the agent from modifying its own governance files.
+
+---
+
+### 🔍 Prompt Injection Static Analysis
+
+Every codebase scan now checks for **prompt injection attack surface** — code paths where user-controlled input flows unfiltered into LLM system prompts:
+
+```bash
+curl "http://localhost:8000/api/redteam/prompt-injection?repo_path=."
+# → {"surface_score": 0.85, "total_findings": 3, "findings": [
+#     {"rule_id": "PROMPT_INJECTION_SURFACE", "severity": "critical",
+#      "file": "app/api/chat/route.ts", "line": 14,
+#      "message": "User-controlled input directly concatenated into LLM prompt..."}]}
+```
+
+**4 detection rules (SARIF-native, security-severity 7.0–9.5):**
+
+| Rule | Severity | What It Catches |
+|---|---|---|
+| `PROMPT_INJECTION_SURFACE` | critical (9.5) | User input in f-string / template literal directly assigned to `system`/`prompt` variable |
+| `SYSTEM_PROMPT_OVERRIDE` | high (9.0) | User controls `role:` field in the messages array — attacker can inject system-role messages |
+| `TEMPLATE_INJECTION` | high (8.0) | `.format()` / `%` / Jinja2 template rendering with user-controlled data |
+| `UNVALIDATED_LLM_OUTPUT` | medium (7.0) | LLM response passed directly to `eval()`, `subprocess`, `os.system`, or `innerHTML` |
+
+Findings appear in the Red Team step summary on every CI run alongside bypass attempts and scanner strength.
+
+---
+
+### 🛡️ Legal, HIPAA & Regulatory Compliance Scanning
+
+The ComplianceAgent now runs **four static scanners** on every repo — pure Python, no subprocess, sub-second scan of a 500-file codebase:
+
+#### Legal Risk Scanner
+```bash
+curl "http://localhost:8000/api/compliance/legal-risk?repo_path=."
+# → {"risk_score": 0.92, "total_findings": 6, "critical_findings": 4, "findings": [
+#     {"rule_id": "CREDENTIAL_EXPOSURE", "severity": "critical",
+#      "file": "app/api/route.ts", "line": 5,
+#      "message": "Hardcoded MongoDB Atlas URI with embedded credentials"}]}
+```
+
+| Rule | Severity | Detects |
+|---|---|---|
+| `CREDENTIAL_EXPOSURE` | critical/high | MongoDB Atlas URIs, AWS AKIA keys, OpenAI `sk-` keys, private key material, hardcoded passwords |
+| `PII_DOCUMENT_PUBLIC` | critical/high | Legal/employment documents committed to `public/`, `static/`, `assets/` directories |
+| `PRIVILEGE_BREACH` | high | File content read + LLM API call within 30 lines — destroys attorney-client privilege (ABA Rule 1.6) |
+| `SSRF_RISK` | medium | Hardcoded `localhost:PORT` URLs used as proxy targets — potential SSRF if path is user-controlled |
+| `NO_AUTH_ROUTE` | medium | Next.js/Express route handlers with no authentication check |
+
+#### HIPAA PHI Scanner
+```bash
+curl "http://localhost:8000/api/compliance/hipaa?repo_path=."
+# → {"risk_score": 0.95, "total_findings": 4, "critical_findings": 3}
+```
+
+| Rule | Severity | Detects |
+|---|---|---|
+| `PHI_HARDCODED` | critical | SSN literals (`XXX-XX-XXXX`), DOB/MRN variable assignments in source code |
+| `PHI_TO_LLM` | critical | PHI variable names within 30 lines of an LLM API call — requires HIPAA BAA (§164.502(e)) |
+| `PHI_DOCUMENT_PUBLIC` | critical | HL7, FHIR, patient CSV/JSON files committed to web-accessible directories |
+| `PHI_IN_LOGS` | high | PHI field names (`patient_id`, `diagnosis`, `ssn`) passed to logging sinks (§164.312(b)) |
+| `HIPAA_AUDIT_MISSING` | high | Health data routes (`/api/patient/`, `/api/health/`) without `audit_log()` call |
+
+---
+
+### 🇪🇺 EU AI Act Compliance Layer
+
+**Full enforcement August 2026.** High-risk AI systems (employment, legal, credit, education, critical infrastructure) face fines up to €30M or 6% global turnover. AgenticQA generates conformity evidence automatically:
+
+```bash
+curl "http://localhost:8000/api/compliance/ai-act?repo_path=."
+# → {"risk_category": "high_risk", "annex_iii_match": ["legal", "employment"],
+#    "conformity_score": 0.25, "findings": [
+#     {"article": "Art.9", "status": "missing", "severity": "critical",
+#      "remediation": "Create RISK_MANAGEMENT.md with risk register..."},
+#     {"article": "Art.22", "status": "missing", "severity": "critical",
+#      "remediation": "Add human_override() before any pass/fail decision..."}]}
+```
+
+| Article | Checks For | Missing → Severity |
+|---|---|---|
+| **Art. 9** | `RISK_MANAGEMENT.md`, risk register, code-level fallback handlers | critical |
+| **Art. 13** | "AI-generated" disclosure in UI code or API responses | high |
+| **Art. 14** | `require_human_review`, override mechanisms, audit logging | high |
+| **Art. 22** | LLM output used as pass/fail decision without human override + appeal | critical |
+
+Annex III classification scans README, `package.json`, and config files for 7 high-risk categories (employment, legal, credit, education, critical infrastructure, biometric, law enforcement).
+
+---
+
+### 🔐 AI Output Provenance — Cryptographic Chain of Custody
+
+Every agent execution is **signed and logged** automatically. Prove what the AI said, when, and with which model:
+
+```bash
+# Verify any output by hash
+curl "http://localhost:8000/api/provenance/verify?output_hash=a3f9c1b2...&agent=sre_agent"
+# → {"valid": true, "reason": "valid", "record": {
+#     "model_id": "claude-sonnet-4-6", "agent_name": "sre_agent",
+#     "timestamp": "2026-02-26T14:22:01+00:00", "run_id": "12345678",
+#     "output_length": 2847}}
+
+# Audit chain for an agent
+curl "http://localhost:8000/api/provenance/chain?agent=compliance_agent&limit=20"
+```
+
+- **HMAC-SHA256** signing: `hash(output) | model_id | timestamp | agent_name` with `AGENTICQA_PROVENANCE_SECRET`
+- **Constant-time comparison** prevents timing attacks on verification
+- **Tamper detection**: `signature_mismatch` / `not_found` / `valid` states
+- Stored in `.agenticqa/provenance/{agent}.jsonl` — included in the CI learning cache
+
+---
+
+### 📐 LLM Model Regression Testing
+
+When you swap models (Sonnet → Haiku, GPT-4o → GPT-4o-mini), does the agent behavior regress? AgenticQA answers quantitatively:
+
+```bash
+curl "http://localhost:8000/api/regression/compare?agent=sre_agent&baseline_model=claude-sonnet-4-6&candidate_model=claude-haiku-4-5"
+# → {"similarity_score": 0.43, "regression_detected": true,
+#    "threshold_used": 0.75, "has_baseline": true}
+```
+
+- **Golden snapshots** captured automatically from `BaseAgent._record_execution()` on every successful run
+- **Embedding strategy**: fastembed (local, no API calls) → TF-IDF 256-bucket cosine fallback
+- **Threshold**: adaptive via `ThresholdCalibrator` (default 0.75); regression flagged if similarity drops below
+- Snapshots stored as `artifact_type="llm_golden"` in `TestArtifactStore` — same learning pipeline as all other agents
 
 ---
 
@@ -94,16 +222,16 @@ curl "http://localhost:8000/api/observability/traces/{trace_id}/audit-report?for
 └─────────────────────────────────────────────────────┘
 ```
 
-Not a log dump. A forensic verdict with SHA-256 traceability, counterfactual analysis ("what should the agent have done instead?"), and root cause attribution — all generated from the live observability store.
+Not a log dump. A forensic verdict with SHA-256 traceability, counterfactual analysis ("what should the agent have done instead?"), and root cause attribution.
 
 ---
 
 ### 🛠️ Self-Healing CI — Test Repair in the Loop
 
-SREAgent now closes the loop on failing tests. When a CI run reports broken tests, it invokes a **subprocess-sandboxed repair cycle**:
+SREAgent closes the loop on failing tests via a subprocess-sandboxed repair cycle:
 
-1. Haiku reads the failing test + error message (capped at 4 000 chars for efficiency)
-2. Generates a patched version of the test file
+1. Haiku reads the failing test + error message (capped at 4 000 chars)
+2. Generates a patched version
 3. Validates the fix in an isolated subprocess — never touches production code until confirmed green
 4. Auto-applies if the sandbox run passes; records the repair in the artifact store
 
@@ -111,11 +239,8 @@ SREAgent now closes the loop on failing tests. When a CI run reports broken test
 sre.execute({
     "file_path": "src/feature.py",
     "errors": [...],
-    "failing_tests": [
-        {"test_file": "tests/test_feature.py",
-         "test_name": "test_edge_case",
-         "error_message": "AssertionError: expected 42, got None"}
-    ]
+    "failing_tests": [{"test_file": "tests/test_feature.py", "test_name": "test_edge_case",
+                        "error_message": "AssertionError: expected 42, got None"}]
 })
 # → {"fixes_applied": 3, "tests_repaired": 1, "test_repairs": [...]}
 ```
@@ -124,7 +249,7 @@ sre.execute({
 
 ### 🏭 Agent Factory — Natural Language to Governed Agent
 
-Describe an agent in plain English; the factory scaffolds a fully governed, constitutionally-compliant agent class and persists it to `.agenticqa/custom_agents/`:
+Describe an agent in plain English; the factory scaffolds a fully governed, constitutionally-compliant agent class:
 
 ```bash
 curl -X POST http://localhost:8000/api/agent-factory/from-prompt \
@@ -133,59 +258,13 @@ curl -X POST http://localhost:8000/api/agent-factory/from-prompt \
 # → {"spec": {...}, "scaffold": "class StorageMonitor_Agent(BaseAgent): ...", "persisted": true}
 ```
 
-The `NaturalLanguageSpecExtractor` uses Claude Haiku to parse the description into a typed `AgentSpec` (name, capabilities, input/output schema, governance constraints) with a zero-network keyword fallback when no API key is present. On registration, the factory automatically inserts the agent's capabilities into the Task-Agent Ontology — new agent types are instantly routable without any manual YAML edits. The dashboard exposes a "Describe Your Agent" natural-language form before the manual builder.
-
----
-
-### 🌐 Universal Agent Observability — Works With Any Platform
-
-AgenticQA doesn't lock you in. If you're running LangGraph, CrewAI, AutoGen, or a custom framework, **one adapter and all your telemetry flows in automatically:**
-
-```python
-# LangGraph / LangChain — zero-config callback
-from agenticqa.ingestion import LangChainCallbackAdapter
-adapter = LangChainCallbackAdapter(store=store, trace_id="my-trace")
-chain.invoke(inputs, config={"callbacks": [adapter]})
-# Every chain, tool, and LLM call is now traced, quality-gated, and auditable
-
-# CrewAI / AutoGen / custom — one dict per event
-from agenticqa.ingestion import GenericDictAdapter
-GenericDictAdapter(store=store).ingest({
-    "crew_id": "crew-xyz", "sender": "ResearchAgent", "status": "success"
-})
-```
-
-Field mapping is automatic. Token usage flows into complexity trends. Every event is immediately queryable via the audit report and trace timeline APIs.
-
----
-
-### 🗂️ Agent File Scopes — Codebase Governance at the YAML Layer
-
-Every agent has a declared file scope enforced as a Tier 1 law before any write operation:
-
-```bash
-curl -X POST http://localhost:8000/api/system/agent-scopes/check \
-  -H "Content-Type: application/json" \
-  -d '{"agent": "SDET_Agent", "action": "write", "file_path": ".github/workflows/ci.yml"}'
-# → {"verdict": "DENY", "law": "T1-006", "reason": "..."}
-```
-
-| Agent | Writes To | Cannot Write |
-|---|---|---|
-| **SDET_Agent** | `tests/**`, `conftest.py` | `.github/**`, `*.yml`, `Dockerfile`, `src/**` |
-| **SRE_Agent** | `.github/**`, `*.sh`, `Makefile`, `Dockerfile` | `src/**`, `tests/**`, `frontend/**` |
-| **Fullstack_Agent** | `src/**`, `frontend/**`, `api/**` | `.github/**`, `tests/**`, `Dockerfile` |
-| **DevOps_Agent** | `k8s/**`, `terraform/**`, `.github/workflows/**` | `src/**`, `tests/**` |
-| **Compliance_Agent** | — *(read-only enforced)* | Everything |
-| **QA_Agent** | `reports/**`, `qa/**` | `src/**`, `tests/**`, infrastructure |
-| **Performance_Agent** | `benchmarks/**`, `reports/**` | `src/**`, `tests/**`, infrastructure |
-| **RedTeam_Agent** | `.agenticqa/red_team_patterns.json`, `.agenticqa/constitutional_proposals.json` | `constitutional_gate.py`, `constitution.yaml` *(T1-005)* |
+The factory automatically inserts the agent's capabilities into the Task-Agent Ontology — new agent types are instantly routable without any manual YAML edits.
 
 ---
 
 ### 🧠 Agents That Learn — Without Retraining
 
-The platform uses **Case-Based Reasoning (CBR)** — deterministic pattern matching against historical embeddings instead of expensive LLM inference. Every deployment teaches the agents. No retraining. No drift.
+**Case-Based Reasoning (CBR)** — deterministic pattern matching against historical embeddings. No retraining. No drift.
 
 | | LLM-Based Agents | AgenticQA |
 |---|---|---|
@@ -193,143 +272,84 @@ The platform uses **Case-Based Reasoning (CBR)** — deterministic pattern match
 | **Latency** | 2–5 seconds | **10–50ms** |
 | **Deterministic?** | No | **Yes** |
 | **Works offline?** | No | **Yes** |
-| **Explainable decisions?** | No | **Yes** |
 | **Gets better over time?** | Requires retraining | **Automatic** |
 
-**The closed ML learning loop (5 phases):**
-
-1. **Feedback loop** — every RAG retrieval is tracked by doc ID; outcomes boost or penalize future retrieval scores; results are reranked before each decision
-2. **Adaptive thresholds** — `ThresholdCalibrator` replaces hardcoded similarity thresholds with calibration-informed values from live outcome data
-3. **Pattern-driven execution** — agents query EWMA flakiness trends and failure patterns before acting; cautious strategy activates automatically when failure rate >30%
-4. **GraphRAG-informed delegation** — `delegate_to_agent()` consults Neo4j failure risk prediction before routing; outcome recorded to `OutcomeTracker`
-5. **Adaptive strategy selection** — agents choose `aggressive` (≥85% success), `standard`, or `conservative` (≤60%) strategies; confidence multipliers adjust automatically
+**The closed ML learning loop (5 phases):** Feedback loop → Adaptive thresholds → Pattern-driven execution → GraphRAG-informed delegation → Adaptive strategy selection (aggressive / standard / conservative).
 
 ---
 
 ### 🏥 DataflowHealthMonitor — Ontology-Aware Infra Health
 
-Most health checks tell you "the database is down." AgenticQA's monitor tells you **which of the 8 agents are degraded and why** — because it reads the Task-Agent Ontology to map infrastructure failures directly to affected capabilities:
-
 ```bash
-# CLI — instant health check
 python -m agenticqa.monitoring.dataflow_health
+# → ✅ qdrant        vector_store   healthy   786 pts  (critical)
+# → ✅ weaviate      vector_store   healthy   v1.27.0  (secondary)
+# → ✅ neo4j         graph_db       healthy   delegation store
+# → ✅ artifact_store file_system   healthy   1534 artifacts
 
-# → ✅ qdrant       vector_store   healthy   786 pts  (critical)
-# → ✅ weaviate     vector_store   healthy   v1.27.0  (secondary)
-# → ✅ neo4j        graph_db       healthy   delegation store
-# → ✅ artifact_store file_system  healthy   1534 artifacts
-# → ✅ learning_metrics file_system healthy  metrics history
-
-# API
 curl http://localhost:8000/api/health/dataflow
 # → {"healthy": true, "broken_nodes": [], "affected_agents": {}}
 ```
 
-When Qdrant goes down, the response names all 8 agents as affected. When Neo4j fails, it names only the 4 delegation-capable agents (Compliance, SDET, Fullstack, DevOps) — not SRE or Performance which don't use graph traversal. **The monitor knows the difference because it reads the same ontology the agents use.**
-
-Weaviate version detection is built in: version < 1.27.0 is flagged as a critical failure with the message *"RAG writes will be silently discarded"* — the exact root cause that caused months of silent data loss before this was built.
-
-```python
-# Probes injected for full testability — no real infrastructure needed in CI
-monitor = DataflowHealthMonitor(probes={
-    "qdrant": my_probe,
-    "weaviate": my_probe,
-    ...
-})
-report = monitor.check_all()
-report.to_dict()  # JSON-serializable; 503 from /api/health/dataflow if broken
-```
+When Qdrant goes down, the response names all 8 agents as affected. When Neo4j fails, it names only the 4 delegation-capable agents. **The monitor reads the same ontology the agents use.**
 
 ---
 
-### 📊 SARIF 2.1.0 Export — AgenticQA Findings in GitHub Code Scanning
+### 📊 SARIF 2.1.0 Export — Findings in GitHub Code Scanning
 
-AgenticQA findings now appear natively in **GitHub's Code Scanning dashboard** alongside CodeQL — with rule IDs, line numbers, security-severity scores, and help links:
+AgenticQA findings appear natively in **GitHub's Code Scanning dashboard** alongside CodeQL — with rule IDs, line numbers, and security-severity scores:
 
 ```bash
-# Convert any combination of agent outputs to SARIF
-python -m agenticqa.export.sarif \
-  --sre sre-output.json \
-  --compliance compliance-output.json \
-  --redteam redteam-output.json \
-  --out results.sarif
-
-# Or via API
-curl -X POST http://localhost:8000/api/export/sarif \
-  -H "Content-Type: application/json" \
-  -d '{"sre": {...}, "compliance": {...}, "repo_root": "."}'
+python -m agenticqa.export.sarif --sre sre-output.json --compliance compliance-output.json \
+  --redteam redteam-output.json --out results.sarif
 ```
 
-SARIF output includes security-severity scores mapped to CVSS-like values — `B602` (subprocess shell=True) scores `9.5`, `SC2086` (unquoted variable / word splitting risk) scores `5.0`, `reachable_cve` scores `9.0`. GitHub renders these in the Security tab with direct code location links.
-
-The CI pipeline now uploads SARIF on every push via `github/codeql-action/upload-sarif@v3`.
-
----
-
-### 🐚 Shellcheck Integration — Shell Script Security in the Learning Loop
-
-SREAgent now lints `.sh` files automatically using `shellcheck --format=json`:
-
-```python
-sre.execute({"errors": [], "repo_path": "."})
-# → {"shell_errors": [
-#     {"rule": "SC2086", "file": "deploy.sh", "line": 12, "col": 6,
-#      "message": "Double quote to prevent globbing and word splitting.",
-#      "severity": "warning"}
-#   ], "shell_error_count": 1}
-```
-
-Shell findings flow into the same ARCHITECTURAL_RULES exclusion system as Python linting — `SC2046` (unquoted command substitution) and `SC2206` (array split) are classified as architectural violations excluded from the fix rate, while `SC2086` (unquoted variable) is in `_SC_SECURITY` and gets a `5.0` security-severity score in SARIF. All shell findings are ingested into the learning system for trend tracking.
+**25+ SARIF security-severity mappings** — linting, shell, bandit, CVE, legal risk, HIPAA PHI, prompt injection, EU AI Act, and AI Output Provenance (`UNATTESTED_OUTPUT = 8.5`).
 
 ---
 
 ## The System
 
-Eight specialized agents collaborate under constitutional governance across your entire CI/CD pipeline:
+Eight specialized agents under constitutional governance across your entire CI/CD pipeline:
 
 ```
   Natural-language prompt / CI trigger
          │
          ▼
   ┌─────────────────────────────────────────────────┐
-  │            ConstitutionalGate                   │
-  │   Every action checked: ALLOW / DENY first      │
-  │   Semantic aliases · typo-resistant · <5ms      │
-  └────────────────────┬────────────────────────────┘
-                       │
-         ┌─────────────┼──────────────────┐
-         ▼             ▼                  ▼
-    ┌─────────┐   ┌─────────┐  ┌──────────┐  ┌──────────┐
-    │  SDET   │   │   QA    │  │ Fullstack│  │ RedTeam  │
-    │  Agent  │   │  Agent  │  │  Agent   │  │  Agent   │
-    └────┬────┘   └─────────┘  └────┬─────┘  └────┬─────┘
-         │    Self-Healing           │   Factory   │ Adversarial
-    delegates   Test Repair      validates      probes + patches
-         ▼                          ▼              ▼
-    ┌─────────┐              ┌────────────┐   .agenticqa/
-    │   SRE   │              │ Compliance │   red_team_patterns.json
-    │  Agent  │              │   Agent    │   constitutional_proposals.json
-    └─────────┘              └─────┬──────┘
-                                   │
-                             consults
-                                   ▼
-                             ┌──────────┐   ┌─────────┐
-                             │  DevOps  │   │  Perf   │
-                             │  Agent   │   │  Agent  │
-                             └──────────┘   └─────────┘
-         │
-         ▼
-  ┌─────────────────────────────────────────────────┐
-  │              Hybrid RAG Layer                   │
-  │  Weaviate (vectors) + Neo4j (graphs) + SQLite   │
-  │  "What has worked? Who succeeded? How often?"   │
+  │  ConstitutionalGate + OutputScanner (Red Team)  │
+  │  pre-action ALLOW/DENY · 4-pass decode · <5ms   │
   └─────────────────────────────────────────────────┘
          │
+    ┌────┴──────────────────────────────────────┐
+    ▼            ▼            ▼            ▼
+  SDET         QA        Fullstack     RedTeam
+  Agent       Agent       Agent        Agent
+    │                                    │
+ delegates                          Adversarial
+    ▼                              probes + patches
+   SRE    ←──── Self-Healing ────────────┘
+  Agent          CI Repair
+    │
+    ▼
+  Compliance  ── Legal Risk · HIPAA · EU AI Act ──▶ violations[]
+  Agent            provenance + regression
+    │
+    ▼
+  DevOps   Performance
+  Agent      Agent
+         │
          ▼
-  Observability Store → Audit Report → PR artifact
+  Hybrid RAG Layer
+  Qdrant (primary) · Neo4j (graph) · SQLite
+  ┌─ Model Regression Snapshots ─────────────────┐
+  │  BaseAgent auto-captures every success        │
+  │  OutputProvenanceLogger signs every output    │
+  └──────────────────────────────────────────────┘
+         │
+         ▼
+  SARIF → GitHub Code Scanning + PR Comment
 ```
-
-**Delegation is governed.** Max depth 3, circular-dependency detection, budget controls, and Neo4j-backed delegation recommendations with failure risk prediction.
 
 ---
 
@@ -337,16 +357,16 @@ Eight specialized agents collaborate under constitutional governance across your
 
 | Capability | What Happens | Measured Result |
 |---|---|---|
-| **Self-Healing** | SRE detects linting errors across 10+ languages, retrieves proven fixes, commits | 90% of errors fixed autonomously |
-| **Test Repair** | SRE generates + sandbox-validates test fixes via Haiku; auto-applies on green | Failing tests repaired without human intervention |
-| **Coverage Intelligence** | SDET identifies gaps, prioritizes by business criticality, lowers threshold on flakiness | 100% of critical gaps detected |
-| **Performance Regression** | Performance agent flags latency >2× baseline before deploy | Catches regressions CI would miss |
-| **Code Generation** | Fullstack generates from prompt → compliance → tests → commit | 80% of simple features automated |
-| **Agent Factory** | Plain-English description → governed, scaffolded agent class in seconds | Zero boilerplate for new agent types |
-| **Red Team Hardening** | 20 adversarial bypass attempts; patches scanner; proposes constitutional amendments | gate_strength 100%, scanner_strength 64%+ |
-| **Pattern Learning** | Closed feedback loop: boost/penalize docs, adaptive thresholds, strategy selection | 96% confidence after 50 deployments |
-| **Self-Validation** | Nightly pipeline injects intentional errors to verify agents | 99.5% pipeline uptime |
-| **Constitutional Enforcement** | Pre-action check before every destructive or sensitive operation | Zero unauthorized destructive actions |
+| **Self-Healing** | SRE detects linting errors, retrieves fixes, commits | 90% of errors fixed autonomously |
+| **Test Repair** | Haiku generates + sandbox-validates; auto-applies on green | Failing tests repaired without human intervention |
+| **Prompt Injection Detection** | Static scan for injection surface on every CI run | 4 rule categories, SARIF-native, surface score 0–1 |
+| **HIPAA Compliance** | PHI_HARDCODED, PHI_TO_LLM, HIPAA_AUDIT_MISSING on every run | Catches credential/PHI violations CI misses |
+| **EU AI Act Readiness** | Annex III classification + Art.9/13/14/22 conformity evidence | 4-article audit, conformity_score 0–1 |
+| **Output Provenance** | HMAC-SHA256 signed on every agent execution | Full chain of custody for every AI output |
+| **Model Regression** | Golden snapshot + cosine similarity on model swaps | Regression detected before deployment |
+| **Red Team Hardening** | 20 adversarial bypass attempts, patches scanner, proposes amendments | gate_strength 100%, scanner_strength 64%+ |
+| **Pattern Learning** | Closed feedback loop: boost/penalize docs, adaptive thresholds | 96% confidence after 50 deployments |
+| **Constitutional Enforcement** | Pre-action check before every destructive operation | Zero unauthorized destructive actions |
 
 ---
 
@@ -358,15 +378,15 @@ streamlit run dashboard/app.py
 
 | Page | What It Shows |
 |---|---|
-| **Operator Console** | Prompt intake → approve → queue → execute → replay. Trace explorer with timeline, span tree, counterfactuals, audit report generator |
-| **Governance** | Agent Constitution viewer (all Tier 1/2/3 laws), interactive pre-action check simulator, Agent Scopes browser (per-agent file access matrix + live scope checker) |
-| **System Overview** | Stack anatomy, framework matrix, test coverage, LOC breakdown, live agent metrics |
+| **Operator Console** | Prompt intake → approve → queue → execute → replay. Trace explorer with timeline, audit report generator |
+| **Governance** | Agent Constitution viewer, interactive pre-action check simulator, Agent Scopes browser |
+| **System Overview** | Stack anatomy, framework matrix, test coverage, live agent metrics |
 | **Collaboration** | Interactive delegation network graph + chain traces |
 | **Performance** | Bottleneck detection, latency trends, per-agent health scores |
 | **GraphRAG** | Hybrid RAG architecture diagram + live recommendation engine |
 | **Ontology** | Design-vs-reality — intended paths vs. actual delegation usage |
 | **Pipeline** | Data flow, 6-layer security architecture, API connectivity tester |
-| **Red Team** | Mode/target/auto_patch controls · scanner_strength + gate_strength gauges · vulnerability table · proposed constitutional amendments |
+| **Red Team** | Mode/target/auto_patch controls · scanner + gate strength gauges · vulnerability table · prompt injection findings |
 
 ---
 
@@ -380,7 +400,7 @@ pip install -e .
 # Start infrastructure (optional — most features work without it)
 docker compose -f docker-compose.weaviate.yml up -d
 
-# Run 531+ unit tests
+# Run 632+ unit tests
 pytest tests/ -m unit -v
 
 # Launch control plane
@@ -395,17 +415,7 @@ streamlit run dashboard/app.py
 ```bash
 agenticqa bootstrap --repo .          # generate CI wiring + config
 agenticqa ingest-junit results.xml    # convert existing test output
-agenticqa doctor --repo .             # readiness check with copy-paste fix commands
-```
-
-### Install only what you need
-
-```bash
-pip install -e .                            # core (no heavy deps)
-pip install -e .[graph]                     # + Neo4j delegation intelligence
-pip install -e .[rag]                       # + Weaviate/Qdrant vector retrieval
-pip install -e .[dashboard,graph]           # + full dashboard
-pip install -e .[dev,quality,rag,graph]     # full validation stack
+agenticqa doctor --repo .             # readiness check with fix commands
 ```
 
 ---
@@ -413,74 +423,67 @@ pip install -e .[dev,quality,rag,graph]     # full validation stack
 ## Core API
 
 **Governance**
-- `GET  /api/system/constitution` — machine-readable law set; queryable by any agent platform
-- `POST /api/system/constitution/check` — pre-action check: returns `ALLOW / REQUIRE_APPROVAL / DENY`
-- `GET  /api/system/agent-scopes` — all declared agent file scopes (8 agents)
-- `POST /api/system/agent-scopes/check` — scope check: `ALLOW / DENY` for agent × action × file path
+- `GET  /api/system/constitution` — machine-readable law set
+- `POST /api/system/constitution/check` — pre-action check: `ALLOW / REQUIRE_APPROVAL / DENY`
+- `GET  /api/system/agent-scopes` — per-agent file access scopes (8 agents)
+- `POST /api/system/agent-scopes/check` — scope check for agent × action × file path
+
+**Compliance & Regulatory Scanning**
+- `GET  /api/compliance/legal-risk` — credentials, PII docs, privilege breach, SSRF, missing auth
+- `GET  /api/compliance/hipaa` — PHI_HARDCODED, PHI_TO_LLM, PHI_IN_LOGS, HIPAA_AUDIT_MISSING
+- `GET  /api/compliance/ai-act` — EU AI Act Annex III classification + Art.9/13/14/22 conformity score
+
+**Security & Adversarial**
+- `POST /api/red-team/scan` — adversarial scan (mode: fast|thorough, target: scanner|gate|both, auto_patch: bool)
+- `GET  /api/redteam/prompt-injection` — static prompt injection surface scan (4 rules, SARIF-native)
+- `POST /api/export/sarif` — convert agent results to SARIF 2.1.0 for GitHub Code Scanning
+
+**AI Output Provenance**
+- `GET  /api/provenance/verify` — verify output hash against signed provenance log
+- `GET  /api/provenance/chain` — last N provenance records for an agent
+
+**Model Regression**
+- `GET  /api/regression/compare` — cosine similarity between baseline and candidate model outputs
 
 **Observability & Auditing**
-- `GET  /api/observability/traces/{id}/audit-report` — PASS/FAIL compliance artifact with stable audit ID
+- `GET  /api/observability/traces/{id}/audit-report` — forensic compliance artifact with stable audit ID
 - `GET  /api/observability/traces/{id}/counterfactuals` — "what should the agent have done?" analysis
-- `GET  /api/observability/traces/{id}/analysis` — span tree, critical path, completeness, orphan detection
-- `GET  /api/observability/agent-complexity` — per-agent retrieval quality trends + anomaly flags
-- `GET  /api/observability/quality` — CI-grade trace quality gate
-- `GET  /api/observability/insights` — root-cause distribution and policy-impact analytics
-
-**Cross-Platform Ingestion**
-- `POST /api/observability/ingest` — ingest one event from LangGraph, CrewAI, AutoGen, or custom
-- `POST /api/observability/ingest/batch` — bulk ingest; returns per-event status array
+- `GET  /api/health/dataflow` — ontology-aware infra health; 503 on critical failure
 
 **Agent Factory**
-- `POST /api/agent-factory/from-prompt` — natural-language description → spec → scaffold → persisted agent
-
-**Red Team**
-- `POST /api/red-team/scan` — adversarial scan (mode: fast|thorough, target: scanner|gate|both, auto_patch: bool)
-
-**Security Output**
-- `POST /api/export/sarif` — convert SRE/Compliance/RedTeam results to SARIF 2.1.0 for GitHub Code Scanning
-- `GET  /api/health/dataflow` — ontology-aware infra health; names affected agents; 503 on critical failure
-
-**Workflow Control Plane**
-- `POST /api/workflows/requests` — submit prompt-driven workflow
-- `POST /api/workflows/requests/{id}/approve` — human approval gate
-- `POST /api/workflows/worker/run/{id}` — execute governed workflow
-- `GET  /api/workflows/metrics` — MTTR, pass-rate uplift, flaky-reduction outcomes
-- `GET  /api/workflows/evidence` — claims-to-evidence bundle for client-facing ROI proof
-- `GET  /api/workflows/portability-scorecard` — repo portability scoring with baseline delta
+- `POST /api/agent-factory/from-prompt` — natural-language description → scaffold → persisted agent
 
 ---
 
 ## Security Architecture
 
-Every agent execution passes through 6 validation layers plus a constitutional layer and adversarial hardening:
-
 ```
   ┌──────────────────────────────────────────────────────────┐
   │  0. Constitutional Gate                                  │
   │     pre-action ALLOW/DENY · 6 Tier 1 laws · agent scopes│
-  │     semantic alias sets · typo-resistant action matching │
   ├──────────────────────────────────────────────────────────┤
   │  0b. OutputScanner (Red Team hardened)                   │
   │     4-pass decode: raw → NFKC → base64 → URL            │
-  │     13 danger patterns · auto-learns from red team runs  │
+  │     13 danger patterns + learned bypass patterns         │
   ├──────────────────────────────────────────────────────────┤
-  │  1. CI/CD Pipeline Gate                                  │
-  │     16 jobs · 3 Python versions · final deployment gate  │
+  │  0c. Static Security Scanners (ComplianceAgent)          │
+  │     Legal Risk · HIPAA PHI · Prompt Injection · EU AI Act│
+  │     25+ SARIF rules · pure-Python · sub-second           │
   ├──────────────────────────────────────────────────────────┤
-  │  2. Delegation Guardrails                                │
-  │     max depth=3 · max total=5 · timeout=30s · whitelist  │
+  │  0d. AI Output Provenance                                │
+  │     HMAC-SHA256 sign · tamper detection · chain of custody│
   ├──────────────────────────────────────────────────────────┤
-  │  3. Task-Agent Ontology                                  │
-  │     20 task types · confidence scoring · 70% min success │
+  │  1. CI/CD Pipeline Gate (16 jobs)                        │
+  ├──────────────────────────────────────────────────────────┤
+  │  2. Delegation Guardrails (max depth=3 · whitelist)      │
+  ├──────────────────────────────────────────────────────────┤
+  │  3. Task-Agent Ontology (20 task types · 70% min success)│
   ├──────────────────────────────────────────────────────────┤
   │  4. Schema & PII Validation                              │
-  │     4 PII patterns · schema compliance · encryption      │
   ├──────────────────────────────────────────────────────────┤
   │  5. Data Quality Testing                                 │
-  │     10 tests · integrity checks · temporal consistency   │
   ├──────────────────────────────────────────────────────────┤
-  │  6. Immutability & Integrity                             │
-  │     SHA-256 hashing · duplicate detection · verification │
+  │  6. Immutability & Integrity (SHA-256 · duplicate detect)│
   └──────────────────────────────────────────────────────────┘
 ```
 
@@ -492,20 +495,24 @@ Every agent execution passes through 6 validation layers plus a constitutional l
 |---|---|
 | **Agent Governance** | Constitution YAML + ConstitutionalGate (semantic alias enforcement, typo-resistant) |
 | **Adversarial Hardening** | RedTeamAgent · AdversarialGenerator · PatternPatcher · OutputScanner (4-pass) |
+| **Prompt Injection** | PromptInjectionScanner (4 rules) · SARIF PROMPT_INJECTION_SURFACE=9.5 |
+| **Legal & HIPAA** | LegalRiskScanner · HIPAAPHIScanner · SARIF-native · pure-Python |
+| **EU AI Act** | AIActComplianceChecker · Annex III classifier · Art.9/13/14/22 checks |
+| **AI Output Provenance** | OutputProvenanceLogger · HMAC-SHA256 · JSONL chain · verify API |
+| **Model Regression** | ModelRegressionTester · GoldenSnapshot · fastembed → TF-IDF cosine fallback |
 | **Agent Factory** | NaturalLanguageSpecExtractor · Claude Haiku (spec extraction) · scaffold generator |
 | **Self-Healing CI** | SREAgent._attempt_test_repair · SubprocessRunner sandbox · Haiku-generated patches |
 | **Infra Health** | DataflowHealthMonitor · ontology-aware probes · Weaviate version detection |
-| **Security Output** | SARIFExporter · SARIF 2.1.0 · GitHub Code Scanning upload · shellcheck SC codes |
-| **Shell Linting** | shellcheck (SC codes) · SREAgent._run_shell_linter · ARCHITECTURAL_RULES exclusion |
-| **Vector DB** | Qdrant (primary) / Weaviate 1.27.0+ (secondary, pluggable) |
+| **Security Output** | SARIFExporter · SARIF 2.1.0 · GitHub Code Scanning · 25+ severity mappings |
+| **Shell Linting** | shellcheck (SC codes) · SREAgent._run_shell_linter |
+| **Vector DB** | Qdrant (primary) / Weaviate 1.27.0+ (secondary) |
 | **Graph DB** | Neo4j |
 | **Relational DB** | SQLite / PostgreSQL |
-| **Embeddings** | Sentence-Transformers |
-| **Quality Metrics** | Ragas |
-| **API** | FastAPI + Pydantic (54 endpoints) |
+| **Embeddings** | fastembed (local) / Sentence-Transformers |
+| **API** | FastAPI + Pydantic (60+ endpoints) |
 | **Dashboard** | Streamlit + Plotly (9 pages) |
-| **CI/CD** | GitHub Actions (16 jobs, SARIF upload, nightly self-validation, data-to-learning ingestion) |
-| **Testing** | Pytest (531+ unit tests), Playwright, Pa11y |
+| **CI/CD** | GitHub Actions (16 jobs, SARIF upload, nightly self-validation) |
+| **Testing** | Pytest (632+ unit tests) |
 | **Language** | Python 3.8+ |
 
 ---
@@ -516,28 +523,30 @@ Every agent execution passes through 6 validation layers plus a constitutional l
 AgenticQA/
 ├── src/agenticqa/
 │   ├── constitution.yaml        # Agent Constitution — versioned, machine-readable law set
-│   ├── agent_scopes.yaml        # Per-agent file access scopes (T1-006) — 8 agents declared
+│   ├── agent_scopes.yaml        # Per-agent file access scopes (8 agents)
 │   ├── constitutional_gate.py   # Pre-action enforcement: ALLOW / REQUIRE_APPROVAL / DENY
 │   ├── audit_report.py          # Forensic compliance artifact builder (PR-embeddable)
 │   ├── observability.py         # SQLite store: complexity tracking, anomaly detection
-│   ├── ingestion/               # Cross-platform adapters: LangChain, CrewAI, AutoGen, REST
+│   ├── security/                # LegalRiskScanner · HIPAAPHIScanner · PromptInjectionScanner · CVEReachability
+│   ├── compliance/              # AIActComplianceChecker (EU AI Act) · ComplianceDriftDetector
+│   ├── provenance/              # OutputProvenanceLogger · HMAC-SHA256 signing · verify API
+│   ├── regression/              # ModelRegressionTester · GoldenSnapshot · cosine similarity
 │   ├── verification/            # Feedback loop, outcome tracker, threshold calibrator
-│   ├── graph/                   # Neo4j: delegation store, GraphRAG, failure risk prediction
+│   ├── graph/                   # Neo4j: delegation store, GraphRAG, temporal violation store
 │   ├── rag/                     # Weaviate/Qdrant: vector retrieval, reranking
 │   ├── collaboration/           # Agent delegation, registry, guardrails
-│   ├── data_store/              # Artifact store, snapshots, security, EWMA pattern analyzer
 │   ├── redteam/                 # AdversarialGenerator (20 techniques) · PatternPatcher
 │   ├── factory/                 # NaturalLanguageSpecExtractor · agent scaffold generator
 │   │   └── sandbox/             # SubprocessRunner · OutputScanner (4-pass decode)
-│   ├── monitoring/              # DataflowHealthMonitor · 5 probes · ontology-aware agent impact
-│   ├── export/                  # SARIFExporter · SARIF 2.1.0 · GitHub Code Scanning
+│   ├── monitoring/              # DataflowHealthMonitor · 5 probes · ontology-aware impact
+│   ├── export/                  # SARIFExporter · SARIF 2.1.0 · 25+ severity mappings
 │   └── cli.py                   # CLI: bootstrap, doctor, ingest-junit
 ├── dashboard/                   # 9-page Streamlit analytics dashboard
-├── agent_api.py                 # FastAPI control plane (52 endpoints)
+├── agent_api.py                 # FastAPI control plane (60+ endpoints)
 ├── src/agents.py                # 8 agents: QA, Performance, Compliance, DevOps, SRE, SDET, Fullstack, RedTeam
-├── ingest_ci_artifacts.py       # CI data bridge — ESLint, red-team, migration results → learning system
-├── tests/                       # 830+ tests — unit, integration, governance, red team, agent factory
-└── .github/workflows/           # 16-job CI pipeline + nightly self-validation benchmark
+├── ingest_ci_artifacts.py       # CI data bridge — ESLint, red-team, migration → learning system
+├── tests/                       # 632+ unit tests — governance, red team, HIPAA, EU AI Act, provenance
+└── .github/workflows/           # 16-job CI pipeline + nightly self-validation
 ```
 
 ---
