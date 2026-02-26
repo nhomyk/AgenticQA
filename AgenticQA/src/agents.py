@@ -431,6 +431,20 @@ class BaseAgent(ABC):
             finally:
                 self._last_retrieved_doc_ids = []
 
+        # 4. Capture golden snapshot for model regression testing — non-blocking
+        if status == "success":
+            try:
+                import os as _os
+                from agenticqa.regression.model_regression import ModelRegressionTester
+                _model_id = getattr(self, "_model_id", "unknown")
+                _out_text = str(output)[:4000]
+                _run_id = _os.getenv("GITHUB_RUN_ID", "local")
+                _tester = ModelRegressionTester()
+                _tester.capture_golden(self.agent_name, _model_id, {"agent": self.agent_name},
+                                       _out_text, run_id=_run_id)
+            except Exception:
+                pass  # non-blocking
+
         return artifact_id
 
     def get_pattern_insights(self) -> Dict[str, Any]:
@@ -1036,6 +1050,44 @@ class ComplianceAgent(BaseAgent):
                     checks["total_cves"] = len(_reach.cves)
             except Exception:
                 pass  # pip-audit unavailable or import error — non-blocking
+
+            # Legal risk scan — pure Python, no external tools required
+            try:
+                from agenticqa.security.legal_risk_scanner import LegalRiskScanner
+                _legal = LegalRiskScanner().scan(compliance_data.get("repo_path", "."))
+                for _f in _legal.findings:
+                    checks["violations"].append({
+                        "type": _f.rule_id,
+                        "file": _f.file,
+                        "line": _f.line,
+                        "severity": _f.severity,
+                        "description": _f.message,
+                        "evidence": _f.evidence,
+                    })
+                checks["legal_risk_score"] = _legal.risk_score
+                checks["legal_risk_findings"] = len(_legal.findings)
+                checks["legal_critical_findings"] = len(_legal.critical_findings)
+            except Exception:
+                pass  # non-blocking
+
+            # EU AI Act compliance check — non-blocking
+            try:
+                from agenticqa.compliance.ai_act import AIActComplianceChecker
+                _ai_act = AIActComplianceChecker().check(compliance_data.get("repo_path", "."))
+                checks["ai_act_risk_category"] = _ai_act.risk_category
+                checks["ai_act_conformity_score"] = _ai_act.conformity_score
+                checks["ai_act_annex_iii"] = _ai_act.annex_iii_match
+                for _f in _ai_act.findings:
+                    if _f.status == "missing":
+                        checks["violations"].append({
+                            "type": f"AI_ACT_{_f.article.replace('.', '_')}",
+                            "severity": _f.severity,
+                            "description": f"{_f.article}: {_f.requirement}",
+                            "evidence": _f.evidence,
+                            "remediation": _f.remediation,
+                        })
+            except Exception:
+                pass  # non-blocking
 
             # Compliance drift detection — non-blocking
             try:
@@ -3021,6 +3073,21 @@ class RedTeamAgent(BaseAgent):
             "constitutional_proposals": proposals,
             "status": status,
         }
+        # Prompt injection static analysis — non-blocking
+        try:
+            from agenticqa.security.prompt_injection_scanner import PromptInjectionScanner
+            _repo_path = scan_data.get("repo_path", ".")
+            _inj = PromptInjectionScanner().scan(_repo_path)
+            result["prompt_injection_surface"] = _inj.surface_score
+            result["prompt_injection_findings"] = len(_inj.findings)
+            for _f in _inj.findings:
+                result.setdefault("vulnerabilities", []).append({
+                    "type": _f.rule_id, "file": _f.file, "line": _f.line,
+                    "severity": _f.severity, "description": _f.message,
+                })
+        except Exception:
+            pass
+
         self._record_execution("success", result, tags=["red_team", "security"])
         self.log(
             f"Red Team: {len(samples)} attempts, {len(vulnerabilities)} bypasses, "

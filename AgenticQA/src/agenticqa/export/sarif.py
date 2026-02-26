@@ -52,6 +52,23 @@ _SECURITY_SEVERITY: Dict[str, str] = {
     "B603": "7.5",    # bandit: subprocess without shell=True
     "B607": "6.0",    # bandit: start process with partial path
     "reachable_cve": "9.0",
+    # Legal risk scanner
+    "CREDENTIAL_EXPOSURE": "9.5",
+    "PRIVILEGE_BREACH":    "8.5",
+    "PII_DOCUMENT_PUBLIC": "8.0",
+    "GDPR_VIOLATION":      "7.5",
+    "NO_AUTH_ROUTE":       "7.0",
+    "SSRF_RISK":           "6.0",
+    # Prompt injection scanner
+    "PROMPT_INJECTION_SURFACE": "9.5",
+    "SYSTEM_PROMPT_OVERRIDE":   "9.0",
+    "TEMPLATE_INJECTION":       "8.0",
+    "UNVALIDATED_LLM_OUTPUT":   "7.0",
+    # EU AI Act compliance
+    "AI_ACT_Art_9":  "8.0",
+    "AI_ACT_Art_13": "7.0",
+    "AI_ACT_Art_14": "7.5",
+    "AI_ACT_Art_22": "9.0",
 }
 
 _LEVEL_MAP = {

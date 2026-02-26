@@ -1816,6 +1816,109 @@ async def cve_reachability(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/compliance/legal-risk")
+async def legal_risk_scan(repo_path: str = "."):
+    """Scan a repo for legal compliance risks: credentials, PII docs, privilege exposure, SSRF, missing auth."""
+    try:
+        from agenticqa.security.legal_risk_scanner import LegalRiskScanner
+        result = LegalRiskScanner().scan(repo_path)
+        return {
+            "success": True,
+            "risk_score": result.risk_score,
+            "total_findings": len(result.findings),
+            "critical_findings": len(result.critical_findings),
+            "scan_error": result.scan_error,
+            "findings": [
+                {
+                    "file": f.file,
+                    "line": f.line,
+                    "rule_id": f.rule_id,
+                    "severity": f.severity,
+                    "message": f.message,
+                    "evidence": f.evidence,
+                }
+                for f in result.findings
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/regression/compare")
+async def regression_compare(
+    agent: str,
+    baseline_model: str,
+    candidate_model: str,
+    candidate_output: str = "",
+    run_id: str = "local",
+):
+    """Compare a candidate model output against the stored golden snapshot."""
+    try:
+        from agenticqa.regression.model_regression import ModelRegressionTester
+        tester = ModelRegressionTester()
+        result = tester.compare(
+            agent_name=agent,
+            baseline_model=baseline_model,
+            candidate_model=candidate_model,
+            candidate_output=candidate_output,
+            input_data={"agent": agent},
+        )
+        return {
+            "agent": result.agent_name,
+            "baseline_model": result.baseline_model,
+            "candidate_model": result.candidate_model,
+            "similarity_score": result.similarity_score,
+            "regression_detected": result.regression_detected,
+            "threshold_used": result.threshold_used,
+            "has_baseline": result.baseline_snapshot is not None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/compliance/ai-act")
+async def ai_act_check(repo_path: str = "."):
+    """Check EU AI Act conformity: Annex III classification + Art.9/13/14/22 evidence."""
+    try:
+        from agenticqa.compliance.ai_act import AIActComplianceChecker
+        result = AIActComplianceChecker().check(repo_path)
+        return {
+            "success": True,
+            "risk_category": result.risk_category,
+            "annex_iii_match": result.annex_iii_match,
+            "conformity_score": result.conformity_score,
+            "scan_error": result.scan_error,
+            "findings": [
+                {"article": f.article, "requirement": f.requirement, "status": f.status,
+                 "severity": f.severity, "evidence": f.evidence, "remediation": f.remediation}
+                for f in result.findings
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/redteam/prompt-injection")
+async def prompt_injection_scan(repo_path: str = "."):
+    """Scan repo for prompt injection attack surface."""
+    try:
+        from agenticqa.security.prompt_injection_scanner import PromptInjectionScanner
+        result = PromptInjectionScanner().scan(repo_path)
+        return {
+            "success": True,
+            "surface_score": result.surface_score,
+            "total_findings": len(result.findings),
+            "scan_error": result.scan_error,
+            "findings": [
+                {"file": f.file, "line": f.line, "rule_id": f.rule_id,
+                 "severity": f.severity, "message": f.message, "evidence": f.evidence}
+                for f in result.findings
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/temporal/violations")
 async def temporal_violations(
     repo_id: str,
