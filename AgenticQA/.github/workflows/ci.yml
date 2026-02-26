@@ -1314,6 +1314,59 @@ jobs:
           pip install pip-audit --quiet || true
           python scripts/ci_compliance_drift.py || echo "⚠️ CVE/drift scan skipped"
 
+      - name: "🛡️ Run static compliance scanners (Legal Risk + HIPAA + EU AI Act)"
+        continue-on-error: true
+        run: |
+          python -c "
+          import json, sys
+          sys.path.insert(0, 'src')
+          results = {}
+          try:
+              from agenticqa.security.legal_risk_scanner import LegalRiskScanner
+              r = LegalRiskScanner().scan('.')
+              results['legal'] = {'risk_score': r.risk_score, 'total': len(r.findings), 'critical': len(r.critical_findings)}
+          except Exception as e:
+              results['legal'] = {'error': str(e)}
+          try:
+              from agenticqa.security.hipaa_phi_scanner import HIPAAPHIScanner
+              r = HIPAAPHIScanner().scan('.')
+              results['hipaa'] = {'risk_score': r.risk_score, 'total': len(r.findings), 'critical': len(r.critical_findings)}
+          except Exception as e:
+              results['hipaa'] = {'error': str(e)}
+          try:
+              from agenticqa.compliance.ai_act import AIActComplianceChecker
+              r = AIActComplianceChecker().check('.')
+              results['ai_act'] = {'risk_category': r.risk_category, 'conformity_score': r.conformity_score, 'annex_iii': r.annex_iii_match}
+          except Exception as e:
+              results['ai_act'] = {'error': str(e)}
+          print(json.dumps(results, indent=2))
+          " > compliance-static-scan.json 2>/dev/null || echo '{"error": "scan failed"}' > compliance-static-scan.json
+
+          echo "## 🛡️ Static Compliance Scan" >> $GITHUB_STEP_SUMMARY
+          python -c "
+          import json
+          try:
+              data = json.load(open('compliance-static-scan.json'))
+              legal = data.get('legal', {})
+              hipaa = data.get('hipaa', {})
+              ai_act = data.get('ai_act', {})
+              print('| Scanner | Risk Score | Findings | Critical/Category |')
+              print('|---|---|---|---|')
+              print(f'| Legal Risk | {legal.get(\"risk_score\", \"err\")} | {legal.get(\"total\", \"err\")} | {legal.get(\"critical\", \"err\")} |')
+              print(f'| HIPAA PHI | {hipaa.get(\"risk_score\", \"err\")} | {hipaa.get(\"total\", \"err\")} | {hipaa.get(\"critical\", \"err\")} |')
+              print(f'| EU AI Act | {ai_act.get(\"conformity_score\", \"err\")} | {ai_act.get(\"risk_category\", \"err\")} | {ai_act.get(\"annex_iii\", [])} |')
+          except Exception as e:
+              print(f'Parse error: {e}')
+          " >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Upload static compliance scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-static-scan
+          path: compliance-static-scan.json
+          retention-days: 30
+
       - name: Check for compliance critical issues
         run: |
           if grep -q "🔴 Critical Issues.*must be resolved" compliance-audit-report.md; then
@@ -1707,6 +1760,8 @@ jobs:
               ('Patches Applied',  data['patches_applied']),
               ('Proposals Generated', data['proposals_generated']),
               ('Status',           data['status']),
+              ('Prompt Injection Surface', f'{data.get(\"prompt_injection_surface\", 0):.0%}'),
+              ('Injection Findings', data.get('prompt_injection_findings', 0)),
           ]
           print('| Metric | Value |')
           print('|---|---|')
