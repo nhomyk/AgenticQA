@@ -445,6 +445,24 @@ class BaseAgent(ABC):
             except Exception:
                 pass  # non-blocking
 
+        # 5. Sign output for provenance chain — non-blocking
+        if status == "success":
+            try:
+                import os as _os
+                from agenticqa.provenance.output_provenance import OutputProvenanceLogger
+                _model_id = getattr(self, "_model_id", "unknown")
+                _out_text = str(output)[:4000]
+                _run_id = _os.getenv("GITHUB_RUN_ID", "local")
+                OutputProvenanceLogger().sign_and_log(
+                    agent_name=self.agent_name,
+                    model_id=_model_id,
+                    output_text=_out_text,
+                    run_id=_run_id,
+                    input_data={"agent": self.agent_name},
+                )
+            except Exception:
+                pass  # non-blocking
+
         return artifact_id
 
     def get_pattern_insights(self) -> Dict[str, Any]:

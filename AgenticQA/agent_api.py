@@ -1876,6 +1876,48 @@ async def regression_compare(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/provenance/verify")
+async def provenance_verify(output_hash: str, agent: str):
+    """Verify an AI output hash against the provenance log."""
+    try:
+        from agenticqa.provenance.output_provenance import OutputProvenanceLogger
+        result = OutputProvenanceLogger().verify_by_hash(output_hash, agent)
+        return {
+            "valid": result.valid,
+            "reason": result.reason,
+            "record": {
+                "output_hash": result.record.output_hash,
+                "model_id": result.record.model_id,
+                "agent_name": result.record.agent_name,
+                "timestamp": result.record.timestamp,
+                "run_id": result.record.run_id,
+                "output_length": result.record.output_length,
+            } if result.record else None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/provenance/chain")
+async def provenance_chain(agent: str, limit: int = 20):
+    """Return the most-recent provenance records for an agent."""
+    try:
+        from agenticqa.provenance.output_provenance import OutputProvenanceLogger
+        records = OutputProvenanceLogger().get_chain(agent, limit=limit)
+        return {
+            "agent": agent,
+            "count": len(records),
+            "records": [
+                {"output_hash": r.output_hash, "model_id": r.model_id,
+                 "timestamp": r.timestamp, "run_id": r.run_id,
+                 "output_length": r.output_length}
+                for r in records
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/compliance/hipaa")
 async def hipaa_phi_scan(repo_path: str = "."):
     """Scan repo for HIPAA PHI risks: hardcoded SSN/DOB/MRN, PHI in logs, PHI to LLM, missing audit."""

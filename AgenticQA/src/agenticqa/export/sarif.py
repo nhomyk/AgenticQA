@@ -70,6 +70,8 @@ _SECURITY_SEVERITY: Dict[str, str] = {
     "PHI_DOCUMENT_PUBLIC": "9.0",
     "PHI_IN_LOGS":         "8.0",
     "HIPAA_AUDIT_MISSING": "7.5",
+    # AI Output Provenance
+    "UNATTESTED_OUTPUT": "8.5",
     # EU AI Act compliance
     "AI_ACT_Art_9":  "8.0",
     "AI_ACT_Art_13": "7.0",
