@@ -1876,6 +1876,28 @@ async def regression_compare(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/compliance/hipaa")
+async def hipaa_phi_scan(repo_path: str = "."):
+    """Scan repo for HIPAA PHI risks: hardcoded SSN/DOB/MRN, PHI in logs, PHI to LLM, missing audit."""
+    try:
+        from agenticqa.security.hipaa_phi_scanner import HIPAAPHIScanner
+        result = HIPAAPHIScanner().scan(repo_path)
+        return {
+            "success": True,
+            "risk_score": result.risk_score,
+            "total_findings": len(result.findings),
+            "critical_findings": len(result.critical_findings),
+            "scan_error": result.scan_error,
+            "findings": [
+                {"file": f.file, "line": f.line, "rule_id": f.rule_id,
+                 "severity": f.severity, "message": f.message, "evidence": f.evidence}
+                for f in result.findings
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/compliance/ai-act")
 async def ai_act_check(repo_path: str = "."):
     """Check EU AI Act conformity: Annex III classification + Art.9/13/14/22 evidence."""

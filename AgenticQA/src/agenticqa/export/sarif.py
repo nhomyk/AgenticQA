@@ -64,6 +64,12 @@ _SECURITY_SEVERITY: Dict[str, str] = {
     "SYSTEM_PROMPT_OVERRIDE":   "9.0",
     "TEMPLATE_INJECTION":       "8.0",
     "UNVALIDATED_LLM_OUTPUT":   "7.0",
+    # HIPAA PHI scanner
+    "PHI_HARDCODED":       "9.5",
+    "PHI_TO_LLM":          "9.0",
+    "PHI_DOCUMENT_PUBLIC": "9.0",
+    "PHI_IN_LOGS":         "8.0",
+    "HIPAA_AUDIT_MISSING": "7.5",
     # EU AI Act compliance
     "AI_ACT_Art_9":  "8.0",
     "AI_ACT_Art_13": "7.0",

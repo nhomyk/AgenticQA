@@ -1070,6 +1070,22 @@ class ComplianceAgent(BaseAgent):
             except Exception:
                 pass  # non-blocking
 
+            # HIPAA PHI scan — non-blocking
+            try:
+                from agenticqa.security.hipaa_phi_scanner import HIPAAPHIScanner
+                _hipaa = HIPAAPHIScanner().scan(compliance_data.get("repo_path", "."))
+                for _f in _hipaa.findings:
+                    checks["violations"].append({
+                        "type": _f.rule_id, "file": _f.file, "line": _f.line,
+                        "severity": _f.severity, "description": _f.message,
+                        "evidence": _f.evidence,
+                    })
+                checks["hipaa_risk_score"] = _hipaa.risk_score
+                checks["hipaa_findings"] = len(_hipaa.findings)
+                checks["hipaa_critical_findings"] = len(_hipaa.critical_findings)
+            except Exception:
+                pass  # non-blocking
+
             # EU AI Act compliance check — non-blocking
             try:
                 from agenticqa.compliance.ai_act import AIActComplianceChecker
