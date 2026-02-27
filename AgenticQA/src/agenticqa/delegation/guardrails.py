@@ -43,6 +43,15 @@ class DelegationGuardrails:
         "adversarial_test": ["RedTeam_Agent"],
         "security_probe": ["RedTeam_Agent"],
         "governance_audit": ["RedTeam_Agent", "Compliance_Agent"],
+        # MCP Security — model context protocol attack surface analysis
+        "mcp_security_scan": ["RedTeam_Agent", "Compliance_Agent"],
+        "mcp_audit": ["RedTeam_Agent"],
+        # Data flow — cross-agent sensitive data exfiltration tracing
+        "data_flow_trace": ["RedTeam_Agent"],
+        "taint_analysis": ["RedTeam_Agent", "Compliance_Agent"],
+        # AI Supply Chain — SBOM and trust graph
+        "ai_sbom": ["Compliance_Agent"],
+        "trust_graph_analysis": ["RedTeam_Agent"],
     }
 
     @classmethod

@@ -20,6 +20,7 @@ Each finding includes a full trace chain: source → intermediate hops → sink.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -224,6 +225,8 @@ class CrossAgentDataFlowTracer:
       5. Detect delegation calls that carry tainted variables
     """
 
+    _CUSTOM_PATTERNS_PATH = Path(".agenticqa") / "dataflow_patterns.json"
+
     def __init__(self) -> None:
         self._source_compiled = [
             (re.compile(p), dt, sev) for p, dt, sev in _SOURCE_PATTERNS
@@ -233,6 +236,30 @@ class CrossAgentDataFlowTracer:
         ]
         self._sanitize_compiled = [re.compile(p) for p in _SANITIZE_PATTERNS]
         self._delegation_compiled = [re.compile(p) for p in _DELEGATION_PATTERNS]
+        self._load_custom_patterns()
+
+    def _load_custom_patterns(self) -> None:
+        """Append patterns learned from past scans (.agenticqa/dataflow_patterns.json)."""
+        try:
+            if not self._CUSTOM_PATTERNS_PATH.exists():
+                return
+            data = json.loads(self._CUSTOM_PATTERNS_PATH.read_text())
+            for entry in data.get("source_patterns", []):
+                self._source_compiled.append((
+                    re.compile(entry["pattern"]),
+                    entry.get("data_type", "SECRET_SOURCE"),
+                    entry.get("severity", "medium"),
+                ))
+            for entry in data.get("sink_patterns", []):
+                self._sink_compiled.append((
+                    re.compile(entry["pattern"]),
+                    entry.get("sink_type", "SINK_CUSTOM"),
+                    entry.get("severity", "medium"),
+                ))
+            for name in data.get("sensitive_var_names", []):
+                _SENSITIVE_VAR_NAMES.add(name.lower())
+        except Exception:
+            pass  # non-blocking — never crash a scan over pattern load
 
     # ── Public API ──────────────────────────────────────────────────────────
 

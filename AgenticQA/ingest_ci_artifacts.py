@@ -470,6 +470,124 @@ class CIArtifactIngestion:
             print(f"  ❌ Failed to ingest pipeline health: {e}")
             return False
 
+    def ingest_mcp_scan(self, scan_path: str, run_id: str = None) -> bool:
+        """
+        Ingest MCP security scan results into the learning system.
+
+        Stores finding types, risk score, tools/servers scanned, and critical counts.
+        Also appends to RedTeamHistoryStore time-series so posture trends are trackable.
+        """
+        try:
+            with open(scan_path, 'r') as f:
+                scan = json.load(f)
+
+            risk_score = scan.get("risk_score", 0.0)
+            files_scanned = scan.get("files_scanned", 0)
+            tools_scanned = scan.get("tools_scanned", 0)
+            critical_count = sum(
+                1 for fnd in scan.get("findings", [])
+                if fnd.get("severity") == "critical"
+            )
+            attack_types = list({fnd.get("attack_type") for fnd in scan.get("findings", []) if fnd.get("attack_type")})
+
+            document = {
+                "artifact_type": "mcp_security_scan",
+                "timestamp": datetime.utcnow().isoformat(),
+                "run_id": run_id or "unknown",
+                "risk_score": risk_score,
+                "files_scanned": files_scanned,
+                "tools_scanned": tools_scanned,
+                "critical_count": critical_count,
+                "attack_types": attack_types,
+                "findings": scan.get("findings", []),
+                "agent_type": "red-team",
+                "tags": ["security", "mcp", "attack-surface", "red-team"]
+            }
+
+            # Update time-series history store
+            try:
+                from src.data_store.redteam_history import RedTeamHistoryStore
+                RedTeamHistoryStore().record(
+                    run_id=run_id or "unknown",
+                    mode="fast",
+                    target="mcp",
+                    mcp_risk_score=risk_score,
+                    mcp_files_scanned=files_scanned,
+                    mcp_tools_scanned=tools_scanned,
+                    mcp_critical_count=critical_count,
+                    mcp_attack_types=attack_types,
+                )
+            except Exception:
+                pass
+
+            if not self.rag:
+                return self._fallback_to_local_store("red-team", document)
+
+            self.rag.log_agent_execution("red-team", document)
+            self.ingested_count += 1
+            print(f"  ✅ Ingested MCP scan: risk={risk_score:.3f}, {tools_scanned} tools, {critical_count} critical")
+            return True
+
+        except Exception as e:
+            print(f"  ❌ Failed to ingest MCP scan: {e}")
+            return False
+
+    def ingest_data_flow_trace(self, trace_path: str, run_id: str = None) -> bool:
+        """
+        Ingest cross-agent data flow trace results into the learning system.
+
+        Stores agents analyzed, tainted variables, finding types, and risk score.
+        Also appends to RedTeamHistoryStore time-series.
+        """
+        try:
+            with open(trace_path, 'r') as f:
+                trace = json.load(f)
+
+            risk_score = trace.get("risk_score", 0.0)
+            agents_analyzed = trace.get("agents_analyzed", 0)
+            tainted_vars = trace.get("tainted_variables_detected", 0)
+            finding_types = list({fnd.get("finding_type") for fnd in trace.get("findings", []) if fnd.get("finding_type")})
+
+            document = {
+                "artifact_type": "data_flow_trace",
+                "timestamp": datetime.utcnow().isoformat(),
+                "run_id": run_id or "unknown",
+                "risk_score": risk_score,
+                "agents_analyzed": agents_analyzed,
+                "tainted_variables_detected": tainted_vars,
+                "finding_types": finding_types,
+                "findings": trace.get("findings", []),
+                "agent_type": "red-team",
+                "tags": ["security", "data-flow", "taint-analysis", "red-team"]
+            }
+
+            # Update time-series history store
+            try:
+                from src.data_store.redteam_history import RedTeamHistoryStore
+                RedTeamHistoryStore().record(
+                    run_id=run_id or "unknown",
+                    mode="fast",
+                    target="data-flow",
+                    dataflow_risk_score=risk_score,
+                    dataflow_agents_analyzed=agents_analyzed,
+                    dataflow_tainted_vars=tainted_vars,
+                    dataflow_finding_types=finding_types,
+                )
+            except Exception:
+                pass
+
+            if not self.rag:
+                return self._fallback_to_local_store("red-team", document)
+
+            self.rag.log_agent_execution("red-team", document)
+            self.ingested_count += 1
+            print(f"  ✅ Ingested data flow trace: risk={risk_score:.3f}, {agents_analyzed} agents, {tainted_vars} tainted vars")
+            return True
+
+        except Exception as e:
+            print(f"  ❌ Failed to ingest data flow trace: {e}")
+            return False
+
     def ingest_directory(self, artifact_dir: str, run_id: str = None) -> Dict[str, int]:
         """
         Ingest all artifacts from a directory.
@@ -566,6 +684,8 @@ def main():
     parser.add_argument('--test-failures', help='Path to test-failures directory')
     parser.add_argument('--pipeline-health', help='Path to pipeline health log')
     parser.add_argument('--python-audit', help='Path to pip-audit JSON output (CVE reachability)')
+    parser.add_argument('--mcp-scan', help='Path to MCP security scan JSON output')
+    parser.add_argument('--data-flow-trace', help='Path to cross-agent data flow trace JSON output')
     parser.add_argument('--run-id', help='CI run ID for tracking', default=os.getenv('GITHUB_RUN_ID', 'local'))
     parser.add_argument('--test-framework', help='Test framework name (for --test-results)', default='unknown')
 
@@ -622,12 +742,19 @@ def main():
         if args.python_audit:
             ingestion.ingest_python_audit(args.python_audit, args.run_id)
 
+        if args.mcp_scan:
+            ingestion.ingest_mcp_scan(args.mcp_scan, args.run_id)
+
+        if args.data_flow_trace:
+            ingestion.ingest_data_flow_trace(args.data_flow_trace, args.run_id)
+
     print(f"\n✅ Total artifacts ingested: {ingestion.ingested_count}")
     print("\n💡 Agents will now learn from these artifacts in future runs!")
     print("   - ComplianceAgent: Accessibility patterns & auto-fix logs")
     print("   - QA/SDET Agents: Test results & failure patterns")
     print("   - DevOps Agent: Security vulnerabilities")
     print("   - SRE Agent: Pipeline health metrics")
+    print("   - RedTeam Agent: MCP attack surface + data flow taint history")
 
     # Clean up
     ingestion.close()

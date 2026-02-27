@@ -269,6 +269,8 @@ class MCPSecurityScanner:
       5. Multi-server configs — shadow tool detection
     """
 
+    _CUSTOM_PATTERNS_PATH = Path(".agenticqa") / "mcp_patterns.json"
+
     def __init__(self) -> None:
         self._desc_compiled = [
             (re.compile(p), at, sev) for p, at, sev in _DESCRIPTION_PATTERNS
@@ -279,6 +281,28 @@ class MCPSecurityScanner:
         self._cfg_compiled = [
             (re.compile(p), at, sev) for p, at, sev in _CONFIG_PATTERNS
         ]
+        self._load_custom_patterns()
+
+    def _load_custom_patterns(self) -> None:
+        """Append patterns learned from past scans (.agenticqa/mcp_patterns.json)."""
+        try:
+            if not self._CUSTOM_PATTERNS_PATH.exists():
+                return
+            data = json.loads(self._CUSTOM_PATTERNS_PATH.read_text())
+            for entry in data.get("description_patterns", []):
+                self._desc_compiled.append((
+                    re.compile(entry["pattern"]),
+                    entry.get("attack_type", "CUSTOM"),
+                    entry.get("severity", "medium"),
+                ))
+            for entry in data.get("code_patterns", []):
+                self._code_compiled.append((
+                    re.compile(entry["pattern"]),
+                    entry.get("attack_type", "CUSTOM"),
+                    entry.get("severity", "medium"),
+                ))
+        except Exception:
+            pass  # non-blocking — never crash a scan over pattern load
 
     # ── Public API ──────────────────────────────────────────────────────────
 

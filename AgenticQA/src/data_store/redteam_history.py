@@ -47,6 +47,17 @@ class RedTeamHistoryStore:
         status: str = "clean",
         prompt_injection_surface: Optional[float] = None,
         prompt_injection_findings: Optional[int] = None,
+        # MCP security scan time-series fields
+        mcp_risk_score: Optional[float] = None,
+        mcp_files_scanned: Optional[int] = None,
+        mcp_tools_scanned: Optional[int] = None,
+        mcp_critical_count: Optional[int] = None,
+        mcp_attack_types: Optional[List[str]] = None,
+        # Cross-agent data flow time-series fields
+        dataflow_risk_score: Optional[float] = None,
+        dataflow_agents_analyzed: Optional[int] = None,
+        dataflow_tainted_vars: Optional[int] = None,
+        dataflow_finding_types: Optional[List[str]] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Append a scan snapshot. Returns the recorded dict."""
@@ -67,6 +78,24 @@ class RedTeamHistoryStore:
             snapshot["prompt_injection_surface"] = round(prompt_injection_surface, 4)
         if prompt_injection_findings is not None:
             snapshot["prompt_injection_findings"] = prompt_injection_findings
+        if mcp_risk_score is not None:
+            snapshot["mcp_risk_score"] = round(mcp_risk_score, 4)
+        if mcp_files_scanned is not None:
+            snapshot["mcp_files_scanned"] = mcp_files_scanned
+        if mcp_tools_scanned is not None:
+            snapshot["mcp_tools_scanned"] = mcp_tools_scanned
+        if mcp_critical_count is not None:
+            snapshot["mcp_critical_count"] = mcp_critical_count
+        if mcp_attack_types is not None:
+            snapshot["mcp_attack_types"] = mcp_attack_types
+        if dataflow_risk_score is not None:
+            snapshot["dataflow_risk_score"] = round(dataflow_risk_score, 4)
+        if dataflow_agents_analyzed is not None:
+            snapshot["dataflow_agents_analyzed"] = dataflow_agents_analyzed
+        if dataflow_tainted_vars is not None:
+            snapshot["dataflow_tainted_vars"] = dataflow_tainted_vars
+        if dataflow_finding_types is not None:
+            snapshot["dataflow_finding_types"] = dataflow_finding_types
         if extra:
             snapshot.update(extra)
 
@@ -87,7 +116,12 @@ class RedTeamHistoryStore:
         mode: str = "fast",
         target: str = "both",
     ) -> Dict[str, Any]:
-        """Convenience wrapper: pull fields directly from a RedTeamAgent result dict."""
+        """Convenience wrapper: pull fields directly from a RedTeamAgent result dict.
+
+        Captures all scanner sub-results including MCP security scan,
+        data flow tracer, and prompt injection — providing a unified
+        security posture time-series across all attack surfaces.
+        """
         run_id = run_id or os.getenv("GITHUB_RUN_ID") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         return self.record(
             run_id=run_id,
@@ -102,6 +136,15 @@ class RedTeamHistoryStore:
             status=result.get("status", "clean"),
             prompt_injection_surface=result.get("prompt_injection_surface"),
             prompt_injection_findings=result.get("prompt_injection_findings"),
+            mcp_risk_score=result.get("mcp_risk_score"),
+            mcp_files_scanned=result.get("mcp_files_scanned"),
+            mcp_tools_scanned=result.get("mcp_tools_scanned"),
+            mcp_critical_count=result.get("mcp_critical_count"),
+            mcp_attack_types=result.get("mcp_attack_types"),
+            dataflow_risk_score=result.get("data_flow_risk_score"),
+            dataflow_agents_analyzed=result.get("data_flow_agents_analyzed"),
+            dataflow_tainted_vars=result.get("data_flow_tainted_vars"),
+            dataflow_finding_types=result.get("data_flow_finding_types"),
         )
 
     # ──────────────────────────────────────────────────────────────────────
@@ -188,6 +231,22 @@ class RedTeamHistoryStore:
 
         latest = history[-1] if history else {}
 
+        # MCP risk trend
+        mcp_early = _avg_half(first_half, "mcp_risk_score")
+        mcp_recent = _avg_half(second_half, "mcp_risk_score")
+        mcp_trend = None
+        if mcp_early is not None and mcp_recent is not None:
+            delta = mcp_recent - mcp_early
+            mcp_trend = "improving" if delta < -0.02 else ("degrading" if delta > 0.02 else "stable")
+
+        # DataFlow risk trend
+        df_early = _avg_half(first_half, "dataflow_risk_score")
+        df_recent = _avg_half(second_half, "dataflow_risk_score")
+        dataflow_trend = None
+        if df_early is not None and df_recent is not None:
+            delta = df_recent - df_early
+            dataflow_trend = "improving" if delta < -0.02 else ("degrading" if delta > 0.02 else "stable")
+
         return {
             "scans": len(history),
             "latest_scanner_strength": latest.get("scanner_strength"),
@@ -201,4 +260,12 @@ class RedTeamHistoryStore:
             "scanner_trend": scanner_trend,
             "scanner_strength_early_avg": scanner_early,
             "scanner_strength_recent_avg": scanner_recent,
+            # MCP attack surface posture
+            "latest_mcp_risk_score": latest.get("mcp_risk_score"),
+            "avg_mcp_risk_score": _avg("mcp_risk_score"),
+            "mcp_trend": mcp_trend,
+            # Cross-agent data flow posture
+            "latest_dataflow_risk_score": latest.get("dataflow_risk_score"),
+            "avg_dataflow_risk_score": _avg("dataflow_risk_score"),
+            "dataflow_trend": dataflow_trend,
         }
