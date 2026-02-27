@@ -2076,6 +2076,42 @@ async def agent_trust_graph_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/security/mcp-scan")
+async def mcp_security_scan(repo_path: str = "."):
+    """Scan MCP server definitions and implementations for security vulnerabilities."""
+    try:
+        from agenticqa.security.mcp_scanner import MCPSecurityScanner
+        result = MCPSecurityScanner().scan(repo_path)
+        return {
+            "success": True,
+            "files_scanned": result.files_scanned,
+            "tools_scanned": result.tools_scanned,
+            "servers_scanned": result.servers_scanned,
+            "risk_score": result.risk_score,
+            "attack_types_detected": result.attack_types_detected,
+            "total_findings": len(result.findings),
+            "critical_count": len(result.critical_findings),
+            "high_count": len(result.high_findings),
+            "scan_error": result.scan_error,
+            "findings": [
+                {
+                    "tool_name": f.tool_name,
+                    "attack_type": f.attack_type,
+                    "severity": f.severity,
+                    "description": f.description,
+                    "evidence": f.evidence,
+                    "source_file": f.source_file,
+                    "line_number": f.line_number,
+                    "cwe": f.cwe,
+                    "cvss_score": f.cvss_score,
+                }
+                for f in result.findings
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/temporal/violations")
 async def temporal_violations(
     repo_id: str,

@@ -3177,6 +3177,30 @@ class RedTeamAgent(BaseAgent):
         except Exception:
             pass
 
+        # MCP Security scan — non-blocking
+        try:
+            from agenticqa.security.mcp_scanner import MCPSecurityScanner
+            _repo_path = scan_data.get("repo_path", ".")
+            _mcp = MCPSecurityScanner().scan(_repo_path)
+            result["mcp_files_scanned"] = _mcp.files_scanned
+            result["mcp_tools_scanned"] = _mcp.tools_scanned
+            result["mcp_risk_score"] = _mcp.risk_score
+            result["mcp_attack_types"] = _mcp.attack_types_detected
+            result["mcp_critical_count"] = len(_mcp.critical_findings)
+            for _f in _mcp.findings:
+                result["vulnerabilities"].append({
+                    "technique": _f.attack_type,
+                    "severity": _f.severity,
+                    "description": _f.description,
+                    "evidence": _f.evidence,
+                    "source_file": _f.source_file,
+                    "source_line": _f.line_number,
+                    "cwe": _f.cwe,
+                    "cvss_score": _f.cvss_score,
+                })
+        except Exception:
+            pass
+
         self.log(
             f"Red Team: {len(samples)} attempts, {len(vulnerabilities)} bypasses, "
             f"{patches_applied} patched, {len(proposals)} proposals"
