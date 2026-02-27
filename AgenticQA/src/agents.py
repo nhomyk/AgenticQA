@@ -3177,6 +3177,29 @@ class RedTeamAgent(BaseAgent):
         except Exception:
             pass
 
+        # Cross-agent data flow trace — non-blocking
+        try:
+            from agenticqa.security.data_flow_tracer import CrossAgentDataFlowTracer
+            _repo_path = scan_data.get("repo_path", ".")
+            _flow = CrossAgentDataFlowTracer().trace(_repo_path)
+            result["data_flow_agents_analyzed"] = _flow.agents_analyzed
+            result["data_flow_tainted_vars"] = _flow.tainted_variables_detected
+            result["data_flow_risk_score"] = _flow.risk_score
+            result["data_flow_finding_types"] = _flow.finding_types
+            for _ff in _flow.critical_findings:
+                result["vulnerabilities"].append({
+                    "technique": _ff.finding_type,
+                    "severity": _ff.severity,
+                    "description": _ff.description,
+                    "source_agent": _ff.source_agent,
+                    "sink_agent": _ff.sink_agent,
+                    "source_file": _ff.source_file,
+                    "source_line": _ff.line_number,
+                    "remediation": _ff.remediation,
+                })
+        except Exception:
+            pass
+
         # MCP Security scan — non-blocking
         try:
             from agenticqa.security.mcp_scanner import MCPSecurityScanner

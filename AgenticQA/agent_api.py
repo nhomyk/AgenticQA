@@ -2112,6 +2112,48 @@ async def mcp_security_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/security/data-flow-trace")
+async def data_flow_trace(repo_path: str = "."):
+    """Trace sensitive data (PII/credentials) flows across agent trust boundaries."""
+    try:
+        from agenticqa.security.data_flow_tracer import CrossAgentDataFlowTracer
+        report = CrossAgentDataFlowTracer().trace(repo_path)
+        return {
+            "success": True,
+            "files_scanned": report.files_scanned,
+            "agents_analyzed": report.agents_analyzed,
+            "tainted_variables_detected": report.tainted_variables_detected,
+            "risk_score": report.risk_score,
+            "finding_types": report.finding_types,
+            "total_findings": len(report.findings),
+            "critical_count": len(report.critical_findings),
+            "scan_error": report.scan_error,
+            "findings": [
+                {
+                    "finding_type": f.finding_type,
+                    "severity": f.severity,
+                    "data_type": f.data_type,
+                    "description": f.description,
+                    "source_agent": f.source_agent,
+                    "sink_agent": f.sink_agent,
+                    "sanitized": f.sanitized,
+                    "source_file": f.source_file,
+                    "line_number": f.line_number,
+                    "remediation": f.remediation,
+                    "trace": [
+                        {"agent": h.agent_name, "file": h.source_file,
+                         "line": h.line_number, "op": h.operation,
+                         "evidence": h.evidence}
+                        for h in f.trace
+                    ],
+                }
+                for f in report.findings
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/temporal/violations")
 async def temporal_violations(
     repo_id: str,
