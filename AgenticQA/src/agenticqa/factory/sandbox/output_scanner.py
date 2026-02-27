@@ -24,11 +24,17 @@ DANGER_PATTERNS: List[tuple[str, str]] = [
     ("credential_pattern",   r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*\S+"),
     ("openai_key_shape",     r"sk-[A-Za-z0-9]{20,}"),
     ("anthropic_key_shape",  r"sk-ant-[A-Za-z0-9\-]{20,}"),
+    ("aws_key_shape",        r"AKIA[A-Z2-7]{16}"),
+    # --- Reversed credential indicators (Pass 6 reverses strings before matching) ---
+    ("reversed_anthropic",   r"-tna-ks"),           # "sk-ant-" reversed
+    ("reversed_openai",      r"[A-Za-z0-9]{8,}-ks"),# "sk-XXXXX" reversed
+    ("reversed_aws",         r"[A-Z2-7]{12,}AIKA"), # "AKIA..." reversed
     # --- Path traversal (direct + obfuscated) ---
     ("path_traversal",       r"\.\./\.\./"),
     ("url_encoded_traversal", r"(?i)(%2e%2e|%252e%252e)(%2f|%5c|/)"),
     ("dot_traversal",        r"\.{3,}[/\\]"),
     ("win_traversal",        r"\.\.[/\\]\.\.[/\\]"),
+    ("win_traversal_bslash", r"\.\.\\\.\.\\"),      # explicit backslash form
     # --- Destructive shell (direct + split args) ---
     ("destructive_shell",    r"(?i)rm\s+-rf"),
     ("rf_split_arg",         r'(?i)"-rf\s*[/\\]|-rf\s+[/\\]'),
@@ -102,6 +108,29 @@ class OutputScanner:
         return out
 
     @staticmethod
+    def _try_hex_decode(s: str) -> str | None:
+        """Decode \\xNN hex escape sequences; return decoded string or None."""
+        if "\\x" not in s:
+            return None
+        try:
+            decoded = re.sub(r'\\x([0-9a-fA-F]{2})',
+                             lambda m: chr(int(m.group(1), 16)), s)
+            return decoded if decoded != s else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _try_parse_json(s: str) -> Any | None:
+        """Try to parse s as nested JSON; return object or None."""
+        s = s.strip()
+        if not (s.startswith("{") or s.startswith("[")):
+            return None
+        try:
+            return json.loads(s)
+        except Exception:
+            return None
+
+    @staticmethod
     def _try_b64_decode(s: str) -> str | None:
         """Try to base64-decode s; return decoded UTF-8 string or None."""
         # Base64 strings are typically 20+ chars and end with = or alphanumeric
@@ -167,5 +196,34 @@ class OutputScanner:
                 _add(self._match_text(url_decoded, "url_decoded"))
         except Exception:
             pass
+
+        # Pass 5: scan each parsed string value directly — catches windows_path_separator
+        # because parsed values have real backslashes, not JSON-escaped \\
+        strings = self._extract_strings(parsed)
+        for s in strings:
+            _add(self._match_text(s, "parsed_value"))
+
+        # Pass 6: reverse each string value — catches reversed_token obfuscation
+        for s in strings:
+            if len(s) >= 8:
+                _add(self._match_text(s[::-1], "reversed"))
+
+        # Pass 7: hex-decode each string value — catches hex_encoded_token
+        for s in strings:
+            decoded = self._try_hex_decode(s)
+            if decoded:
+                _add(self._match_text(decoded, "hex_decoded"))
+
+        # Pass 8: concatenate adjacent string pairs — catches split_credential_fields
+        # and nested_credential_in_json_string spanning field boundaries
+        for i in range(len(strings) - 1):
+            _add(self._match_text(strings[i] + strings[i + 1], "split_fields"))
+
+        # Pass 9: parse nested JSON strings and rescan leaf values
+        for s in strings:
+            nested = self._try_parse_json(s)
+            if nested:
+                for ns in self._extract_strings(nested):
+                    _add(self._match_text(ns, "nested_json"))
 
         return {"clean": len(all_flags) == 0, "flags": all_flags}

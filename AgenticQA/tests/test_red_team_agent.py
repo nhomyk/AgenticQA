@@ -262,3 +262,49 @@ class TestRedTeamAgent:
             result = agent.execute({"mode": "fast", "target": "scanner", "auto_patch": True})
         if result["patches_applied"] > 0:
             assert (tmp_path / ".agenticqa" / "red_team_patterns.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Bypass-closure tests — the 5 techniques found by Red Team Agent
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestOutputScannerBypassClosures:
+    """Verify all 5 bypasses discovered by the Red Team Agent are now detected."""
+
+    def _scanner(self):
+        from agenticqa.factory.sandbox.output_scanner import OutputScanner
+        return OutputScanner()
+
+    def test_split_credential_fields_detected(self):
+        # Credential split across two adjacent keys — no single field matches
+        result = self._scanner().scan({
+            "key_part1": "sk-ant-api03-ABCDEFGHIJKLMNOPQRST",
+            "key_part2": "UVWXYZ1234567890abcd",
+        })
+        assert not result["clean"], "split_credential_fields bypass not caught"
+
+    def test_reversed_token_detected(self):
+        # Token stored in reverse: "sk-ant-LONGTOKEN..." reversed
+        import random, string
+        token = "sk-ant-" + "".join(random.choices(string.ascii_letters, k=24))
+        result = self._scanner().scan({"data": token[::-1]})
+        assert not result["clean"], "reversed_token bypass not caught"
+
+    def test_hex_encoded_token_detected(self):
+        # "sk-ant-" hex-encoded as \x73\x6b\x2d\x61\x6e\x74\x2d
+        hex_token = "".join(f"\\x{ord(c):02x}" for c in "sk-ant-ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        result = self._scanner().scan({"output": hex_token})
+        assert not result["clean"], "hex_encoded_token bypass not caught"
+
+    def test_nested_credential_in_json_string_detected(self):
+        # Credential split across a nested JSON string spanning field boundary
+        part1 = '{"key": "sk-ant-api03-ABCDEFGHIJ'
+        part2 = 'KLMNOPQRSTUVWXYZ1234"}'
+        result = self._scanner().scan({"chunk1": part1, "chunk2": part2})
+        assert not result["clean"], "nested_credential_in_json_string bypass not caught"
+
+    def test_windows_path_separator_detected(self):
+        # Backslash path traversal: ..\..\ — forward-slash pattern alone misses it
+        result = self._scanner().scan({"path": "..\\..\\etc\\passwd"})
+        assert not result["clean"], "windows_path_separator bypass not caught"
