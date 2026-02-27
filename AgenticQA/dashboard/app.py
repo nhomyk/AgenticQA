@@ -4588,6 +4588,274 @@ def render_plans_and_tiers():
     st.markdown("[← Back to dashboard](?)")
 
 
+def render_compliance_scan():
+    """EU AI Act + Legal Risk + HIPAA compliance scan for any local repo path."""
+    import requests as _req
+    import pandas as pd
+
+    st.subheader("Compliance Scan")
+    st.markdown(
+        "Run EU AI Act Annex III classification, legal risk analysis, and HIPAA PHI detection "
+        "against any local repository. Every PR in AgenticQA CI gets these checks automatically."
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="cs_api_base",
+    ).rstrip("/")
+
+    repo_path = st.text_input(
+        "Repository path (absolute local path)",
+        value=os.getcwd(),
+        key="cs_repo_path",
+        help="Point at any cloned repo on disk. The scanner runs static analysis only — no network calls.",
+    )
+
+    run_btn = st.button("Run Compliance Scan", type="primary", key="cs_run_btn")
+
+    if not run_btn:
+        st.info("Enter a repo path and click **Run Compliance Scan** to start.")
+        st.markdown("""
+**What this scans:**
+- **EU AI Act** — Annex III risk classification + Art. 9/13/14/22 conformity scoring (0.0–1.0)
+- **Legal Risk** — credential exposure, PII document leaks, SSRF, missing auth gates
+- **HIPAA PHI** — hardcoded PHI, PHI sent to LLMs, PHI in logs, missing audit controls
+        """)
+        return
+
+    # Run all three scans in parallel (spinner while waiting)
+    ai_act_data, legal_data, hipaa_data = None, None, None
+    with st.spinner("Scanning..."):
+        try:
+            ai_act_resp = _req.get(
+                f"{api_base}/api/compliance/ai-act",
+                params={"repo_path": repo_path},
+                timeout=60,
+            )
+            ai_act_data = ai_act_resp.json() if ai_act_resp.status_code == 200 else None
+        except Exception as e:
+            st.error(f"EU AI Act scan failed: {e}")
+
+        try:
+            legal_resp = _req.get(
+                f"{api_base}/api/compliance/legal-risk",
+                params={"repo_path": repo_path},
+                timeout=60,
+            )
+            legal_data = legal_resp.json() if legal_resp.status_code == 200 else None
+        except Exception as e:
+            st.error(f"Legal risk scan failed: {e}")
+
+        try:
+            hipaa_resp = _req.get(
+                f"{api_base}/api/compliance/hipaa",
+                params={"repo_path": repo_path},
+                timeout=60,
+            )
+            hipaa_data = hipaa_resp.json() if hipaa_resp.status_code == 200 else None
+        except Exception as e:
+            st.error(f"HIPAA scan failed: {e}")
+
+    # ── Summary banner ────────────────────────────────────────────────────────
+    st.markdown("---")
+    c1, c2, c3 = st.columns(3)
+
+    if ai_act_data:
+        risk_cat = ai_act_data.get("risk_category", "unknown")
+        conf = ai_act_data.get("conformity_score", 0.0)
+        risk_colors = {
+            "high_risk": "🔴",
+            "unacceptable_risk": "⛔",
+            "limited_risk": "🟡",
+            "minimal_risk": "🟢",
+        }
+        icon = risk_colors.get(risk_cat, "⚪")
+        c1.metric("EU AI Act Risk Level", f"{icon} {risk_cat.replace('_', ' ').title()}")
+        c1.metric("Conformity Score", f"{conf:.0%}")
+
+    if legal_data:
+        c2.metric("Legal Risk Findings", legal_data.get("total_findings", 0),
+                  delta=f"{legal_data.get('critical_findings', 0)} critical",
+                  delta_color="inverse")
+
+    if hipaa_data:
+        c3.metric("HIPAA PHI Findings", hipaa_data.get("total_findings", 0),
+                  delta=f"{hipaa_data.get('critical_findings', 0)} critical",
+                  delta_color="inverse")
+
+    st.markdown("---")
+
+    # ── Tabs ──────────────────────────────────────────────────────────────────
+    tab_act, tab_legal, tab_hipaa = st.tabs(["EU AI Act", "Legal Risk", "HIPAA PHI"])
+
+    # ── EU AI Act tab ─────────────────────────────────────────────────────────
+    with tab_act:
+        if not ai_act_data:
+            st.error("EU AI Act scan did not return data.")
+        else:
+            risk_cat = ai_act_data.get("risk_category", "unknown")
+            conf = ai_act_data.get("conformity_score", 0.0)
+            annex_matches = ai_act_data.get("annex_iii_match", [])
+            findings = ai_act_data.get("findings", [])
+
+            # Conformity gauge
+            gauge_color = (
+                "#2ecc71" if conf >= 0.7 else
+                "#f39c12" if conf >= 0.4 else
+                "#e74c3c"
+            )
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=round(conf * 100, 1),
+                title={"text": "Conformity Score", "font": {"size": 18}},
+                number={"suffix": "%", "font": {"size": 32}},
+                gauge={
+                    "axis": {"range": [0, 100], "ticksuffix": "%"},
+                    "bar": {"color": gauge_color},
+                    "steps": [
+                        {"range": [0, 40], "color": "rgba(231,76,60,0.15)"},
+                        {"range": [40, 70], "color": "rgba(243,156,18,0.15)"},
+                        {"range": [70, 100], "color": "rgba(46,204,113,0.15)"},
+                    ],
+                    "threshold": {
+                        "line": {"color": "white", "width": 2},
+                        "thickness": 0.75,
+                        "value": 40,
+                    },
+                },
+            ))
+            fig_gauge.update_layout(height=260, margin=dict(t=40, b=10, l=20, r=20),
+                                    paper_bgcolor="rgba(0,0,0,0)", font_color="white")
+            st.plotly_chart(fig_gauge, use_container_width=True)
+
+            # Risk level + Annex III triggers
+            risk_label_map = {
+                "high_risk": ("HIGH RISK", "#e74c3c"),
+                "unacceptable_risk": ("UNACCEPTABLE RISK", "#922b21"),
+                "limited_risk": ("LIMITED RISK", "#f39c12"),
+                "minimal_risk": ("MINIMAL RISK", "#2ecc71"),
+                "unknown": ("UNKNOWN", "#7f8c8d"),
+            }
+            label, color = risk_label_map.get(risk_cat, ("UNKNOWN", "#7f8c8d"))
+            st.markdown(
+                f'<div style="display:inline-block;padding:6px 18px;border-radius:6px;'
+                f'background:{color};color:white;font-weight:bold;font-size:1.1em;">'
+                f'{label}</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown("")
+
+            if annex_matches:
+                st.markdown("**Annex III triggers detected:**")
+                for m in annex_matches:
+                    st.markdown(f"- {m}")
+            else:
+                st.success("No Annex III triggers detected.")
+
+            # Per-article breakdown
+            if findings:
+                st.markdown("#### Article Conformity Breakdown")
+                articles = ["Art.9", "Art.13", "Art.14", "Art.22"]
+                article_labels = {
+                    "Art.9": "Art. 9 — Risk Management",
+                    "Art.13": "Art. 13 — Transparency & Logging",
+                    "Art.14": "Art. 14 — Human Oversight",
+                    "Art.22": "Art. 22 — Automated Decisions",
+                }
+                for art in articles:
+                    art_findings = [f for f in findings if f.get("article", "").startswith(art)]
+                    if not art_findings:
+                        continue
+                    present = sum(1 for f in art_findings if f.get("status") == "present")
+                    total = len(art_findings)
+                    score = present / total if total else 0
+                    color_bar = "normal" if score >= 0.6 else "off"
+                    st.progress(score, text=f"{article_labels.get(art, art)}: {score:.0%} ({present}/{total} requirements met)")
+
+                st.markdown("#### Findings")
+                severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}
+                status_icon = {"present": "✅", "missing": "❌", "partial": "⚠️"}
+                df_act = pd.DataFrame([
+                    {
+                        "Article": f.get("article", ""),
+                        "Sev": severity_icon.get(f.get("severity", ""), ""),
+                        "Status": status_icon.get(f.get("status", ""), ""),
+                        "Requirement": f.get("requirement", ""),
+                        "Evidence": f.get("evidence", ""),
+                        "Remediation": f.get("remediation", ""),
+                    }
+                    for f in findings
+                ])
+                st.dataframe(df_act, use_container_width=True, hide_index=True)
+            else:
+                st.info("No findings returned.")
+
+    # ── Legal Risk tab ────────────────────────────────────────────────────────
+    with tab_legal:
+        if not legal_data:
+            st.error("Legal risk scan did not return data.")
+        else:
+            findings = legal_data.get("findings", [])
+            lc1, lc2, lc3 = st.columns(3)
+            lc1.metric("Total Findings", legal_data.get("total_findings", 0))
+            lc2.metric("Critical", legal_data.get("critical_findings", 0))
+            lc3.metric("Risk Score", f"{legal_data.get('risk_score', 0.0):.2f}")
+
+            if findings:
+                st.markdown("#### Findings")
+                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}
+                df_legal = pd.DataFrame([
+                    {
+                        "Sev": sev_icon.get(f.get("severity", "").lower(), ""),
+                        "Rule": f.get("rule_id", ""),
+                        "File": f.get("file", "") or "",
+                        "Line": f.get("line") or "",
+                        "Message": f.get("message", ""),
+                        "Evidence": (f.get("evidence") or "")[:80],
+                    }
+                    for f in findings
+                ])
+                st.dataframe(df_legal, use_container_width=True, hide_index=True)
+            else:
+                st.success("No legal risk findings detected.")
+
+            if legal_data.get("scan_error"):
+                st.warning(f"Scan error: {legal_data['scan_error']}")
+
+    # ── HIPAA PHI tab ─────────────────────────────────────────────────────────
+    with tab_hipaa:
+        if not hipaa_data:
+            st.error("HIPAA scan did not return data.")
+        else:
+            findings = hipaa_data.get("findings", [])
+            hc1, hc2, hc3 = st.columns(3)
+            hc1.metric("Total Findings", hipaa_data.get("total_findings", 0))
+            hc2.metric("Critical", hipaa_data.get("critical_findings", 0))
+            hc3.metric("Risk Score", f"{hipaa_data.get('risk_score', 0.0):.2f}")
+
+            if findings:
+                st.markdown("#### Findings")
+                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}
+                df_hipaa = pd.DataFrame([
+                    {
+                        "Sev": sev_icon.get(f.get("severity", "").lower(), ""),
+                        "Rule": f.get("rule_id", ""),
+                        "File": f.get("file", "") or "",
+                        "Line": f.get("line") or "",
+                        "Message": f.get("message", ""),
+                        "Evidence": (f.get("evidence") or "")[:80],
+                    }
+                    for f in findings
+                ])
+                st.dataframe(df_hipaa, use_container_width=True, hide_index=True)
+            else:
+                st.success("No HIPAA PHI findings detected.")
+
+            if hipaa_data.get("scan_error"):
+                st.warning(f"Scan error: {hipaa_data['scan_error']}")
+
+
 def render_red_team():
     """Red Team Agent — adversarial governance probing and self-patching."""
     import requests as _req
@@ -5180,7 +5448,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Red Team", "Agent Learning"]
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Red Team", "Agent Learning"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -5289,6 +5557,9 @@ def main():
 
     elif page == "Governance":
         render_governance_page()
+
+    elif page == "Compliance Scan":
+        render_compliance_scan()
 
     elif page == "Red Team":
         render_red_team()

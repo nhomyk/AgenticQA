@@ -35,11 +35,28 @@ _SEVERITY_WEIGHTS: Dict[str, float] = {
 _SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".yml", ".yaml"}
 _ENV_NAMES = {".env", ".env.local", ".env.production", ".env.development"}
 
+# SSRF is only meaningful in files that can make network calls — not YAML/config
+_SSRF_CODE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
+
 # Directories that skip during source scan
 _SKIP_DIRS = {
     "node_modules", ".venv", "venv", "__pycache__",
     ".git", "dist", "build", ".next", "out",
 }
+
+# Scanner implementation files — excluded from PRIVILEGE_BREACH self-scan
+_SCANNER_OWN_FILES = {"legal_risk_scanner.py", "hipaa_phi_scanner.py"}
+
+# Placeholder / example values that are not real credentials
+_PLACEHOLDER_RE = re.compile(
+    r"(your[-_]?(?:key|secret|token)[-_]?here|changeme|placeholder|"
+    r"\bexample|to[-_]?do|xxx+|<[^>]+>|change[-_]?in[-_]?prod)",
+    re.IGNORECASE,
+)
+
+# All-caps env var names used as string constants (e.g. ENV_FOO = "SOME_ENV_VAR")
+# Requires at least one underscore — real credentials (e.g. AWS keys) have no underscores
+_ENV_VAR_NAME_RE = re.compile(r"^[A-Z][A-Z0-9]*_[A-Z0-9_]+$")
 
 # Web-accessible directories where committed documents are a PII risk
 _PUBLIC_DIRS = {"public", "static", "assets", "www", "media", "files"}
@@ -92,6 +109,18 @@ _CREDENTIAL_PATTERNS: List[Tuple[re.Pattern, str, str, str]] = [
 
 # SSRF: localhost URL used as a proxy target in fetch/requests/axios calls
 _SSRF_PATTERN = re.compile(r'https?://localhost:[0-9]+', re.IGNORECASE)
+
+# SSRF false-positive exclusions: contexts where localhost is a configured default, not a proxy target
+_SSRF_SKIP_PATTERN = re.compile(
+    r"(os\.getenv\s*\(|add_argument\s*\(|\.text_input\s*\(|"
+    r"value\s*=\s*[\"']http://localhost|default\s*=\s*[\"']http://localhost|"
+    r"\[.*\]\(http://localhost|[\"']Endpoint[\"']\s*:)",
+    re.IGNORECASE,
+)
+# Spec/config/example files are never real SSRF attack surface
+_SSRF_SKIP_SUFFIXES = {".spec.js", ".spec.ts", ".spec.tsx"}
+_SSRF_SKIP_FILENAMES = {"playwright.config.js", "playwright.config.ts", "playwright.config.mjs"}
+_SSRF_SKIP_DIRS = {"tests", "examples"}
 
 # Privilege exposure: file-read operations
 _FILE_READ_PATTERN = re.compile(
@@ -187,26 +216,51 @@ class LegalRiskScanner:
             except OSError:
                 continue
             for lineno, line in enumerate(lines, 1):
-                for pattern, rule_id, severity, desc in _CREDENTIAL_PATTERNS:
-                    if pattern.search(line):
-                        findings.append(LegalRiskFinding(
-                            file=rel,
-                            line=lineno,
-                            rule_id=rule_id,
-                            severity=severity,
-                            message=desc,
-                            evidence=line.strip()[:200],
-                        ))
-                        break  # one finding per line
-                # SSRF check (separate from credential patterns)
-                if _SSRF_PATTERN.search(line):
+                stripped = line.strip()
+                # Skip inline suppression comments
+                if re.search(r"#\s*noqa", line, re.IGNORECASE):
+                    continue
+                # Skip pure comments and documentation lines
+                if stripped.startswith(("#", "//", "/*", "*", "\"\"\"", "'''", "(e.g.")):
+                    pass  # still check for SSRF below, but skip credential patterns
+                else:
+                    for pattern, rule_id, severity, desc in _CREDENTIAL_PATTERNS:
+                        if pattern.search(line):
+                            # Skip placeholder / example values
+                            if _PLACEHOLDER_RE.search(line):
+                                break
+                            # Skip all-caps env-var name constants (e.g. ENV_FOO = "SOME_VAR_NAME")
+                            quoted = re.search(r'["\']([^"\']{4,})["\']', line)
+                            if quoted and _ENV_VAR_NAME_RE.match(quoted.group(1)):
+                                break
+                            findings.append(LegalRiskFinding(
+                                file=rel,
+                                line=lineno,
+                                rule_id=rule_id,
+                                severity=severity,
+                                message=desc,
+                                evidence=stripped[:200],
+                            ))
+                            break  # one finding per line
+
+                # SSRF check — only in code files; skip defaults, docs, tests, examples
+                if (
+                    fpath.suffix.lower() in _SSRF_CODE_EXTS
+                    and fpath.suffix.lower() not in _SSRF_SKIP_SUFFIXES
+                    and fpath.name not in _SSRF_SKIP_FILENAMES
+                    and not any(p in _SSRF_SKIP_DIRS for p in fpath.parts)
+                    and _SSRF_PATTERN.search(line)
+                    and not stripped.startswith(("#", "//", '"""', "'''"))
+                    and not re.search(r"\bprint\s*\(|console\.(log|info|warn|error)", line)
+                    and not _SSRF_SKIP_PATTERN.search(line)
+                ):
                     findings.append(LegalRiskFinding(
                         file=rel,
                         line=lineno,
                         rule_id="SSRF_RISK",
                         severity="medium",
                         message="Hardcoded localhost URL used as proxy target — potential SSRF if path is user-controlled",
-                        evidence=line.strip()[:200],
+                        evidence=stripped[:200],
                     ))
         return findings
 
@@ -255,6 +309,9 @@ class LegalRiskScanner:
         findings: List[LegalRiskFinding] = []
         scan_exts = {".ts", ".tsx", ".js", ".jsx", ".py"}
         for fpath in self._iter_source_files(repo, exts=scan_exts):
+            # Skip scanner implementation files — their regex patterns contain LLM model names
+            if fpath.name in _SCANNER_OWN_FILES:
+                continue
             try:
                 lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
             except OSError:
@@ -268,6 +325,13 @@ class LegalRiskScanner:
                 continue
             for lineno, line in enumerate(lines, 1):
                 if _LLM_CALL_PATTERN.search(line):
+                    stripped = line.strip()
+                    # Skip regex pattern definitions (lines with raw string or re.compile)
+                    if stripped.startswith(("r\"", "r'")) or "re.compile(" in stripped:
+                        continue
+                    # Skip comment lines
+                    if stripped.startswith(("#", "//")):
+                        continue
                     # Check if any file-read occurred within 30 lines above
                     for rline in read_lines:
                         if 0 <= lineno - rline <= 30:
@@ -280,7 +344,7 @@ class LegalRiskScanner:
                                     "File content read and forwarded to external LLM API within 30 lines — "
                                     "attorney-client privilege may be waived for legal documents (ABA Rule 1.6)"
                                 ),
-                                evidence=line.strip()[:200],
+                                evidence=stripped[:200],
                             ))
                             break
         return findings

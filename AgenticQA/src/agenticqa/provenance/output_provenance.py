@@ -18,12 +18,15 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
+import warnings
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+logger = logging.getLogger(__name__)
 
 _PROVENANCE_DIR = Path(".agenticqa") / "provenance"
 _DEFAULT_SECRET = "agenticqa-provenance-dev-key-change-in-prod"
@@ -74,10 +77,19 @@ class OutputProvenanceLogger:
         secret: Optional[str] = None,
     ):
         self._dir = Path(provenance_dir) if provenance_dir else _PROVENANCE_DIR
-        self._secret = (
-            secret
-            or os.getenv("AGENTICQA_PROVENANCE_SECRET", _DEFAULT_SECRET)
-        ).encode()
+        resolved_secret = secret or os.getenv("AGENTICQA_PROVENANCE_SECRET")
+        if resolved_secret is None:
+            # Warn in CI — dev default produces weak, shared signatures
+            if os.getenv("CI") or os.getenv("GITHUB_RUN_ID"):
+                warnings.warn(
+                    "AGENTICQA_PROVENANCE_SECRET is not set. "
+                    "Provenance signatures are using the default dev key and are NOT production-grade. "
+                    "Set AGENTICQA_PROVENANCE_SECRET as a CI secret.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            resolved_secret = _DEFAULT_SECRET
+        self._secret = resolved_secret.encode()
 
     # ------------------------------------------------------------------
     # Public API

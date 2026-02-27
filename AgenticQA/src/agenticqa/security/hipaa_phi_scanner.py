@@ -26,10 +26,15 @@ _SEVERITY_WEIGHTS: Dict[str, float] = {
 }
 
 _SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".yml", ".yaml"}
+# PHI_IN_LOGS only meaningful in code files — not YAML CI pipelines
+_LOG_SCAN_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 _SKIP_DIRS = {
     "node_modules", ".venv", "venv", "__pycache__",
     ".git", "dist", "build", ".next", "out",
 }
+
+# Scanner files are excluded from PHI_TO_LLM (their regex patterns contain LLM model names)
+_SCANNER_OWN_FILES = {"hipaa_phi_scanner.py", "legal_risk_scanner.py"}
 _PUBLIC_DIRS = {"public", "static", "assets", "www", "media", "files"}
 
 # PHI file extensions and name patterns
@@ -185,6 +190,9 @@ class HIPAAPHIScanner:
                 continue
             rel = str(fpath.relative_to(repo))
             for lineno, line in enumerate(lines, 1):
+                # Respect inline suppression: # noqa or # noqa: PHI
+                if re.search(r"#\s*noqa", line, re.IGNORECASE):
+                    continue
                 for pattern, severity, desc in _PHI_HARDCODED_PATTERNS:
                     if pattern.search(line):
                         findings.append(PHIFinding(
@@ -200,13 +208,15 @@ class HIPAAPHIScanner:
     def _scan_phi_in_logs(self, repo: Path) -> List[PHIFinding]:
         """Detect PHI variable names passed directly to logging calls on the same line."""
         findings: List[PHIFinding] = []
-        for fpath in self._iter_source_files(repo):
+        for fpath in self._iter_source_files(repo, exts=_LOG_SCAN_EXTS):
             try:
                 lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
             except OSError:
                 continue
             rel = str(fpath.relative_to(repo))
             for lineno, line in enumerate(lines, 1):
+                if re.search(r"#\s*noqa", line, re.IGNORECASE):
+                    continue
                 if _LOG_SINK_PATTERN.search(line) and _PHI_VAR_PATTERN.search(line):
                     findings.append(PHIFinding(
                         file=rel, line=lineno,
@@ -228,6 +238,9 @@ class HIPAAPHIScanner:
         findings: List[PHIFinding] = []
         scan_exts = {".ts", ".tsx", ".js", ".jsx", ".py"}
         for fpath in self._iter_source_files(repo, exts=scan_exts):
+            # Skip scanner implementation files — regex patterns contain LLM model name strings
+            if fpath.name in _SCANNER_OWN_FILES:
+                continue
             try:
                 lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
             except OSError:
@@ -236,11 +249,19 @@ class HIPAAPHIScanner:
             phi_lines: List[int] = [
                 lineno for lineno, line in enumerate(lines, 1)
                 if _PHI_VAR_PATTERN.search(line)
+                and not re.search(r"#\s*noqa", line, re.IGNORECASE)
             ]
             if not phi_lines:
                 continue
             for lineno, line in enumerate(lines, 1):
                 if _LLM_CALL_PATTERN.search(line):
+                    stripped = line.strip()
+                    # Skip regex pattern definition lines
+                    if stripped.startswith(("r\"", "r'")) or "re.compile(" in stripped:
+                        continue
+                    # Skip comment lines
+                    if stripped.startswith(("#", "//")):
+                        continue
                     for phi_line in phi_lines:
                         if 0 <= lineno - phi_line <= 30:
                             findings.append(PHIFinding(
@@ -251,7 +272,7 @@ class HIPAAPHIScanner:
                                     "PHI data forwarded to external LLM API within 30 lines — "
                                     "requires HIPAA BAA with the AI provider (§164.502(e))"
                                 ),
-                                evidence=line.strip()[:200],
+                                evidence=stripped[:200],
                             ))
                             break
         return findings

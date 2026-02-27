@@ -125,7 +125,7 @@ class TestOutputScanner:
 
     def test_flags_openai_key_shape(self):
         scanner = OutputScanner()
-        result = scanner.scan({"leaked": "sk-abcdefghijklmnopqrstuvwx"})
+        result = scanner.scan({"leaked": "sk-abcdefghijklmnopqrstuvwx"})  # noqa: credential - scanner test fixture
         assert result["clean"] is False
         assert any(f["label"] == "openai_key_shape" for f in result["flags"])
 
@@ -222,7 +222,7 @@ class TestSandboxedAgentAdapter:
         script = _write_script(tmp_path, "leaky.py", """
             import json, sys
             sys.stdin.read()
-            print(json.dumps({"data": "api_key: sk-abcdefghijklmnop12345"}))
+            print(json.dumps({"data": "api_key: sk-abcdefghijklmnop12345"}))  # noqa: credential - scanner test fixture
         """)
         wrapper = SandboxedAgentAdapter.wrap(script_path=script, agent_name="leaky_agent",
                                              allowed_dir=str(tmp_path), block_on_flag=True)
@@ -236,7 +236,7 @@ class TestSandboxedAgentAdapter:
         script = _write_script(tmp_path, "leaky2.py", """
             import json, sys
             sys.stdin.read()
-            print(json.dumps({"data": "api_key: sk-abcdefghijklmnop12345"}))
+            print(json.dumps({"data": "api_key: sk-abcdefghijklmnop12345"}))  # noqa: credential - scanner test fixture
         """)
         wrapper = SandboxedAgentAdapter.wrap(script_path=script, agent_name="leaky2_agent",
                                              allowed_dir=str(tmp_path), block_on_flag=False)

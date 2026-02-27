@@ -31,7 +31,7 @@ def write(path: Path, content: str) -> Path:
 class TestCredentialScanning:
     def test_mongodb_uri_detected(self, tmp_path):
         write(tmp_path / "app" / "route.ts",
-              'const MONGO_URI = "mongodb+srv://user:secret123@cluster.mongodb.net/";\n')
+              'const MONGO_URI = "mongodb+srv://user:secret123@cluster.mongodb.net/";\n')  # noqa: credential - scanner test fixture
         result = make_scanner().scan(str(tmp_path))
         creds = [f for f in result.findings if f.rule_id == "CREDENTIAL_EXPOSURE"]
         assert len(creds) >= 1
@@ -47,7 +47,7 @@ class TestCredentialScanning:
 
     def test_openai_key_detected(self, tmp_path):
         write(tmp_path / "app.js",
-              'const apiKey = "sk-abcdefghijklmnopqrstuvwxyz1234567890";\n')
+              'const apiKey = "sk-abcdefghijklmnopqrstuvwxyz1234567890";\n')  # noqa: credential - scanner test fixture
         result = make_scanner().scan(str(tmp_path))
         creds = [f for f in result.findings if f.rule_id == "CREDENTIAL_EXPOSURE"]
         assert any(f.severity == "critical" for f in creds)
@@ -69,7 +69,7 @@ class TestCredentialScanning:
 
     def test_private_key_detected(self, tmp_path):
         write(tmp_path / "key.py",
-              '# embed key\nKEY = "-----BEGIN RSA PRIVATE KEY-----\\nMIIE...\\n-----END RSA PRIVATE KEY-----"\n')
+              '# embed key\nKEY = "-----BEGIN RSA PRIVATE KEY-----\\nMIIE...\\n-----END RSA PRIVATE KEY-----"\n')  # noqa: credential - scanner test fixture
         result = make_scanner().scan(str(tmp_path))
         creds = [f for f in result.findings if f.rule_id == "CREDENTIAL_EXPOSURE"]
         assert any(f.severity == "critical" for f in creds)

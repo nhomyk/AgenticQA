@@ -76,7 +76,7 @@ def pii_dataset():
     return pd.DataFrame(
         {
             "user_id": [1, 2, 3],
-            "ssn": ["123-45-6789", "987-65-4321", "555-55-5555"],
+            "ssn": ["123-45-6789", "987-65-4321", "555-55-5555"],  # noqa: PHI - synthetic test fixture
             "credit_card": ["4111-1111-1111-1111", "5555-5555-5555-4444", "3782-822463-51005"],
             "phone": ["555-1234", "555-5678", "555-9012"],
             "name": ["John Doe", "Jane Smith", "Bob Johnson"],
