@@ -3153,6 +3153,30 @@ class RedTeamAgent(BaseAgent):
         except Exception:
             pass
 
+        # Multi-agent trust graph audit — non-blocking
+        try:
+            from agenticqa.security.agent_trust_graph import AgentTrustGraphAnalyzer
+            _repo_path = scan_data.get("repo_path", ".")
+            _trust = AgentTrustGraphAnalyzer().analyze(_repo_path)
+            result["trust_graph_frameworks"] = _trust.frameworks_detected
+            result["trust_graph_nodes"] = len(_trust.nodes)
+            result["trust_graph_edges"] = len(_trust.edges)
+            result["trust_graph_violations"] = len(_trust.violations)
+            result["trust_graph_risk_score"] = _trust.risk_score
+            result["trust_graph_has_human_oversight"] = _trust.has_human_oversight
+            for _v in _trust.violations:
+                result["vulnerabilities"].append({
+                    "technique": _v.rule_id,
+                    "severity": _v.severity,
+                    "description": _v.message,
+                    "agents_involved": _v.agents_involved,
+                    "source_file": _v.source_file,
+                    "source_line": _v.source_line,
+                    "remediation": _v.remediation,
+                })
+        except Exception:
+            pass
+
         self.log(
             f"Red Team: {len(samples)} attempts, {len(vulnerabilities)} bypasses, "
             f"{patches_applied} patched, {len(proposals)} proposals"

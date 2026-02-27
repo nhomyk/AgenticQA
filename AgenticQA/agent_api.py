@@ -2039,6 +2039,43 @@ async def prompt_injection_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/redteam/agent-trust-graph")
+async def agent_trust_graph_scan(repo_path: str = "."):
+    """Analyze multi-agent trust graph: circular trust, missing human oversight, privileged tools, escalation paths."""
+    try:
+        from agenticqa.security.agent_trust_graph import AgentTrustGraphAnalyzer
+        result = AgentTrustGraphAnalyzer().analyze(repo_path)
+        return {
+            "success": True,
+            "frameworks_detected": result.frameworks_detected,
+            "agent_nodes": len(result.nodes),
+            "agent_edges": len(result.edges),
+            "violations": len(result.violations),
+            "has_human_oversight": result.has_human_oversight,
+            "risk_score": result.risk_score,
+            "scan_error": result.scan_error,
+            "nodes": [
+                {"name": n.name, "framework": n.framework, "tools": n.tools,
+                 "human_input_mode": n.human_input_mode,
+                 "source_file": n.source_file, "source_line": n.source_line}
+                for n in result.nodes
+            ],
+            "edges": [
+                {"source": e.source, "target": e.target, "edge_type": e.edge_type,
+                 "framework": e.framework, "source_file": e.source_file, "source_line": e.source_line}
+                for e in result.edges
+            ],
+            "trust_violations": [
+                {"rule_id": v.rule_id, "severity": v.severity, "message": v.message,
+                 "agents_involved": v.agents_involved, "source_file": v.source_file,
+                 "source_line": v.source_line, "remediation": v.remediation}
+                for v in result.violations
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/temporal/violations")
 async def temporal_violations(
     repo_id: str,
