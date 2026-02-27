@@ -52,7 +52,7 @@ _SENSITIVE_VAR_NAMES: Set[str] = {
 # Patterns that indicate a variable is being assigned sensitive data
 _SOURCE_PATTERNS: List[Tuple[str, str, str]] = [
     # (regex, data_type, severity)
-    # Reading from env / secrets store — key may have prefix (e.g., DB_PASSWORD)
+    # Python: Reading from env / secrets store — key may have prefix (e.g., DB_PASSWORD)
     (r"os\.(?:environ|getenv)\s*[\[\(]['\"]?[^'\"]*"
      r"(?i:password|passwd|secret|token|api.?key|auth|credential)[^'\"]*['\"]?[\]\)]",
      "SECRET_SOURCE", "high"),
@@ -61,7 +61,7 @@ _SOURCE_PATTERNS: List[Tuple[str, str, str]] = [
     (r"(?:dotenv|environ)\s*\.\s*(?:get|load)\s*\(\s*['\"]?[^'\"]*"
      r"(?i:password|secret|token|key)[^'\"]*['\"]?",
      "SECRET_SOURCE", "high"),
-    # Reading PII from DB / API
+    # Python: Reading PII from DB / API
     (r"(?:cursor|session|query|result)\s*\.\s*(?:fetchone|fetchall|first|all)\s*\(\s*\)",
      "PII_SOURCE", "medium"),
     (r"(?i:SELECT)\s+(?:\*|\w+)\s+(?i:FROM)\s+(?i:users|patients|customers|members|accounts)",
@@ -69,32 +69,55 @@ _SOURCE_PATTERNS: List[Tuple[str, str, str]] = [
     (r"request\s*\.\s*(?:json|form|data|args)\s*(?:\[|\.get)\s*\(\s*"
      r"['\"](?i:ssn|password|credit_card|dob|phone|email)['\"]",
      "PII_SOURCE", "high"),
-    # Receiving from another agent
+    # Python: Receiving from another agent
     (r"(?:agent_input|task_input|context|payload|message)\s*[\[\.]\s*['\"]?"
      r"(?i:password|secret|token|ssn|credit_card|pii)['\"]?",
+     "SECRET_SOURCE", "medium"),
+    # TypeScript/JavaScript: process.env credential reads
+    (r"process\.env\.(?:\w*(?:KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|AUTH)\w*"
+     r"|\w*(?:key|secret|token|password|credential|auth)\w*)",
+     "SECRET_SOURCE", "high"),
+    # TypeScript/JavaScript: AWS SDK credential reads
+    (r"(?:AWS\.config|new\s+AWS\.|new\s+(?:S3|DynamoDB|STS|SecretsManager|SSM)\s*\()",
+     "SECRET_SOURCE", "medium"),
+    # TypeScript/JavaScript: Axios/got request config with auth headers
+    (r"headers\s*:\s*\{[^}]*(?:Authorization|Bearer|api.?key)[^}]*\}",
      "SECRET_SOURCE", "medium"),
 ]
 
 # Taint sinks — where sensitive data should NOT end up unredacted
 _SINK_PATTERNS: List[Tuple[str, str, str]] = [
-    # Logging sinks
+    # Python logging sinks
     (r"(?:logger|logging|log)\s*\.\s*(?:info|debug|warning|error|critical|exception)\s*\(",
      "SINK_LOGGING", "high"),
     (r"\bprint\s*\(", "SINK_LOGGING", "medium"),
     (r"(?:sys\.stdout|sys\.stderr)\s*\.write\s*\(", "SINK_LOGGING", "medium"),
-    # Network sinks
+    # TypeScript/JavaScript logging sinks
+    (r"\bconsole\s*\.\s*(?:log|error|warn|debug|info)\s*\(", "SINK_LOGGING", "medium"),
+    (r"\bwinson\s*\.\s*(?:info|error|warn|debug)\s*\(", "SINK_LOGGING", "medium"),
+    (r"\bpino\s*\(\s*\)", "SINK_LOGGING", "medium"),
+    # Python network sinks
     (r"\brequests\s*\.\s*(?:get|post|put|patch|request)\s*\(",
      "SINK_NETWORK", "critical"),
     (r"\bhttpx\s*\.\s*(?:get|post|put|patch|request)\s*\(",
      "SINK_NETWORK", "critical"),
     (r"\baiohttp\s*\.\s*(?:ClientSession|request)\b", "SINK_NETWORK", "critical"),
     (r"\burllib\s*\.\s*request\s*\.\s*urlopen\s*\(", "SINK_NETWORK", "critical"),
+    # TypeScript/JavaScript network sinks
     (r"\bfetch\s*\(", "SINK_NETWORK", "critical"),
-    # Storage sinks
+    (r"\baxios\s*\.\s*(?:get|post|put|patch|request|delete)\s*\(",
+     "SINK_NETWORK", "critical"),
+    (r"\bgot\s*\.\s*(?:get|post|put|patch)\s*\(", "SINK_NETWORK", "high"),
+    (r"\bnew\s+XMLHttpRequest\s*\(", "SINK_NETWORK", "high"),
+    # Python storage sinks
     (r"\bopen\s*\([^)]+,\s*['\"]w['\"]", "SINK_STORAGE", "high"),
     (r"\b\w+\.write\s*\(", "SINK_STORAGE", "high"),
     (r"(?:json\.dump|pickle\.dump|yaml\.dump)\s*\(", "SINK_STORAGE", "medium"),
     (r"(?:cursor\.execute|session\.add|db\.insert)\s*\(", "SINK_STORAGE", "medium"),
+    # TypeScript/JavaScript storage sinks
+    (r"\bfs\s*\.\s*(?:writeFile|appendFile|writeFileSync)\s*\(",
+     "SINK_STORAGE", "high"),
+    (r"\blocalStorage\s*\.\s*setItem\s*\(", "SINK_STORAGE", "medium"),
     # Return / yield (cross-agent propagation)
     (r"\breturn\b", "TAINT_PROPAGATION", "medium"),
     (r"\byield\b", "TAINT_PROPAGATION", "low"),
@@ -126,12 +149,20 @@ _DELEGATION_PATTERNS = [
     r"transfer_to_\w+\s*\(",
 ]
 
-# Agent framework markers (to identify agent file scope)
+# Agent framework markers (to identify agent file scope — Python and TypeScript)
 _AGENT_MARKERS = [
+    # Python agent frameworks
     r"from\s+(?:mcp|langchain|langgraph|crewai|autogen|fastmcp)\s+import",
     r"@mcp\.tool|@tool\s*\(|AgentExecutor|FastMCP|StateGraph|Crew\(",
     r"class\s+\w*Agent\w*\s*(?:\([^)]*\))?:",
     r"def\s+\w+_agent\s*\(",
+    # TypeScript/JavaScript MCP server markers
+    r"from\s+['\"]@modelcontextprotocol/sdk",
+    r"McpServer|StdioServerTransport|SSEServerTransport|StreamableHTTPServerTransport",
+    r"server\.registerTool|server\.tool\s*\(|\.setRequestHandler\s*\(",
+    # TypeScript/JavaScript agent frameworks
+    r"from\s+['\"](?:langchain|@langchain|openai-agents|@openai/agents)",
+    r"new\s+(?:OpenAI|Anthropic|AzureOpenAI)\s*\(",
 ]
 
 _SKIP_DIRS = frozenset({
@@ -289,11 +320,12 @@ class CrossAgentDataFlowTracer:
         if root.is_file():
             return [root] if self._is_agent_file(root) else []
         found: List[Path] = []
-        for p in root.rglob("*.py"):
-            if any(part in _SKIP_DIRS for part in p.parts):
-                continue
-            if self._is_agent_file(p):
-                found.append(p)
+        for glob in ("*.py", "*.ts", "*.js", "*.mjs"):
+            for p in root.rglob(glob):
+                if any(part in _SKIP_DIRS for part in p.parts):
+                    continue
+                if self._is_agent_file(p):
+                    found.append(p)
         return found
 
     def _is_agent_file(self, path: Path) -> bool:

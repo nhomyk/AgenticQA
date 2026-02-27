@@ -656,6 +656,76 @@ jobs:
   # Phase 3: Report — waits for all 13 parallel jobs
   # ───────────────────────────────────────────────────────────────────────────
 
+  test-mcp-dataflow-scanners:
+    needs: [test-ip-moat-features]
+    if: always()
+    runs-on: ubuntu-latest
+    name: "🔍 MCP + DataFlow Security Scanners"
+    defaults:
+      run:
+        working-directory: AgenticQA
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,quality]"
+
+      - name: Test MCP scanner — unit tests
+        run: python -m pytest tests/test_mcp_scanner.py -m unit -q
+
+      - name: Test DataFlow tracer — unit tests
+        run: python -m pytest tests/test_data_flow_tracer.py -m unit -q
+
+      - name: Dogfood — scan AgenticQA src/ with MCP scanner
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from agenticqa.security.mcp_scanner import MCPSecurityScanner
+          r = MCPSecurityScanner().scan('src')
+          print(f'MCP scan: files={r.files_scanned} findings={len(r.findings)} risk={r.risk_score:.3f}')
+          critical = [f for f in r.findings if f.severity == 'critical']
+          if critical:
+              for f in critical: print(f'  CRITICAL: {f.attack_type} — {f.description}')
+              sys.exit(1)
+          print('No critical MCP findings in src/')
+          "
+
+      - name: Dogfood — scan AgenticQA src/ with DataFlow tracer
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from agenticqa.security.data_flow_tracer import CrossAgentDataFlowTracer
+          r = CrossAgentDataFlowTracer().trace('src')
+          print(f'DataFlow: files={r.files_scanned} agents={r.agents_analyzed} findings={len(r.findings)} risk={r.risk_score:.3f}')
+          critical = r.critical_findings
+          if critical:
+              for f in critical: print(f'  CRITICAL: {f.finding_type} — {f.description}')
+              sys.exit(1)
+          print('No critical DataFlow findings in src/')
+          "
+
+      - name: Verify learned patterns load correctly
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from agenticqa.security.mcp_scanner import MCPSecurityScanner
+          from agenticqa.security.data_flow_tracer import CrossAgentDataFlowTracer
+          m = MCPSecurityScanner()
+          d = CrossAgentDataFlowTracer()
+          print(f'MCP patterns: desc={len(m._desc_compiled)} code={len(m._code_compiled)} cfg={len(m._cfg_compiled)}')
+          print(f'DataFlow patterns: src={len(d._source_compiled)} sink={len(d._sink_compiled)}')
+          assert len(m._desc_compiled) >= 15, 'Expected >= 15 description patterns'
+          assert len(d._source_compiled) >= 7, 'Expected >= 7 source patterns'
+          assert len(d._sink_compiled) >= 18, 'Expected >= 18 sink patterns'
+          print('Pattern count assertions passed')
+          "
+
   generate-pipeline-health-report:
     needs:
       - test-sre-agent-self-healing
@@ -673,6 +743,7 @@ jobs:
       - test-data-integrity
       - test-pipeline-tools
       - test-ip-moat-features
+      - test-mcp-dataflow-scanners
     if: always()
     runs-on: ubuntu-latest
     name: 📋 Generate Pipeline Health Report
@@ -700,11 +771,12 @@ jobs:
           RAG="${{ needs.test-rag-learning-system.result }}"
           DATA="${{ needs.test-data-integrity.result }}"
           TOOLS="${{ needs.test-pipeline-tools.result }}"
+          MCPFLOW="${{ needs.test-mcp-dataflow-scanners.result }}"
 
           FAILED=0
           for s in "$SRE" "$SDET" "$FULLSTACK" "$FOUR_AGENTS" "$CONSTITUTION" \
                    "$REDTEAM" "$IPMOAT" "$LEARNING" "$FACTORY" "$INFRA_SARIF" "$INTEGRATION" \
-                   "$COLLABORATION" "$RAG" "$DATA" "$TOOLS"; do
+                   "$COLLABORATION" "$RAG" "$DATA" "$TOOLS" "$MCPFLOW"; do
             [[ "$s" != "success" ]] && ((FAILED++)) || true
           done
 
@@ -723,7 +795,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Date:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ steps.results.outputs.emoji }} ${{ steps.results.outputs.health }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Failed:** ${{ steps.results.outputs.failed_count }}/15 components" >> $GITHUB_STEP_SUMMARY
+          echo "**Failed:** ${{ steps.results.outputs.failed_count }}/16 components" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -751,12 +823,13 @@ jobs:
           echo "| RAG Learning System (Weaviate 1.27.0)                | $(r ${{ needs.test-rag-learning-system.result }})           | retrieval + quality |" >> $GITHUB_STEP_SUMMARY
           echo "| Data Integrity + Pipeline Framework                  | $(r ${{ needs.test-data-integrity.result }})                | schema, PII, snapshots |" >> $GITHUB_STEP_SUMMARY
           echo "| Pipeline Tools (linting, coverage, deployment gates) | $(r ${{ needs.test-pipeline-tools.result }})                | eslint, pytest-cov, gates |" >> $GITHUB_STEP_SUMMARY
+          echo "| MCP + DataFlow Security Scanners (dogfood)           | $(r ${{ needs.test-mcp-dataflow-scanners.result }})         | supply chain, SSRF, taint |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ steps.results.outputs.health }}" == "healthy" ]; then
-            echo "✅ **All 15 pipeline components are functioning correctly.**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All 16 pipeline components are functioning correctly.**" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ steps.results.outputs.health }}" == "degraded" ]; then
             echo "⚠️ **${{ steps.results.outputs.failed_count }} component(s) degraded — pipeline functional but needs attention.**" >> $GITHUB_STEP_SUMMARY
           else
@@ -771,13 +844,13 @@ jobs:
         if: always()
         with:
           name: pipeline-health-report-${{ env.TIMESTAMP }}
-          path: ${{ github.step_summary }}
+          path: ${{ runner.temp }}/_step_summary.md
           retention-days: 90
 
       - name: Fail on critical health
         if: steps.results.outputs.health == 'critical' && github.event.inputs.notify_on_failure != 'false'
         run: |
-          echo "❌ Critical pipeline failures — ${{ steps.results.outputs.failed_count }}/15 components failed"
+          echo "❌ Critical pipeline failures — ${{ steps.results.outputs.failed_count }}/16 components failed"
           exit 1
 
   # ───────────────────────────────────────────────────────────────────────────
@@ -799,13 +872,14 @@ jobs:
           echo "PIPELINE SELF-VALIDATION COMPLETE"
           echo "=================================="
           echo ""
-          echo "15 components validated:"
+          echo "16 components validated:"
           echo "  Agents:     SRE, SDET, Fullstack, Compliance/QA/Perf/DevOps"
           echo "  Governance: Constitutional Gate, Agent Scopes, Red Team"
           echo "  IP Moat:    AI Model SBOM, Multi-Agent Trust Graph, Bypass Closures"
           echo "  Learning:   ML Loop (5 phases), Agent Factory"
           echo "  Infra:      DataflowHealthMonitor, SARIF Export, RAG"
           echo "  Pipeline:   Data Integrity, Tools, Integration Workflows"
+          echo "  Security:   MCP + DataFlow Scanners (dogfood)"
           echo ""
           echo "Next scheduled run: tomorrow at 02:00 UTC"
           echo "=================================="

@@ -1,13 +1,56 @@
 {
   "_comment": "Learned patterns from real-world MCP repo scans. Loaded by MCPSecurityScanner at init.",
   "description_patterns": [],
-  "code_patterns": [],
+  "code_patterns": [
+    {
+      "pattern": "\\beval\\s*\\(",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "critical",
+      "_note": "eval() in MCP tool handler = code injection. Any LLM-supplied argument reaching eval is RCE. Discovered during modelcontextprotocol/servers review."
+    },
+    {
+      "pattern": "require\\s*\\(\\s*(?:req|args|params|input|userInput)",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "high",
+      "_note": "Dynamic require() with user-controlled input enables module injection."
+    },
+    {
+      "pattern": "child_process|execSync|spawnSync|exec\\s*\\(",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "high",
+      "_note": "Shell execution in MCP handler with user-controlled params = command injection."
+    },
+    {
+      "pattern": "process\\.env\\.\\w*(?:KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|AUTH)\\w*",
+      "attack_type": "AMBIENT_AUTHORITY",
+      "severity": "medium",
+      "_note": "Tool handler reads credential from process.env — all registered tools inherit this env scope. Ensure least-privilege env per tool."
+    },
+    {
+      "pattern": "if\\s*\\(\\s*\\w*[Aa]llowed[Dd]omains?\\s*\\.\\s*length\\s*>\\s*0",
+      "attack_type": "SSRF_RISK",
+      "severity": "high",
+      "_note": "SSRF optional-allowlist: domain check only fires when allowlist is non-empty. Empty allowlist (default) permits all URLs including RFC1918/metadata endpoints. Discovered: modelcontextprotocol/servers gzip-file-as-resource.ts scan 2026-02-27."
+    },
+    {
+      "pattern": "169\\.254\\.169\\.254|metadata\\.google\\.internal|100\\.100\\.100\\.200",
+      "attack_type": "SSRF_RISK",
+      "severity": "critical",
+      "_note": "Cloud metadata endpoint hardcoded or reachable. SSRF to this endpoint leaks IAM credentials."
+    }
+  ],
   "config_patterns": [
     {
       "pattern": "\"args\"[\\s\\S]*?\"-y\"",
       "attack_type": "SUPPLY_CHAIN_RISK",
       "severity": "medium",
       "_note": "npx -y installs latest npm package without version pinning. If registry package is compromised, auto-installs malicious code. Discovered: pinecone-io/pinecone-claude-code-plugin scan 2026-02-27. Fix: pin version with @x.y.z suffix."
+    },
+    {
+      "pattern": "\"type\"\\s*:\\s*\"http\"[^}]*(?!\"auth\"|\"token\"|\"apiKey\"|\"bearer\")",
+      "attack_type": "MISSING_AUTH",
+      "severity": "medium",
+      "_note": "MCP HTTP transport declared without explicit auth field. Verify server-side auth is enforced even when not in config."
     }
   ]
 }
