@@ -3123,6 +3123,18 @@ class RedTeamAgent(BaseAgent):
             pass
 
         self._record_execution("success", result, tags=["red_team", "security"])
+
+        # Persist to time-series history for trend tracking — non-blocking
+        try:
+            from data_store.redteam_history import RedTeamHistoryStore
+            RedTeamHistoryStore().record_from_result(
+                result,
+                mode=mode,
+                target=target,
+            )
+        except Exception:
+            pass
+
         self.log(
             f"Red Team: {len(samples)} attempts, {len(vulnerabilities)} bypasses, "
             f"{patches_applied} patched, {len(proposals)} proposals"

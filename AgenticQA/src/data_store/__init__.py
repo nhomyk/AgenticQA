@@ -9,6 +9,7 @@ from .data_quality_tester import DataQualityTester
 from .data_quality_pipeline import DataQualityValidatedPipeline
 from .learning_metrics import LearningMetricsSnapshot
 from .repo_profile import RepoProfile
+from .redteam_history import RedTeamHistoryStore
 
 __all__ = [
     "TestArtifactStore",
@@ -20,4 +21,5 @@ __all__ = [
     "DataQualityValidatedPipeline",
     "LearningMetricsSnapshot",
     "RepoProfile",
+    "RedTeamHistoryStore",
 ]

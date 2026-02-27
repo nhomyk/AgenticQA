@@ -1587,6 +1587,32 @@ async def red_team_scan(request: RedTeamScanRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/redteam/history")
+async def redteam_history(mode: str = "", limit: int = 50, window: int = 10):
+    """Return red team scan history, trend curves, and security posture summary."""
+    try:
+        from data_store.redteam_history import RedTeamHistoryStore
+        store = RedTeamHistoryStore()
+        mode_filter = mode or None
+        history = store.load_history(mode_filter=mode_filter, limit=limit)
+        scanner_trend = store.get_trend("scanner_strength", window=window, mode_filter=mode_filter)
+        gate_trend = store.get_trend("gate_strength", window=window, mode_filter=mode_filter)
+        bypass_trend = store.get_trend("successful_bypasses", window=window, mode_filter=mode_filter)
+        summary = store.summary(window=window, mode_filter=mode_filter)
+        return {
+            "success": True,
+            "history": history,
+            "trends": {
+                "scanner_strength": scanner_trend,
+                "gate_strength": gate_trend,
+                "successful_bypasses": bypass_trend,
+            },
+            "summary": summary,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/sdet/generated-tests")
 async def sdet_generated_tests(repo_path: str = "."):
     """List all LLM-generated test files in .agenticqa/generated_tests/."""
