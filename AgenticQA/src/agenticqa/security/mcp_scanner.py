@@ -284,7 +284,13 @@ class MCPSecurityScanner:
         self._load_custom_patterns()
 
     def _load_custom_patterns(self) -> None:
-        """Append patterns learned from past scans (.agenticqa/mcp_patterns.json)."""
+        """Append patterns learned from past scans (.agenticqa/mcp_patterns.json).
+
+        Three buckets map to the three compiled sets:
+          description_patterns → _desc_compiled  (tool description text)
+          code_patterns        → _code_compiled  (Python/TS handler source)
+          config_patterns      → _cfg_compiled   (JSON/YAML config files)
+        """
         try:
             if not self._CUSTOM_PATTERNS_PATH.exists():
                 return
@@ -297,6 +303,12 @@ class MCPSecurityScanner:
                 ))
             for entry in data.get("code_patterns", []):
                 self._code_compiled.append((
+                    re.compile(entry["pattern"]),
+                    entry.get("attack_type", "CUSTOM"),
+                    entry.get("severity", "medium"),
+                ))
+            for entry in data.get("config_patterns", []):
+                self._cfg_compiled.append((
                     re.compile(entry["pattern"]),
                     entry.get("attack_type", "CUSTOM"),
                     entry.get("severity", "medium"),

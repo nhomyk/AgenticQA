@@ -1,0 +1,13 @@
+{
+  "_comment": "Learned patterns from real-world MCP repo scans. Loaded by MCPSecurityScanner at init.",
+  "description_patterns": [],
+  "code_patterns": [],
+  "config_patterns": [
+    {
+      "pattern": "\"args\"[\\s\\S]*?\"-y\"",
+      "attack_type": "SUPPLY_CHAIN_RISK",
+      "severity": "medium",
+      "_note": "npx -y installs latest npm package without version pinning. If registry package is compromised, auto-installs malicious code. Discovered: pinecone-io/pinecone-claude-code-plugin scan 2026-02-27. Fix: pin version with @x.y.z suffix."
+    }
+  ]
+}
