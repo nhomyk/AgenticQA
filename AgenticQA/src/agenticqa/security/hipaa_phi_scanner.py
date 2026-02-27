@@ -28,13 +28,19 @@ _SEVERITY_WEIGHTS: Dict[str, float] = {
 _SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".yml", ".yaml"}
 # PHI_IN_LOGS only meaningful in code files — not YAML CI pipelines
 _LOG_SCAN_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
+# "tests" excluded: test fixtures intentionally contain fake PHI values (SSN, DOB, MRN)
 _SKIP_DIRS = {
     "node_modules", ".venv", "venv", "__pycache__",
-    ".git", "dist", "build", ".next", "out",
+    ".git", "dist", "build", ".next", "out", "tests",
 }
 
-# Scanner files are excluded from PHI_TO_LLM (their regex patterns contain LLM model names)
-_SCANNER_OWN_FILES = {"hipaa_phi_scanner.py", "legal_risk_scanner.py"}
+# Scanner files + security tool files excluded from PHI_TO_LLM
+# (their code/data contains model names and patterns that look like PHI contexts)
+_SCANNER_OWN_FILES = {
+    "hipaa_phi_scanner.py", "legal_risk_scanner.py",
+    "ai_model_sbom.py", "agent_trust_graph.py",
+    "prompt_injection_scanner.py", "cve_reachability.py",
+}
 _PUBLIC_DIRS = {"public", "static", "assets", "www", "media", "files"}
 
 # PHI file extensions and name patterns

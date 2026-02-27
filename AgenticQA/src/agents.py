@@ -2125,7 +2125,7 @@ class SREAgent(BaseAgent):
             source = Path(test_file).read_text()[:4000]  # token budget
             client = anthropic.Anthropic()
             message = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model="claude-haiku-4-5-20251001",  # noqa: privilege — reads test source, not a legal document
                 max_tokens=1024,
                 system=(
                     "You are a test repair assistant. Given a failing Python test file and "

@@ -39,9 +39,10 @@ _ENV_NAMES = {".env", ".env.local", ".env.production", ".env.development"}
 _SSRF_CODE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 
 # Directories that skip during source scan
+# "tests" excluded: test fixtures intentionally contain fake credentials/PHI
 _SKIP_DIRS = {
     "node_modules", ".venv", "venv", "__pycache__",
-    ".git", "dist", "build", ".next", "out",
+    ".git", "dist", "build", ".next", "out", "tests",
 }
 
 # Scanner implementation files — excluded from PRIVILEGE_BREACH self-scan
@@ -114,13 +115,18 @@ _SSRF_PATTERN = re.compile(r'https?://localhost:[0-9]+', re.IGNORECASE)
 _SSRF_SKIP_PATTERN = re.compile(
     r"(os\.getenv\s*\(|add_argument\s*\(|\.text_input\s*\(|"
     r"value\s*=\s*[\"']http://localhost|default\s*=\s*[\"']http://localhost|"
-    r"\[.*\]\(http://localhost|[\"']Endpoint[\"']\s*:)",
+    r"\[.*\]\(http://localhost|[\"']Endpoint[\"']\s*:|"
+    # Function/constructor default parameters: def fn(url="http://localhost:...") or constructor(url = '...')
+    r"def\s+\w+\s*\(|constructor\s*\(|"
+    # Doctest lines: >>> client = Foo("http://localhost:...")
+    r">>>\s+\w)",
     re.IGNORECASE,
 )
 # Spec/config/example files are never real SSRF attack surface
 _SSRF_SKIP_SUFFIXES = {".spec.js", ".spec.ts", ".spec.tsx"}
 _SSRF_SKIP_FILENAMES = {"playwright.config.js", "playwright.config.ts", "playwright.config.mjs"}
-_SSRF_SKIP_DIRS = {"tests", "examples"}
+# scripts/ are CLI tools, not web-facing code — localhost URLs are expected default endpoints
+_SSRF_SKIP_DIRS = {"tests", "examples", "scripts"}
 
 # Privilege exposure: file-read operations
 _FILE_READ_PATTERN = re.compile(
@@ -250,7 +256,7 @@ class LegalRiskScanner:
                     and fpath.name not in _SSRF_SKIP_FILENAMES
                     and not any(p in _SSRF_SKIP_DIRS for p in fpath.parts)
                     and _SSRF_PATTERN.search(line)
-                    and not stripped.startswith(("#", "//", '"""', "'''"))
+                    and not stripped.startswith(("#", "//", '"""', "'''", ">>>"))
                     and not re.search(r"\bprint\s*\(|console\.(log|info|warn|error)", line)
                     and not _SSRF_SKIP_PATTERN.search(line)
                 ):
@@ -312,6 +318,9 @@ class LegalRiskScanner:
             # Skip scanner implementation files — their regex patterns contain LLM model names
             if fpath.name in _SCANNER_OWN_FILES:
                 continue
+            # Skip test directories — test fixtures intentionally contain file-read + LLM patterns
+            if any(p in {"tests", "test", "__tests__"} for p in fpath.parts):
+                continue
             try:
                 lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
             except OSError:
@@ -331,6 +340,9 @@ class LegalRiskScanner:
                         continue
                     # Skip comment lines
                     if stripped.startswith(("#", "//")):
+                        continue
+                    # Respect inline suppression
+                    if re.search(r"#\s*noqa", line, re.IGNORECASE):
                         continue
                     # Check if any file-read occurred within 30 lines above
                     for rline in read_lines:
