@@ -1944,6 +1944,36 @@ async def provenance_chain(agent: str, limit: int = 20):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/compliance/ai-model-sbom")
+async def ai_model_sbom_scan(repo_path: str = "."):
+    """Produce an AI Model SBOM: inventory of all ML models, providers, licenses, and risk flags."""
+    try:
+        from agenticqa.security.ai_model_sbom import AIModelSBOMScanner
+        result = AIModelSBOMScanner().scan(repo_path)
+        return {
+            "success": True,
+            "providers_detected": result.providers_detected,
+            "unique_models": len(result.unique_model_ids),
+            "unique_model_ids": result.unique_model_ids,
+            "license_violations": len(result.license_violations),
+            "risk_score": result.risk_score,
+            "scan_error": result.scan_error,
+            "components": [
+                {
+                    "model_id": c.model_id,
+                    "provider": c.provider,
+                    "license": c.license,
+                    "risk_flags": c.risk_flags,
+                    "source_file": c.source_file,
+                    "source_line": c.source_line,
+                }
+                for c in result.components
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/compliance/hipaa")
 async def hipaa_phi_scan(repo_path: str = "."):
     """Scan repo for HIPAA PHI risks: hardcoded SSN/DOB/MRN, PHI in logs, PHI to LLM, missing audit."""

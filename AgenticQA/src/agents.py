@@ -1104,6 +1104,24 @@ class ComplianceAgent(BaseAgent):
             except Exception:
                 pass  # non-blocking
 
+            # AI Model SBOM — non-blocking
+            try:
+                from agenticqa.security.ai_model_sbom import AIModelSBOMScanner
+                _sbom = AIModelSBOMScanner().scan(compliance_data.get("repo_path", "."))
+                checks["sbom_providers"] = _sbom.providers_detected
+                checks["sbom_unique_models"] = len(_sbom.unique_model_ids)
+                checks["sbom_risk_score"] = _sbom.risk_score
+                checks["sbom_license_violations"] = len(_sbom.license_violations)
+                for _c in _sbom.license_violations:
+                    checks["violations"].append({
+                        "type": "SBOM_" + "_".join(_c.risk_flags[:1]),
+                        "severity": "high" if "DEPRECATED_MODEL" in _c.risk_flags else "medium",
+                        "description": f"Model '{_c.model_id}' ({_c.provider}): {', '.join(_c.risk_flags)}",
+                        "evidence": f"{_c.source_file}:{_c.source_line}",
+                    })
+            except Exception:
+                pass  # non-blocking
+
             # EU AI Act compliance check — non-blocking
             try:
                 from agenticqa.compliance.ai_act import AIActComplianceChecker
