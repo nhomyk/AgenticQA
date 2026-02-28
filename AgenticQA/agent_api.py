@@ -3125,6 +3125,227 @@ async def pipeline_demo(req: PipelineDemoRequest):
     }
 
 
+# ── Full Pipeline Run — idea → code → commit → scan → fix → PR ────────────────
+
+class PipelineRunRequest(BaseModel):
+    description: str
+    repo_path: str = ""                     # empty = use isolated temp repo
+    file_path: str = "src/feature.py"
+    api_key: Optional[str] = None           # Anthropic key; falls back to env var
+    github_token: Optional[str] = None      # for push + draft PR on SHIP IT
+    auto_fix: bool = True                   # let Claude fix issues and retry
+    max_retries: int = 2                    # max fix attempts after first scan
+
+
+@app.post("/api/pipeline/run")
+async def pipeline_run(req: PipelineRunRequest):
+    """
+    The complete AgenticQA loop:
+      1. Claude generates code from the user's description.
+      2. Code is written to a real file and committed to a branch.
+      3. All scanners run on the committed code.
+      4. If DO NOT SHIP and auto_fix=True: Claude sees the findings,
+         rewrites the code, and the loop repeats (up to max_retries).
+      5. If SHIP IT and github_token provided: branch is pushed and
+         a draft PR is opened for human review.
+    """
+    import anthropic as _anthropic
+    import subprocess as _sp
+    import tempfile as _tmp
+    import re as _re
+    import urllib.request as _urllib
+    import json as _json
+
+    api_key = req.api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="No Anthropic API key. Add it in the dashboard sidebar under 'LLM Connection'.",
+        )
+
+    try:
+        client = _anthropic.Anthropic(api_key=api_key)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid API key: {e}")
+
+    # ── Set up git repo ────────────────────────────────────────────────────────
+    use_temp = not req.repo_path or req.repo_path.strip() in ("", ".")
+    tmpdir_obj = None
+
+    if use_temp:
+        tmpdir_obj = _tmp.TemporaryDirectory()
+        repo_path = tmpdir_obj.name
+        _sp.run(["git", "init"], cwd=repo_path, capture_output=True)
+        _sp.run(["git", "config", "user.email", "agenticqa@localhost"], cwd=repo_path, capture_output=True)
+        _sp.run(["git", "config", "user.name", "AgenticQA"], cwd=repo_path, capture_output=True)
+        _sp.run(["git", "commit", "--allow-empty", "-m", "init"], cwd=repo_path, capture_output=True)
+    else:
+        repo_path = req.repo_path
+
+    # ── Create feature branch ──────────────────────────────────────────────────
+    slug = _re.sub(r"[^a-z0-9]+", "-", req.description.lower())[:40].strip("-")
+    from datetime import datetime as _dt
+    branch = f"agenticqa/{slug}-{_dt.now().strftime('%Y%m%d%H%M%S')}"
+    _sp.run(["git", "checkout", "-b", branch], cwd=repo_path, capture_output=True)
+
+    # ── Language detection ─────────────────────────────────────────────────────
+    ext = req.file_path.rsplit(".", 1)[-1] if "." in req.file_path else "py"
+    lang = {"py": "Python", "ts": "TypeScript", "js": "JavaScript",
+             "go": "Go", "java": "Java", "swift": "Swift"}.get(ext, "Python")
+
+    system_prompt = (
+        f"You are a senior {lang} engineer. Write production-quality implementation "
+        f"code for the feature the user describes. Output ONLY raw source code — "
+        f"no markdown fences, no explanation. File: {req.file_path}"
+    )
+
+    # ── Generate → commit → scan → fix loop ───────────────────────────────────
+    iterations: List[dict] = []
+    findings_context = ""
+
+    for attempt in range(1, req.max_retries + 2):
+        # Build prompt — on retries, include scan findings
+        if findings_context:
+            user_content = (
+                f"Your previous implementation had these security issues:\n{findings_context}\n\n"
+                f"Rewrite the complete file to fix every issue while still implementing:\n{req.description}"
+            )
+        else:
+            user_content = req.description
+
+        # Generate
+        try:
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=4096,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            generated_code = msg.content[0].text
+        except _anthropic.AuthenticationError:
+            raise HTTPException(status_code=401, detail="Invalid Anthropic API key.")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Code generation failed: {e}")
+
+        # Write to file
+        import os as _os2
+        full_path = _os2.path.join(repo_path, req.file_path)
+        _os2.makedirs(_os2.path.dirname(full_path), exist_ok=True)
+        with open(full_path, "w", encoding="utf-8") as fh:
+            fh.write(generated_code)
+
+        # Commit
+        commit_msg = (
+            f"feat: {req.description[:60]}" if attempt == 1
+            else f"fix(agenticqa): address security findings — attempt {attempt}"
+        )
+        _sp.run(["git", "add", req.file_path], cwd=repo_path, capture_output=True)
+        _sp.run(["git", "commit", "-m", commit_msg], cwd=repo_path, capture_output=True)
+
+        # Scan
+        scan = _run_pipeline_on_content(
+            code=generated_code,
+            file_path=req.file_path,
+            changed_files=[req.file_path],
+            intent=req.description,
+        )
+
+        iterations.append({
+            "attempt": attempt,
+            "generated_code": generated_code,
+            "commit": commit_msg,
+            "summary": scan["summary"],
+            "recommendation": scan["release_readiness"]["recommendation"],
+        })
+
+        recommendation = scan["release_readiness"]["recommendation"]
+        if recommendation == "SHIP IT":
+            break
+        if not req.auto_fix or attempt >= req.max_retries + 1:
+            break
+
+        # Build findings context for next attempt
+        owasp_issues = [
+            f"- [{f['severity'].upper()}] {f['description']} (line {f['line_number']}): {f['evidence'][:80]}"
+            for f in scan["owasp"]["findings"]
+        ]
+        secret_issues = [
+            f"- [SECRET] {f['secret_type']}: {f['evidence']}"
+            for f in scan["secrets"]["findings"]
+        ]
+        blocking = [f"- BLOCKING: {b}" for b in scan["release_readiness"].get("blocking_issues", [])]
+        findings_context = "\n".join(owasp_issues + secret_issues + blocking)
+
+    # ── Push branch + open draft PR if SHIP IT ────────────────────────────────
+    final_scan = scan
+    pr_url = None
+    branch_pushed = False
+
+    if req.github_token and not use_temp and recommendation == "SHIP IT":
+        remote_out = _sp.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=repo_path, capture_output=True, text=True,
+        )
+        remote = remote_out.stdout.strip()
+        match = _re.search(r"github\.com[:/]([^/]+)/([^/.]+)", remote)
+        if match:
+            owner, repo_name = match.group(1), match.group(2)
+            push = _sp.run(
+                ["git", "push", "origin", branch],
+                cwd=repo_path, capture_output=True, text=True,
+            )
+            if push.returncode == 0:
+                branch_pushed = True
+                score = final_scan["summary"]["release_score"]
+                pr_body = (
+                    f"**Generated and validated by AgenticQA**\n\n"
+                    f"**Release Readiness Score: {score}/100 — SHIP IT ✅**\n\n"
+                    f"### Feature\n{req.description}\n\n"
+                    f"### Scan Summary\n"
+                    f"- OWASP Critical: {final_scan['summary']['owasp_critical']}\n"
+                    f"- Secrets: {final_scan['summary']['secrets_found']}\n"
+                    f"- Race conditions: {final_scan['summary']['race_conditions_found']}\n"
+                    f"- Attempts to pass: {len(iterations)}\n"
+                )
+                pr_payload = _json.dumps({
+                    "title": f"feat: {req.description[:72]}",
+                    "body": pr_body,
+                    "head": branch,
+                    "base": "main",
+                    "draft": True,
+                }).encode()
+                pr_req = _urllib.Request(
+                    f"https://api.github.com/repos/{owner}/{repo_name}/pulls",
+                    data=pr_payload,
+                    headers={
+                        "Authorization": f"Bearer {req.github_token}",
+                        "Accept": "application/vnd.github+json",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
+                try:
+                    with _urllib.urlopen(pr_req, timeout=15) as pr_resp:
+                        pr_url = _json.loads(pr_resp.read())["html_url"]
+                except Exception:
+                    pass  # PR creation is best-effort
+
+    if tmpdir_obj:
+        tmpdir_obj.cleanup()
+
+    return {
+        "success": True,
+        "description": req.description,
+        "branch": branch,
+        "attempts": len(iterations),
+        "recommendation": recommendation,
+        "pr_url": pr_url,
+        "branch_pushed": branch_pushed,
+        "iterations": iterations,
+        **final_scan,
+    }
+
+
 # ── Generate-and-Scan — LLM writes code, scanners run immediately ─────────────
 
 class GenerateAndScanRequest(BaseModel):

@@ -5506,88 +5506,14 @@ def render_red_team():
                         st.warning(f"Scan error: {d['scan_error']}")
 
 
-def render_pipeline_demo():
-    """AgenticQA Pipeline — describe a feature, get a full security report card."""
-    import requests as _req
-
-    st.markdown(
-        """
-        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:28px;margin-bottom:24px">
-          <h2 style="color:#e94560;margin:0 0 8px">🔬 AgenticQA Pipeline</h2>
-          <p style="color:#a8b2c1;margin:0;font-size:15px">
-            Describe what you want built. AgenticQA generates the code and runs every security scanner —
-            giving you a <strong style="color:white">Release Readiness Score</strong> before a single
-            line lands in your repo.
-          </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    api_base = st.text_input(
-        "api_base",
-        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
-        key="demo_api_base",
-        label_visibility="collapsed",
-    ).rstrip("/")
-
-    description = st.text_area(
-        "Describe the feature or change you want built",
-        placeholder=(
-            "e.g.  Add a /api/user/export endpoint that returns all data for a user "
-            "including profile, activity history, and account settings as JSON"
-        ),
-        height=120,
-        key="demo_description",
-    )
-
-    run_clicked = st.button(
-        "Generate & Scan",
-        type="primary",
-        key="demo_run",
-        use_container_width=True,
-        disabled=not description.strip(),
-    )
-
-    st.markdown("---")
-
-    if not run_clicked:
-        return
-
-    api_key = st.session_state.get("anthropic_api_key", "")
-    if not api_key:
-        st.warning("Add your Anthropic API Key in the sidebar to enable code generation.")
-        return
-
-    data = None
-    with st.spinner("Generating code → running all scanners → computing Release Readiness Score..."):
-        try:
-            resp = _req.post(
-                f"{api_base}/api/pipeline/generate-and-scan",
-                json={"description": description, "api_key": api_key},
-                timeout=120,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            st.error(f"Pipeline error: {e}")
-            return
-
-    if not data:
-        return
-
-    # Collapsible view of what was generated — user can inspect if curious
-    with st.expander("📄 Generated code", expanded=False):
-        ext = data.get("file_path", "feature.py").rsplit(".", 1)[-1]
-        st.code(data.get("generated_code", ""), language=ext)
-
+def _render_scan_results(data: dict):
+    """Render the score banner + detail tabs shared by all pipeline result views."""
     rr = data["release_readiness"]
     summary = data["summary"]
     score = rr["overall_score"]
     rec = rr["recommendation"]
     color = rr["color"]
 
-    # ── BIG SCORE BANNER ──────────────────────────────────────────────────────
     banner_bg = {"green": "#155724", "yellow": "#856404", "red": "#721c24"}.get(color, "#343a40")
     border_col = {"green": "#28a745", "yellow": "#ffc107", "red": "#dc3545"}.get(color, "#6c757d")
     rec_icon = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🚫"}.get(rec, "")
@@ -5605,9 +5531,8 @@ def render_pipeline_demo():
         unsafe_allow_html=True,
     )
 
-    # ── QUICK STATS ROW ───────────────────────────────────────────────────────
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("OWASP Critical", summary["owasp_critical"], delta=None)
+    c1.metric("OWASP Critical", summary["owasp_critical"])
     c2.metric("OWASP High", summary["owasp_high"])
     c3.metric("OWASP Total", summary["owasp_total"])
     c4.metric("Secrets Found", summary["secrets_found"])
@@ -5618,46 +5543,37 @@ def render_pipeline_demo():
 
     st.markdown("---")
 
-    # ── RESULT TABS ───────────────────────────────────────────────────────────
-    tabs = st.tabs(["🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight Checklist", "📊 Signal Breakdown"])
+    tabs = st.tabs(["🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight", "📊 Signals"])
 
-    # Tab 1: Intent Check
     with tabs[0]:
         iv = data.get("intent_verification")
         if iv is None:
-            st.info("No intent provided — enter what you asked the LLM to build for intent analysis.")
+            st.info("No intent provided.")
         else:
             verdict = iv["verdict"]
-            verdict_color = {
-                "INTENT_MET": "green", "GAP_DETECTED": "orange",
-                "HALLUCINATION": "red", "STUB_ONLY": "red", "UNCERTAIN": "grey"
-            }.get(verdict, "grey")
-            st.markdown(f"**Verdict:** :{verdict_color}[{verdict}]  —  Confidence: {iv['confidence']:.0%}")
+            vc = {"INTENT_MET": "green", "GAP_DETECTED": "orange",
+                  "HALLUCINATION": "red", "STUB_ONLY": "red", "UNCERTAIN": "grey"}.get(verdict, "grey")
+            st.markdown(f"**Verdict:** :{vc}[{verdict}]  —  Confidence: {iv['confidence']:.0%}")
             st.markdown(f"**Safe to merge:** {'✅ Yes' if iv['is_safe_to_merge'] else '🚫 No'}")
-
             col_f, col_m = st.columns(2)
             with col_f:
-                st.markdown("**Intent signals FOUND in code:**")
+                st.markdown("**Signals FOUND:**")
                 for s in iv["intent_signals_found"]:
                     st.markdown(f"  ✅ {s}")
                 if not iv["intent_signals_found"]:
                     st.caption("None")
             with col_m:
-                st.markdown("**Intent signals MISSING from code:**")
+                st.markdown("**Signals MISSING:**")
                 for s in iv["intent_signals_missing"]:
                     st.markdown(f"  ❌ {s}")
                 if not iv["intent_signals_missing"]:
                     st.caption("None — good!")
+            for issue in iv.get("issues", []):
+                si = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(issue["severity"], "⚪")
+                st.markdown(f"{si} **{issue['issue_type']}** — {issue['description']}")
+                if issue["line_snippet"]:
+                    st.code(issue["line_snippet"][:200], language="python")
 
-            if iv["issues"]:
-                st.markdown("**Issues detected:**")
-                for issue in iv["issues"]:
-                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(issue["severity"], "⚪")
-                    st.markdown(f"{sev_icon} **{issue['issue_type']}** — {issue['description']}")
-                    if issue["line_snippet"]:
-                        st.code(issue["line_snippet"][:200], language="python")
-
-    # Tab 2: OWASP
     with tabs[1]:
         findings = data["owasp"]["findings"]
         if not findings:
@@ -5665,37 +5581,34 @@ def render_pipeline_demo():
         else:
             sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
             for f in sorted(findings, key=lambda x: sev_order.get(x["severity"], 4)):
-                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(f["severity"], "⚪")
-                with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['owasp_id']} — {f['description'][:80]}"):
-                    col_a, col_b = st.columns(2)
-                    col_a.markdown(f"**Rule:** `{f['rule_id']}`  \n**Category:** {f['owasp_category']}")
-                    col_b.markdown(f"**CWE:** {f['cwe']}  \n**Line:** {f['line_number']}")
+                si = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(f["severity"], "⚪")
+                with st.expander(f"{si} [{f['severity'].upper()}] {f['owasp_id']} — {f['description'][:80]}"):
+                    ca, cb = st.columns(2)
+                    ca.markdown(f"**Rule:** `{f['rule_id']}`  \n**Category:** {f['owasp_category']}")
+                    cb.markdown(f"**CWE:** {f['cwe']}  \n**Line:** {f['line_number']}")
                     st.code(f["evidence"][:200], language="python")
 
-    # Tab 3: Secrets
     with tabs[2]:
         sec_findings = data["secrets"]["findings"]
         if not sec_findings:
-            st.success("No secrets detected in the code.")
+            st.success("No secrets detected.")
         else:
-            st.warning(f"**{len(sec_findings)} secret(s) detected** — evidence is redacted below")
+            st.warning(f"**{len(sec_findings)} secret(s) detected** — evidence redacted")
             for f in sec_findings:
-                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
-                st.markdown(f"{sev_icon} **{f['secret_type']}** — `{f['evidence']}` (line {f['line_number']})")
+                si = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
+                st.markdown(f"{si} **{f['secret_type']}** — `{f['evidence']}` (line {f['line_number']})")
 
-    # Tab 4: Race Conditions
     with tabs[3]:
         rc_findings = data["race_conditions"]["findings"]
         if not rc_findings:
             st.success("No race condition patterns detected.")
         else:
             for f in rc_findings:
-                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
-                with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['pattern_id']} — {f['description'][:80]}"):
+                si = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
+                with st.expander(f"{si} [{f['severity'].upper()}] {f['pattern_id']} — {f['description'][:80]}"):
                     st.markdown(f"**Attack scenario:** {f['attack_scenario']}")
                     st.code(f["evidence"][:200])
 
-    # Tab 5: Pre-flight Checklist
     with tabs[4]:
         cl = data["preflight_checklist"]
         cats = cl.get("categories_triggered", [])
@@ -5703,7 +5616,7 @@ def render_pipeline_demo():
             st.markdown(f"**Categories triggered:** {', '.join(cats)}")
         items = cl.get("items", [])
         if not items:
-            st.info("No specific pre-flight checks triggered for this code.")
+            st.info("No specific pre-flight checks triggered.")
         else:
             for priority in ("MUST", "SHOULD", "CONSIDER"):
                 priority_items = [i for i in items if i["priority"] == priority]
@@ -5711,24 +5624,141 @@ def render_pipeline_demo():
                     icon = {"MUST": "🔴", "SHOULD": "🟡", "CONSIDER": "🔵"}.get(priority, "")
                     st.markdown(f"### {icon} {priority}")
                     for item in priority_items:
-                        st.markdown(f"- [ ] {item['item']}  \n  <small>*Triggered by: {item['triggered_by']}*</small>", unsafe_allow_html=True)
+                        st.markdown(f"- [ ] {item['item']}  \n  <small>*{item['triggered_by']}*</small>", unsafe_allow_html=True)
 
-    # Tab 6: Signal Breakdown
     with tabs[5]:
         st.markdown("### Release Readiness Signal Breakdown")
-        status_icon = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}
         for sig in rr["signals"]:
-            icon = status_icon.get(sig["status"], "⚪")
+            si = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}.get(sig["status"], "⚪")
             block_tag = " 🚫 **BLOCKING**" if sig["blocking"] and sig["status"] == "red" else ""
             if sig["status"] == "grey":
-                st.markdown(f"{icon} **{sig['display_name']}** — *not provided (score excluded)*")
+                st.markdown(f"{si} **{sig['display_name']}** — *not provided (excluded)*")
             else:
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.markdown(f"{icon} **{sig['display_name']}**{block_tag}  \n{sig['detail']}")
+                c1, c2 = st.columns([4, 1])
+                with c1:
+                    st.markdown(f"{si} **{sig['display_name']}**{block_tag}  \n{sig['detail']}")
                     st.progress(sig["score"] / 100)
-                with col2:
+                with c2:
                     st.metric("", f"{sig['score']:.0f}/100")
+
+
+def render_pipeline_demo():
+    """AgenticQA — describe a feature, the pipeline builds and validates it."""
+    import requests as _req
+
+    st.markdown(
+        """
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:28px;margin-bottom:24px">
+          <h2 style="color:#e94560;margin:0 0 8px">🔬 AgenticQA Pipeline</h2>
+          <p style="color:#a8b2c1;margin:0;font-size:15px">
+            Describe what you want built. AgenticQA generates the code, runs every security scanner,
+            and automatically fixes issues — giving you a
+            <strong style="color:white">SHIP IT or DO NOT SHIP</strong> verdict.
+            If it passes, a draft PR is opened for your review.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    api_base = st.text_input(
+        "api_base", value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="demo_api_base", label_visibility="collapsed",
+    ).rstrip("/")
+
+    description = st.text_area(
+        "What do you want to build?",
+        placeholder=(
+            "e.g.  Add a /api/user/export endpoint that returns all data for a user "
+            "including profile, activity history, and account settings as JSON"
+        ),
+        height=130,
+        key="demo_description",
+    )
+
+    with st.expander("⚙️ Options", expanded=False):
+        col_r, col_f = st.columns(2)
+        repo_path = col_r.text_input(
+            "Repo path (for real git workflow)",
+            placeholder="Leave blank to use an isolated sandbox",
+            key="demo_repo_path",
+        )
+        auto_fix = col_f.checkbox("Auto-fix and retry if issues found", value=True, key="demo_auto_fix")
+        max_retries = col_f.slider("Max fix attempts", 1, 3, 2, key="demo_max_retries")
+
+    api_key = st.session_state.get("anthropic_api_key", "")
+    if not api_key:
+        st.warning("Add your Anthropic API Key in the sidebar → **LLM Connection** to get started.")
+
+    run_clicked = st.button(
+        "Build & Validate",
+        type="primary",
+        key="demo_run",
+        use_container_width=True,
+        disabled=not description.strip() or not api_key,
+    )
+
+    st.markdown("---")
+
+    if not run_clicked:
+        return
+
+    github_token = st.session_state.get("github_token", "")
+
+    data = None
+    with st.spinner("Building → scanning → fixing → validating..."):
+        try:
+            resp = _req.post(
+                f"{api_base}/api/pipeline/run",
+                json={
+                    "description": description,
+                    "repo_path": repo_path or "",
+                    "api_key": api_key,
+                    "github_token": github_token or None,
+                    "auto_fix": auto_fix,
+                    "max_retries": max_retries,
+                },
+                timeout=180,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            st.error(f"Pipeline error: {e}")
+            return
+
+    if not data:
+        return
+
+    # ── Iteration progress trail ───────────────────────────────────────────────
+    attempts = data.get("attempts", 1)
+    iterations = data.get("iterations", [])
+    if attempts > 1:
+        st.markdown(f"**AgenticQA ran {attempts} attempt(s) before reaching a verdict:**")
+        cols = st.columns(attempts)
+        for i, iteration in enumerate(iterations):
+            rec_i = iteration["recommendation"]
+            icon_i = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🔴"}.get(rec_i, "⚪")
+            cols[i].markdown(f"**Attempt {iteration['attempt']}**  \n{icon_i} {rec_i}  \nOWASP critical: {iteration['summary']['owasp_critical']}")
+
+    # ── PR link if created ─────────────────────────────────────────────────────
+    pr_url = data.get("pr_url")
+    if pr_url:
+        st.success(f"**Draft PR opened** — code passed all checks.")
+        st.link_button("View Pull Request on GitHub →", pr_url, type="primary")
+    elif data.get("branch_pushed"):
+        st.info(f"Branch pushed: `{data['branch']}` — PR creation failed, push the branch manually.")
+    elif data.get("branch"):
+        st.caption(f"Branch: `{data['branch']}` (local only — add a GitHub token to push)")
+
+    # ── Final verdict + detail tabs ───────────────────────────────────────────
+    _render_scan_results(data)
+
+    # ── Generated code (last attempt) ────────────────────────────────────────
+    if iterations:
+        last_code = iterations[-1].get("generated_code", "")
+        if last_code:
+            with st.expander("📄 Generated code (final attempt)", expanded=False):
+                st.code(last_code, language="python")
 
 
 def render_release_readiness():
@@ -6396,7 +6426,21 @@ def main():
             st.session_state["anthropic_api_key"] = anthropic_key
             st.success("Key set", icon="✅")
         else:
-            st.caption("Enter your key to enable code generation. Get one at console.anthropic.com")
+            st.caption("Get a key at console.anthropic.com")
+
+        github_token = st.text_input(
+            "GitHub Token (optional)",
+            value=st.session_state.get("github_token", ""),
+            type="password",
+            placeholder="ghp_...",
+            help="Enables automatic branch push + draft PR when code passes. Needs repo write scope.",
+            key="sidebar_github_token",
+        )
+        if github_token:
+            st.session_state["github_token"] = github_token
+            st.success("Token set", icon="✅")
+        else:
+            st.caption("Without this, code is validated but not pushed.")
 
         st.markdown("---")
         st.markdown("### ⚙️ Settings")
