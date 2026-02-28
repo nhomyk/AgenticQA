@@ -2,7 +2,7 @@
 
 **The world's first Agentic Development Lifecycle (ADLC) platform — a closed, self-reinforcing cycle that governs, generates, scans, tests, self-heals, and ships features autonomously: describe → generate → security scan → test → self-heal → SHIP IT → learn → repeat.**
 
-Built on constitutional governance, forensic decision traceability, adversarial red-team hardening, HIPAA/GDPR/EU AI Act compliance, prompt injection detection, LLM model regression testing, cryptographic output provenance, cross-language coverage mapping, and a Perplexity-inspired landing page that gives non-technical users a single input into the entire cycle — without requiring LLMs for the governance layer.
+Built on constitutional governance, forensic decision traceability, adversarial red-team hardening, HIPAA/GDPR/EU AI Act compliance, prompt injection detection, LLM model regression testing, cryptographic output provenance, cross-language coverage mapping, and a futuristic minimal landing page that gives non-technical users a single input into the entire cycle — without requiring LLMs for the governance layer.
 
 [![CI Pipeline](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml)
 [![Pipeline Validation](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml)
@@ -281,7 +281,7 @@ The factory automatically inserts the agent's capabilities into the Task-Agent O
 
 ---
 
-### 🌐 Perplexity-Inspired Landing Page — Bridges Non-Technical and Technical Users
+### 🌐 Minimal AI Landing Page — Bridges Non-Technical and Technical Users
 
 A dark minimal landing page (`public/index.html`, served at `GET /`) makes AgenticQA accessible to product managers, security officers, and executives — no terminal required:
 
@@ -667,7 +667,7 @@ agenticqa doctor --repo .             # readiness check with fix commands
 | **CI/CD** | GitHub Actions (16 jobs, SARIF upload, nightly self-validation) |
 | **Testing** | Pytest (1538+ unit tests) |
 | **Language** | Python 3.8+ |
-| **Landing Page** | Vanilla HTML/CSS/JS · animated CSS grid · Perplexity-inspired dark UI |
+| **Landing Page** | Vanilla HTML/CSS/JS · animated CSS grid · futuristic dark minimal UI |
 | **Frontend Testing** | Streamlit AppTest · Jest · Vitest · FrontendTestGenerator · FrontendTestRunner |
 | **Repo Onboarding** | CoverageMapper · ArchitectureScanner · RepoOnboarder · BaselineDelta |
 
@@ -678,7 +678,7 @@ agenticqa doctor --repo .             # readiness check with fix commands
 ```
 AgenticQA/
 ├── public/                      # Landing page (served at GET /)
-│   └── index.html               # Perplexity-inspired dark minimal UI
+│   └── index.html               # Futuristic dark minimal AI input UI
 ├── run_demo.py                  # 8-step end-to-end client demo (no API key needed)
 ├── src/agenticqa/
 │   ├── constitution.yaml        # Agent Constitution — versioned, machine-readable law set
