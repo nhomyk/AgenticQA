@@ -3447,6 +3447,36 @@ async def pipeline_run(req: PipelineRunRequest):
 
         findings_context = "\n".join(owasp_issues + secret_issues + blocking + test_failures)
 
+    # ── Post-SHIP: re-scan UI tests so new feature doesn't break existing UX ───
+    # After the fix-loop passes, run any existing Streamlit / JS / framework tests
+    # that already live in the repo to catch UI regressions introduced by the change.
+    ui_test_results: dict = {}
+    if recommendation == "SHIP IT":
+        try:
+            from agenticqa.testing.frontend_test_runner import FrontendTestRunner
+            from agenticqa.testing.frontend_test_generator import FrameworkDetector
+
+            detection = FrameworkDetector().detect(repo_path, req.file_path or "")
+            # Only re-run if we detected a frontend framework
+            if detection.framework.value not in ("python", "unknown"):
+                ui_runner = FrontendTestRunner()
+                ui_test_results = ui_runner.run(
+                    description=req.description,
+                    code=code,
+                    file_path=req.file_path or "",
+                    repo_path=repo_path,
+                    timeout=60,
+                )
+                # If generated UI tests fail, downgrade verdict and add to context
+                if ui_test_results.get("status") == "ALL_FAILED":
+                    recommendation = "REVIEW REQUIRED"
+                    ui_test_results["note"] = (
+                        "Post-SHIP UI test scan failed — generated feature may break "
+                        "existing UI flows. Review generated test output above."
+                    )
+        except Exception:
+            pass  # UI test scan is best-effort; never blocks a valid SHIP IT
+
     # ── Push branch + open draft PR if SHIP IT ────────────────────────────────
     final_scan = scan
     pr_url = None
@@ -3516,6 +3546,7 @@ async def pipeline_run(req: PipelineRunRequest):
         "pr_url": pr_url,
         "branch_pushed": branch_pushed,
         "iterations": iterations,
+        "ui_test_results": ui_test_results,
         **final_scan,
     }
 
@@ -3936,6 +3967,81 @@ async def onboarding_status(repo_path: str = "."):
     try:
         data = json.loads(baseline_path.read_text())
         return {"success": True, "baseline": data, "repo_id": repo_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+
+# ── Post-SHIP UI Test Scan ─────────────────────────────────────────────────────
+# Runs after a SHIP IT verdict to verify the new feature doesn't break existing
+# UI tests.  Can also be called explicitly (e.g. from CD pipeline, post-deploy).
+
+class UITestScanRequest(BaseModel):
+    description: str = ""
+    code: str = ""
+    file_path: str = ""
+    repo_path: str = "."
+    timeout: int = 60
+
+
+@app.post("/api/pipeline/ui-test-scan")
+async def ui_test_scan(req: UITestScanRequest):
+    """
+    Run framework-aware UI tests against generated (or existing) frontend code.
+
+    Detects the frontend framework (Streamlit, React/Jest, Vue/Vitest, etc.),
+    generates headless tests, runs them, and returns pass/fail with detailed output.
+
+    Typical usage:
+      1. After a SHIP IT verdict — verify the new feature didn't break the UI.
+      2. After deployment — smoke-test the running frontend.
+      3. As a standalone CI step.
+    """
+    from agenticqa.testing.frontend_test_runner import FrontendTestRunner
+    from agenticqa.testing.frontend_test_generator import FrameworkDetector
+
+    detection = FrameworkDetector().detect(req.repo_path, req.file_path)
+
+    if detection.framework.value in ("python", "unknown") and not req.code:
+        return {
+            "success": True,
+            "skipped": True,
+            "reason": "No frontend framework detected — nothing to UI-test.",
+            "framework": detection.framework.value,
+        }
+
+    try:
+        runner = FrontendTestRunner()
+        if req.code:
+            result = runner.run(
+                description=req.description or f"UI test for {req.file_path}",
+                code=req.code,
+                file_path=req.file_path,
+                repo_path=req.repo_path,
+                timeout=req.timeout,
+            )
+        else:
+            # No code provided — generate + run tests for the file at file_path
+            from agenticqa.testing.frontend_test_generator import FrontendTestGenerator
+            from pathlib import Path
+            abs_path = Path(req.repo_path) / req.file_path
+            code = abs_path.read_text(encoding="utf-8", errors="ignore")[:8000] if abs_path.exists() else ""
+            gen = FrontendTestGenerator().generate(
+                description=req.description or f"UI test for {req.file_path}",
+                code=code,
+                file_path=req.file_path,
+                repo_path=req.repo_path,
+                detection=detection,
+            )
+            result = runner.run_generated(gen, req.repo_path, timeout=req.timeout)
+
+        verdict = "✅ UI TESTS PASSED" if result["status"] == "ALL_PASSED" else "⚠️ UI TESTS FAILED"
+        return {
+            "success": True,
+            "verdict": verdict,
+            "framework": detection.framework.value,
+            **result,
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

@@ -299,3 +299,83 @@ def test_empty_repo_returns_zero_score(tmp_path):
     assert result.attack_surface_score == 0.0
     assert result.integration_areas == []
     assert result.scan_error is None
+
+
+# ── Context-aware severity adjustment ─────────────────────────────────────────
+
+@pytest.mark.unit
+def test_frontend_external_http_downgraded_to_info(tmp_path):
+    """EXTERNAL_HTTP inside a ui/ directory must be downgraded to info."""
+    write(tmp_path / "ui" / "app.py",
+          "import requests\nresp = requests.get('http://localhost:8000/tasks')\n")
+    result = scanner().scan(str(tmp_path))
+    http_areas = [a for a in result.integration_areas if a.category == "EXTERNAL_HTTP"]
+    assert len(http_areas) == 1
+    assert http_areas[0].severity == "info", f"Expected info, got {http_areas[0].severity}"
+    assert "attack_vectors" in http_areas[0].to_dict()
+    assert http_areas[0].attack_vectors == []
+
+
+@pytest.mark.unit
+def test_backend_external_http_remains_high(tmp_path):
+    """EXTERNAL_HTTP in a backend file must stay high severity."""
+    write(tmp_path / "src" / "service.py",
+          "import requests\nresp = requests.get('https://external-api.com/data')\n")
+    result = scanner().scan(str(tmp_path))
+    http_areas = [a for a in result.integration_areas if a.category == "EXTERNAL_HTTP"]
+    assert len(http_areas) == 1
+    assert http_areas[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_frontend_in_frontend_dir_downgraded(tmp_path):
+    """EXTERNAL_HTTP inside a frontend/ directory is also downgraded."""
+    write(tmp_path / "frontend" / "app.ts",
+          "import axios from 'axios';\naxios.get('/api/tasks');\n")
+    result = scanner().scan(str(tmp_path))
+    http_areas = [a for a in result.integration_areas if a.category == "EXTERNAL_HTTP"]
+    assert all(a.severity == "info" for a in http_areas)
+
+
+@pytest.mark.unit
+def test_url_env_var_downgraded_to_info(tmp_path):
+    """os.environ.get('API_BASE', ...) is config, not a credential — must be info."""
+    write(tmp_path / "src" / "config.py",
+          "import os\nAPI_BASE = os.environ.get('API_BASE', 'http://localhost:8000')\n")
+    result = scanner().scan(str(tmp_path))
+    env_areas = [a for a in result.integration_areas if a.category == "ENV_SECRETS"]
+    # API_BASE is a URL, not a credential
+    assert all(a.severity == "info" for a in env_areas), \
+        f"Expected all info, got: {[a.severity for a in env_areas]}"
+
+
+@pytest.mark.unit
+def test_credential_env_var_stays_high(tmp_path):
+    """os.environ.get('SECRET_KEY', ...) is a real secret — must stay high."""
+    write(tmp_path / "src" / "auth.py",
+          "import os\nSECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret')\n")
+    result = scanner().scan(str(tmp_path))
+    env_areas = [a for a in result.integration_areas if a.category == "ENV_SECRETS"]
+    assert len(env_areas) >= 1
+    assert any(a.severity == "high" for a in env_areas), \
+        f"Expected high severity for SECRET_KEY, got: {[a.severity for a in env_areas]}"
+
+
+@pytest.mark.unit
+def test_frontend_http_excluded_from_attack_surface_score(tmp_path):
+    """Frontend HTTP calls (info) must not inflate the attack surface score."""
+    write(tmp_path / "ui" / "app.py",
+          "import requests\n" + "resp = requests.get('http://api/x')\n" * 5)
+    result = scanner().scan(str(tmp_path))
+    # info areas don't contribute to the score
+    assert result.attack_surface_score == 0.0
+
+
+@pytest.mark.unit
+def test_is_frontend_file_recognises_ui_dir():
+    from agenticqa.security.architecture_scanner import ArchitectureScanner
+    assert ArchitectureScanner._is_frontend_file("ui/app.py")
+    assert ArchitectureScanner._is_frontend_file("frontend/components/Button.tsx")
+    assert ArchitectureScanner._is_frontend_file("client/src/pages/Home.tsx")
+    assert not ArchitectureScanner._is_frontend_file("src/service.py")
+    assert not ArchitectureScanner._is_frontend_file("api/server.py")

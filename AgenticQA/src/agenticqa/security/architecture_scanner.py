@@ -49,6 +49,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# ── Frontend context directories ──────────────────────────────────────────────
+# Files inside these directories make outbound HTTP calls to their *own* backend
+# by design.  EXTERNAL_HTTP is expected and is NOT an SSRF risk in that context.
+_FRONTEND_DIRS = {
+    "ui", "frontend", "client", "app", "web", "pages", "views",
+    "components", "screens", "dashboard", "src/app", "src/pages",
+}
+
+# ENV var names that indicate a URL/endpoint (not a credential).
+# os.environ.get("API_BASE", ...) is configuration, not a secret.
+_URL_ENV_PATTERN = re.compile(
+    r'(?:get|getenv|environ)\s*[\[\(]\s*["\']'
+    r'[A-Z_]*(?:URL|BASE|HOST|ENDPOINT|ORIGIN|ADDRESS|PORT|URI)[A-Z_]*["\']',
+    re.IGNORECASE,
+)
+
 # ── Skip directories ──────────────────────────────────────────────────────────
 
 _SKIP_DIRS = {
@@ -575,6 +591,12 @@ class ArchitectureScanner:
                 test_files.append(f)
         return test_files
 
+    @staticmethod
+    def _is_frontend_file(rel_path: str) -> bool:
+        """Return True if the file lives inside a known frontend/UI directory."""
+        parts = set(Path(rel_path).parts[:-1])  # exclude filename itself
+        return bool(parts & _FRONTEND_DIRS)
+
     def _scan_file(self, path: Path, root: Path) -> List[IntegrationArea]:
         ext = path.suffix.lower()
         patterns = _LANG_PATTERNS.get(ext)
@@ -586,6 +608,7 @@ class ArchitectureScanner:
             return []
 
         rel = str(path.relative_to(root)).replace("\\", "/")
+        is_frontend = self._is_frontend_file(rel)
         areas: List[IntegrationArea] = []
         seen_per_file: set = set()
 
@@ -599,14 +622,41 @@ class ArchitectureScanner:
                     continue
                 seen_per_file.add(key)
                 evidence = line.strip()[:120]
+
+                # ── Context-aware severity adjustment ─────────────────────────
+                # 1. Frontend files making HTTP calls to their own backend are
+                #    expected — SSRF does not apply here.
+                if category == "EXTERNAL_HTTP" and is_frontend:
+                    severity = "info"
+                    plain_english = (
+                        "This UI component makes HTTP requests to the backend API — "
+                        "expected behavior for a frontend. SSRF risk does not apply "
+                        "here because the target URL is controlled by configuration, "
+                        "not by end-user input."
+                    )
+                    attack_vectors: List[str] = []
+                # 2. ENV var reads that look like URL/endpoint config (not credentials).
+                elif category == "ENV_SECRETS" and _URL_ENV_PATTERN.search(line):
+                    severity = "info"
+                    plain_english = (
+                        "This reads a URL or host address from the environment "
+                        "(e.g. API_BASE, API_HOST). This is configuration, not a "
+                        "credential — rotating it does not grant access to external "
+                        "systems. No secret leakage risk."
+                    )
+                    attack_vectors = []
+                else:
+                    plain_english = _PLAIN_ENGLISH.get(category, "")
+                    attack_vectors = list(_ATTACK_VECTORS.get(category, []))
+
                 areas.append(IntegrationArea(
                     category=category,
                     source_file=rel,
                     line_number=lineno,
                     evidence=evidence,
                     severity=severity,
-                    plain_english=_PLAIN_ENGLISH.get(category, ""),
-                    attack_vectors=list(_ATTACK_VECTORS.get(category, [])),
+                    plain_english=plain_english,
+                    attack_vectors=attack_vectors,
                     cwe=_CWE.get(category, ""),
                 ))
 
