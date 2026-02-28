@@ -2538,6 +2538,211 @@ async def architecture_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Agent Safety: Destructive Action Interceptor ──────────────────────────────
+
+_interceptor_singleton = None
+
+def _get_interceptor():
+    global _interceptor_singleton
+    if _interceptor_singleton is None:
+        from agenticqa.security.destructive_action_interceptor import DestructiveActionInterceptor
+        _interceptor_singleton = DestructiveActionInterceptor()
+    return _interceptor_singleton
+
+
+class InterceptRequest(BaseModel):
+    tool_name: str
+    parameters: dict = {}
+    agent_id: str = "unknown"
+    session_id: str = ""
+    context_snippet: str = ""
+
+
+@app.post("/api/safety/intercept")
+async def intercept_action(req: InterceptRequest):
+    """Classify and gate a tool call before execution."""
+    from agenticqa.security.destructive_action_interceptor import ActionCall
+    interceptor = _get_interceptor()
+    call = ActionCall(
+        tool_name=req.tool_name,
+        parameters=req.parameters,
+        agent_id=req.agent_id,
+        session_id=req.session_id,
+        context_snippet=req.context_snippet,
+    )
+    verdict = interceptor.intercept(call)
+    return verdict.to_dict()
+
+
+@app.get("/api/safety/pending")
+async def get_pending_approvals():
+    """List all pending approval requests requiring human sign-off."""
+    interceptor = _get_interceptor()
+    return {"pending": interceptor.get_pending_approvals()}
+
+
+@app.post("/api/safety/approve/{token}")
+async def approve_action(token: str, approved_by: str = "human"):
+    """Approve a pending action by its approval token."""
+    interceptor = _get_interceptor()
+    ok = interceptor.approve(token, approved_by=approved_by)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Token not found or expired")
+    return {"approved": True, "token": token}
+
+
+@app.post("/api/safety/deny/{token}")
+async def deny_action(token: str):
+    """Deny and remove a pending approval request."""
+    interceptor = _get_interceptor()
+    ok = interceptor.deny(token)
+    return {"denied": ok, "token": token}
+
+
+# ── Agent Safety: Scope Lease Manager ────────────────────────────────────────
+
+_lease_mgr_singleton = None
+
+def _get_lease_mgr():
+    global _lease_mgr_singleton
+    if _lease_mgr_singleton is None:
+        from agenticqa.security.scope_lease_manager import AgentScopeLeaseManager
+        _lease_mgr_singleton = AgentScopeLeaseManager()
+    return _lease_mgr_singleton
+
+
+class LeaseCreateRequest(BaseModel):
+    agent_id: str
+    session_id: str = ""
+    label: str = "standard"        # standard | readonly | elevated | custom
+    max_reads: int = 2147483647
+    max_writes: int = 50
+    max_deletes: int = 0
+    max_executes: int = 0
+    lease_ttl_seconds: int = 600
+
+
+class LeaseCheckRequest(BaseModel):
+    lease_id: str
+    action: str   # read | write | delete | execute (or tool name alias)
+
+
+@app.post("/api/safety/lease")
+async def create_lease(req: LeaseCreateRequest):
+    """Issue a new scope lease for an agent session."""
+    from agenticqa.security.scope_lease_manager import LeaseConfig
+    mgr = _get_lease_mgr()
+    if req.label == "readonly":
+        config = LeaseConfig.readonly()
+    elif req.label == "elevated":
+        config = LeaseConfig.elevated(max_deletes=req.max_deletes, max_executes=req.max_executes)
+    else:
+        config = LeaseConfig(
+            max_reads=req.max_reads,
+            max_writes=req.max_writes,
+            max_deletes=req.max_deletes,
+            max_executes=req.max_executes,
+            lease_ttl_seconds=req.lease_ttl_seconds,
+            label=req.label,
+        )
+    lease_id = mgr.create_lease(req.agent_id, req.session_id, config)
+    return {"lease_id": lease_id, **mgr.get_lease_status(lease_id)}
+
+
+@app.get("/api/safety/lease/{lease_id}")
+async def get_lease(lease_id: str):
+    """Get current status and counters for a lease."""
+    mgr = _get_lease_mgr()
+    status = mgr.get_lease_status(lease_id)
+    if not status:
+        raise HTTPException(status_code=404, detail=f"Lease {lease_id} not found")
+    return status
+
+
+@app.post("/api/safety/lease/check")
+async def check_lease(req: LeaseCheckRequest):
+    """Check-and-consume one operation unit from a lease (hard enforcement)."""
+    mgr = _get_lease_mgr()
+    allowed, reason = mgr.check_and_consume(req.lease_id, req.action)
+    if not allowed:
+        raise HTTPException(status_code=403, detail=reason)
+    return {"allowed": True, "reason": reason}
+
+
+@app.delete("/api/safety/lease/{lease_id}")
+async def revoke_lease(lease_id: str, reason: str = "manual revocation"):
+    """Immediately revoke a lease — all further ops blocked."""
+    mgr = _get_lease_mgr()
+    ok = mgr.revoke_lease(lease_id, reason=reason)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Lease {lease_id} not found")
+    return {"revoked": True, "lease_id": lease_id}
+
+
+@app.get("/api/safety/leases")
+async def list_leases():
+    """List all active (non-expired, non-revoked) leases."""
+    mgr = _get_lease_mgr()
+    return {"leases": mgr.list_active_leases()}
+
+
+# ── Agent Safety: Instruction Persistence Warden ─────────────────────────────
+
+_warden_singleton = None
+
+def _get_warden():
+    global _warden_singleton
+    if _warden_singleton is None:
+        from agenticqa.security.instruction_persistence_warden import InstructionPersistenceWarden
+        _warden_singleton = InstructionPersistenceWarden()
+    return _warden_singleton
+
+
+class WardCheckRequest(BaseModel):
+    session_id: str
+    messages: list = []           # [{role, content}, ...]
+    recent_output: str = ""
+
+
+class GuardrailRegisterRequest(BaseModel):
+    session_id: str
+    guardrails: list              # [{name, content, drift_signals?, priority?}]
+
+
+@app.post("/api/safety/warden/register")
+async def register_guardrails(req: GuardrailRegisterRequest):
+    """Register immutable guardrail blocks for a session."""
+    from agenticqa.security.instruction_persistence_warden import GuardrailBlock
+    warden = _get_warden()
+    blocks = [
+        GuardrailBlock(
+            name=g.get("name", f"guardrail_{i}"),
+            content=g.get("content", ""),
+            drift_signals=g.get("drift_signals", []),
+            priority=g.get("priority", 0),
+        )
+        for i, g in enumerate(req.guardrails)
+    ]
+    warden.register_guardrails(req.session_id, blocks)
+    return {"registered": len(blocks), "session_id": req.session_id}
+
+
+@app.post("/api/safety/warden/check")
+async def warden_check(req: WardCheckRequest):
+    """Check compaction risk and constraint drift for a session."""
+    warden = _get_warden()
+    report = warden.check(req.session_id, req.messages, req.recent_output)
+    return report.to_dict()
+
+
+@app.get("/api/safety/warden/prompt/{session_id}")
+async def get_reinforced_prompt(session_id: str, base_prompt: str = ""):
+    """Get a system prompt with all guardrail blocks re-injected."""
+    warden = _get_warden()
+    prompt = warden.get_reinforced_system_prompt(session_id, base_prompt)
+    return {"session_id": session_id, "reinforced_prompt": prompt}
+
+
 if __name__ == "__main__":
     import uvicorn
 

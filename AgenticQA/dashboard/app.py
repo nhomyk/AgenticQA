@@ -4856,6 +4856,272 @@ def render_compliance_scan():
                 st.warning(f"Scan error: {hipaa_data['scan_error']}")
 
 
+def render_agent_safety_monitor():
+    """Agent Safety Monitor — interceptor, leases, warden, and approval queue."""
+    import requests as _req
+    import pandas as pd
+
+    st.subheader("Agent Safety Monitor")
+    st.markdown(
+        "Real-time safety enforcement for agent sessions. Intercept destructive actions "
+        "before they execute, cap operations with scope leases, and detect compaction-induced "
+        "constraint loss — the root cause of the OpenClaw email-deletion incident."
+    )
+
+    api_base = st.text_input(
+        "API URL", value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="safety_api_base",
+    )
+
+    tab_intercept, tab_leases, tab_warden, tab_simulate = st.tabs([
+        "Pending Approvals", "Active Leases", "Warden Check", "Test Interceptor",
+    ])
+
+    # ── Pending Approvals ─────────────────────────────────────────────────────
+    with tab_intercept:
+        st.markdown("#### Destructive Actions Awaiting Human Approval")
+        st.caption(
+            "Any agent tool call classified as IRREVERSIBLE or DESTRUCTIVE is "
+            "blocked here until a human approves or denies it."
+        )
+        if st.button("Refresh Pending Approvals", key="safety_refresh_pending"):
+            try:
+                r = _req.get(f"{api_base}/api/safety/pending", timeout=10)
+                pending = r.json().get("pending", [])
+            except Exception as e:
+                st.error(f"Failed to fetch pending approvals: {e}")
+                pending = []
+
+            if not pending:
+                st.success("No pending approvals — all agent actions are within safe bounds.")
+            else:
+                st.warning(f"{len(pending)} action(s) awaiting human review:")
+                for p in pending:
+                    sev_color = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(
+                        p.get("classification", ""), "⚪"
+                    )
+                    with st.expander(
+                        f"{sev_color} [{p.get('classification','?').upper()}] "
+                        f"{p.get('tool_name','?')} — agent: {p.get('agent_id','?')}"
+                    ):
+                        st.json(p)
+                        col_a, col_d = st.columns(2)
+                        with col_a:
+                            if st.button("Approve", key=f"approve_{p.get('token','')}"):
+                                try:
+                                    _req.post(
+                                        f"{api_base}/api/safety/approve/{p['token']}",
+                                        params={"approved_by": "dashboard_user"},
+                                        timeout=10,
+                                    )
+                                    st.success("Approved")
+                                    st.rerun()
+                                except Exception as ex:
+                                    st.error(str(ex))
+                        with col_d:
+                            if st.button("Deny", key=f"deny_{p.get('token','')}"):
+                                try:
+                                    _req.post(
+                                        f"{api_base}/api/safety/deny/{p['token']}",
+                                        timeout=10,
+                                    )
+                                    st.warning("Denied")
+                                    st.rerun()
+                                except Exception as ex:
+                                    st.error(str(ex))
+
+    # ── Active Leases ─────────────────────────────────────────────────────────
+    with tab_leases:
+        st.markdown("#### Active Scope Leases")
+        st.caption(
+            "Each agent session runs under a lease that caps how many reads, "
+            "writes, deletes, and shell executions it may perform. "
+            "When a cap is hit, the agent is hard-stopped — not just warned."
+        )
+
+        col_r, col_c = st.columns([1, 2])
+        with col_r:
+            if st.button("Refresh Leases", key="safety_refresh_leases"):
+                st.session_state["safety_leases"] = True
+
+        if st.session_state.get("safety_leases"):
+            try:
+                r = _req.get(f"{api_base}/api/safety/leases", timeout=10)
+                leases = r.json().get("leases", [])
+            except Exception as e:
+                st.error(f"Failed to fetch leases: {e}")
+                leases = []
+
+            if not leases:
+                st.info("No active leases currently. Create one below.")
+            else:
+                rows = []
+                for l in leases:
+                    used = l.get("used", {})
+                    caps = l.get("caps", {})
+                    rows.append({
+                        "Lease ID": l["lease_id"][:12] + "…",
+                        "Agent": l.get("agent_id", "?"),
+                        "Label": l.get("label", "?"),
+                        "TTL left (s)": f"{l.get('seconds_remaining', 0):.0f}",
+                        "Reads": f"{used.get('reads', 0)}/{caps.get('reads', '∞')}",
+                        "Writes": f"{used.get('writes', 0)}/{caps.get('writes', 0)}",
+                        "Deletes": f"{used.get('deletes', 0)}/{caps.get('deletes', 0)}",
+                        "Total ops": used.get("total", 0),
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("**Create a new lease**")
+        with st.form("create_lease_form"):
+            agent_id = st.text_input("Agent ID", value="my-agent")
+            session_id = st.text_input("Session ID", value="session-001")
+            label = st.selectbox("Lease type", ["standard", "readonly", "elevated", "custom"])
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                max_writes = st.number_input("Max writes", min_value=0, value=50)
+            with col2:
+                max_deletes = st.number_input("Max deletes", min_value=0, value=0)
+            with col3:
+                ttl = st.number_input("TTL (seconds)", min_value=30, value=600)
+            submitted = st.form_submit_button("Create Lease")
+            if submitted:
+                try:
+                    r = _req.post(f"{api_base}/api/safety/lease", json={
+                        "agent_id": agent_id, "session_id": session_id, "label": label,
+                        "max_writes": max_writes, "max_deletes": max_deletes,
+                        "lease_ttl_seconds": ttl,
+                    }, timeout=10)
+                    st.success(f"Lease created: `{r.json().get('lease_id', '?')}`")
+                    st.session_state["safety_leases"] = True
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+
+    # ── Warden Check ──────────────────────────────────────────────────────────
+    with tab_warden:
+        st.markdown("#### Instruction Persistence Warden")
+        st.markdown(
+            "The warden detects when a conversation is approaching the context window limit "
+            "(compaction risk) and scans agent output for constraint drift — behaviour that "
+            "contradicts the original guardrails, as happened in the OpenClaw incident."
+        )
+        with st.form("warden_form"):
+            w_session = st.text_input("Session ID", value="demo-session")
+            w_output = st.text_area(
+                "Paste the agent's most recent output",
+                value="I'll start deleting all emails older than 7 days now.",
+                height=100,
+            )
+            w_tokens = st.slider(
+                "Estimated conversation token count (simulates fill level)",
+                min_value=0, max_value=200000, value=80000,
+            )
+            w_window = st.number_input("Model context window (tokens)", value=128000)
+            w_submit = st.form_submit_button("Check Warden")
+
+        if w_submit:
+            # Synthesise a fake message list that produces the right token count
+            fake_msgs = [{"role": "user", "content": "x" * (w_tokens * 4)}]
+            try:
+                r = _req.post(f"{api_base}/api/safety/warden/check", json={
+                    "session_id": w_session,
+                    "messages": fake_msgs,
+                    "recent_output": w_output,
+                }, timeout=30)
+                report = r.json()
+            except Exception as e:
+                st.error(f"Warden check failed: {e}")
+                report = {}
+
+            if report:
+                risk = report.get("compaction_risk", "low")
+                action = report.get("recommended_action", "continue")
+                drift = report.get("constraint_drift_detected", False)
+
+                risk_color = {"low": "🟢", "medium": "🟡", "high": "🟠", "critical": "🔴"}.get(risk, "⚪")
+                action_color = {"continue": "✅", "re_inject": "🔁", "pause": "⏸", "terminate": "🛑"}.get(action, "❓")
+
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Compaction Risk", f"{risk_color} {risk.upper()}")
+                col2.metric("Recommended Action", f"{action_color} {action.upper()}")
+                col3.metric("Constraint Drift", "⚠ YES" if drift else "✅ NO")
+
+                fill_pct = report.get("fill_fraction", 0) * 100
+                st.progress(min(fill_pct / 100, 1.0), text=f"Context fill: {fill_pct:.1f}%")
+
+                if drift:
+                    st.error(f"**Constraint Drift Detected** — {report.get('reason', '')}")
+                    for sig in report.get("drift_signals", []):
+                        st.warning(
+                            f"Guardrail `{sig['guardrail']}` violated — "
+                            f"signal: *\"{sig['signal']}\"*\n\n"
+                            f"> {sig['excerpt']}"
+                        )
+                else:
+                    st.info(report.get("reason", ""))
+
+                if report.get("guardrails_re_injected"):
+                    st.success("Guardrails have been flagged for re-injection on next context window.")
+
+    # ── Simulate Interceptor ──────────────────────────────────────────────────
+    with tab_simulate:
+        st.markdown("#### Test the Destructive Action Interceptor")
+        st.caption("Simulate any tool call to see how AgenticQA would classify and gate it.")
+        with st.form("intercept_sim"):
+            tool_name = st.text_input("Tool name", value="bulk_delete")
+            params_raw = st.text_area("Parameters (JSON)", value='{"all": true}', height=80)
+            sim_agent = st.text_input("Agent ID", value="openclaw")
+            sim_context = st.text_area(
+                "Agent reasoning context (last ~200 chars)",
+                value="I need to clean up the inbox. I will now delete all emails.",
+                height=80,
+            )
+            sim_submit = st.form_submit_button("Simulate Intercept")
+
+        if sim_submit:
+            try:
+                params = __import__("json").loads(params_raw)
+            except Exception:
+                params = {}
+            try:
+                r = _req.post(f"{api_base}/api/safety/intercept", json={
+                    "tool_name": tool_name,
+                    "parameters": params,
+                    "agent_id": sim_agent,
+                    "context_snippet": sim_context,
+                }, timeout=15)
+                verdict = r.json()
+            except Exception as e:
+                st.error(f"Intercept failed: {e}")
+                verdict = {}
+
+            if verdict:
+                cls = verdict.get("classification", "?")
+                risk = verdict.get("risk_level", "?")
+                allowed = verdict.get("allowed", True)
+                sev_icon = {"safe": "✅", "reversible": "🔵", "irreversible": "🟠", "destructive": "🔴"}.get(cls, "❓")
+
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Classification", f"{sev_icon} {cls.upper()}")
+                col2.metric("Risk Level", risk.upper())
+                col3.metric("Decision", "✅ ALLOWED" if allowed else "🛑 BLOCKED")
+
+                if not allowed:
+                    st.error(verdict.get("block_reason", "Action blocked."))
+                    token = verdict.get("approval_token")
+                    if token:
+                        st.code(f"Approval token: {token}", language="text")
+                        st.caption("Share this token with the operator to approve via /api/safety/approve/{token}")
+                else:
+                    st.success("Action is within safe bounds — would be allowed to proceed.")
+
+                if verdict.get("evidence"):
+                    with st.expander("Evidence"):
+                        for ev in verdict["evidence"]:
+                            st.markdown(f"- {ev}")
+
+
 def render_architecture_scan():
     """Architecture Scanner — maps integration areas, attack surface, and test coverage."""
     import requests as _req
@@ -5737,7 +6003,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Red Team", "Agent Learning"]
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -5852,6 +6118,9 @@ def main():
 
     elif page == "Architecture Scan":
         render_architecture_scan()
+
+    elif page == "Agent Safety":
+        render_agent_safety_monitor()
 
     elif page == "Red Team":
         render_red_team()
