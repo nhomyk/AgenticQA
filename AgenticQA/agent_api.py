@@ -2121,6 +2121,64 @@ async def ai_act_check(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/compliance/obligations-timeline")
+async def obligations_timeline(
+    repo_path: str = ".",
+    eu_conformity_score: float = -1.0,
+    hipaa_score: float = -1.0,
+    include_met: bool = True,
+):
+    """
+    Generate a deadline-stamped compliance action plan.
+
+    Auto-detects EU AI Act tier and scores by scanning the repo (if scores
+    not supplied). Returns obligations sorted by urgency with plain-English
+    actions and ISO deadline dates.
+
+    Query params:
+      eu_conformity_score  0.0–1.0  (omit to auto-detect from repo)
+      hipaa_score          0.0–1.0  (omit to auto-detect from repo)
+      include_met          include already-satisfied obligations (default true)
+    """
+    try:
+        from agenticqa.compliance.obligations_timeline import ObligationsTimeline
+
+        # Auto-detect scores if not supplied
+        tier = "minimal_risk"
+        eu_score = eu_conformity_score
+        h_score = hipaa_score
+
+        if eu_score < 0 or h_score < 0:
+            try:
+                from agenticqa.compliance.ai_act import AIActComplianceChecker
+                ai_result = AIActComplianceChecker().check(repo_path)
+                tier = ai_result.risk_category
+                if eu_score < 0:
+                    eu_score = ai_result.conformity_score
+            except Exception:
+                eu_score = max(eu_score, 0.5)
+
+            try:
+                from agenticqa.security.hipaa_phi_scanner import HIPAAPhiScanner
+                hipaa_result = HIPAAPhiScanner().scan(repo_path)
+                if h_score < 0:
+                    findings = hipaa_result.get("findings", [])
+                    critical = sum(1 for f in findings if f.get("severity") == "critical")
+                    h_score = max(0.0, 1.0 - (critical * 0.15))
+            except Exception:
+                h_score = max(h_score, 0.5)
+
+        plan = ObligationsTimeline().generate(
+            eu_ai_act_tier=tier,
+            eu_conformity_score=max(0.0, eu_score),
+            hipaa_score=max(0.0, h_score),
+            include_met=include_met,
+        )
+        return {"success": True, **plan.to_dict(), "summary": plan.summary()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/redteam/prompt-injection")
 async def prompt_injection_scan(repo_path: str = "."):
     """Scan repo for prompt injection attack surface."""

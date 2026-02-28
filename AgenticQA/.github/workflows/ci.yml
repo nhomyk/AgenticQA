@@ -2195,6 +2195,41 @@ jobs:
             qdrant_storage/
           key: agenticqa-learning-v1-${{ runner.os }}-${{ github.run_id }}
 
+  # ── PR Risk Pre-flight ──────────────────────────────────────────────────────
+  # Scores PR risk BEFORE CI agents run — gives reviewers immediate signal.
+  pr-risk-preflight:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    name: 🚦 PR Risk Pre-flight
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need full history for git diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install AgenticQA
+        run: pip install --no-cache-dir -e .
+
+      - name: Score PR risk and post comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python post_pr_risk_comment.py \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --author-email "${{ github.event.pull_request.user.login }}@users.noreply.github.com" \
+            --repo-path . \
+            --pr-number "${{ github.event.pull_request.number }}" \
+            --github-repo "${{ github.repository }}"
+        continue-on-error: true   # never block CI — risk score is informational
+
   # ── PR Comment ─────────────────────────────────────────────────────────────
   # Aggregates all agent results into one structured PR comment.
   # Only runs on pull_request events — not on direct pushes.
