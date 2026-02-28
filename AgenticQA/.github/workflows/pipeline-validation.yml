@@ -677,10 +677,28 @@ jobs:
         run: pip install -e ".[dev,quality]"
 
       - name: Test MCP scanner — unit tests
-        run: python -m pytest tests/test_mcp_scanner.py -m unit -q
+        run: python -m pytest tests/test_mcp_scanner.py tests/test_mcp_scanner_multilang.py -m unit -q
 
       - name: Test DataFlow tracer — unit tests
         run: python -m pytest tests/test_data_flow_tracer.py -m unit -q
+
+      - name: Test Agent Skill Scanner — unit tests
+        run: python -m pytest tests/test_agent_skill_scanner.py -m unit -q
+
+      - name: Dogfood — scan .agenticqa/custom_agents/ with Skill Scanner
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from agenticqa.security.agent_skill_scanner import AgentSkillScanner
+          results = AgentSkillScanner().scan_directory('.agenticqa/custom_agents')
+          print(f'Skill scan: files={len(results)} blocked={sum(1 for r in results if not r.is_safe)}')
+          blocked = [r for r in results if not r.is_safe]
+          if blocked:
+              for r in blocked:
+                  for f in r.findings: print(f'  {f.severity.upper()} {f.attack_type} {r.path}:{f.lineno} — {f.detail}')
+              sys.exit(1)
+          print('All custom agent skills passed security scan (or no agents found)')
+          "
 
       - name: Dogfood — scan AgenticQA src/ with MCP scanner
         run: |
@@ -823,7 +841,7 @@ jobs:
           echo "| RAG Learning System (Weaviate 1.27.0)                | $(r ${{ needs.test-rag-learning-system.result }})           | retrieval + quality |" >> $GITHUB_STEP_SUMMARY
           echo "| Data Integrity + Pipeline Framework                  | $(r ${{ needs.test-data-integrity.result }})                | schema, PII, snapshots |" >> $GITHUB_STEP_SUMMARY
           echo "| Pipeline Tools (linting, coverage, deployment gates) | $(r ${{ needs.test-pipeline-tools.result }})                | eslint, pytest-cov, gates |" >> $GITHUB_STEP_SUMMARY
-          echo "| MCP + DataFlow Security Scanners (dogfood)           | $(r ${{ needs.test-mcp-dataflow-scanners.result }})         | supply chain, SSRF, taint |" >> $GITHUB_STEP_SUMMARY
+          echo "| MCP + DataFlow + Skill Security Scanners (dogfood)   | $(r ${{ needs.test-mcp-dataflow-scanners.result }})         | supply chain, SSRF, taint, AST pre-scan |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY

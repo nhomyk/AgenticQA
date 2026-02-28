@@ -532,6 +532,67 @@ class CIArtifactIngestion:
             print(f"  ❌ Failed to ingest MCP scan: {e}")
             return False
 
+    def ingest_skill_scan(self, scan_path: str, run_id: str = None) -> bool:
+        """
+        Ingest AgentSkillScanner results into the learning system.
+
+        Stores per-file findings (attack_type, severity, line) and aggregate
+        risk score so the learning loop can track posture over time and suggest
+        new patterns for the scanner.
+        """
+        try:
+            with open(scan_path, 'r') as f:
+                scan = json.load(f)
+
+            results = scan.get("results", [])
+            total_files = scan.get("total_files", len(results))
+            blocked = scan.get("blocked", sum(1 for r in results if not r.get("is_safe")))
+            all_findings = [fnd for r in results for fnd in r.get("findings", [])]
+            critical_count = sum(1 for f in all_findings if f.get("severity") == "critical")
+            attack_types = list({f.get("attack_type") for f in all_findings if f.get("attack_type")})
+            max_risk = max((r.get("risk_score", 0.0) for r in results), default=0.0)
+
+            document = {
+                "artifact_type": "agent_skill_scan",
+                "timestamp": datetime.utcnow().isoformat(),
+                "run_id": run_id or "unknown",
+                "total_files": total_files,
+                "blocked": blocked,
+                "critical_count": critical_count,
+                "attack_types": attack_types,
+                "max_risk_score": max_risk,
+                "findings": all_findings,
+                "agent_type": "red-team",
+                "tags": ["security", "agent-skill", "ast-scan", "red-team"]
+            }
+
+            try:
+                from src.data_store.redteam_history import RedTeamHistoryStore
+                RedTeamHistoryStore().record(
+                    run_id=run_id or "unknown",
+                    mode="fast",
+                    target="agent-skill",
+                    skill_files_scanned=total_files,
+                    skill_blocked=blocked,
+                    skill_critical_count=critical_count,
+                    skill_attack_types=attack_types,
+                    skill_max_risk_score=max_risk,
+                )
+            except Exception:
+                pass
+
+            if not self.rag:
+                return self._fallback_to_local_store("red-team", document)
+
+            self.rag.log_agent_execution("red-team", document)
+            self.ingested_count += 1
+            print(f"  ✅ Ingested skill scan: {total_files} files, {blocked} blocked, {critical_count} critical")
+            return True
+
+        except Exception as e:
+            print(f"  ❌ Failed to ingest skill scan: {e}")
+            return False
+
     def ingest_data_flow_trace(self, trace_path: str, run_id: str = None) -> bool:
         """
         Ingest cross-agent data flow trace results into the learning system.
@@ -686,6 +747,7 @@ def main():
     parser.add_argument('--python-audit', help='Path to pip-audit JSON output (CVE reachability)')
     parser.add_argument('--mcp-scan', help='Path to MCP security scan JSON output')
     parser.add_argument('--data-flow-trace', help='Path to cross-agent data flow trace JSON output')
+    parser.add_argument('--skill-scan', help='Path to agent skill security scan JSON output')
     parser.add_argument('--run-id', help='CI run ID for tracking', default=os.getenv('GITHUB_RUN_ID', 'local'))
     parser.add_argument('--test-framework', help='Test framework name (for --test-results)', default='unknown')
 
@@ -747,6 +809,9 @@ def main():
 
         if args.data_flow_trace:
             ingestion.ingest_data_flow_trace(args.data_flow_trace, args.run_id)
+
+        if args.skill_scan:
+            ingestion.ingest_skill_scan(args.skill_scan, args.run_id)
 
     print(f"\n✅ Total artifacts ingested: {ingestion.ingested_count}")
     print("\n💡 Agents will now learn from these artifacts in future runs!")

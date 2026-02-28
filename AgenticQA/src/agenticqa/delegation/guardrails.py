@@ -72,6 +72,9 @@ class DelegationGuardrails:
         # AI Supply Chain — SBOM and trust graph
         "ai_sbom": ["Compliance_Agent"],
         "trust_graph_analysis": ["RedTeam_Agent"],
+        # Agent Skill Security — AST-based pre-load scanning of custom agent code
+        "agent_skill_scan": ["RedTeam_Agent", "Compliance_Agent"],
+        "skill_vulnerability_audit": ["RedTeam_Agent"],
     }
 
     @classmethod

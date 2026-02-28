@@ -1897,24 +1897,57 @@ jobs:
           echo "DataFlow scan risk_score=$(python -c "import json; print(json.load(open('dataflow-scan-output.json'))['risk_score'])")" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      - name: Run Agent Skill Security Scan
+        id: skill_scan
+        run: |
+          python -c "
+          import sys, json
+          sys.path.insert(0, 'src')
+          from agenticqa.security.agent_skill_scanner import AgentSkillScanner
+          scanner = AgentSkillScanner()
+          results = scanner.scan_directory('.agenticqa/custom_agents')
+          out = {
+              'total_files': len(results),
+              'safe': sum(1 for r in results if r.is_safe),
+              'blocked': sum(1 for r in results if not r.is_safe),
+              'max_risk_score': max((r.risk_score for r in results), default=0.0),
+              'critical_count': sum(
+                  1 for r in results for f in r.findings if f.severity == 'critical'
+              ),
+              'attack_types': list({f.attack_type for r in results for f in r.findings}),
+              'results': [r.to_dict() for r in results],
+          }
+          json.dump(out, open('skill-scan-output.json', 'w'), indent=2)
+          print(json.dumps({k: v for k, v in out.items() if k != 'results'}, indent=2))
+          if out['blocked'] > 0:
+              print(f'BLOCKED: {out[\"blocked\"]} agent skill file(s) failed security scan', file=sys.stderr)
+              sys.exit(1)
+          "
+          echo "skill_scan_blocked=$(python -c "import json; print(json.load(open('skill-scan-output.json'))['blocked'])")" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
       - name: Write scan summary
         if: always()
         run: |
-          echo "## 🔍 MCP + DataFlow Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 MCP + DataFlow + Skill Security Scan" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           python -c "
           import json, sys
           mcp = json.load(open('mcp-scan-output.json')) if __import__('os').path.exists('mcp-scan-output.json') else {}
           flow = json.load(open('dataflow-scan-output.json')) if __import__('os').path.exists('dataflow-scan-output.json') else {}
+          skill = json.load(open('skill-scan-output.json')) if __import__('os').path.exists('skill-scan-output.json') else {}
           print('| Scanner | Files | Findings | Risk Score | Critical |')
           print('|---|---|---|---|---|')
           print(f'| MCP Security | {mcp.get(\"files_scanned\",0)} | {mcp.get(\"findings\",0)} | {mcp.get(\"risk_score\",0):.3f} | {mcp.get(\"critical_count\",0)} |')
           print(f'| DataFlow Trace | {flow.get(\"files_scanned\",0)} | {flow.get(\"findings\",0)} | {flow.get(\"risk_score\",0):.3f} | {flow.get(\"critical_count\",0)} |')
+          print(f'| Agent Skill Scan | {skill.get(\"total_files\",0)} | {skill.get(\"blocked\",0)} blocked | {skill.get(\"max_risk_score\",0):.3f} | {skill.get(\"critical_count\",0)} |')
           if mcp.get('attack_types'):
               print(f'')
               print(f'**MCP Attack Types:** {chr(96)}{chr(44).join(mcp[\"attack_types\"])}{chr(96)}')
           if flow.get('finding_types'):
               print(f'**DataFlow Finding Types:** {chr(96)}{chr(44).join(flow[\"finding_types\"])}{chr(96)}')
+          if skill.get('attack_types'):
+              print(f'**Skill Attack Types:** {chr(96)}{chr(44).join(skill[\"attack_types\"])}{chr(96)}')
           for d in (mcp.get('finding_details', []) + flow.get('finding_details', [])):
               sev_icon = {'critical':'🔴','high':'🟠','medium':'🟡','low':'🔵'}.get(d.get('severity',''), '⚪')
               print(f'')
@@ -1938,6 +1971,11 @@ jobs:
             python ingest_ci_artifacts.py \
               --data-flow-trace dataflow-scan-output.json \
               --run-id ${{ github.run_id }} || echo "⚠️  DataFlow ingest skipped"
+          fi
+          if [ -f skill-scan-output.json ]; then
+            python ingest_ci_artifacts.py \
+              --skill-scan skill-scan-output.json \
+              --run-id ${{ github.run_id }} || echo "⚠️  Skill scan ingest skipped"
           fi
         continue-on-error: true
 
