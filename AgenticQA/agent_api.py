@@ -2813,6 +2813,25 @@ async def intent_verify(req: IntentVerifyRequest):
     return {"success": True, **result.to_dict()}
 
 
+# ── OWASP Top 10 Scanner ──────────────────────────────────────────────────────
+
+try:
+    from src.agenticqa.security.owasp_scanner import OWASPScanner
+except ImportError:
+    from agenticqa.security.owasp_scanner import OWASPScanner
+
+
+@app.get("/api/security/owasp-scan")
+async def owasp_scan(repo_path: str = "."):
+    """
+    Static analysis covering OWASP Top 10 (2021): Injection, Broken Auth,
+    Crypto Failures, Misconfiguration, SSRF, Insecure Deserialisation, and more.
+    Returns findings grouped by OWASP category with severity and CWE references.
+    """
+    result = OWASPScanner().scan(repo_path)
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
