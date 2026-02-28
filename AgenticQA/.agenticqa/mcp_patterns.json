@@ -37,6 +37,54 @@
       "attack_type": "SSRF_RISK",
       "severity": "critical",
       "_note": "Cloud metadata endpoint hardcoded or reachable. SSRF to this endpoint leaks IAM credentials."
+    },
+    {
+      "pattern": "page\\.evaluate\\s*\\(\\s*args\\.",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "critical",
+      "_note": "Playwright page.evaluate() called with LLM-controlled argument (args.*). Any MCP tool exposing evaluate with user-supplied script parameter has RCE. Discovered: executeautomation/mcp-playwright EvaluateTool interaction.ts:161."
+    },
+    {
+      "pattern": "playwright_evaluate",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "critical",
+      "_note": "MCP tool named playwright_evaluate exposes arbitrary JS execution to the LLM agent. Script parameter is fully LLM-controlled with no sandboxing. Discovered: executeautomation/mcp-playwright tools.ts. Fix: remove tool or add strict allowlist of permitted operations."
+    },
+    {
+      "pattern": "\"script\"\\s*:\\s*\\{[^}]*\"JavaScript code to execute\"",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "critical",
+      "_note": "MCP tool schema exposes a 'script' parameter described as JavaScript to execute. This is an RCE vector — LLM agents can inject arbitrary code. Discovered: executeautomation/mcp-playwright tools.ts:202."
+    },
+    {
+      "pattern": "page\\.goto\\s*\\(\\s*args\\.",
+      "attack_type": "SSRF_RISK",
+      "severity": "high",
+      "_note": "Playwright page.goto() called with LLM-controlled URL (args.*) and no domain allowlist. Enables navigation to internal services, file:// URIs, or cloud metadata endpoints. Discovered: executeautomation/mcp-playwright NavigationTool navigation.ts:31."
+    },
+    {
+      "pattern": "page\\.setInputFiles\\s*\\([^,]+,\\s*args\\.",
+      "attack_type": "AMBIENT_AUTHORITY",
+      "severity": "high",
+      "_note": "Playwright setInputFiles() with user-controlled filePath (args.*). Enables path traversal to read arbitrary local files. Discovered: executeautomation/mcp-playwright UploadFileTool interaction.ts:146."
+    },
+    {
+      "pattern": "filePath.*Absolute path to the file",
+      "attack_type": "AMBIENT_AUTHORITY",
+      "severity": "high",
+      "_note": "MCP tool schema accepts filePath described as 'Absolute path' with no sandbox constraint. Allows LLM to target any filesystem location. Discovered: executeautomation/mcp-playwright tools.ts:191."
+    },
+    {
+      "pattern": "apiContext\\.(?:get|post|put|patch|delete)\\s*\\(\\s*args\\.url",
+      "attack_type": "SSRF_RISK",
+      "severity": "high",
+      "_note": "Playwright APIRequestContext HTTP method called with LLM-controlled URL (args.url) and no domain allowlist. All HTTP verbs (GET/POST/PUT/PATCH/DELETE) are vulnerable. Discovered: executeautomation/mcp-playwright requests.ts."
+    },
+    {
+      "pattern": "baseURL\\s*:\\s*(?:url|args\\.|req\\.)",
+      "attack_type": "SSRF_RISK",
+      "severity": "high",
+      "_note": "Playwright APIRequestContext created with LLM-controlled baseURL. All subsequent API calls inherit this base, enabling SSRF to internal services. Discovered: executeautomation/mcp-playwright toolHandler.ts:404."
     }
   ],
   "config_patterns": [
