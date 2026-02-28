@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* ── Reset & base ────────────────────────────────────────────────────── */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
@@ -27,7 +26,6 @@
       --orange:     #f59e0b;
       --red:        #f87171;
       --glow-cyan:  0 0 40px #22d3ee30, 0 0 80px #22d3ee18;
-      --glow-green: 0 0 30px #10b98130;
       --radius:     12px;
       --radius-lg:  18px;
     }
@@ -41,7 +39,7 @@
       overflow-x: hidden;
     }
 
-    /* ── Animated grid background ────────────────────────────────────────── */
+    /* ── Animated grid background ── */
     .grid-bg {
       position: fixed;
       inset: 0;
@@ -57,8 +55,6 @@
       from { background-position: 0 0; }
       to   { background-position: 60px 60px; }
     }
-
-    /* Radial glow at center */
     .grid-bg::after {
       content: '';
       position: absolute;
@@ -66,10 +62,9 @@
       background: radial-gradient(ellipse 80% 60% at 50% 40%, #0ea5e910 0%, transparent 70%);
     }
 
-    /* ── Layout ──────────────────────────────────────────────────────────── */
     .page { position: relative; z-index: 1; }
 
-    /* ── Navigation ──────────────────────────────────────────────────────── */
+    /* ── Navigation ── */
     nav {
       position: fixed;
       top: 0; left: 0; right: 0;
@@ -125,7 +120,7 @@
     }
     .nav-btn:hover { opacity: 0.85; transform: translateY(-1px); }
 
-    /* ── Hero section ────────────────────────────────────────────────────── */
+    /* ── Hero ── */
     .hero {
       min-height: 100vh;
       display: flex;
@@ -180,19 +175,19 @@
     }
 
     .hero-sub {
-      font-size: clamp(1rem, 2vw, 1.2rem);
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
       font-weight: 400;
       color: var(--text-mid);
-      max-width: 560px;
+      max-width: 480px;
       line-height: 1.6;
-      margin-bottom: 3rem;
+      margin-bottom: 2.5rem;
       animation: fadeInDown 0.6s 0.2s ease both;
     }
 
-    /* ── Main input card ─────────────────────────────────────────────────── */
+    /* ── Input card ── */
     .input-card {
       width: 100%;
-      max-width: 680px;
+      max-width: 640px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
@@ -286,13 +281,12 @@
     .submit-btn:active { transform: translateY(0); }
     .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    /* ── Advanced options ────────────────────────────────────────────────── */
+    /* ── Advanced panel ── */
     .advanced-panel {
       display: none;
       margin-top: 1rem;
       padding-top: 1rem;
       border-top: 1px solid var(--border);
-      animation: fadeInDown 0.2s ease;
     }
     .advanced-panel.open { display: block; }
 
@@ -326,32 +320,27 @@
     .adv-field input:focus, .adv-field select:focus { border-color: var(--border-hi); }
     .adv-field select option { background: var(--bg-card); }
 
-    /* ── Capability strip ────────────────────────────────────────────────── */
-    .capability-strip {
-      display: flex;
-      align-items: center;
-      gap: 2rem;
-      margin-top: 2.5rem;
-      flex-wrap: wrap;
-      justify-content: center;
+    /* ── Dashboard link below input ── */
+    .dashboard-link {
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
       animation: fadeInUp 0.6s 0.45s ease both;
     }
-
-    .cap-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-dim);
+    .dashboard-link a {
+      color: var(--text-mid);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1px;
+      transition: color 0.2s, border-color 0.2s;
     }
-    .cap-icon { color: var(--cyan); font-size: 1rem; }
+    .dashboard-link a:hover { color: var(--cyan); border-color: var(--cyan); }
 
-    /* ── Progress overlay ────────────────────────────────────────────────── */
+    /* ── Progress card ── */
     #progress-section {
       display: none;
       width: 100%;
-      max-width: 680px;
+      max-width: 640px;
       animation: fadeInUp 0.4s ease;
     }
 
@@ -380,16 +369,8 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .progress-header-text {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .progress-header-sub {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      margin-top: 0.1rem;
-    }
+    .progress-header-text { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    .progress-header-sub  { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.1rem; }
 
     .step-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
@@ -419,8 +400,8 @@
       color: var(--text-dim);
       transition: all 0.3s;
     }
-    .step-item.active  .step-icon { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
-    .step-item.done    .step-icon { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.1); }
+    .step-item.active .step-icon { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+    .step-item.done   .step-icon { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.1); }
 
     .step-text { flex: 1; }
     .step-name { font-size: 0.875rem; font-weight: 500; color: var(--text); }
@@ -432,17 +413,16 @@
       padding: 0.15rem 0.5rem;
       border-radius: 6px;
     }
-    .step-item.active  .step-badge { background: var(--cyan-dim); color: var(--cyan); }
-    .step-item.done    .step-badge { background: rgba(16,185,129,0.15); color: var(--green); }
+    .step-item.active .step-badge { background: var(--cyan-dim); color: var(--cyan); }
+    .step-item.done   .step-badge { background: rgba(16,185,129,0.15); color: var(--green); }
 
-    /* ── Verdict card ────────────────────────────────────────────────────── */
+    /* ── Verdict card ── */
     #verdict-section {
       display: none;
       width: 100%;
-      max-width: 680px;
+      max-width: 640px;
       animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
-
     @keyframes scaleIn {
       from { opacity: 0; transform: scale(0.94); }
       to   { opacity: 1; transform: scale(1); }
@@ -525,14 +505,10 @@
       color: var(--text);
       font-family: 'JetBrains Mono', monospace;
     }
-    .metric-value.good   { color: var(--green); }
-    .metric-value.warn   { color: var(--orange); }
-    .metric-value.bad    { color: var(--red); }
-    .metric-sub {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      margin-top: 0.15rem;
-    }
+    .metric-value.good { color: var(--green); }
+    .metric-value.warn { color: var(--orange); }
+    .metric-value.bad  { color: var(--red); }
+    .metric-sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.15rem; }
 
     .verdict-desc {
       font-size: 0.85rem;
@@ -545,11 +521,7 @@
       border-radius: 0 8px 8px 0;
     }
 
-    .verdict-actions {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
+    .verdict-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
     .btn-primary {
       flex: 1;
@@ -593,98 +565,10 @@
       background: rgba(255,255,255,0.04);
     }
 
-    /* ── Dashboard preview section ───────────────────────────────────────── */
-    .dashboard-section {
-      padding: 5rem 1.5rem;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .section-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--indigo);
-      margin-bottom: 1rem;
-    }
-
-    .section-title {
-      font-size: clamp(1.8rem, 4vw, 2.8rem);
-      font-weight: 700;
-      letter-spacing: -0.035em;
-      line-height: 1.15;
-      margin-bottom: 1rem;
-    }
-
-    .section-sub {
-      font-size: 1rem;
-      color: var(--text-mid);
-      max-width: 520px;
-      line-height: 1.65;
-      margin-bottom: 2.5rem;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      transition: border-color 0.3s, transform 0.2s;
-    }
-    .feature-card:hover {
-      border-color: rgba(34,211,238,0.25);
-      transform: translateY(-2px);
-    }
-
-    .feature-icon {
-      font-size: 1.5rem;
-      margin-bottom: 0.9rem;
-    }
-    .feature-name {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 0.4rem;
-    }
-    .feature-desc {
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      line-height: 1.55;
-    }
-
-    .dashboard-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--indigo);
-      border: 1px solid rgba(129,140,248,0.3);
-      border-radius: 10px;
-      padding: 0.7rem 1.4rem;
-      text-decoration: none;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-    }
-    .dashboard-cta:hover {
-      background: rgba(129,140,248,0.1);
-      border-color: var(--indigo);
-      color: #a5b4fc;
-    }
-
-    /* ── Footer ──────────────────────────────────────────────────────────── */
+    /* ── Footer ── */
     footer {
       border-top: 1px solid var(--border);
-      padding: 1.5rem 2rem;
+      padding: 1.25rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -701,11 +585,7 @@
       background-clip: text;
     }
 
-    .footer-links {
-      display: flex;
-      gap: 1.5rem;
-      list-style: none;
-    }
+    .footer-links { display: flex; gap: 1.5rem; list-style: none; }
     .footer-links a {
       font-size: 0.8rem;
       color: var(--text-dim);
@@ -714,12 +594,9 @@
     }
     .footer-links a:hover { color: var(--text-mid); }
 
-    .footer-right {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-    }
+    .footer-right { font-size: 0.75rem; color: var(--text-dim); }
 
-    /* ── Animations ──────────────────────────────────────────────────────── */
+    /* ── Animations ── */
     @keyframes fadeInDown {
       from { opacity: 0; transform: translateY(-12px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -729,7 +606,7 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Responsive ──────────────────────────────────────────────────────── */
+    /* ── Responsive ── */
     @media (max-width: 600px) {
       nav { padding: 0.9rem 1.25rem; }
       .hero { padding: 5rem 1rem 2rem; }
@@ -743,11 +620,11 @@
   <div class="grid-bg"></div>
   <div class="page">
 
-    <!-- ── Navigation ──────────────────────────────────────────────────── -->
+    <!-- Navigation -->
     <nav>
       <a href="/" class="nav-logo">AgenticQA</a>
       <div class="nav-right">
-        <a href="https://github.com/nicholashomyk/AgenticQA" class="nav-link hide-sm" target="_blank" rel="noopener">
+        <a href="https://github.com/nhomyk/AgenticQA" class="nav-link hide-sm" target="_blank" rel="noopener">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           GitHub
         </a>
@@ -758,11 +635,11 @@
       </div>
     </nav>
 
-    <!-- ── Hero ────────────────────────────────────────────────────────── -->
+    <!-- Hero — input is the entire focus -->
     <section class="hero">
       <div class="hero-badge">
         <span class="badge-dot"></span>
-        AI-Powered Quality Assurance
+        Agentic Development Lifecycle
       </div>
 
       <h1 class="hero-title">
@@ -771,12 +648,11 @@
       </h1>
 
       <p class="hero-sub">
-        Describe what you want to build. AgenticQA generates the code,
-        runs security scans, writes tests, and ships — autonomously.
+        Describe what you want to build. AgenticQA generates, scans, tests, and ships — autonomously.
       </p>
 
-      <!-- Input card (hidden once submitted) -->
-      <div id="input-section" style="width:100%;max-width:680px;">
+      <!-- Input -->
+      <div id="input-section" style="width:100%;max-width:640px;">
         <div class="input-card">
           <label class="input-label" for="feature-input">What would you like to build?</label>
           <textarea
@@ -786,7 +662,6 @@
             placeholder="e.g. Add a user profile page with avatar upload and bio editing…"
           ></textarea>
 
-          <!-- Advanced toggle -->
           <div class="advanced-panel" id="adv-panel">
             <div class="adv-row">
               <div class="adv-field">
@@ -820,15 +695,12 @@
           </div>
         </div>
 
-        <div class="capability-strip">
-          <div class="cap-item"><span class="cap-icon">⚡</span> Instant code generation</div>
-          <div class="cap-item"><span class="cap-icon">🔒</span> Automated security scans</div>
-          <div class="cap-item"><span class="cap-icon">✅</span> Self-healing test suite</div>
-          <div class="cap-item"><span class="cap-icon">🚀</span> SHIP IT verdict</div>
+        <div class="dashboard-link">
+          Need full visibility? <a href="http://localhost:8501" target="_blank" rel="noopener">Open Dashboard →</a>
         </div>
       </div>
 
-      <!-- Progress section -->
+      <!-- Progress -->
       <div id="progress-section">
         <div class="progress-card">
           <div class="progress-header">
@@ -867,7 +739,7 @@
               <div class="step-icon">🧪</div>
               <div class="step-text">
                 <div class="step-name">Test Execution</div>
-                <div class="step-desc">Generating and running Streamlit AppTests</div>
+                <div class="step-desc">Generating and running tests automatically</div>
               </div>
               <span class="step-badge">pending</span>
             </div>
@@ -883,7 +755,7 @@
         </div>
       </div>
 
-      <!-- Verdict section -->
+      <!-- Verdict -->
       <div id="verdict-section">
         <div class="verdict-card" id="verdict-card">
           <div class="verdict-inner">
@@ -895,13 +767,9 @@
               </div>
             </div>
 
-            <div class="verdict-metrics" id="verdict-metrics">
-              <!-- populated by JS -->
-            </div>
+            <div class="verdict-metrics" id="verdict-metrics"></div>
 
-            <div class="verdict-desc" id="verdict-desc">
-              <!-- populated by JS -->
-            </div>
+            <div class="verdict-desc" id="verdict-desc"></div>
 
             <div class="verdict-actions">
               <a href="http://localhost:8501" class="btn-primary" target="_blank" rel="noopener">
@@ -918,59 +786,7 @@
       </div>
     </section>
 
-    <!-- ── Dashboard preview ────────────────────────────────────────────── -->
-    <section class="dashboard-section" id="dashboard-section">
-      <div class="section-tag">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="var(--indigo)"><circle cx="5" cy="5" r="5"/></svg>
-        For advanced users
-      </div>
-      <h2 class="section-title">Full-spectrum visibility.<br>One dashboard.</h2>
-      <p class="section-sub">
-        Non-technical users ship features from the input above.
-        Engineering leads, security teams, and platform engineers get
-        the complete picture from the AgenticQA dashboard.
-      </p>
-
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">🕸️</div>
-          <div class="feature-name">GraphRAG Intelligence</div>
-          <div class="feature-desc">Agent knowledge wired through Neo4j — delegation paths, temporal violations, cross-repo patterns.</div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">⚖️</div>
-          <div class="feature-name">EU AI Act &amp; HIPAA</div>
-          <div class="feature-desc">Annex III classification, PHI scanner, AI model SBOM, conformity scoring — full compliance posture.</div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🔴</div>
-          <div class="feature-name">Red Team Agent</div>
-          <div class="feature-desc">20 bypass techniques, prompt injection scanner, constitutional gate — adversarial testing built in.</div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">📈</div>
-          <div class="feature-name">Agent Learning Loop</div>
-          <div class="feature-desc">Adaptive thresholds, developer risk profiles, org memory — the system gets smarter every run.</div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🔭</div>
-          <div class="feature-name">Release Readiness</div>
-          <div class="feature-desc">Multi-agent scoring: SRE, SDET, Compliance, Performance — one verdicted scorecard.</div>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">🛡️</div>
-          <div class="feature-name">Agent Safety Warden</div>
-          <div class="feature-desc">Human-in-the-loop approval for destructive actions, lease-based access, provenance chain.</div>
-        </div>
-      </div>
-
-      <a href="http://localhost:8501" class="dashboard-cta" target="_blank" rel="noopener">
-        Open AgenticQA Dashboard
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
-      </a>
-    </section>
-
-    <!-- ── Footer ──────────────────────────────────────────────────────── -->
+    <!-- Footer -->
     <footer>
       <div class="footer-brand">AgenticQA</div>
       <ul class="footer-links">
@@ -982,12 +798,9 @@
     </footer>
   </div>
 
-  <!-- ── JavaScript ──────────────────────────────────────────────────────── -->
   <script>
-    // ── State ──────────────────────────────────────────────────────────────
     let _submitting = false;
 
-    // ── Advanced toggle ────────────────────────────────────────────────────
     function toggleAdvanced() {
       const panel = document.getElementById('adv-panel');
       const arrow = document.getElementById('adv-arrow');
@@ -995,36 +808,23 @@
       arrow.classList.toggle('open', open);
     }
 
-    // ── Submit feature ─────────────────────────────────────────────────────
     async function submitFeature() {
       if (_submitting) return;
       const desc = document.getElementById('feature-input').value.trim();
-      if (!desc) {
-        shakeInput();
-        return;
-      }
+      if (!desc) { shakeInput(); return; }
 
       _submitting = true;
       const repoPath = document.getElementById('repo-path').value.trim() || '.';
 
-      // Switch to progress view
       document.getElementById('input-section').style.display = 'none';
       const progressEl = document.getElementById('progress-section');
       progressEl.style.display = 'block';
-      document.getElementById('dashboard-section').style.display = 'none';
 
-      // Animate steps in order
       const steps = document.querySelectorAll('.step-item');
-      const stepTimes = [0, 600, 1400, 2200, 3000]; // when each step becomes "active"
-
-      steps.forEach((el, i) => {
-        setTimeout(() => {
-          el.classList.add('visible');
-        }, stepTimes[i]);
-      });
+      const stepTimes = [0, 600, 1400, 2200, 3000];
+      steps.forEach((el, i) => setTimeout(() => el.classList.add('visible'), stepTimes[i]));
 
       let currentStep = -1;
-
       function advanceStep(n) {
         if (currentStep >= 0) {
           steps[currentStep].classList.remove('active');
@@ -1038,13 +838,11 @@
         currentStep = n;
       }
 
-      // Advance steps optimistically while API runs
       advanceStep(0);
-      const stepTimer0 = setTimeout(() => advanceStep(1), 800);
-      const stepTimer1 = setTimeout(() => advanceStep(2), 1800);
-      const stepTimer2 = setTimeout(() => advanceStep(3), 2600);
+      const t0 = setTimeout(() => advanceStep(1), 800);
+      const t1 = setTimeout(() => advanceStep(2), 1800);
+      const t2 = setTimeout(() => advanceStep(3), 2600);
 
-      // Call the API
       let data;
       try {
         const res = await fetch('/api/demo/submit', {
@@ -1053,15 +851,10 @@
           body: JSON.stringify({ description: desc, repo_path: repoPath }),
         });
         data = await res.json();
-      } catch (err) {
-        data = null;
-      }
+      } catch { data = null; }
 
-      clearTimeout(stepTimer0);
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
+      clearTimeout(t0); clearTimeout(t1); clearTimeout(t2);
 
-      // Complete remaining steps
       for (let i = currentStep; i < steps.length; i++) {
         steps[i].classList.add('visible', 'done');
         steps[i].classList.remove('active');
@@ -1072,25 +865,22 @@
       document.getElementById('progress-heading').textContent = 'Pipeline complete';
       document.getElementById('progress-sub').textContent = data ? `Finished in ${data.elapsed_s}s` : 'Finished';
 
-      // Brief pause then show verdict
       await sleep(700);
       progressEl.style.display = 'none';
-      showVerdict(data, desc);
+      showVerdict(data);
     }
 
-    // ── Show verdict ───────────────────────────────────────────────────────
-    function showVerdict(data, desc) {
-      const verdictSection = document.getElementById('verdict-section');
-      const card   = document.getElementById('verdict-card');
-      const icon   = document.getElementById('verdict-icon');
-      const title  = document.getElementById('verdict-title');
+    function showVerdict(data) {
+      const card    = document.getElementById('verdict-card');
+      const icon    = document.getElementById('verdict-icon');
+      const title   = document.getElementById('verdict-title');
       const metrics = document.getElementById('verdict-metrics');
-      const descEl = document.getElementById('verdict-desc');
+      const descEl  = document.getElementById('verdict-desc');
 
       const verdict = data?.verdict ?? 'SHIP IT';
       const isShip  = verdict === 'SHIP IT';
 
-      card.className = 'verdict-card ' + (isShip ? 'ship-it' : 'review-req');
+      card.className  = 'verdict-card ' + (isShip ? 'ship-it' : 'review-req');
       icon.textContent  = isShip ? '🚀' : '⚠️';
       title.textContent = verdict;
 
@@ -1099,7 +889,7 @@
       const cov  = data?.coverage ?? { before: 0, after: 33.3 };
       const elapsed = data?.elapsed_s ?? '—';
 
-      const secClass = sec.critical > 0 ? 'bad' : sec.high > 0 ? 'warn' : 'good';
+      const secClass  = sec.critical > 0 ? 'bad'  : sec.high > 0 ? 'warn' : 'good';
       const testClass = test.passed === test.total ? 'good' : test.passed > 0 ? 'warn' : 'bad';
       const covDelta  = cov.after - cov.before;
 
@@ -1126,25 +916,19 @@
         </div>
       `;
 
-      if (isShip) {
-        descEl.textContent = `Feature validated: no critical vulnerabilities, all tests passing, coverage improved by +${covDelta.toFixed(0)}%. Safe to deploy.`;
-      } else {
-        descEl.textContent = `${sec.critical} critical finding(s) require attention before deployment. Review the Dashboard for detailed findings and AI-suggested fixes.`;
-      }
+      descEl.textContent = isShip
+        ? `Feature validated: no critical vulnerabilities, all tests passing, coverage improved by +${covDelta.toFixed(0)}%. Safe to deploy.`
+        : `${sec.critical} critical finding(s) require attention before deployment. Review the Dashboard for detailed findings and AI-suggested fixes.`;
 
-      verdictSection.style.display = 'block';
+      document.getElementById('verdict-section').style.display = 'block';
     }
 
-    // ── Reset ──────────────────────────────────────────────────────────────
     function resetForm() {
       _submitting = false;
       document.getElementById('feature-input').value = '';
       document.getElementById('verdict-section').style.display = 'none';
       document.getElementById('progress-section').style.display = 'none';
       document.getElementById('input-section').style.display = 'block';
-      document.getElementById('dashboard-section').style.display = 'block';
-
-      // Reset steps
       document.querySelectorAll('.step-item').forEach(el => {
         el.classList.remove('visible', 'active', 'done');
         el.querySelector('.step-badge').textContent = 'pending';
@@ -1154,27 +938,20 @@
       document.getElementById('progress-sub').textContent = 'Analyzing your repository';
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     function shakeInput() {
       const card = document.querySelector('.input-card');
-      card.style.animation = 'none';
       card.style.transform = 'translateX(6px)';
       setTimeout(() => { card.style.transform = 'translateX(-6px)'; }, 80);
       setTimeout(() => { card.style.transform = 'translateX(4px)'; },  160);
-      setTimeout(() => { card.style.transform = 'translateX(0)'; },     240);
+      setTimeout(() => { card.style.transform = 'translateX(0)'; },    240);
     }
 
-    // ── Enter key to submit ────────────────────────────────────────────────
     document.getElementById('feature-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        submitFeature();
-      }
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitFeature(); }
     });
 
-    // Auto-grow textarea
     document.getElementById('feature-input').addEventListener('input', function() {
       this.style.height = 'auto';
       this.style.height = Math.max(80, this.scrollHeight) + 'px';
