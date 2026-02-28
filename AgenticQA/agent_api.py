@@ -3125,6 +3125,64 @@ async def pipeline_demo(req: PipelineDemoRequest):
     }
 
 
+# ── Generate-and-Scan — LLM writes code, scanners run immediately ─────────────
+
+class GenerateAndScanRequest(BaseModel):
+    description: str                    # what the user wants built
+    file_path: str = "src/feature.py"  # gives Claude language/context hints
+    model: str = "claude-haiku-4-5-20251001"
+
+
+@app.post("/api/pipeline/generate-and-scan")
+async def generate_and_scan(req: GenerateAndScanRequest):
+    """
+    1. Send the user's feature description to Claude.
+    2. Claude writes the implementation code.
+    3. Run all AgenticQA scanners on the generated code.
+    4. Return the full report — no copy-pasting by the user.
+    """
+    import anthropic as _anthropic
+
+    ext = req.file_path.rsplit(".", 1)[-1] if "." in req.file_path else "py"
+    lang_map = {"py": "Python", "ts": "TypeScript", "js": "JavaScript",
+                "go": "Go", "java": "Java", "swift": "Swift"}
+    lang = lang_map.get(ext, "Python")
+
+    system_prompt = (
+        f"You are a senior {lang} engineer. Write production-quality implementation code "
+        f"for the feature described by the user. Output ONLY the raw source code — no "
+        f"markdown fences, no explanation, no comments beyond inline ones. "
+        f"The code will be saved to `{req.file_path}`."
+    )
+
+    try:
+        client = _anthropic.Anthropic()
+        message = client.messages.create(
+            model=req.model,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": req.description}],
+        )
+        generated_code = message.content[0].text
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM code generation failed: {e}")
+
+    result = _run_pipeline_on_content(
+        code=generated_code,
+        file_path=req.file_path,
+        changed_files=[req.file_path],
+        intent=req.description,
+    )
+
+    return {
+        "success": True,
+        "description": req.description,
+        "generated_code": generated_code,
+        "file_path": req.file_path,
+        **result,
+    }
+
+
 # ── Git Diff Scanner — scans actual changed code from a repo ──────────────────
 
 class GitDiffScanRequest(BaseModel):

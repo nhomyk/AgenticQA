@@ -5507,16 +5507,17 @@ def render_red_team():
 
 
 def render_pipeline_demo():
-    """Live Pipeline Demo — scan a git repo diff or paste code for a full security report card."""
+    """AgenticQA Pipeline — describe a feature, get a full security report card."""
     import requests as _req
 
     st.markdown(
         """
-        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:24px;margin-bottom:20px">
-          <h2 style="color:#e94560;margin:0">🔬 AgenticQA Pipeline</h2>
-          <p style="color:#a8b2c1;margin:8px 0 0">
-            Point AgenticQA at your repo after an LLM writes code.  Every scanner runs on the diff
-            and you get a <strong style="color:white">Release Readiness Score</strong> in seconds.
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:28px;margin-bottom:24px">
+          <h2 style="color:#e94560;margin:0 0 8px">🔬 AgenticQA Pipeline</h2>
+          <p style="color:#a8b2c1;margin:0;font-size:15px">
+            Describe what you want built. AgenticQA generates the code and runs every security scanner —
+            giving you a <strong style="color:white">Release Readiness Score</strong> before a single
+            line lands in your repo.
           </p>
         </div>
         """,
@@ -5524,185 +5525,56 @@ def render_pipeline_demo():
     )
 
     api_base = st.text_input(
-        "API URL",
+        "api_base",
         value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
         key="demo_api_base",
+        label_visibility="collapsed",
     ).rstrip("/")
 
-    input_tab_git, input_tab_paste = st.tabs(["📂 Scan Git Repo (Recommended)", "📋 Quick Test — Paste Code"])
+    description = st.text_area(
+        "Describe the feature or change you want built",
+        placeholder=(
+            "e.g.  Add a /api/user/export endpoint that returns all data for a user "
+            "including profile, activity history, and account settings as JSON"
+        ),
+        height=120,
+        key="demo_description",
+    )
 
-    # ── MODE A: Git Repo ───────────────────────────────────────────────────────
-    with input_tab_git:
-        st.markdown(
-            "After your LLM commits or stages code, point AgenticQA at the repo.  "
-            "It runs `git diff` to extract changed lines — **no copy-pasting required.**"
-        )
-
-        col_repo, col_ref = st.columns([3, 1])
-        with col_repo:
-            repo_path = st.text_input(
-                "Repo path",
-                value=os.getcwd(),
-                placeholder="/path/to/your/repo",
-                key="demo_repo_path",
-            )
-        with col_ref:
-            base_ref = st.text_input(
-                "Diff base",
-                value="HEAD~1",
-                help="Branch, commit SHA, or HEAD~N to diff against",
-                key="demo_base_ref",
-            )
-
-        git_intent = st.text_input(
-            "What did you ask the LLM to build? (optional — enables intent verification)",
-            placeholder='e.g. "Add a /api/user/export endpoint that returns all user data as JSON"',
-            key="demo_git_intent",
-        )
-
-        run_git = st.button(
-            "Scan Repo Diff",
-            type="primary",
-            key="demo_run_git",
-            use_container_width=True,
-        )
-
-    # ── MODE B: Paste Code ─────────────────────────────────────────────────────
-    with input_tab_paste:
-        st.markdown(
-            "Use this tab to quickly test a snippet without a git repo.  "
-            "Paste any code and AgenticQA runs the full scanner suite on it."
-        )
-
-        # Pre-loaded example
-        _EXAMPLE_CODE = '''\
-"""User data export endpoint — LLM-generated feature."""
-import json, os, pickle, sqlite3
-import yaml
-from flask import Flask, jsonify, request
-
-app = Flask(__name__)
-DEBUG = True
-SECRET_KEY = "changeme-before-deploy"
-DB_PATH = os.getenv("DB_PATH", "users.db")
-
-@app.route("/api/user/export")
-def export_user_data():
-    """Export all data for a user. Fast — no auth overhead."""
-    user_id = request.args["user_id"]
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id=%s" % user_id)
-    profile = cursor.fetchone()
-    cursor.execute("SELECT preferences_blob FROM user_settings WHERE user_id=%s" % user_id)
-    row = cursor.fetchone()
-    preferences = pickle.loads(row[0]) if row else {}
-    try:
-        with open(f"configs/{user_id}.yaml") as f:
-            extra_config = yaml.load(f)
-    except:
-        pass
-    import requests
-    meta_url = request.args.get("metadata_url", "http://169.254.169.254/latest/meta-data/")
-    metadata = requests.get(meta_url).json()
-    return jsonify({"user_id": user_id, "profile": profile, "preferences": preferences})
-'''
-
-        col_ex, col_file = st.columns([2, 1])
-        with col_ex:
-            if st.button("Load Example (Vulnerable Code)", key="demo_load_example"):
-                st.session_state["demo_code_value"] = _EXAMPLE_CODE
-                st.session_state["demo_paste_intent"] = (
-                    "Add a /api/user/export endpoint that returns all user data as JSON "
-                    "including profile, activity history, and settings. Make it fast."
-                )
-        with col_file:
-            paste_file_path = st.text_input(
-                "File path (for context)",
-                value="src/feature.py",
-                key="demo_file_path",
-            )
-
-        paste_intent = st.text_input(
-            "What did you ask the LLM to build? (optional)",
-            value=st.session_state.get("demo_paste_intent", ""),
-            placeholder='e.g. "Add a /api/user/export endpoint..."',
-            key="demo_paste_intent_input",
-        )
-
-        code = st.text_area(
-            "Paste code here",
-            value=st.session_state.get("demo_code_value", ""),
-            height=300,
-            key="demo_code",
-            placeholder="# Paste your LLM-generated code here...",
-        )
-
-        run_paste = st.button(
-            "Run Full AgenticQA Pipeline",
-            type="primary",
-            key="demo_run_paste",
-            use_container_width=True,
-        )
+    run_clicked = st.button(
+        "Generate & Scan",
+        type="primary",
+        key="demo_run",
+        use_container_width=True,
+        disabled=not description.strip(),
+    )
 
     st.markdown("---")
 
-    # ── DISPATCH ───────────────────────────────────────────────────────────────
-    data = None
-
-    if run_git:
-        with st.spinner("Running git diff + all scanners — Intent Verifier → OWASP → Secrets → Race Conditions → Pre-flight → Release Readiness..."):
-            try:
-                resp = _req.post(
-                    f"{api_base}/api/pipeline/scan-diff",
-                    json={
-                        "repo_path": repo_path,
-                        "base_ref": base_ref,
-                        "intent": git_intent,
-                    },
-                    timeout=90,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                if data.get("message"):   # no changed files
-                    st.info(data["message"])
-                    return
-            except Exception as e:
-                st.error(f"Pipeline error: {e}")
-                return
-
-    elif run_paste:
-        if not code.strip():
-            st.warning("Paste some code first.")
-            return
-
-        with st.spinner("Running all scanners — Intent Verifier → OWASP → Secrets → Race Conditions → Pre-flight → Release Readiness..."):
-            try:
-                resp = _req.post(
-                    f"{api_base}/api/pipeline/demo",
-                    json={
-                        "intent": paste_intent,
-                        "code": code,
-                        "file_path": paste_file_path,
-                        "changed_files": [paste_file_path],
-                    },
-                    timeout=60,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            except Exception as e:
-                st.error(f"Pipeline error: {e}")
-                return
-
-    if data is None:
+    if not run_clicked:
         return
 
-    # ── Show changed files (git mode only) ────────────────────────────────────
-    changed_files = data.get("changed_files")
-    if changed_files:
-        with st.expander(f"📁 {len(changed_files)} changed file(s) scanned", expanded=False):
-            for f in changed_files:
-                st.code(f, language=None)
+    data = None
+    with st.spinner("Generating code → running all scanners → computing Release Readiness Score..."):
+        try:
+            resp = _req.post(
+                f"{api_base}/api/pipeline/generate-and-scan",
+                json={"description": description},
+                timeout=120,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            st.error(f"Pipeline error: {e}")
+            return
+
+    if not data:
+        return
+
+    # Collapsible view of what was generated — user can inspect if curious
+    with st.expander("📄 Generated code", expanded=False):
+        ext = data.get("file_path", "feature.py").rsplit(".", 1)[-1]
+        st.code(data.get("generated_code", ""), language=ext)
 
     rr = data["release_readiness"]
     summary = data["summary"]
