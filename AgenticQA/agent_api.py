@@ -2832,6 +2832,29 @@ async def owasp_scan(repo_path: str = "."):
     return {"success": True, **result.to_dict()}
 
 
+# ── Blast Radius Analyzer ─────────────────────────────────────────────────────
+
+try:
+    from src.agenticqa.security.blast_radius import BlastRadiusAnalyzer
+except ImportError:
+    from agenticqa.security.blast_radius import BlastRadiusAnalyzer
+
+
+class BlastRadiusRequest(BaseModel):
+    repo_path: str = "."
+    changed_files: List[str] = []
+
+
+@app.post("/api/security/blast-radius")
+async def blast_radius(req: BlastRadiusRequest):
+    """
+    Analyze which modules are affected by a set of changed files.
+    Returns directly/transitively affected files, critical paths, and a 0-100 risk score.
+    """
+    result = BlastRadiusAnalyzer().analyze(req.repo_path, req.changed_files)
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
