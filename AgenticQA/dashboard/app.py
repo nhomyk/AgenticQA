@@ -5554,12 +5554,17 @@ def render_pipeline_demo():
     if not run_clicked:
         return
 
+    api_key = st.session_state.get("anthropic_api_key", "")
+    if not api_key:
+        st.warning("Add your Anthropic API Key in the sidebar to enable code generation.")
+        return
+
     data = None
     with st.spinner("Generating code → running all scanners → computing Release Readiness Score..."):
         try:
             resp = _req.post(
                 f"{api_base}/api/pipeline/generate-and-scan",
-                json={"description": description},
+                json={"description": description, "api_key": api_key},
                 timeout=120,
             )
             resp.raise_for_status()
@@ -6375,6 +6380,23 @@ def main():
             pages,
             index=default_index
         )
+
+        st.markdown("---")
+        st.markdown("### 🔑 LLM Connection")
+
+        anthropic_key = st.text_input(
+            "Anthropic API Key",
+            value=st.session_state.get("anthropic_api_key", ""),
+            type="password",
+            placeholder="sk-ant-...",
+            help="Used by Generate & Scan. Stored in this browser session only — never written to disk.",
+            key="sidebar_anthropic_key",
+        )
+        if anthropic_key:
+            st.session_state["anthropic_api_key"] = anthropic_key
+            st.success("Key set", icon="✅")
+        else:
+            st.caption("Enter your key to enable code generation. Get one at console.anthropic.com")
 
         st.markdown("---")
         st.markdown("### ⚙️ Settings")

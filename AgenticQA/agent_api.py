@@ -3128,9 +3128,10 @@ async def pipeline_demo(req: PipelineDemoRequest):
 # ── Generate-and-Scan — LLM writes code, scanners run immediately ─────────────
 
 class GenerateAndScanRequest(BaseModel):
-    description: str                    # what the user wants built
-    file_path: str = "src/feature.py"  # gives Claude language/context hints
+    description: str                        # what the user wants built
+    file_path: str = "src/feature.py"      # gives Claude language/context hints
     model: str = "claude-haiku-4-5-20251001"
+    api_key: Optional[str] = None          # user-supplied; falls back to env var
 
 
 @app.post("/api/pipeline/generate-and-scan")
@@ -3155,11 +3156,11 @@ async def generate_and_scan(req: GenerateAndScanRequest):
         f"The code will be saved to `{req.file_path}`."
     )
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = req.api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=503,
-            detail="ANTHROPIC_API_KEY is not set. Start the server with: ANTHROPIC_API_KEY=sk-... uvicorn agent_api:app",
+            detail="No Anthropic API key provided. Add your key in the dashboard sidebar under 'LLM Connection'.",
         )
 
     try:
