@@ -5506,6 +5506,273 @@ def render_red_team():
                         st.warning(f"Scan error: {d['scan_error']}")
 
 
+def render_pipeline_demo():
+    """Live Pipeline Demo — paste LLM-generated code, get a full security report card."""
+    import requests as _req
+
+    st.markdown(
+        """
+        <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:24px;margin-bottom:20px">
+          <h2 style="color:#e94560;margin:0">🔬 Live Pipeline Demo</h2>
+          <p style="color:#a8b2c1;margin:8px 0 0">
+            Paste any LLM-generated code. AgenticQA runs every scanner and returns a
+            <strong style="color:white">Release Readiness Score</strong> in seconds.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="demo_api_base",
+    ).rstrip("/")
+
+    col_intent, col_file = st.columns([3, 1])
+    with col_intent:
+        intent = st.text_input(
+            "What did you ask the LLM to build?",
+            placeholder='e.g. "Add a /api/user/export endpoint that returns all user data as JSON"',
+            key="demo_intent",
+        )
+    with col_file:
+        file_path = st.text_input(
+            "File path (for context)",
+            value="src/feature.py",
+            key="demo_file_path",
+        )
+
+    # Pre-loaded example
+    _EXAMPLE_CODE = '''\
+"""User data export endpoint — LLM-generated feature."""
+import json, os, pickle, sqlite3
+import yaml
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+DEBUG = True
+SECRET_KEY = "changeme-before-deploy"
+DB_PATH = os.getenv("DB_PATH", "users.db")
+
+@app.route("/api/user/export")
+def export_user_data():
+    """Export all data for a user. Fast — no auth overhead."""
+    user_id = request.args["user_id"]
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id=%s" % user_id)
+    profile = cursor.fetchone()
+    cursor.execute("SELECT preferences_blob FROM user_settings WHERE user_id=%s" % user_id)
+    row = cursor.fetchone()
+    preferences = pickle.loads(row[0]) if row else {}
+    try:
+        with open(f"configs/{user_id}.yaml") as f:
+            extra_config = yaml.load(f)
+    except:
+        pass
+    import requests
+    meta_url = request.args.get("metadata_url", "http://169.254.169.254/latest/meta-data/")
+    metadata = requests.get(meta_url).json()
+    return jsonify({"user_id": user_id, "profile": profile, "preferences": preferences})
+'''
+
+    col_btn, col_ex = st.columns([1, 1])
+    with col_ex:
+        if st.button("Load Example (Vulnerable Code)", key="demo_load_example"):
+            st.session_state["demo_code_value"] = _EXAMPLE_CODE
+            st.session_state["demo_intent_value"] = "Add a /api/user/export endpoint that returns all user data as JSON including profile, activity history, and settings. Make it fast."
+
+    code = st.text_area(
+        "Paste LLM-generated code here",
+        value=st.session_state.get("demo_code_value", ""),
+        height=300,
+        key="demo_code",
+        placeholder="# Paste your LLM-generated code here...",
+    )
+
+    st.markdown("---")
+
+    run_clicked = st.button(
+        "Run Full AgenticQA Pipeline",
+        type="primary",
+        key="demo_run",
+        use_container_width=True,
+    )
+
+    if run_clicked:
+        if not code.strip():
+            st.warning("Paste some code first.")
+            return
+
+        with st.spinner("Running all scanners — Intent Verifier → OWASP → Secrets → Race Conditions → Pre-flight → Release Readiness..."):
+            try:
+                resp = _req.post(
+                    f"{api_base}/api/pipeline/demo",
+                    json={
+                        "intent": intent,
+                        "code": code,
+                        "file_path": file_path,
+                        "changed_files": [file_path],
+                    },
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                st.error(f"Pipeline error: {e}")
+                return
+
+        rr = data["release_readiness"]
+        summary = data["summary"]
+        score = rr["overall_score"]
+        rec = rr["recommendation"]
+        color = rr["color"]
+
+        # ── BIG SCORE BANNER ────────────────────────────────────────────────
+        banner_bg = {"green": "#155724", "yellow": "#856404", "red": "#721c24"}.get(color, "#343a40")
+        border_col = {"green": "#28a745", "yellow": "#ffc107", "red": "#dc3545"}.get(color, "#6c757d")
+        rec_icon = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🚫"}.get(rec, "")
+
+        st.markdown(
+            f"""
+            <div style="background:{banner_bg};border:2px solid {border_col};border-radius:16px;
+                        padding:32px;text-align:center;margin:16px 0">
+              <div style="font-size:80px;font-weight:900;color:white;line-height:1">{score}</div>
+              <div style="font-size:16px;color:rgba(255,255,255,0.7);margin:4px 0 12px">/100 Release Readiness Score</div>
+              <div style="font-size:32px;font-weight:700;color:white">{rec_icon} {rec}</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:8px">{rr['recommendation_reason']}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ── QUICK STATS ROW ─────────────────────────────────────────────────
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("OWASP Critical", summary["owasp_critical"], delta=None)
+        c2.metric("OWASP High", summary["owasp_high"])
+        c3.metric("OWASP Total", summary["owasp_total"])
+        c4.metric("Secrets Found", summary["secrets_found"])
+        c5.metric("Race Conditions", summary["race_conditions_found"])
+
+        if rr["blocking_issues"]:
+            st.error("**Blocking Issues:**  \n" + "  \n".join(f"• {b}" for b in rr["blocking_issues"]))
+
+        st.markdown("---")
+
+        # ── TABS ────────────────────────────────────────────────────────────
+        tabs = st.tabs(["🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight Checklist", "📊 Signal Breakdown"])
+
+        # Tab 1: Intent Check
+        with tabs[0]:
+            iv = data.get("intent_verification")
+            if iv is None:
+                st.info("No intent provided — enter what you asked the LLM to build for intent analysis.")
+            else:
+                verdict = iv["verdict"]
+                verdict_color = {
+                    "INTENT_MET": "green", "GAP_DETECTED": "orange",
+                    "HALLUCINATION": "red", "STUB_ONLY": "red", "UNCERTAIN": "grey"
+                }.get(verdict, "grey")
+                st.markdown(f"**Verdict:** :{verdict_color}[{verdict}]  —  Confidence: {iv['confidence']:.0%}")
+                st.markdown(f"**Safe to merge:** {'✅ Yes' if iv['is_safe_to_merge'] else '🚫 No'}")
+
+                col_f, col_m = st.columns(2)
+                with col_f:
+                    st.markdown("**Intent signals FOUND in code:**")
+                    for s in iv["intent_signals_found"]:
+                        st.markdown(f"  ✅ {s}")
+                    if not iv["intent_signals_found"]:
+                        st.caption("None")
+                with col_m:
+                    st.markdown("**Intent signals MISSING from code:**")
+                    for s in iv["intent_signals_missing"]:
+                        st.markdown(f"  ❌ {s}")
+                    if not iv["intent_signals_missing"]:
+                        st.caption("None — good!")
+
+                if iv["issues"]:
+                    st.markdown("**Issues detected:**")
+                    for issue in iv["issues"]:
+                        sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(issue["severity"], "⚪")
+                        st.markdown(f"{sev_icon} **{issue['issue_type']}** — {issue['description']}")
+                        if issue["line_snippet"]:
+                            st.code(issue["line_snippet"][:200], language="python")
+
+        # Tab 2: OWASP
+        with tabs[1]:
+            findings = data["owasp"]["findings"]
+            if not findings:
+                st.success("No OWASP Top 10 issues detected.")
+            else:
+                sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+                for f in sorted(findings, key=lambda x: sev_order.get(x["severity"], 4)):
+                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(f["severity"], "⚪")
+                    with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['owasp_id']} — {f['description'][:80]}"):
+                        col_a, col_b = st.columns(2)
+                        col_a.markdown(f"**Rule:** `{f['rule_id']}`  \n**Category:** {f['owasp_category']}")
+                        col_b.markdown(f"**CWE:** {f['cwe']}  \n**Line:** {f['line_number']}")
+                        st.code(f["evidence"][:200], language="python")
+
+        # Tab 3: Secrets
+        with tabs[2]:
+            sec_findings = data["secrets"]["findings"]
+            if not sec_findings:
+                st.success("No secrets detected in the code.")
+            else:
+                st.warning(f"**{len(sec_findings)} secret(s) detected** — evidence is redacted below")
+                for f in sec_findings:
+                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
+                    st.markdown(f"{sev_icon} **{f['secret_type']}** — `{f['evidence']}` (line {f['line_number']})")
+
+        # Tab 4: Race Conditions
+        with tabs[3]:
+            rc_findings = data["race_conditions"]["findings"]
+            if not rc_findings:
+                st.success("No race condition patterns detected.")
+            else:
+                for f in rc_findings:
+                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
+                    with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['pattern_id']} — {f['description'][:80]}"):
+                        st.markdown(f"**Attack scenario:** {f['attack_scenario']}")
+                        st.code(f["evidence"][:200])
+
+        # Tab 5: Pre-flight Checklist
+        with tabs[4]:
+            cl = data["preflight_checklist"]
+            cats = cl.get("categories_triggered", [])
+            if cats:
+                st.markdown(f"**Categories triggered:** {', '.join(cats)}")
+            items = cl.get("items", [])
+            if not items:
+                st.info("No specific pre-flight checks triggered for this code.")
+            else:
+                for priority in ("MUST", "SHOULD", "CONSIDER"):
+                    priority_items = [i for i in items if i["priority"] == priority]
+                    if priority_items:
+                        icon = {"MUST": "🔴", "SHOULD": "🟡", "CONSIDER": "🔵"}.get(priority, "")
+                        st.markdown(f"### {icon} {priority}")
+                        for item in priority_items:
+                            st.markdown(f"- [ ] {item['item']}  \n  <small>*Triggered by: {item['triggered_by']}*</small>", unsafe_allow_html=True)
+
+        # Tab 6: Signal Breakdown
+        with tabs[5]:
+            st.markdown("### Release Readiness Signal Breakdown")
+            status_icon = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}
+            for sig in rr["signals"]:
+                icon = status_icon.get(sig["status"], "⚪")
+                block_tag = " 🚫 **BLOCKING**" if sig["blocking"] and sig["status"] == "red" else ""
+                if sig["status"] == "grey":
+                    st.markdown(f"{icon} **{sig['display_name']}** — *not provided (score excluded)*")
+                else:
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"{icon} **{sig['display_name']}**{block_tag}  \n{sig['detail']}")
+                        st.progress(sig["score"] / 100)
+                    with col2:
+                        st.metric("", f"{sig['score']:.0f}/100")
+
+
 def render_release_readiness():
     """Release Readiness Score — single 0-100 production confidence score."""
     import requests as _req
@@ -6136,7 +6403,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
+        pages = ["Live Pipeline Demo", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -6145,8 +6412,10 @@ def main():
             default_index = pages.index("GraphRAG")
         elif selected_view in {"governance", "constitution"}:
             default_index = pages.index("Governance")
+        elif selected_view in {"demo", "pipeline-demo", "live"}:
+            default_index = pages.index("Live Pipeline Demo")
         else:
-            default_index = pages.index("Operator Console")
+            default_index = pages.index("Live Pipeline Demo")  # default landing page
 
         page = st.radio(
             "Select View:",
@@ -6263,6 +6532,9 @@ def main():
 
     elif page == "Release Readiness":
         render_release_readiness()
+
+    elif page == "Live Pipeline Demo":
+        render_pipeline_demo()
 
     # Footer
     st.markdown("---")

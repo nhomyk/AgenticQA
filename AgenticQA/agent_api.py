@@ -2999,6 +2999,132 @@ async def regression_predict(req: RegressionPredictRequest):
     return {"success": True, **result.to_dict()}
 
 
+# ── Live Pipeline Demo — runs all scanners on pasted LLM-generated code ───────
+
+try:
+    from src.agenticqa.security.owasp_scanner import OWASPScanner
+    from src.agenticqa.security.secrets_scanner import SecretsHistoryScanner
+    from src.agenticqa.security.race_condition_detector import RaceConditionDetector
+    from src.agenticqa.security.preflight_checklist import PreflightChecklistGenerator
+    from src.agenticqa.security.blast_radius import BlastRadiusAnalyzer
+    from src.agenticqa.security.intent_verifier import IntentToCodeVerifier
+    from src.agenticqa.scoring.release_readiness import ReleaseReadinessScorer
+except ImportError:
+    from agenticqa.security.owasp_scanner import OWASPScanner
+    from agenticqa.security.secrets_scanner import SecretsHistoryScanner
+    from agenticqa.security.race_condition_detector import RaceConditionDetector
+    from agenticqa.security.preflight_checklist import PreflightChecklistGenerator
+    from agenticqa.security.blast_radius import BlastRadiusAnalyzer
+    from agenticqa.security.intent_verifier import IntentToCodeVerifier
+    from agenticqa.scoring.release_readiness import ReleaseReadinessScorer
+
+
+class PipelineDemoRequest(BaseModel):
+    intent: str = ""
+    code: str
+    file_path: str = "feature.py"
+    changed_files: Optional[List[str]] = None
+    repo_path: str = "."
+    llm_assisted: bool = False
+
+
+@app.post("/api/pipeline/demo")
+async def pipeline_demo(req: PipelineDemoRequest):
+    """
+    Run the full AgenticQA pipeline against pasted LLM-generated code.
+    Returns intent verification, OWASP findings, secrets, race conditions,
+    pre-flight checklist, and final Release Readiness Score — in one call.
+    """
+    import tempfile, os as _os
+
+    changed_files = req.changed_files or [req.file_path]
+
+    # Write code to a temp directory so file-based scanners work
+    with tempfile.TemporaryDirectory() as tmpdir:
+        code_path = _os.path.join(tmpdir, _os.path.basename(req.file_path))
+        with open(code_path, "w", encoding="utf-8") as fh:
+            fh.write(req.code)
+
+        # 1. Intent-to-Code Verifier
+        intent_result = None
+        if req.intent:
+            verifier = IntentToCodeVerifier(static_only=not req.llm_assisted)
+            intent_result = verifier.verify(
+                intent=req.intent,
+                code_diff=req.code,
+                file_path=req.file_path,
+            ).to_dict()
+
+        # 2. OWASP Top 10 Scanner
+        owasp_result = OWASPScanner().scan(tmpdir).to_dict()
+
+        # 3. Secrets Scanner (content-based, no git)
+        secrets_findings = SecretsHistoryScanner().scan_content(req.code, req.file_path)
+        secrets_result = {
+            "findings": [f.to_dict() for f in secrets_findings],
+            "has_live_secrets": any(f.still_present for f in secrets_findings),
+            "count": len(secrets_findings),
+        }
+
+        # 4. Race Condition Detector
+        rc_findings = RaceConditionDetector().scan_content(req.code, req.file_path)
+        race_result = {
+            "findings": [f.to_dict() for f in rc_findings],
+            "count": len(rc_findings),
+        }
+
+        # 5. Pre-flight Checklist
+        checklist = PreflightChecklistGenerator().generate(
+            changed_files=changed_files,
+            diff_content=req.code,
+        )
+        checklist_result = checklist.to_dict()
+
+        # 6. Build Release Readiness inputs from scan results
+        owasp_findings_for_rr = [
+            {"severity": f["severity"]} for f in owasp_result["findings"]
+        ] + [
+            {"severity": f["severity"]} for f in secrets_result["findings"]
+        ]
+
+        n_violations = (
+            owasp_result["critical_count"] + len(secrets_result["findings"])
+        )
+        # Estimate conformity from findings density
+        conformity = max(0.1, 1.0 - owasp_result["risk_score"])
+
+        readiness = ReleaseReadinessScorer().score(
+            sdet_result=None,           # no test data in demo mode
+            security_findings=owasp_findings_for_rr,
+            cve_result=None,
+            perf_result=None,
+            compliance_result={
+                "violations": [{}] * n_violations,
+                "conformity_score": conformity,
+            },
+            architecture_result=None,
+        )
+
+    return {
+        "success": True,
+        "intent_verification": intent_result,
+        "owasp": owasp_result,
+        "secrets": secrets_result,
+        "race_conditions": race_result,
+        "preflight_checklist": checklist_result,
+        "release_readiness": readiness.to_dict(),
+        "summary": {
+            "owasp_critical": owasp_result["critical_count"],
+            "owasp_high": owasp_result["high_count"],
+            "owasp_total": len(owasp_result["findings"]),
+            "secrets_found": secrets_result["count"],
+            "race_conditions_found": race_result["count"],
+            "release_score": readiness.overall_score,
+            "recommendation": readiness.recommendation,
+        },
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 
