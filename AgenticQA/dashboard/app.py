@@ -5285,6 +5285,238 @@ def render_architecture_scan():
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
+def render_onboarding():
+    """First-run onboarding scan — learn architecture, sweep security, map coverage, generate tests."""
+    import requests as _req
+
+    st.subheader("Repo Onboarding")
+    st.markdown(
+        "Point AgenticQA at any repository for the first time. "
+        "It will learn the architecture, run all security sweeps, map test coverage, "
+        "generate missing tests, and store a baseline for improvement tracking."
+    )
+
+    API_BASE = "http://localhost:8000"
+
+    # ── Input form ─────────────────────────────────────────────────────────────
+    with st.form("onboarding_form"):
+        repo_path = st.text_input(
+            "Repository Path",
+            value=".",
+            placeholder="/path/to/client/repo",
+            help="Absolute or relative path to the repository root.",
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            github_repo = st.text_input(
+                "GitHub Repo (owner/repo)",
+                placeholder="acme/my-app",
+                help="Required only if you want AgenticQA to open a draft PR.",
+            )
+        with col2:
+            max_generated = st.slider(
+                "Max tests to generate", min_value=1, max_value=20, value=10
+            )
+        create_pr = st.checkbox(
+            "Create draft PR with generated tests",
+            help="Requires GitHub Token set in the sidebar.",
+        )
+        submitted = st.form_submit_button("Run Onboarding Scan", type="primary")
+
+    # ── Status: last known baseline ────────────────────────────────────────────
+    try:
+        status_resp = _req.get(
+            f"{API_BASE}/api/onboarding/status",
+            params={"repo_path": repo_path},
+            timeout=5,
+        )
+        if status_resp.status_code == 200:
+            status_data = status_resp.json()
+            if status_data.get("baseline"):
+                bl = status_data["baseline"]
+                st.info(
+                    f"Last scan: {bl.get('timestamp', 'unknown')[:10]}  |  "
+                    f"Attack surface: {bl.get('attack_surface_score', 0):.0f}/100  |  "
+                    f"Coverage: {bl.get('coverage_pct', 0):.1f}%  |  "
+                    f"Vulns: {bl.get('total_vulnerabilities', 0)}"
+                )
+    except Exception:
+        pass
+
+    if not submitted:
+        st.markdown(
+            "#### What happens during onboarding?\n"
+            "1. **Architecture Scan** — map every integration point across all languages\n"
+            "2. **Security Sweep** — OWASP + Secrets + CVE + Legal + HIPAA + EU AI Act + Prompt Injection\n"
+            "3. **Coverage Map** — find every source file and determine which have tests\n"
+            "4. **Test Generation** — create tests for the highest-risk untested files\n"
+            "5. **Baseline Snapshot** — store current state for improvement tracking"
+        )
+        return
+
+    # ── Run scan ───────────────────────────────────────────────────────────────
+    github_token = st.session_state.get("github_token", "")
+    payload = {
+        "repo_path": repo_path,
+        "github_token": github_token,
+        "github_repo": github_repo,
+        "create_pr": create_pr and bool(github_token) and bool(github_repo),
+        "max_generated": max_generated,
+    }
+
+    with st.spinner("Running onboarding scan… (this may take 30–120 seconds)"):
+        try:
+            resp = _req.post(f"{API_BASE}/api/onboarding/run", json=payload, timeout=180)
+            if resp.status_code != 200:
+                st.error(f"Onboarding failed (HTTP {resp.status_code}): {resp.text[:500]}")
+                return
+            data = resp.json()
+        except _req.exceptions.ConnectionError:
+            st.error("Cannot reach AgenticQA API (localhost:8000). Is it running?")
+            return
+        except _req.exceptions.Timeout:
+            st.error("Onboarding scan timed out after 3 minutes.")
+            return
+
+    # ── Results ────────────────────────────────────────────────────────────────
+    risk_color = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(data.get("overall_risk", ""), "⚪")
+
+    st.success(f"Onboarding complete — {risk_color} {data.get('overall_risk', 'UNKNOWN')} risk")
+
+    # Summary metrics row
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    mc1.metric("Attack Surface", f"{data.get('attack_surface_score', 0):.0f}/100")
+    mc2.metric("Total Vulnerabilities", data.get("total_vulnerabilities", 0))
+    mc3.metric("Coverage", f"{data.get('coverage', {}).get('coverage_pct', 0):.1f}%")
+    mc4.metric("Tests Generated", data.get("generated_tests_count", 0))
+
+    tabs = st.tabs(["Architecture", "Security", "Coverage", "Generated Tests", "Baseline Delta"])
+
+    # ── Architecture tab ───────────────────────────────────────────────────────
+    with tabs[0]:
+        arch = data.get("architecture", {})
+        st.metric("Files Scanned", arch.get("files_scanned", 0))
+        areas = arch.get("integration_areas", [])
+        if areas:
+            st.dataframe(
+                [
+                    {
+                        "Category": a.get("category"),
+                        "File": a.get("source_file"),
+                        "Line": a.get("line_number"),
+                        "Severity": a.get("severity"),
+                        "Plain English": a.get("plain_english", ""),
+                    }
+                    for a in areas
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("No integration areas detected.")
+
+        plain = arch.get("plain_english_report", "")
+        if plain:
+            with st.expander("Plain-English Report"):
+                st.text(plain)
+
+    # ── Security tab ──────────────────────────────────────────────────────────
+    with tabs[1]:
+        sec_col1, sec_col2, sec_col3 = st.columns(3)
+        sec_col1.metric("OWASP", data.get("owasp_count", 0))
+        sec_col2.metric("Secrets", data.get("secret_count", 0))
+        sec_col3.metric("CVEs", data.get("cve_count", 0))
+
+        sec_col4, sec_col5, sec_col6 = st.columns(3)
+        sec_col4.metric("Legal/Privacy", data.get("legal_count", 0))
+        sec_col5.metric("HIPAA PHI", data.get("hipaa_count", 0))
+        sec_col6.metric("Prompt Injection", data.get("prompt_injection_count", 0))
+
+        eu = data.get("eu_ai_act", {})
+        if eu:
+            st.markdown(
+                f"**EU AI Act** — Risk category: `{eu.get('risk_category', 'unknown')}`  |  "
+                f"Conformity score: `{eu.get('conformity_score', 0):.2f}`"
+            )
+
+    # ── Coverage tab ──────────────────────────────────────────────────────────
+    with tabs[2]:
+        cov = data.get("coverage", {})
+        st.metric("Source files", cov.get("total_source_files", 0))
+        st.metric("Covered", cov.get("covered_count", 0))
+        st.metric("Uncovered", cov.get("uncovered_count", 0))
+        st.metric("High-risk uncovered", cov.get("high_risk_uncovered_count", 0))
+
+        by_lang = cov.get("by_language", {})
+        if by_lang:
+            lang_rows = [
+                {
+                    "Language": lang,
+                    "Total": stats.get("total", 0),
+                    "Covered": stats.get("covered", 0),
+                    "Coverage %": f"{stats.get('coverage_pct', 0):.1f}%",
+                }
+                for lang, stats in by_lang.items()
+            ]
+            st.dataframe(lang_rows, use_container_width=True, hide_index=True)
+
+        uncovered = cov.get("uncovered_files", [])
+        if uncovered:
+            with st.expander(f"Uncovered files ({len(uncovered)})"):
+                for f in uncovered:
+                    st.code(f, language=None)
+
+    # ── Generated Tests tab ───────────────────────────────────────────────────
+    with tabs[3]:
+        gen = data.get("generated_tests", [])
+        if not gen:
+            st.info("No tests were generated (all files covered or no source files found).")
+        else:
+            for t in gen:
+                status_icon = "✅" if t.get("status") == "generated" else "❌"
+                st.markdown(
+                    f"{status_icon} `{t.get('source_file')}` → `{t.get('test_file')}`  "
+                    f"*({t.get('framework')} / {t.get('test_runner')})*"
+                )
+                if t.get("setup_instructions"):
+                    with st.expander("Setup"):
+                        for step in t["setup_instructions"]:
+                            st.code(step, language="bash")
+
+        if data.get("pr_url"):
+            st.success(f"Draft PR created: [{data['pr_url']}]({data['pr_url']})")
+
+    # ── Baseline Delta tab ────────────────────────────────────────────────────
+    with tabs[4]:
+        delta = data.get("baseline_delta")
+        if not delta:
+            st.info("This is the first scan — baseline stored. Future runs will show improvement trends here.")
+        else:
+            trend_icon = {"improving": "📈", "declining": "📉", "stable": "➡️"}.get(
+                delta.get("trend", "stable"), "➡️"
+            )
+            st.markdown(f"### Trend: {trend_icon} {delta.get('trend', 'stable').upper()}")
+            st.markdown(f"*Compared to scan on {delta.get('previous_date', '')[:10]}*")
+            d1, d2, d3 = st.columns(3)
+            d1.metric(
+                "Attack Surface",
+                f"{delta.get('attack_surface_change', 0):+.0f}",
+                delta=f"{delta.get('attack_surface_change', 0):+.0f}",
+                delta_color="inverse",
+            )
+            d2.metric(
+                "Coverage",
+                f"{delta.get('coverage_change', 0):+.1f}%",
+                delta=f"{delta.get('coverage_change', 0):+.1f}%",
+            )
+            d3.metric(
+                "Vulnerabilities",
+                f"{delta.get('vulnerability_change', 0):+d}",
+                delta=f"{delta.get('vulnerability_change', 0):+d}",
+                delta_color="inverse",
+            )
+
+
 def render_red_team():
     """Red Team Agent — adversarial governance probing and self-patching."""
     import requests as _req
@@ -6438,7 +6670,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Live Pipeline Demo", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
+        pages = ["Live Pipeline Demo", "Onboarding", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -6449,6 +6681,8 @@ def main():
             default_index = pages.index("Governance")
         elif selected_view in {"demo", "pipeline-demo", "live"}:
             default_index = pages.index("Live Pipeline Demo")
+        elif selected_view in {"onboarding", "onboard"}:
+            default_index = pages.index("Onboarding")
         else:
             default_index = pages.index("Live Pipeline Demo")  # default landing page
 
@@ -6530,7 +6764,10 @@ def main():
         return
 
     # Render selected page
-    if page == "Operator Console":
+    if page == "Onboarding":
+        render_onboarding()
+
+    elif page == "Operator Console":
         render_prompt_ops()
 
     elif page == "System Overview":

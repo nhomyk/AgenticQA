@@ -3880,6 +3880,66 @@ async def pipeline_scan_diff(req: GitDiffScanRequest):
     }
 
 
+
+# ── Onboarding — first-run client experience ────────────────────────────────────
+
+class OnboardingRunRequest(BaseModel):
+    repo_path: str = "."
+    github_token: str = ""
+    github_repo: str = ""          # "owner/repo" — required for PR creation
+    create_pr: bool = False
+    max_generated: int = 10
+
+
+@app.post("/api/onboarding/run")
+async def onboarding_run(req: OnboardingRunRequest):
+    """
+    Phase 1–5 first-run onboarding scan.
+
+    Runs ArchitectureScanner + 7 security sweeps + CoverageMapper + test
+    generation + baseline snapshot.  Returns the full OnboardingReport as
+    a JSON dict.
+    """
+    from agenticqa.onboarding.repo_onboarder import RepoOnboarder
+
+    try:
+        report = RepoOnboarder().run(
+            repo_path=req.repo_path,
+            github_token=req.github_token,
+            github_repo=req.github_repo,
+            create_pr=req.create_pr,
+            max_generated=req.max_generated,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return {"success": True, **report.to_dict()}
+
+
+@app.get("/api/onboarding/status")
+async def onboarding_status(repo_path: str = "."):
+    """
+    Return the stored baseline for a repo (if it exists), without running a
+    full scan.  Useful for the dashboard to show the last-known state.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    resolved = str(Path(repo_path).resolve())
+    repo_id = hashlib.md5(resolved.encode()).hexdigest()[:12]
+    baseline_path = Path.home() / ".agenticqa" / "baselines" / f"{repo_id}.json"
+
+    if not baseline_path.exists():
+        return {"success": True, "baseline": None, "repo_id": repo_id}
+
+    try:
+        data = json.loads(baseline_path.read_text())
+        return {"success": True, "baseline": data, "repo_id": repo_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 if __name__ == "__main__":
     import uvicorn
 
