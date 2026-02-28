@@ -85,6 +85,18 @@
       "attack_type": "SSRF_RISK",
       "severity": "high",
       "_note": "Playwright APIRequestContext created with LLM-controlled baseURL. All subsequent API calls inherit this base, enabling SSRF to internal services. Discovered: executeautomation/mcp-playwright toolHandler.ts:404."
+    },
+    {
+      "pattern": "console\\.log.*(?:token|authToken|auth_token|apiKey|api_key|secret|password)",
+      "attack_type": "EXFILTRATION_PATTERN",
+      "severity": "high",
+      "_note": "Authentication token or credential logged to stdout via console.log. Log aggregators, CI output, and container log capture expose the secret in plaintext. Discovered: makenotion/notion-mcp-server start-server.ts:89 — auto-generated authToken printed verbatim."
+    },
+    {
+      "pattern": "Object\\.entries\\s*\\(\\s*process\\.env\\s*\\)",
+      "attack_type": "AMBIENT_AUTHORITY",
+      "severity": "high",
+      "_note": "Full process.env cloned and forwarded to child process or downstream agent. Grants the recipient all host secrets, not just the ones it needs. Discovered: ChromeDevTools/chrome-devtools-mcp eval_gemini.ts:111. Fix: use an explicit allowlist of required env keys."
     }
   ],
   "config_patterns": [
