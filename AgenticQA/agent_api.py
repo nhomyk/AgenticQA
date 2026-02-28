@@ -2879,6 +2879,35 @@ async def mutation_test(req: MutationRequest):
     return {"success": True, **result.to_dict()}
 
 
+# ── Secrets History Scanner ───────────────────────────────────────────────────
+
+try:
+    from src.agenticqa.security.secrets_scanner import SecretsHistoryScanner
+except ImportError:
+    from agenticqa.security.secrets_scanner import SecretsHistoryScanner
+
+
+class SecretsScanRequest(BaseModel):
+    repo_path: str = "."
+    scan_history: bool = True
+    max_commits: int = 100
+
+
+@app.post("/api/security/secrets-scan")
+async def secrets_scan(req: SecretsScanRequest):
+    """
+    Scan git commit history and current HEAD for accidentally committed secrets.
+    Detects AWS keys, GitHub tokens, Stripe keys, PEM keys, passwords, and more.
+    Pure Python regex — no external tools required.
+    """
+    result = SecretsHistoryScanner().scan(
+        repo_path=req.repo_path,
+        scan_history=req.scan_history,
+        max_commits=req.max_commits,
+    )
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
