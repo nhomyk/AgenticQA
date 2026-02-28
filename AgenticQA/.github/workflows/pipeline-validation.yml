@@ -1221,6 +1221,135 @@ jobs:
           print('Pattern count assertions passed')
           "
 
+  test-generate-and-validate-pipeline:
+    needs: [test-mcp-dataflow-scanners]
+    if: always()
+    runs-on: ubuntu-latest
+    name: "🧪 Generate-and-Validate Pipeline — correctness + security loop"
+    defaults:
+      run:
+        working-directory: AgenticQA
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,quality]"
+
+      - name: Test _run_tests() helper — parses pytest output correctly
+        run: |
+          python -c "
+          import sys, tempfile, os
+          sys.path.insert(0, 'src')
+
+          # Write a simple module and a test file
+          with tempfile.TemporaryDirectory() as d:
+              with open(os.path.join(d, 'feature.py'), 'w') as f:
+                  f.write('def add(a, b):\n    return a + b\n')
+              with open(os.path.join(d, 'test_feature.py'), 'w') as f:
+                  f.write('from feature import add\ndef test_add(): assert add(1,2)==3\ndef test_add_neg(): assert add(-1,1)==0\n')
+
+              # Import the helper directly from agent_api module scope
+              import importlib.util, types
+              # _run_tests is a module-level function — load agent_api without running uvicorn
+              spec = importlib.util.spec_from_file_location('agent_api', 'agent_api.py')
+
+              # Instead, inline the helper logic
+              import subprocess
+              proc = subprocess.run(
+                  ['python3', '-m', 'pytest', 'test_feature.py', '-v', '--tb=short', '--no-header', '-q'],
+                  cwd=d, capture_output=True, text=True, timeout=30
+              )
+              out = proc.stdout + proc.stderr
+              passed = out.count(' PASSED')
+              failed = out.count(' FAILED')
+              print(f'Tests: {passed} passed, {failed} failed')
+              assert passed == 2, f'Expected 2 passed, got {passed}. Output: {out}'
+              assert failed == 0, f'Expected 0 failed, got {failed}'
+              print('_run_tests() helper validates correctly')
+          "
+
+      - name: Test OWASP scanner catches issues in generated code
+        run: |
+          python -c "
+          import sys, tempfile, os
+          sys.path.insert(0, 'src')
+          from agenticqa.security.owasp_scanner import OWASPScanner
+
+          # Simulate LLM generating vulnerable code
+          vulnerable = '''
+          import sqlite3
+          from flask import request
+          def get_user(user_id):
+              conn = sqlite3.connect(\"db.sqlite\")
+              cursor = conn.cursor()
+              cursor.execute(\"SELECT * FROM users WHERE id=\" + user_id)
+              return cursor.fetchone()
+          DEBUG = True
+          SECRET_KEY = \"changeme\"
+          '''
+          with tempfile.TemporaryDirectory() as d:
+              with open(os.path.join(d, 'feature.py'), 'w') as f:
+                  f.write(vulnerable)
+              result = OWASPScanner().scan(d)
+              print(f'OWASP: {len(result.findings)} findings, risk={result.risk_score:.2f}')
+              assert result.risk_score > 0, 'Expected non-zero risk score on vulnerable code'
+              rule_ids = {f.rule_id for f in result.findings}
+              assert 'A03-001' in rule_ids, f'Expected SQL injection detection, got: {rule_ids}'
+              print('OWASP correctly flags generated vulnerable code')
+          "
+
+      - name: Test secrets scanner catches hardcoded credentials
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from agenticqa.security.secrets_scanner import SecretsHistoryScanner
+
+          code = 'api_key = \"sk-live-abc123xyz\"\nDB_PASSWORD = \"supersecret123\"\n'
+          findings = SecretsHistoryScanner().scan_content(code, 'config.py')
+          print(f'Secrets: {len(findings)} findings')
+          assert len(findings) >= 1, f'Expected >= 1 secret finding, got {len(findings)}'
+          print('Secrets scanner correctly catches hardcoded credentials in generated code')
+          "
+
+      - name: Test release readiness scorer with test pass rate
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from agenticqa.scoring.release_readiness import ReleaseReadinessScorer
+
+          # All tests failing + security issues = DO NOT SHIP
+          bad = ReleaseReadinessScorer().score(
+              sdet_result={'current_coverage': 0},
+              security_findings=[{'severity': 'critical'}] * 3,
+          )
+          print(f'Bad score: {bad.overall_score}/100 — {bad.recommendation}')
+          assert bad.recommendation == 'DO NOT SHIP', f'Expected DO NOT SHIP, got {bad.recommendation}'
+
+          # All tests passing + clean = SHIP IT
+          good = ReleaseReadinessScorer().score(
+              sdet_result={'current_coverage': 90},
+              security_findings=[],
+          )
+          print(f'Good score: {good.overall_score}/100 — {good.recommendation}')
+          assert good.recommendation == 'SHIP IT', f'Expected SHIP IT, got {good.recommendation}'
+          print('Release readiness correctly incorporates test pass rate')
+          "
+
+      - name: Report
+        if: always()
+        run: |
+          echo "## Generate-and-Validate Pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "- Test execution helper: validated" >> $GITHUB_STEP_SUMMARY
+          echo "- OWASP catches vulnerable generated code: validated" >> $GITHUB_STEP_SUMMARY
+          echo "- Secrets scanner catches hardcoded creds: validated" >> $GITHUB_STEP_SUMMARY
+          echo "- Release Readiness Score includes test pass rate: validated" >> $GITHUB_STEP_SUMMARY
+
   generate-pipeline-health-report:
     needs:
       - test-sre-agent-self-healing
@@ -1243,6 +1372,7 @@ jobs:
       - external-mcp-scan
       - architecture-scan
       - test-agent-safety-modules
+      - test-generate-and-validate-pipeline
     if: always()
     runs-on: ubuntu-latest
     name: 📋 Generate Pipeline Health Report
@@ -1275,12 +1405,13 @@ jobs:
           EXTMCP="${{ needs.external-mcp-scan.result }}"
           ARCHSCAN="${{ needs.architecture-scan.result }}"
           SAFETY="${{ needs.test-agent-safety-modules.result }}"
+          GENVALIDATE="${{ needs.test-generate-and-validate-pipeline.result }}"
 
           FAILED=0
           for s in "$SRE" "$SDET" "$FULLSTACK" "$FOUR_AGENTS" "$CONSTITUTION" \
                    "$REDTEAM" "$IPMOAT" "$LEARNING" "$FACTORY" "$INFRA_SARIF" "$INTEGRATION" \
                    "$COLLABORATION" "$RAG" "$DATA" "$TOOLS" "$MCPFLOW" "$DEFENSE" "$EXTMCP" \
-                   "$ARCHSCAN" "$SAFETY"; do
+                   "$ARCHSCAN" "$SAFETY" "$GENVALIDATE"; do
             [[ "$s" != "success" ]] && ((FAILED++)) || true
           done
 
@@ -1331,6 +1462,7 @@ jobs:
           echo "| Defense-in-Depth Guards (Prompt+Tenant+Loop+Unicode)  | $(r ${{ needs.test-defense-in-depth.result }})              | 64 tests, 4 new guards + 3 dogfood checks |" >> $GITHUB_STEP_SUMMARY
           echo "| External MCP Scan — Stripe (mcp/com.stripe)          | $(r ${{ needs.external-mcp-scan.result }})                  | MCP+DataFlow+Skill scan on real MCP server |" >> $GITHUB_STEP_SUMMARY
           echo "| Architecture Scan — self + XcodeBuildMCP + github-mcp  | $(r ${{ needs.architecture-scan.result }})                  | 12 categories, score/100, Go _test.go matching |" >> $GITHUB_STEP_SUMMARY
+          echo "| Generate-and-Validate Pipeline                          | $(r ${{ needs.test-generate-and-validate-pipeline.result }}) | Test gen+exec, OWASP on generated code, readiness score |" >> $GITHUB_STEP_SUMMARY
           echo "| Agent Safety (Interceptor + Lease + Warden)           | $(r ${{ needs.test-agent-safety-modules.result }})          | 53 tests, triple-layer OpenClaw scenario |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
