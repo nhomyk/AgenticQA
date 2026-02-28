@@ -3155,8 +3155,15 @@ async def generate_and_scan(req: GenerateAndScanRequest):
         f"The code will be saved to `{req.file_path}`."
     )
 
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY is not set. Start the server with: ANTHROPIC_API_KEY=sk-... uvicorn agent_api:app",
+        )
+
     try:
-        client = _anthropic.Anthropic()
+        client = _anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model=req.model,
             max_tokens=4096,
@@ -3164,6 +3171,8 @@ async def generate_and_scan(req: GenerateAndScanRequest):
             messages=[{"role": "user", "content": req.description}],
         )
         generated_code = message.content[0].text
+    except _anthropic.AuthenticationError:
+        raise HTTPException(status_code=401, detail="Invalid ANTHROPIC_API_KEY — check the key and restart the server.")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM code generation failed: {e}")
 
