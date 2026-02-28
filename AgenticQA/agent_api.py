@@ -2491,6 +2491,37 @@ async def ci_yaml_scan(path: str = ".github/workflows"):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/security/architecture-scan")
+async def architecture_scan(repo_path: str = "."):
+    """
+    Scan a repository for integration areas and attack surface.
+
+    Returns plain-English findings, attack vectors per integration,
+    test coverage confidence, and attack surface score (0–100).
+
+    Query: ?repo_path=/path/to/repo  (default: current directory)
+    """
+    try:
+        from agenticqa.security.architecture_scanner import ArchitectureScanner
+        result = ArchitectureScanner().scan(repo_path)
+        return {
+            "success": True,
+            "repo_path": result.repo_path,
+            "files_scanned": result.files_scanned,
+            "attack_surface_score": result.attack_surface_score,
+            "test_coverage_confidence": result.test_coverage_confidence,
+            "total_integration_areas": len(result.integration_areas),
+            "untested_count": len(result.untested_areas),
+            "critical_count": len(result.critical_areas),
+            "categories": {k: len(v) for k, v in result.by_category().items()},
+            "plain_english_report": result.plain_english_report(),
+            "integration_areas": [a.to_dict() for a in result.integration_areas],
+            "scan_error": result.scan_error,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 
