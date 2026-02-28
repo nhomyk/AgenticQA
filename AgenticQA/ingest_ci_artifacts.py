@@ -35,6 +35,12 @@ class CIArtifactIngestion:
         self.artifact_store = None
         self._initialize_rag()
         self._initialize_artifact_store()
+        # Ingest-time RAG sanitizer — prevents poisoned CI artifacts reaching vector store
+        try:
+            from agenticqa.security.rag_content_sanitizer import RAGContentSanitizer
+            self._sanitizer = RAGContentSanitizer()
+        except ImportError:
+            self._sanitizer = None
 
     def _initialize_rag(self):
         """Initialize RAG system"""
@@ -56,10 +62,26 @@ class CIArtifactIngestion:
         except Exception:
             self.artifact_store = None
 
+    def _sanitize_document(self, document: dict) -> dict:
+        """Sanitize a document before writing to vector store or artifact store."""
+        if getattr(self, "_sanitizer", None) is None:
+            return document
+        # Scan all string fields for injection patterns
+        for key, val in document.items():
+            if isinstance(val, str):
+                clean, findings = self._sanitizer.sanitize(val)
+                if findings:
+                    critical = [f for f in findings if f.severity == "critical"]
+                    print(f"  ⚠️  Ingest sanitizer: {len(findings)} findings in field '{key}'"
+                          f" ({len(critical)} critical) — {'redacted' if critical else 'stripped'}")
+                    document = {**document, key: clean}
+        return document
+
     def _fallback_to_local_store(self, agent_type: str, document: dict) -> bool:
         """Write document to local artifact store when Weaviate is unavailable."""
         if not self.artifact_store:
             return False
+        document = self._sanitize_document(document)
         try:
             self.artifact_store.store_artifact(
                 artifact_data=document,

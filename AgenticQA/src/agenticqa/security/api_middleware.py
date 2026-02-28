@@ -506,6 +506,28 @@ class InputSizeMiddleware(BaseHTTPMiddleware):
             except json.JSONDecodeError:
                 pass  # let FastAPI return its own 422
 
+        # Token budget / sponge-attack check on text fields
+        if body and not os.getenv("AGENTICQA_RATE_LIMIT_DISABLE"):
+            try:
+                from agenticqa.security.token_budget_guard import TokenBudgetGuard
+                _raw = body.decode("utf-8", errors="replace")
+                _result = TokenBudgetGuard().check_input(_raw)
+                if not _result.safe:
+                    logger.warning(
+                        "Token budget guard: risk=%.2f signals=%s (path=%s)",
+                        _result.risk_score, _result.signals, request.url.path,
+                    )
+                    if _result.risk_score >= 0.8:
+                        return JSONResponse(
+                            status_code=400,
+                            content={
+                                "error": "Request flagged as token amplification attack",
+                                "detail": f"Risk score {_result.risk_score:.2f}: {_result.signals}",
+                            },
+                        )
+            except Exception:
+                pass  # non-blocking
+
         # Re-attach body so downstream handlers can read it
         async def receive():
             return {"type": "http.request", "body": body}

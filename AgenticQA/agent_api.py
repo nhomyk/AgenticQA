@@ -2374,6 +2374,123 @@ async def export_sarif(request: Request):
         return {"error": str(e)}
 
 
+@app.post("/api/gdpr/erasure-request")
+async def gdpr_erasure_request(request: Request):
+    """
+    Create a GDPR Art.17 erasure request for a tenant.
+    Body: {"tenant_id": str, "subject_id": str}
+    Returns: {"request_id": str, "requested_at": float, "status": "pending"}
+    """
+    try:
+        body = await request.json()
+        tenant_id = body.get("tenant_id", "")
+        subject_id = body.get("subject_id", "")
+        if not tenant_id:
+            raise HTTPException(status_code=400, detail="tenant_id is required")
+        from agenticqa.security.gdpr_erasure_verifier import GDPREraseVerifier
+        req = GDPREraseVerifier().request_erasure(tenant_id=tenant_id, subject_id=subject_id)
+        return req.__dict__
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/gdpr/erasure-status/{request_id}")
+async def gdpr_erasure_status(request_id: str):
+    """
+    Verify that all stores have been purged for a given erasure request.
+    Returns ErasureVerificationResult with per-store clean/residual status.
+    """
+    try:
+        from agenticqa.security.gdpr_erasure_verifier import GDPREraseVerifier
+        result = GDPREraseVerifier().verify_erasure(request_id)
+        return result.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/security/audit-chain")
+async def audit_chain_log(
+    tenant_id: str = "",
+    limit: int = 100,
+):
+    """
+    Return the verified immutable audit chain (EU AI Act Art.12 compliance log).
+    Query: ?tenant_id=xxx&limit=100
+    """
+    try:
+        from agenticqa.security.immutable_audit import ImmutableAuditChain
+        chain = ImmutableAuditChain()
+        ok, violations = chain.verify_chain()
+        entries = chain.get_compliance_log(
+            tenant_id=tenant_id or None,
+            limit=limit,
+        )
+        return {
+            "chain_length": chain.length(),
+            "chain_intact": ok,
+            "violations": [str(v) for v in violations],
+            "entries": entries,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/security/classify-intent")
+async def classify_intent(request: Request):
+    """
+    Run SemanticIntentClassifier on a text snippet.
+    Body: {"text": str}
+    Returns: attack_class, probability, confidence, top_terms
+    """
+    try:
+        body = await request.json()
+        text = body.get("text", "")
+        from agenticqa.security.semantic_classifier import SemanticIntentClassifier
+        result = SemanticIntentClassifier().classify(text)
+        return {
+            "attack_class": result.attack_class,
+            "probability": result.probability,
+            "confidence": result.confidence,
+            "top_terms": result.top_terms,
+            "all_scores": result.all_scores,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/security/ci-scan")
+async def ci_yaml_scan(path: str = ".github/workflows"):
+    """
+    Scan GitHub Actions YAML files for injection vulnerabilities.
+    Query: ?path=.github/workflows
+    """
+    try:
+        from agenticqa.security.ci_yaml_scanner import CIYAMLInjectionScanner
+        results = CIYAMLInjectionScanner().scan_directory(path)
+        return {
+            "files_scanned": len(results),
+            "files_with_findings": sum(1 for r in results if r.findings),
+            "critical": sum(
+                1 for r in results for f in r.findings if f.severity == "critical"
+            ),
+            "results": [
+                {
+                    "path": r.path,
+                    "risk_score": r.risk_score,
+                    "is_safe": r.is_safe,
+                    "findings": [f.__dict__ for f in r.findings],
+                }
+                for r in results
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 

@@ -463,6 +463,37 @@ class BaseAgent(ABC):
             except Exception:
                 pass  # non-blocking
 
+        # 6. Append to immutable audit chain — non-blocking
+        try:
+            from agenticqa.security.immutable_audit import ImmutableAuditChain, AuditEvent
+            ImmutableAuditChain().append(AuditEvent(
+                event_type="AGENT_EXEC",
+                actor=self.agent_name,
+                action=status,
+                details={
+                    "artifact_id": artifact_id,
+                    "status": status,
+                    "output_keys": list(output.keys()) if isinstance(output, dict) else [],
+                },
+            ))
+        except Exception:
+            pass  # non-blocking
+
+        # 7. Hallucination confidence check — log warning if overconfident output
+        if status == "success":
+            try:
+                from agenticqa.security.hallucination_guard import HallucinationConfidenceGate
+                _out_text = str(output)[:4000]
+                _score = HallucinationConfidenceGate().risk_score(_out_text)
+                if _score > 0.5:
+                    self.log(
+                        f"HallucinationConfidenceGate: risk={_score:.2f} — output may contain "
+                        "overconfident claims; flagging for review",
+                        "WARNING",
+                    )
+            except Exception:
+                pass  # non-blocking
+
         return artifact_id
 
     def get_pattern_insights(self) -> Dict[str, Any]:
