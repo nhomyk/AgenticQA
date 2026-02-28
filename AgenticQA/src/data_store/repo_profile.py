@@ -12,10 +12,19 @@ so it survives local directory moves and CI runner changes.
 
 import hashlib
 import json
+import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+try:
+    from agenticqa.security.learning_loop_integrity import LearningLoopIntegrityGuard as _Guard
+    _integrity_guard = _Guard()
+except ImportError:
+    _integrity_guard = None
 
 
 def _detect_repo_id(cwd: Optional[str] = None) -> str:
@@ -65,9 +74,22 @@ class RepoProfile:
     def _load(self) -> Dict[str, Any]:
         if self._path.exists():
             try:
-                return json.loads(self._path.read_text())
+                data = json.loads(self._path.read_text())
+                if _integrity_guard is not None:
+                    ok, violations = _integrity_guard.validate_repo_profile(data)
+                    if not ok:
+                        logger.warning(
+                            "Repo profile integrity violation for %s: %s",
+                            self.repo_id,
+                            [str(v) for v in violations],
+                        )
+                        return self._default_profile()
+                return data
             except Exception:
                 pass
+        return self._default_profile()
+
+    def _default_profile(self) -> Dict[str, Any]:
         return {
             "repo_id": self.repo_id,
             "created_at": datetime.now(timezone.utc).isoformat(),

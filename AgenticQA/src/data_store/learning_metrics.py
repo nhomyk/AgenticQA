@@ -7,9 +7,18 @@ Each record is one line (JSONL) for cheap streaming reads and append-only safety
 """
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+try:
+    from agenticqa.security.learning_loop_integrity import LearningLoopIntegrityGuard as _Guard
+    _integrity_guard = _Guard()
+except ImportError:
+    _integrity_guard = None
 
 _DEFAULT_HISTORY_PATH = Path.home() / ".agenticqa" / "metrics_history.jsonl"
 
@@ -97,6 +106,15 @@ class LearningMetricsSnapshot:
                         rec = json.loads(line)
                     except json.JSONDecodeError:
                         continue
+                    # Integrity validation — skip poisoned records
+                    if _integrity_guard is not None:
+                        ok, violations = _integrity_guard.validate_metrics_record(rec)
+                        if not ok:
+                            logger.warning(
+                                "Skipping poisoned metrics record: %s",
+                                [str(v) for v in violations],
+                            )
+                            continue
                     if repo_id and rec.get("repo_id") != repo_id:
                         continue
                     records.append(rec)

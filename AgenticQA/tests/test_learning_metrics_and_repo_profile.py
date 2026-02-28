@@ -43,7 +43,7 @@ def test_record_omits_none_fields(tmp_path):
 def test_load_history_returns_records(tmp_path):
     snap = LearningMetricsSnapshot(history_path=tmp_path / "h.jsonl")
     for i in range(5):
-        snap.record(run_id=f"r{i}", fix_rate=0.5 + i * 0.05)
+        snap.record(run_id=f"r{i}", fix_rate=0.5 + i * 0.05, repo_id="test-repo")
 
     history = snap.load_history()
     assert len(history) == 5
@@ -69,9 +69,9 @@ def test_load_history_empty_when_no_file(tmp_path):
 @pytest.mark.unit
 def test_get_improvement_curve(tmp_path):
     snap = LearningMetricsSnapshot(history_path=tmp_path / "h.jsonl")
-    snap.record(run_id="r1", fix_rate=0.60)
-    snap.record(run_id="r2", fix_rate=0.70)
-    snap.record(run_id="r3")  # no fix_rate — should be excluded
+    snap.record(run_id="r1", fix_rate=0.60, repo_id="test-repo")
+    snap.record(run_id="r2", fix_rate=0.70, repo_id="test-repo")
+    snap.record(run_id="r3", repo_id="test-repo")  # no fix_rate — should be excluded
 
     curve = snap.get_improvement_curve("fix_rate")
     assert len(curve) == 2
@@ -83,7 +83,7 @@ def test_get_improvement_curve(tmp_path):
 def test_summary_reports_trend(tmp_path):
     snap = LearningMetricsSnapshot(history_path=tmp_path / "h.jsonl")
     for i in range(10):
-        snap.record(run_id=f"r{i}", fix_rate=0.5 + i * 0.03)
+        snap.record(run_id=f"r{i}", fix_rate=0.5 + i * 0.03, repo_id="test-repo")
 
     s = snap.summary()
     assert s["runs"] == 10

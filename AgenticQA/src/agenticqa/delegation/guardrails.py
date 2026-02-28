@@ -39,6 +39,82 @@ class DelegationGuardrails:
         "QAAssistantAgent": "QA_Assistant",
     }
 
+    # Defines which task types each agent is ALLOWED TO DELEGATE (caller rights).
+    # An agent not listed here may delegate any non-restricted task.
+    # An empty list means the agent CANNOT delegate anything (T1-005 for RedTeam).
+    CALLER_DELEGATION_RIGHTS: Dict[str, List[str]] = {
+        # RedTeam must not delegate — T1-005 prevents governance bypasses
+        "RedTeam_Agent": [],
+        # QA can only delegate test-related work
+        "QA_Agent": ["validate_tests", "generate_tests", "validate_code"],
+        "QA_Assistant": ["validate_tests", "generate_tests", "validate_code"],
+        # SDET delegates test generation and coverage validation
+        "SDET_Agent": ["validate_tests", "generate_tests", "security_scan"],
+        # Compliance delegates audit/security tasks
+        "Compliance_Agent": [
+            "audit", "compliance_check", "security_scan", "code_review",
+            "governance_audit", "taint_analysis",
+        ],
+        # Fullstack delegates code tasks
+        "Fullstack_Agent": [
+            "validate_code", "code_review", "refactor", "implement_feature",
+        ],
+        # SRE delegates infra and deployment tasks
+        "SRE_Agent": ["deploy_tests", "monitor", "infrastructure", "rollback"],
+        # DevOps delegates CI/CD and infra
+        "DevOps_Agent": ["ci_cd", "infrastructure", "deploy", "monitor"],
+        # Performance delegates benchmarks
+        "Performance_Agent": ["load_test", "benchmark"],
+    }
+
+    @classmethod
+    def verify_delegation_authority(
+        cls,
+        from_agent: str,
+        task_type: str,
+        strict: bool = False,
+    ) -> Dict[str, object]:
+        """
+        Verify that from_agent is authorized to DELEGATE (not just handle) task_type.
+
+        This is the "confused deputy" check — a low-privilege agent should not be
+        able to trick a high-privilege agent into performing a restricted task by
+        simply delegating the task_type.
+
+        Returns {"authorized": bool, "reason": str}.
+        """
+        normalized = cls.normalize_agent_name(from_agent)
+
+        # RedTeam explicit deny
+        if normalized == "RedTeam_Agent" or from_agent == "RedTeam_Agent":
+            return {
+                "authorized": False,
+                "reason": "T1-005: RedTeam_Agent is not permitted to delegate any task",
+            }
+
+        # Check caller's allowed delegation list
+        allowed = cls.CALLER_DELEGATION_RIGHTS.get(normalized)
+        if allowed is None:
+            # Agent not in map → permissive (factory-created agents, unknown agents)
+            return {
+                "authorized": True,
+                "reason": f"{normalized} has no delegation restrictions defined",
+            }
+
+        if task_type in allowed:
+            return {
+                "authorized": True,
+                "reason": f"{normalized} is authorized to delegate {task_type}",
+            }
+
+        return {
+            "authorized": False,
+            "reason": (
+                f"{normalized} is not authorized to delegate '{task_type}'. "
+                f"Allowed: {allowed or 'none'}"
+            ),
+        }
+
     # Define which agents should handle which task types
     # This is the "ontology" - the designed workflow
     TASK_AGENT_MAP = {

@@ -234,6 +234,7 @@ class ResponseScanMiddleware(BaseHTTPMiddleware):
             os.environ.get("AGENTICQA_RESPONSE_SCAN_STRICT", "").strip() == "1"
         )
         self._scanner = None  # lazy import to avoid circular deps at module load
+        self._prompt_guard = None
 
     def _get_scanner(self):
         if self._scanner is None:
@@ -243,6 +244,15 @@ class ResponseScanMiddleware(BaseHTTPMiddleware):
                 from src.agenticqa.factory.sandbox.output_scanner import OutputScanner
             self._scanner = OutputScanner()
         return self._scanner
+
+    def _get_prompt_guard(self):
+        if self._prompt_guard is None:
+            try:
+                from agenticqa.security.system_prompt_guard import SystemPromptGuard
+            except ImportError:
+                from src.agenticqa.security.system_prompt_guard import SystemPromptGuard
+            self._prompt_guard = SystemPromptGuard()
+        return self._prompt_guard
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
@@ -277,6 +287,29 @@ class ResponseScanMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             logger.debug("ResponseScanMiddleware scanner error: %s", exc)
             scan_result = {"clean": True, "flags": []}
+
+        # System prompt leakage check on the response body text
+        try:
+            guard = self._get_prompt_guard()
+            body_text = body_bytes.decode("utf-8", errors="replace")
+            leakage = guard.scan_for_leakage(body_text)
+            if leakage:
+                critical = [f for f in leakage if f.severity == "critical"]
+                logger.warning(
+                    "System prompt leakage detected in response (%s): %s",
+                    request.url.path,
+                    [str(f) for f in leakage[:3]],
+                )
+                if self._strict and critical:
+                    return JSONResponse(
+                        status_code=500,
+                        content={
+                            "detail": "Response blocked: system prompt leakage detected",
+                            "findings": [str(f) for f in critical],
+                        },
+                    )
+        except Exception as exc:
+            logger.debug("SystemPromptGuard error: %s", exc)
 
         if not scan_result.get("clean", True):
             flags = scan_result.get("flags", [])
