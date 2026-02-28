@@ -4950,6 +4950,132 @@ def render_red_team():
                 "OutputScanner will load these on next initialization."
             )
 
+    # ── MCP + DataFlow Security Scanners ────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 🔍 MCP + DataFlow Security Scan")
+    st.markdown(
+        "Static security analysis of MCP server implementations and cross-agent data flows. "
+        "Detects SSRF, command injection, ambient authority, supply chain risks, and credential exfiltration paths."
+    )
+
+    scan_repo = st.text_input(
+        "Repo path to scan",
+        value=os.getenv("AGENTICQA_REPO_PATH", "."),
+        key="mcp_scan_repo_path",
+        help="Local path to any repo. Runs static analysis — no network calls.",
+    )
+
+    mcp_tab, df_tab = st.tabs(["MCP Security Scan", "DataFlow Trace"])
+
+    with mcp_tab:
+        if st.button("Run MCP Security Scan", key="mcp_scan_btn", type="primary"):
+            with st.spinner("Scanning MCP tool definitions..."):
+                try:
+                    resp = _req.get(
+                        f"{api_base}/api/security/mcp-scan",
+                        params={"repo_path": scan_repo},
+                        timeout=60,
+                    )
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+                    resp = None
+
+            if resp is not None:
+                if resp.status_code != 200:
+                    st.error(f"API error {resp.status_code}: {resp.text[:300]}")
+                else:
+                    d = resp.json()
+                    c1, c2, c3, c4 = st.columns(4)
+                    risk = d.get("risk_score", 0.0)
+                    c1.metric("Risk Score", f"{risk:.3f}", delta=None)
+                    c2.metric("Files Scanned", d.get("files_scanned", 0))
+                    c3.metric("Critical", d.get("critical_count", 0))
+                    c4.metric("Total Findings", d.get("total_findings", 0))
+
+                    if risk >= 0.7:
+                        st.error(f"High risk — {d.get('critical_count', 0)} critical finding(s)")
+                    elif risk >= 0.4:
+                        st.warning(f"Medium risk — review findings below")
+                    else:
+                        st.success("Low risk")
+
+                    findings = d.get("findings", [])
+                    if findings:
+                        import pandas as pd
+                        sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+                        rows = sorted(
+                            [
+                                {
+                                    "Severity": f["severity"].upper(),
+                                    "Attack Type": f["attack_type"],
+                                    "Tool": f.get("tool_name", ""),
+                                    "Description": f["description"][:100],
+                                    "CWE": f.get("cwe", ""),
+                                    "CVSS": f.get("cvss_score", 0.0),
+                                    "File": f.get("source_file", ""),
+                                    "Line": f.get("line_number", 0),
+                                }
+                                for f in findings
+                            ],
+                            key=lambda r: sev_order.get(r["Severity"].lower(), 9),
+                        )
+                        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No findings.")
+
+                    if d.get("scan_error"):
+                        st.warning(f"Scan error: {d['scan_error']}")
+
+    with df_tab:
+        if st.button("Run DataFlow Trace", key="df_trace_btn", type="primary"):
+            with st.spinner("Tracing cross-agent data flows..."):
+                try:
+                    resp = _req.get(
+                        f"{api_base}/api/security/data-flow-trace",
+                        params={"repo_path": scan_repo},
+                        timeout=60,
+                    )
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+                    resp = None
+
+            if resp is not None:
+                if resp.status_code != 200:
+                    st.error(f"API error {resp.status_code}: {resp.text[:300]}")
+                else:
+                    d = resp.json()
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Risk Score", f"{d.get('risk_score', 0.0):.3f}")
+                    c2.metric("Agents Analyzed", d.get("agents_analyzed", 0))
+                    c3.metric("Tainted Vars", d.get("tainted_variables_detected", 0))
+                    c4.metric("Critical Flows", d.get("critical_count", 0))
+
+                    findings = d.get("findings", [])
+                    if findings:
+                        import pandas as pd
+                        sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+                        rows = sorted(
+                            [
+                                {
+                                    "Severity": f["severity"].upper(),
+                                    "Type": f.get("finding_type", ""),
+                                    "Data Type": f.get("data_type", ""),
+                                    "Description": f.get("description", "")[:100],
+                                    "Source Agent": f.get("source_agent", ""),
+                                    "Sink Agent": f.get("sink_agent", ""),
+                                    "File": f.get("source_file", ""),
+                                }
+                                for f in findings
+                            ],
+                            key=lambda r: sev_order.get(r["Severity"].lower(), 9),
+                        )
+                        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No suspicious data flows detected.")
+
+                    if d.get("scan_error"):
+                        st.warning(f"Scan error: {d['scan_error']}")
+
 
 def render_agent_learning():
     """Agent Learning — developer risk profiles and repo learning metrics."""
