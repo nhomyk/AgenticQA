@@ -2908,6 +2908,32 @@ async def secrets_scan(req: SecretsScanRequest):
     return {"success": True, **result.to_dict()}
 
 
+# ── Pre-flight Deploy Checklist Generator ─────────────────────────────────────
+
+try:
+    from src.agenticqa.security.preflight_checklist import PreflightChecklistGenerator
+except ImportError:
+    from agenticqa.security.preflight_checklist import PreflightChecklistGenerator
+
+
+class PreflightChecklistRequest(BaseModel):
+    changed_files: List[str] = []
+    diff_content: str = ""
+
+
+@app.post("/api/security/preflight-checklist")
+async def preflight_checklist(req: PreflightChecklistRequest):
+    """
+    Generate a personalized deploy checklist based on changed files and diff content.
+    Returns MUST / SHOULD / CONSIDER items grouped by category (AUTH, DATABASE, API, etc.).
+    """
+    result = PreflightChecklistGenerator().generate(
+        changed_files=req.changed_files,
+        diff_content=req.diff_content,
+    )
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
