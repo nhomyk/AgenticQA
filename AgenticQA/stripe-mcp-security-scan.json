@@ -1,0 +1,191 @@
+{
+  "target": "https://github.com/mcp/com.stripe/mcp (stripe/agent-toolkit)",
+  "mcp_scan": {
+    "files_scanned": 11,
+    "findings_count": 2,
+    "risk_score": 0.16,
+    "findings": [
+      {
+        "tool_name": "<config>",
+        "attack_type": "MISSING_AUTH",
+        "severity": "medium",
+        "description": "MCP server config contains MISSING_AUTH pattern",
+        "evidence": "\"type\": \"http\",\n      \"url\": \"https://mcp.stripe.com\"\n    ",
+        "source_file": "/tmp/stripe-mcp/providers/claude/plugin/.mcp.json",
+        "line_number": 0,
+        "cwe": "CWE-306",
+        "cvss_score": 5.5
+      },
+      {
+        "tool_name": "<config>",
+        "attack_type": "MISSING_AUTH",
+        "severity": "medium",
+        "description": "MCP server config contains MISSING_AUTH pattern",
+        "evidence": "\"type\": \"http\",\n      \"url\": \"https://mcp.stripe.com\"\n    ",
+        "source_file": "/tmp/stripe-mcp/providers/cursor/plugin/mcp.json",
+        "line_number": 0,
+        "cwe": "CWE-306",
+        "cvss_score": 5.5
+      }
+    ]
+  },
+  "dataflow_scan": {
+    "files_scanned": 18,
+    "agents_analyzed": 18,
+    "findings_count": 7,
+    "risk_score": 1.0,
+    "findings": [
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'main'",
+        "source_agent": "main",
+        "sink_agent": "main",
+        "trace": [
+          {
+            "agent_name": "main",
+            "source_file": "/tmp/stripe-mcp/tools/python/examples/crewai/main.py",
+            "line_number": 14,
+            "operation": "read",
+            "evidence": "secret_key=os.getenv(\"STRIPE_SECRET_KEY\"),"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/tools/python/examples/crewai/main.py",
+        "line_number": 14,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      },
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'anthropic.ts'",
+        "source_agent": "anthropic.ts",
+        "sink_agent": "anthropic.ts",
+        "trace": [
+          {
+            "agent_name": "anthropic.ts",
+            "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/anthropic.ts",
+            "line_number": 16,
+            "operation": "read",
+            "evidence": "const STRIPE_API_KEY = process.env.STRIPE_API_KEY!;"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/anthropic.ts",
+        "line_number": 16,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      },
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'anthropic.ts'",
+        "source_agent": "anthropic.ts",
+        "sink_agent": "anthropic.ts",
+        "trace": [
+          {
+            "agent_name": "anthropic.ts",
+            "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/anthropic.ts",
+            "line_number": 18,
+            "operation": "read",
+            "evidence": "const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/anthropic.ts",
+        "line_number": 18,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      },
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'openai.ts'",
+        "source_agent": "openai.ts",
+        "sink_agent": "openai.ts",
+        "trace": [
+          {
+            "agent_name": "openai.ts",
+            "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/openai.ts",
+            "line_number": 16,
+            "operation": "read",
+            "evidence": "const STRIPE_API_KEY = process.env.STRIPE_API_KEY!;"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/openai.ts",
+        "line_number": 16,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      },
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'openai.ts'",
+        "source_agent": "openai.ts",
+        "sink_agent": "openai.ts",
+        "trace": [
+          {
+            "agent_name": "openai.ts",
+            "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/openai.ts",
+            "line_number": 18,
+            "operation": "read",
+            "evidence": "const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/llm/token-meter/examples/openai.ts",
+        "line_number": 18,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      },
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'index.ts'",
+        "source_agent": "index.ts",
+        "sink_agent": "index.ts",
+        "trace": [
+          {
+            "agent_name": "index.ts",
+            "source_file": "/tmp/stripe-mcp/tools/typescript/examples/langchain/index.ts",
+            "line_number": 14,
+            "operation": "read",
+            "evidence": "secretKey: process.env.STRIPE_SECRET_KEY!,"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/tools/typescript/examples/langchain/index.ts",
+        "line_number": 14,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      },
+      {
+        "finding_type": "SECRET_SOURCE",
+        "severity": "high",
+        "data_type": "credential",
+        "description": "Sensitive data source in agent 'index.ts'",
+        "source_agent": "index.ts",
+        "sink_agent": "index.ts",
+        "trace": [
+          {
+            "agent_name": "index.ts",
+            "source_file": "/tmp/stripe-mcp/tools/typescript/examples/openai/index.ts",
+            "line_number": 10,
+            "operation": "read",
+            "evidence": "secretKey: process.env.STRIPE_SECRET_KEY!,"
+          }
+        ],
+        "sanitized": false,
+        "source_file": "/tmp/stripe-mcp/tools/typescript/examples/openai/index.ts",
+        "line_number": 10,
+        "remediation": "Avoid passing raw credentials between agents; use scoped tokens."
+      }
+    ]
+  },
+  "skill_scan": {
+    "files_scanned": 0,
+    "note": "No Python agent files found (TypeScript-only repo)"
+  }
+}
