@@ -399,6 +399,32 @@ async def dataflow_health():
         }
 
 
+@app.get("/api/health/integrity")
+async def system_integrity():
+    """
+    Application-level integrity check — verifies ontology, constitutional gate,
+    scanners, artifact store, provenance, and ingest pipeline are all wired
+    correctly. Complements /api/health/dataflow (infrastructure probes).
+
+    Returns 200 when all checks pass, 503 when any check fails.
+    """
+    try:
+        from agenticqa.monitoring.integrity_checker import SystemIntegrityChecker
+        report = SystemIntegrityChecker().check_all()
+        d = report.to_dict()
+        d["http_status"] = 200 if report.passed else 503
+        return d
+    except Exception as e:
+        return {
+            "passed": False,
+            "total": 0,
+            "passed_count": 0,
+            "failed_count": 1,
+            "checks": [{"name": "startup", "passed": False, "message": str(e)}],
+            "http_status": 500,
+        }
+
+
 @app.get("/api/system/readiness")
 async def system_readiness():
     """Detailed readiness checks for local dependencies and data stores."""

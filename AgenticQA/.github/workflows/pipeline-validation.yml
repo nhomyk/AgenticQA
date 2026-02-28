@@ -728,6 +728,19 @@ jobs:
           print('No critical DataFlow findings in src/')
           "
 
+      - name: System Integrity Check — application-level validation
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from agenticqa.monitoring.integrity_checker import SystemIntegrityChecker
+          report = SystemIntegrityChecker().check_all()
+          for c in report.checks:
+              print(c)
+          print(f'Integrity: {len(report.successes)}/{len(report.checks)} passed')
+          if not report.passed:
+              sys.exit(1)
+          "
+
       - name: Verify learned patterns load correctly
         run: |
           python -c "
