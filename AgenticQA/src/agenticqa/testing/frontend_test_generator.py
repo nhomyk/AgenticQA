@@ -493,6 +493,8 @@ describe('{first_export}', () => {{
     def _streamlit(
         self, description: str, code: str, stem: str, file_path: str
     ) -> tuple[str, list[str]]:
+        # Build the module-level constant first, then append test functions
+        escaped = code.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
         code_str = f'''"""Streamlit AppTest for {stem}."""
 import pytest
 from unittest.mock import patch, MagicMock
@@ -504,6 +506,29 @@ try:
 except ImportError:
     HAS_STREAMLIT_TESTING = False
 
+# Source code under test — written to a temp file so AppTest can load it.
+__CODE__ = """{escaped}"""
+
+
+def _mock_ok(data=None):
+    """Return a mock HTTP 200 response with optional JSON data."""
+    m = MagicMock()
+    m.status_code = 200
+    m.json.return_value = data if data is not None else {{}}
+    m.raise_for_status.return_value = None
+    return m
+
+
+def _run(app_file):
+    """Run AppTest with all HTTP calls mocked — no live server needed."""
+    at = AppTest.from_file(str(app_file))
+    with patch("requests.get", return_value=_mock_ok({{"tasks": []}})), \\
+         patch("requests.post", return_value=_mock_ok()), \\
+         patch("requests.put", return_value=_mock_ok()), \\
+         patch("requests.delete", return_value=_mock_ok()):
+        at.run(timeout=10)
+    return at
+
 
 @pytest.mark.unit
 @pytest.mark.skipif(not HAS_STREAMLIT_TESTING, reason="streamlit >= 1.18 required")
@@ -511,27 +536,35 @@ def test_{stem}_renders_without_exception(tmp_path):
     """App must render without raising an unhandled exception."""
     app_file = tmp_path / "{stem}.py"
     app_file.write_text(__CODE__)
-    at = AppTest.from_file(str(app_file))
-    at.run(timeout=10)
+    at = _run(app_file)
     assert not at.exception, f"App raised: {{at.exception}}"
 
 
 @pytest.mark.unit
 @pytest.mark.skipif(not HAS_STREAMLIT_TESTING, reason="streamlit >= 1.18 required")
 def test_{stem}_has_no_error_elements(tmp_path):
-    """No st.error() calls should fire on initial render."""
+    """No st.error() calls should fire on initial render (API mocked)."""
+    app_file = tmp_path / "{stem}.py"
+    app_file.write_text(__CODE__)
+    at = _run(app_file)
+    assert len(at.error) == 0, f"App has error widgets: {{[e.value for e in at.error]}}"
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not HAS_STREAMLIT_TESTING, reason="streamlit >= 1.18 required")
+def test_{stem}_handles_api_down(tmp_path):
+    """App must not raise an unhandled exception when the API server is down."""
+    import requests as _req
     app_file = tmp_path / "{stem}.py"
     app_file.write_text(__CODE__)
     at = AppTest.from_file(str(app_file))
-    at.run(timeout=10)
-    assert len(at.error) == 0, f"App has error widgets: {{[e.value for e in at.error]}}"
+    def _raise(*a, **kw):
+        raise _req.exceptions.ConnectionError("Connection refused")
+    with patch("requests.get", side_effect=_raise), \\
+         patch("requests.post", side_effect=_raise):
+        at.run(timeout=10)
+    assert not at.exception, f"App crashed when API was down: {{at.exception}}"
 '''
-        # Inject the actual code as a module-level constant
-        escaped = code.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
-        code_str = code_str.replace(
-            f"def test_{stem}_renders_without_exception",
-            f'__CODE__ = """{escaped}"""\n\n\ndef test_{stem}_renders_without_exception',
-        )
         setup = [
             "pip install streamlit>=1.18",
             "streamlit.testing.v1 runs apps headlessly — no browser or server needed",
