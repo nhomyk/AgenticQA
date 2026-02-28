@@ -5531,21 +5531,63 @@ def _render_scan_results(data: dict):
         unsafe_allow_html=True,
     )
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("OWASP Critical", summary["owasp_critical"])
-    c2.metric("OWASP High", summary["owasp_high"])
-    c3.metric("OWASP Total", summary["owasp_total"])
-    c4.metric("Secrets Found", summary["secrets_found"])
-    c5.metric("Race Conditions", summary["race_conditions_found"])
+    # Stats row — include tests if present
+    tests = data.get("tests")
+    if tests and tests.get("total", 0) > 0:
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        t_icon = "✅" if tests["status"] == "ALL_PASSED" else "❌"
+        c1.metric("Tests", f"{t_icon} {tests['passed']}/{tests['total']}")
+        c2.metric("OWASP Critical", summary["owasp_critical"])
+        c3.metric("OWASP High", summary["owasp_high"])
+        c4.metric("OWASP Total", summary["owasp_total"])
+        c5.metric("Secrets Found", summary["secrets_found"])
+        c6.metric("Race Conditions", summary["race_conditions_found"])
+    else:
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("OWASP Critical", summary["owasp_critical"])
+        c2.metric("OWASP High", summary["owasp_high"])
+        c3.metric("OWASP Total", summary["owasp_total"])
+        c4.metric("Secrets Found", summary["secrets_found"])
+        c5.metric("Race Conditions", summary["race_conditions_found"])
 
     if rr["blocking_issues"]:
         st.error("**Blocking Issues:**  \n" + "  \n".join(f"• {b}" for b in rr["blocking_issues"]))
 
     st.markdown("---")
 
-    tabs = st.tabs(["🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight", "📊 Signals"])
+    tab_labels = ["🧪 Tests", "🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight", "📊 Signals"]
+    tabs = st.tabs(tab_labels)
 
+    # Tab 0: Tests
     with tabs[0]:
+        tr = data.get("tests")
+        if not tr or tr.get("total", 0) == 0:
+            st.info("No tests were run for this scan. Tests run automatically via the Build & Validate pipeline.")
+        else:
+            status_color = {"ALL_PASSED": "green", "PARTIAL": "orange",
+                            "ALL_FAILED": "red", "NO_TESTS_COLLECTED": "grey"}.get(tr["status"], "grey")
+            st.markdown(f"**Status:** :{status_color}[{tr['status']}]  —  "
+                        f"**{tr['passed']}/{tr['total']} tests passing** "
+                        f"({tr['pass_rate']:.0%})")
+            st.progress(tr["pass_rate"])
+
+            col_p, col_f2, col_e = st.columns(3)
+            col_p.metric("Passed", tr["passed"])
+            col_f2.metric("Failed", tr["failed"])
+            col_e.metric("Errors", tr["errors"])
+
+            if tr["tests"]:
+                st.markdown("**Test results:**")
+                for t in tr["tests"]:
+                    icon = "✅" if t["status"] == "PASSED" else "❌"
+                    st.markdown(f"{icon} `{t['name']}`")
+
+            if tr.get("output") and (tr["failed"] > 0 or tr["errors"] > 0):
+                with st.expander("📋 Test output", expanded=False):
+                    st.code(tr["output"], language="text")
+
+    # Tab 1: Intent Check
+    with tabs[1]:
         iv = data.get("intent_verification")
         if iv is None:
             st.info("No intent provided.")
@@ -5574,7 +5616,8 @@ def _render_scan_results(data: dict):
                 if issue["line_snippet"]:
                     st.code(issue["line_snippet"][:200], language="python")
 
-    with tabs[1]:
+    # Tab 2: OWASP
+    with tabs[2]:
         findings = data["owasp"]["findings"]
         if not findings:
             st.success("No OWASP Top 10 issues detected.")
@@ -5588,7 +5631,8 @@ def _render_scan_results(data: dict):
                     cb.markdown(f"**CWE:** {f['cwe']}  \n**Line:** {f['line_number']}")
                     st.code(f["evidence"][:200], language="python")
 
-    with tabs[2]:
+    # Tab 3: Secrets
+    with tabs[3]:
         sec_findings = data["secrets"]["findings"]
         if not sec_findings:
             st.success("No secrets detected.")
@@ -5598,7 +5642,8 @@ def _render_scan_results(data: dict):
                 si = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
                 st.markdown(f"{si} **{f['secret_type']}** — `{f['evidence']}` (line {f['line_number']})")
 
-    with tabs[3]:
+    # Tab 4: Race Conditions
+    with tabs[4]:
         rc_findings = data["race_conditions"]["findings"]
         if not rc_findings:
             st.success("No race condition patterns detected.")
@@ -5609,7 +5654,8 @@ def _render_scan_results(data: dict):
                     st.markdown(f"**Attack scenario:** {f['attack_scenario']}")
                     st.code(f["evidence"][:200])
 
-    with tabs[4]:
+    # Tab 5: Pre-flight
+    with tabs[5]:
         cl = data["preflight_checklist"]
         cats = cl.get("categories_triggered", [])
         if cats:
@@ -5626,7 +5672,8 @@ def _render_scan_results(data: dict):
                     for item in priority_items:
                         st.markdown(f"- [ ] {item['item']}  \n  <small>*{item['triggered_by']}*</small>", unsafe_allow_html=True)
 
-    with tabs[5]:
+    # Tab 6: Signal Breakdown
+    with tabs[6]:
         st.markdown("### Release Readiness Signal Breakdown")
         for sig in rr["signals"]:
             si = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}.get(sig["status"], "⚪")

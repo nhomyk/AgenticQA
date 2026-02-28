@@ -3199,21 +3199,26 @@ async def pipeline_run(req: PipelineRunRequest):
         f"no markdown fences, no explanation. File: {req.file_path}"
     )
 
-    # ── Generate → commit → scan → fix loop ───────────────────────────────────
+    # ── Derived names for test files ──────────────────────────────────────────
+    import os as _os2
+    module_name = _os2.path.splitext(_os2.path.basename(req.file_path))[0]
+    test_filename = f"test_{module_name}.py"
+
+    # ── Generate → test → commit → scan → fix loop ────────────────────────────
     iterations: List[dict] = []
     findings_context = ""
 
     for attempt in range(1, req.max_retries + 2):
-        # Build prompt — on retries, include scan findings
+        # Build prompt — on retries, include both security and test failures
         if findings_context:
             user_content = (
-                f"Your previous implementation had these security issues:\n{findings_context}\n\n"
+                f"Your previous implementation had these issues:\n{findings_context}\n\n"
                 f"Rewrite the complete file to fix every issue while still implementing:\n{req.description}"
             )
         else:
             user_content = req.description
 
-        # Generate
+        # ── 1. Generate implementation code ───────────────────────────────────
         try:
             msg = client.messages.create(
                 model="claude-haiku-4-5-20251001",
@@ -3227,46 +3232,69 @@ async def pipeline_run(req: PipelineRunRequest):
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Code generation failed: {e}")
 
-        # Write to file
-        import os as _os2
+        # Write implementation
         full_path = _os2.path.join(repo_path, req.file_path)
         _os2.makedirs(_os2.path.dirname(full_path), exist_ok=True)
         with open(full_path, "w", encoding="utf-8") as fh:
             fh.write(generated_code)
 
-        # Commit
+        # ── 2. Generate tests ──────────────────────────────────────────────────
+        try:
+            test_code = _generate_tests(client, req.description, generated_code, module_name, lang)
+        except Exception:
+            test_code = f"# Test generation failed\ndef test_placeholder():\n    pass\n"
+
+        test_path = _os2.path.join(repo_path, test_filename)
+        with open(test_path, "w", encoding="utf-8") as fh:
+            fh.write(test_code)
+
+        # ── 3. Run tests ───────────────────────────────────────────────────────
+        test_results = _run_tests(repo_path, test_filename)
+
+        # ── 4. Commit code + tests ─────────────────────────────────────────────
         commit_msg = (
             f"feat: {req.description[:60]}" if attempt == 1
-            else f"fix(agenticqa): address security findings — attempt {attempt}"
+            else f"fix(agenticqa): address findings — attempt {attempt}"
         )
-        _sp.run(["git", "add", req.file_path], cwd=repo_path, capture_output=True)
+        _sp.run(["git", "add", req.file_path, test_filename], cwd=repo_path, capture_output=True)
         _sp.run(["git", "commit", "-m", commit_msg], cwd=repo_path, capture_output=True)
 
-        # Scan
+        # ── 5. Security scan (with test pass rate feeding readiness score) ─────
+        sdet_input = {"current_coverage": test_results["pass_rate"] * 100} if test_results["total"] > 0 else None
         scan = _run_pipeline_on_content(
             code=generated_code,
             file_path=req.file_path,
             changed_files=[req.file_path],
             intent=req.description,
+            sdet_result=sdet_input,
         )
+        scan["tests"] = test_results
+        scan["summary"]["tests_passed"] = test_results["passed"]
+        scan["summary"]["tests_failed"] = test_results["failed"]
+        scan["summary"]["tests_total"] = test_results["total"]
+        scan["summary"]["test_status"] = test_results["status"]
 
         iterations.append({
             "attempt": attempt,
             "generated_code": generated_code,
+            "test_code": test_code,
             "commit": commit_msg,
             "summary": scan["summary"],
             "recommendation": scan["release_readiness"]["recommendation"],
+            "test_status": test_results["status"],
         })
 
         recommendation = scan["release_readiness"]["recommendation"]
-        if recommendation == "SHIP IT":
+        tests_ok = test_results["status"] in ("ALL_PASSED", "SKIPPED", "NO_TESTS_COLLECTED")
+
+        if recommendation == "SHIP IT" and tests_ok:
             break
         if not req.auto_fix or attempt >= req.max_retries + 1:
             break
 
-        # Build findings context for next attempt
+        # ── 6. Build combined findings context for next attempt ────────────────
         owasp_issues = [
-            f"- [{f['severity'].upper()}] {f['description']} (line {f['line_number']}): {f['evidence'][:80]}"
+            f"- [SECURITY/{f['severity'].upper()}] {f['description']} line {f['line_number']}: {f['evidence'][:80]}"
             for f in scan["owasp"]["findings"]
         ]
         secret_issues = [
@@ -3274,7 +3302,14 @@ async def pipeline_run(req: PipelineRunRequest):
             for f in scan["secrets"]["findings"]
         ]
         blocking = [f"- BLOCKING: {b}" for b in scan["release_readiness"].get("blocking_issues", [])]
-        findings_context = "\n".join(owasp_issues + secret_issues + blocking)
+        test_failures = [
+            f"- [TEST FAILED] {t['name']}"
+            for t in test_results["tests"] if t["status"] in ("FAILED", "ERROR")
+        ]
+        if test_results.get("output") and test_failures:
+            test_failures.append(f"  Test output:\n{test_results['output'][:600]}")
+
+        findings_context = "\n".join(owasp_issues + secret_issues + blocking + test_failures)
 
     # ── Push branch + open draft PR if SHIP IT ────────────────────────────────
     final_scan = scan
@@ -3297,11 +3332,14 @@ async def pipeline_run(req: PipelineRunRequest):
             if push.returncode == 0:
                 branch_pushed = True
                 score = final_scan["summary"]["release_score"]
+                t_pass = final_scan["summary"].get("tests_passed", "?")
+                t_total = final_scan["summary"].get("tests_total", "?")
                 pr_body = (
                     f"**Generated and validated by AgenticQA**\n\n"
                     f"**Release Readiness Score: {score}/100 — SHIP IT ✅**\n\n"
                     f"### Feature\n{req.description}\n\n"
                     f"### Scan Summary\n"
+                    f"- Tests: {t_pass}/{t_total} passing\n"
                     f"- OWASP Critical: {final_scan['summary']['owasp_critical']}\n"
                     f"- Secrets: {final_scan['summary']['secrets_found']}\n"
                     f"- Race conditions: {final_scan['summary']['race_conditions_found']}\n"
@@ -3423,11 +3461,110 @@ class GitDiffScanRequest(BaseModel):
     max_diff_bytes: int = 500_000
 
 
+def _generate_tests(client, description: str, code: str, module_name: str, lang: str) -> str:
+    """Ask Claude Haiku to write pytest tests for the generated code."""
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=4096,
+        system=(
+            f"You are a senior {lang} test engineer. Write comprehensive pytest tests.\n"
+            f"Rules:\n"
+            f"1. Import the module as: import {module_name}  (or from {module_name} import ...)\n"
+            f"2. Mock ALL external dependencies with unittest.mock.patch:\n"
+            f"   - Database calls (sqlite3.connect, psycopg2, SQLAlchemy)\n"
+            f"   - HTTP calls (requests.get/post, httpx, urllib)\n"
+            f"   - File I/O, environment variables, subprocess calls\n"
+            f"3. For Flask: use app.test_client() — import app from {module_name}\n"
+            f"4. For FastAPI: use TestClient(app) from fastapi.testclient\n"
+            f"5. Cover: happy path, missing/invalid inputs, auth enforcement, edge cases\n"
+            f"6. Include at least one test that verifies security behaviour "
+            f"(e.g. unauthenticated request returns 401, not 200)\n"
+            f"7. Every test function name starts with test_\n"
+            f"8. Add a module-level conftest or sys.path manipulation if needed\n"
+            f"9. Output ONLY raw Python — no markdown fences, no prose"
+        ),
+        messages=[{
+            "role": "user",
+            "content": f"Feature: {description}\n\nCode to test:\n{code}",
+        }],
+    )
+    return msg.content[0].text
+
+
+def _run_tests(repo_path: str, test_filename: str) -> dict:
+    """Run pytest on test_filename inside repo_path and return structured results."""
+    import subprocess as _sp2
+    import os as _os2
+
+    # Write conftest.py so imports resolve regardless of nesting
+    conftest = (
+        "import sys, os\n"
+        "sys.path.insert(0, os.path.dirname(__file__))\n"
+        "sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))\n"
+    )
+    with open(_os2.path.join(repo_path, "conftest.py"), "w") as f:
+        f.write(conftest)
+
+    try:
+        proc = _sp2.run(
+            ["python3", "-m", "pytest", test_filename, "-v", "--tb=short", "--no-header", "-q"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except FileNotFoundError:
+        return {"status": "SKIPPED", "reason": "pytest not available", "passed": 0, "failed": 0, "errors": 0, "total": 0, "pass_rate": 0.0, "tests": [], "output": ""}
+    except Exception as e:
+        return {"status": "ERROR", "reason": str(e), "passed": 0, "failed": 0, "errors": 0, "total": 0, "pass_rate": 0.0, "tests": [], "output": ""}
+
+    stdout = (proc.stdout or "") + (proc.stderr or "")
+    passed, failed, errors, tests = 0, 0, 0, []
+
+    for line in stdout.splitlines():
+        if " PASSED" in line and "::" in line:
+            name = line.split("::")[-1].split(" PASSED")[0].strip()
+            tests.append({"name": name, "status": "PASSED"})
+            passed += 1
+        elif " FAILED" in line and "::" in line:
+            name = line.split("::")[-1].split(" FAILED")[0].strip()
+            tests.append({"name": name, "status": "FAILED"})
+            failed += 1
+        elif " ERROR" in line and "::" in line:
+            name = line.split("::")[-1].split(" ERROR")[0].strip()
+            tests.append({"name": name, "status": "ERROR"})
+            errors += 1
+
+    total = passed + failed + errors
+    pass_rate = passed / total if total > 0 else 0.0
+
+    if total == 0:
+        status = "NO_TESTS_COLLECTED"
+    elif failed == 0 and errors == 0:
+        status = "ALL_PASSED"
+    elif passed == 0:
+        status = "ALL_FAILED"
+    else:
+        status = "PARTIAL"
+
+    return {
+        "status": status,
+        "passed": passed,
+        "failed": failed,
+        "errors": errors,
+        "total": total,
+        "pass_rate": pass_rate,
+        "tests": tests,
+        "output": stdout[:3000],
+    }
+
+
 def _run_pipeline_on_content(
     code: str,
     file_path: str,
     changed_files: List[str],
     intent: str = "",
+    sdet_result: Optional[dict] = None,
 ) -> dict:
     """Shared pipeline runner used by both /api/pipeline/demo and /api/pipeline/scan-diff."""
     import tempfile, os as _os
@@ -3462,6 +3599,7 @@ def _run_pipeline_on_content(
     conformity = max(0.1, 1.0 - owasp_result["risk_score"])
 
     readiness = ReleaseReadinessScorer().score(
+        sdet_result=sdet_result,
         security_findings=owasp_findings_for_rr,
         compliance_result={"violations": [{}] * n_violations, "conformity_score": conformity},
     )
