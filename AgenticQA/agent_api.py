@@ -2855,6 +2855,30 @@ async def blast_radius(req: BlastRadiusRequest):
     return {"success": True, **result.to_dict()}
 
 
+# ── Mutation Testing Runner ───────────────────────────────────────────────────
+
+try:
+    from src.agenticqa.testing.mutation_runner import MutationRunner
+except ImportError:
+    from agenticqa.testing.mutation_runner import MutationRunner
+
+
+class MutationRequest(BaseModel):
+    repo_path: str = "."
+    target_files: Optional[List[str]] = None
+
+
+@app.post("/api/testing/mutation")
+async def mutation_test(req: MutationRequest):
+    """
+    Run mutation testing via mutmut and report the kill rate.
+    Returns verdict: STRONG | ADEQUATE | WEAK | UNTESTED.
+    Falls back to UNTESTED if mutmut is not installed.
+    """
+    result = MutationRunner().run(repo_path=req.repo_path, target_files=req.target_files)
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
