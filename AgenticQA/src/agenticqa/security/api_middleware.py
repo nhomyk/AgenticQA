@@ -17,13 +17,15 @@ AGENTICQA_RESPONSE_SCAN_STRICT — set to "1" to block responses that contain se
 
 from __future__ import annotations
 
+import collections
 import hmac
 import json
 import logging
 import os
 import secrets
 import sys
-from typing import Callable, Sequence
+import time
+from typing import Callable, Deque, Dict, Sequence
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -314,3 +316,166 @@ class ResponseScanMiddleware(BaseHTTPMiddleware):
             headers=dict(response.headers),
             media_type=content_type,
         )
+
+
+# ---------------------------------------------------------------------------
+# 4. RateLimitMiddleware — sliding window, no external deps
+# ---------------------------------------------------------------------------
+#
+# Environment variables:
+#   AGENTICQA_RATE_LIMIT_RPM   — requests per minute per token (default 60)
+#   AGENTICQA_RATE_LIMIT_BURST — burst allowance beyond RPM (default 10)
+#
+# Heavy endpoints (/api/agents/execute, /api/workflows/run) apply a tighter
+# per-endpoint limit of RPM/4 to protect LLM budget.
+
+_HEAVY_PATHS: frozenset[str] = frozenset(
+    {"/api/agents/execute", "/api/workflows/run", "/api/agent-factory/from-prompt"}
+)
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Token-keyed sliding-window rate limiter.
+
+    Uses a deque of timestamps per token — O(1) amortised with no external deps.
+    Falls back to IP address when no Bearer token is present (anonymous clients).
+    """
+
+    def __init__(
+        self,
+        app,
+        rpm: int = 0,
+        burst: int = 0,
+    ) -> None:
+        super().__init__(app)
+        self._rpm = int(os.getenv("AGENTICQA_RATE_LIMIT_RPM", rpm or 60))
+        self._burst = int(os.getenv("AGENTICQA_RATE_LIMIT_BURST", burst or 10))
+        self._window_s = 60.0
+        # key → deque of hit timestamps
+        self._windows: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)
+
+    def _key(self, request: Request) -> str:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            return f"token:{auth[7:32]}"  # truncate to 25 chars — enough to be unique
+        return f"ip:{request.client.host if request.client else 'unknown'}"
+
+    def _is_rate_limited(self, key: str, limit: int) -> bool:
+        now = time.monotonic()
+        dq = self._windows[key]
+        cutoff = now - self._window_s
+        while dq and dq[0] < cutoff:
+            dq.popleft()
+        if len(dq) >= limit:
+            return True
+        dq.append(now)
+        return False
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if request.url.path in _AUTH_SKIP_PATHS:
+            return await call_next(request)
+        if os.getenv("AGENTICQA_RATE_LIMIT_DISABLE", "") == "1":
+            return await call_next(request)
+
+        key = self._key(request)
+        # Heavy endpoints get 1/4 of the normal limit
+        limit = self._rpm // 4 if request.url.path in _HEAVY_PATHS else self._rpm + self._burst
+
+        if self._is_rate_limited(key, limit):
+            logger.warning("Rate limit exceeded: key=%s path=%s", key[:20], request.url.path)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Rate limit exceeded",
+                    "detail": f"Max {self._rpm} requests/minute. Retry after 60s.",
+                },
+                headers={"Retry-After": "60"},
+            )
+
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# 5. InputSizeMiddleware — prevents token-budget exhaustion and JSON bombs
+# ---------------------------------------------------------------------------
+#
+# Environment variables:
+#   AGENTICQA_MAX_BODY_BYTES  — max request body size in bytes (default 512 KB)
+#   AGENTICQA_MAX_JSON_DEPTH  — max JSON nesting depth (default 20)
+
+_DEFAULT_MAX_BYTES = 512 * 1024  # 512 KB
+_DEFAULT_MAX_DEPTH = 20
+
+
+def _json_depth(obj, current: int = 0) -> int:
+    if current > _DEFAULT_MAX_DEPTH:
+        return current
+    if isinstance(obj, dict):
+        return max((_json_depth(v, current + 1) for v in obj.values()), default=current)
+    if isinstance(obj, list):
+        return max((_json_depth(v, current + 1) for v in obj), default=current)
+    return current
+
+
+class InputSizeMiddleware(BaseHTTPMiddleware):
+    """
+    Rejects requests that exceed body-size or JSON-depth limits.
+
+    Prevents:
+    - Context-window overflow attacks (enormous prompts evict system instructions)
+    - JSON/YAML bomb denial-of-service via deeply-nested structures
+    """
+
+    def __init__(self, app, max_bytes: int = 0, max_depth: int = 0) -> None:
+        super().__init__(app)
+        self._max_bytes = int(os.getenv("AGENTICQA_MAX_BODY_BYTES", max_bytes or _DEFAULT_MAX_BYTES))
+        self._max_depth = int(os.getenv("AGENTICQA_MAX_JSON_DEPTH", max_depth or _DEFAULT_MAX_DEPTH))
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if request.method not in ("POST", "PUT", "PATCH"):
+            return await call_next(request)
+        if request.url.path in _AUTH_SKIP_PATHS:
+            return await call_next(request)
+
+        body = await request.body()
+
+        if len(body) > self._max_bytes:
+            logger.warning(
+                "Request body too large: %d bytes > %d limit (path=%s)",
+                len(body), self._max_bytes, request.url.path,
+            )
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "error": "Request body too large",
+                    "detail": f"Max {self._max_bytes // 1024} KB allowed",
+                },
+            )
+
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type and body:
+            try:
+                parsed = json.loads(body)
+                depth = _json_depth(parsed)
+                if depth > self._max_depth:
+                    logger.warning(
+                        "JSON nesting too deep: depth=%d > %d (path=%s)",
+                        depth, self._max_depth, request.url.path,
+                    )
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "error": "JSON nesting depth exceeded",
+                            "detail": f"Max depth {self._max_depth} allowed",
+                        },
+                    )
+            except json.JSONDecodeError:
+                pass  # let FastAPI return its own 422
+
+        # Re-attach body so downstream handlers can read it
+        async def receive():
+            return {"type": "http.request", "body": body}
+
+        request._receive = receive
+        return await call_next(request)

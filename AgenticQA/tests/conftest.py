@@ -19,13 +19,19 @@ def disable_api_auth_in_tests():
     to add Authorization headers. Tests in test_api_middleware.py override
     this by testing the middleware directly in isolation.
     """
-    original = os.environ.get("AGENTICQA_AUTH_DISABLE", "")
+    original_auth = os.environ.get("AGENTICQA_AUTH_DISABLE", "")
+    original_rate = os.environ.get("AGENTICQA_RATE_LIMIT_DISABLE", "")
     os.environ["AGENTICQA_AUTH_DISABLE"] = "1"
+    os.environ["AGENTICQA_RATE_LIMIT_DISABLE"] = "1"
     yield
-    if original:
-        os.environ["AGENTICQA_AUTH_DISABLE"] = original
+    if original_auth:
+        os.environ["AGENTICQA_AUTH_DISABLE"] = original_auth
     else:
         os.environ.pop("AGENTICQA_AUTH_DISABLE", None)
+    if original_rate:
+        os.environ["AGENTICQA_RATE_LIMIT_DISABLE"] = original_rate
+    else:
+        os.environ.pop("AGENTICQA_RATE_LIMIT_DISABLE", None)
 
 
 @pytest.fixture

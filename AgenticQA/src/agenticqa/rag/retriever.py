@@ -5,12 +5,21 @@ Retrieves relevant historical data from vector store to enhance agent decision-m
 Provides semantic search over test results, errors, compliance rules, and performance patterns.
 """
 
+import logging
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 
 from .vector_store import VectorStore, VectorDocument
 from .embeddings import Embedder, EmbedderFactory
+
+logger = logging.getLogger(__name__)
+
+try:
+    from agenticqa.security.rag_content_sanitizer import RAGContentSanitizer as _RAGSanitizer
+    _sanitizer = _RAGSanitizer()
+except ImportError:
+    _sanitizer = None
 
 
 @dataclass
@@ -277,6 +286,16 @@ class MultiAgentRAG:
         """
         # Get recommendations from RAG
         recommendations = self.retriever.get_agent_recommendations(agent_type, agent_context)
+
+        # Sanitize retrieved content before injection into agent context
+        if _sanitizer is not None and recommendations:
+            recommendations, rag_findings = _sanitizer.sanitize_recommendations(recommendations)
+            if rag_findings:
+                logger.warning(
+                    "RAG content sanitizer blocked/modified %d finding(s) for agent=%s: %s",
+                    len(rag_findings), agent_type,
+                    [str(f) for f in rag_findings[:3]],
+                )
 
         # Add to context
         augmented_context = agent_context.copy()

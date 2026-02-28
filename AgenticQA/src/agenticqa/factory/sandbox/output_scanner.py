@@ -44,6 +44,14 @@ DANGER_PATTERNS: List[tuple[str, str]] = [
     ("base64_eval",          r"(?i)(eval|exec)\s*\(\s*(base64|b64)"),
     # --- Hex-escape credential sequences (4+ consecutive \xNN escapes) ---
     ("hex_escape_seq",       r"(\\x[0-9a-fA-F]{2}){4,}"),
+    # --- System prompt extraction / confidentiality ---
+    ("sys_prompt_leak",      r"(?i)my\s+(system\s+prompt|instructions?)\s+(is|are|say|state)\s*[:\-]"),
+    ("reveal_instructions",  r"(?i)(above\s+(is|are)\s+my\s+|here\s+are\s+my\s+)(instructions?|system\s+prompt|context)"),
+    ("repeat_instructions",  r"(?i)(print|repeat|output|show)\s+(everything|all|the\s+text)\s+above"),
+    # --- Unicode steganographic tags (U+E0000–U+E007F) ---
+    ("unicode_tag_chars",    r"[\U000E0000-\U000E007F]+"),
+    # --- Bidirectional override (RTL/LTR injection) ---
+    ("bidi_override",        r"[\u202a-\u202e\u2066-\u2069]"),
 ]
 
 # Well-known base64 payloads (pre-computed to avoid false-positive decode attempts)

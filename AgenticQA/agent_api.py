@@ -13,12 +13,16 @@ try:
         BearerTokenMiddleware,
         OriginValidationMiddleware,
         ResponseScanMiddleware,
+        RateLimitMiddleware,
+        InputSizeMiddleware,
     )
 except ImportError:
     from agenticqa.security.api_middleware import (
         BearerTokenMiddleware,
         OriginValidationMiddleware,
         ResponseScanMiddleware,
+        RateLimitMiddleware,
+        InputSizeMiddleware,
     )
 
 from src.agents import AgentOrchestrator
@@ -80,6 +84,8 @@ app = FastAPI(title="AgenticQA API", version="1.0.0")
 app.add_middleware(ResponseScanMiddleware)
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(OriginValidationMiddleware)
+app.add_middleware(RateLimitMiddleware)    # 60 req/min per token; 15 for heavy endpoints
+app.add_middleware(InputSizeMiddleware)    # 512 KB body limit; depth-20 JSON limit
 
 # CORS — localhost only (DNS rebinding defence; mirrors docker/mcp-gateway)
 _LOCALHOST_ORIGINS = [
