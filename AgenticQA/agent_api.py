@@ -3373,7 +3373,10 @@ async def pipeline_run(req: PipelineRunRequest):
 
         # ── 2. Generate tests ──────────────────────────────────────────────────
         try:
-            test_code = _generate_tests(client, req.description, generated_code, module_name, lang)
+            test_code = _generate_tests(
+                client, req.description, generated_code, module_name, lang,
+                file_path=req.file_path, repo_path=repo_path,
+            )
         except Exception:
             test_code = f"# Test generation failed\ndef test_placeholder():\n    pass\n"
 
@@ -3594,27 +3597,77 @@ class GitDiffScanRequest(BaseModel):
     max_diff_bytes: int = 500_000
 
 
-def _generate_tests(client, description: str, code: str, module_name: str, lang: str) -> str:
-    """Ask Claude Haiku to write pytest tests for the generated code."""
+def _generate_tests(
+    client,
+    description: str,
+    code: str,
+    module_name: str,
+    lang: str,
+    file_path: str = "",
+    repo_path: str = ".",
+) -> str:
+    """
+    Generate tests for the generated code.
+
+    For JS/TS/React/Vue/Angular/Svelte files: uses FrontendTestGenerator to
+    produce framework-appropriate tests (Jest, Vitest, etc.) without requiring
+    an LLM call — returns static template-based tests immediately.
+
+    For Python/FastAPI/Flask/Django/Streamlit: asks Claude Haiku to write
+    pytest tests using the full system prompt.
+    """
+    # ── Frontend frameworks: use the static generator (no API key needed) ──────
+    js_ts_exts = {".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte"}
+    if file_path and any(file_path.endswith(ext) for ext in js_ts_exts):
+        try:
+            from agenticqa.testing.frontend_test_generator import (
+                FrontendTestGenerator, FrameworkDetector,
+            )
+            detection = FrameworkDetector().detect(repo_path, file_path)
+            gen = FrontendTestGenerator().generate(
+                description, code, file_path, repo_path, detection
+            )
+            return gen.test_code
+        except Exception:
+            pass   # fall through to LLM path
+
+    # ── Python / server frameworks: LLM-generated tests ───────────────────────
+    # Detect framework-specific test guidance
+    framework_hints = ""
+    if "streamlit" in code.lower() or "import streamlit" in code:
+        framework_hints = (
+            "This is a Streamlit app. Use streamlit.testing.v1.AppTest to test it. "
+            "Write AppTest.from_file() tests that check the app renders without exception.\n"
+        )
+    elif "FastAPI" in code or "from fastapi" in code:
+        framework_hints = (
+            "This is a FastAPI app. Use fastapi.testclient.TestClient to test endpoints. "
+            "Import the `app` object and wrap it in TestClient.\n"
+        )
+    elif "Flask" in code or "from flask" in code:
+        framework_hints = (
+            "This is a Flask app. Use app.test_client() to test routes. "
+            "Import the `app` object and call app.config['TESTING'] = True.\n"
+        )
+
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=4096,
         system=(
-            f"You are a senior {lang} test engineer. Write comprehensive pytest tests.\n"
+            f"You are a senior {lang} test engineer. Write comprehensive tests.\n"
+            f"{framework_hints}"
             f"Rules:\n"
             f"1. Import the module as: import {module_name}  (or from {module_name} import ...)\n"
             f"2. Mock ALL external dependencies with unittest.mock.patch:\n"
             f"   - Database calls (sqlite3.connect, psycopg2, SQLAlchemy)\n"
             f"   - HTTP calls (requests.get/post, httpx, urllib)\n"
             f"   - File I/O, environment variables, subprocess calls\n"
-            f"3. For Flask: use app.test_client() — import app from {module_name}\n"
-            f"4. For FastAPI: use TestClient(app) from fastapi.testclient\n"
-            f"5. Cover: happy path, missing/invalid inputs, auth enforcement, edge cases\n"
-            f"6. Include at least one test that verifies security behaviour "
+            f"3. Cover: happy path, missing/invalid inputs, auth enforcement, edge cases\n"
+            f"4. Include at least one test that verifies security behaviour "
             f"(e.g. unauthenticated request returns 401, not 200)\n"
-            f"7. Every test function name starts with test_\n"
-            f"8. Add a module-level conftest or sys.path manipulation if needed\n"
-            f"9. Output ONLY raw Python — no markdown fences, no prose"
+            f"5. Every test function name starts with test_\n"
+            f"6. Add sys.path manipulation if needed for imports\n"
+            f"7. Output ONLY raw Python — no markdown fences, no prose"
         ),
         messages=[{
             "role": "user",
