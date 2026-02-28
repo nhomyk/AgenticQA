@@ -3268,6 +3268,7 @@ class PipelineRunRequest(BaseModel):
     github_token: Optional[str] = None      # for push + draft PR on SHIP IT
     auto_fix: bool = True                   # let Claude fix issues and retry
     max_retries: int = 2                    # max fix attempts after first scan
+    max_ui_retries: int = 2                 # max UI self-heal attempts post-SHIP
 
 
 @app.post("/api/pipeline/run")
@@ -3447,35 +3448,133 @@ async def pipeline_run(req: PipelineRunRequest):
 
         findings_context = "\n".join(owasp_issues + secret_issues + blocking + test_failures)
 
-    # ── Post-SHIP: re-scan UI tests so new feature doesn't break existing UX ───
-    # After the fix-loop passes, run any existing Streamlit / JS / framework tests
-    # that already live in the repo to catch UI regressions introduced by the change.
+    # ── Post-SHIP: UI self-healing loop ───────────────────────────────────────
+    # After the security + functional fix-loop passes (SHIP IT), run framework-
+    # aware UI tests.  If they fail, feed the output back to the LLM, let it
+    # rewrite the UI code, re-scan, and re-run — up to max_ui_retries times.
+    # This closes the loop: the agent is fully autonomous for the UI layer too.
     ui_test_results: dict = {}
+    ui_fix_iterations: list = []
+    MAX_UI_RETRIES = getattr(req, "max_ui_retries", 2)
+
     if recommendation == "SHIP IT":
         try:
             from agenticqa.testing.frontend_test_runner import FrontendTestRunner
-            from agenticqa.testing.frontend_test_generator import FrameworkDetector
+            from agenticqa.testing.frontend_test_generator import (
+                FrameworkDetector, FrontendTestGenerator,
+            )
 
             detection = FrameworkDetector().detect(repo_path, req.file_path or "")
-            # Only re-run if we detected a frontend framework
-            if detection.framework.value not in ("python", "unknown"):
+            is_frontend = detection.framework.value not in ("python", "unknown")
+
+            if is_frontend:
                 ui_runner = FrontendTestRunner()
-                ui_test_results = ui_runner.run(
-                    description=req.description,
-                    code=code,
-                    file_path=req.file_path or "",
-                    repo_path=repo_path,
-                    timeout=60,
+                ui_system_prompt = (
+                    f"You are a senior {lang} UI engineer. The following UI code has "
+                    f"failing tests. Rewrite the complete file to fix every test failure "
+                    f"while preserving all original features. "
+                    f"Output ONLY raw source code — no markdown, no explanation. "
+                    f"File: {req.file_path}"
                 )
-                # If generated UI tests fail, downgrade verdict and add to context
-                if ui_test_results.get("status") == "ALL_FAILED":
-                    recommendation = "REVIEW REQUIRED"
-                    ui_test_results["note"] = (
-                        "Post-SHIP UI test scan failed — generated feature may break "
-                        "existing UI flows. Review generated test output above."
+
+                # Read current code from disk (may have been rewritten by fix-loop)
+                _full_ui_path = _os2.path.join(repo_path, req.file_path or "")
+                _ui_code = (
+                    open(_full_ui_path, encoding="utf-8").read()
+                    if _os2.path.exists(_full_ui_path) else code
+                )
+
+                for ui_attempt in range(MAX_UI_RETRIES + 1):
+                    # Generate UI tests for current code
+                    _ui_gen = FrontendTestGenerator().generate(
+                        description=req.description,
+                        code=_ui_code,
+                        file_path=req.file_path or "",
+                        repo_path=repo_path,
+                        detection=detection,
                     )
+                    ui_test_results = ui_runner.run_generated(
+                        _ui_gen, repo_path, timeout=60
+                    )
+                    ui_fix_iterations.append({
+                        "ui_attempt": ui_attempt + 1,
+                        "ui_status": ui_test_results.get("status"),
+                        "ui_passed": ui_test_results.get("passed", 0),
+                        "ui_failed": ui_test_results.get("failed", 0),
+                    })
+
+                    ui_status = ui_test_results.get("status", "")
+                    if ui_status in ("ALL_PASSED", "NO_TESTS_COLLECTED"):
+                        # UI healthy — keep SHIP IT
+                        break
+
+                    if ui_attempt >= MAX_UI_RETRIES:
+                        # Exhausted retries — escalate
+                        recommendation = "REVIEW REQUIRED"
+                        ui_test_results["note"] = (
+                            f"UI self-healing exhausted after {MAX_UI_RETRIES + 1} "
+                            "attempt(s). Human review required for UI layer."
+                        )
+                        break
+
+                    # ── UI fix: LLM rewrites the failing UI code ──────────────
+                    ui_failures = "\n".join(
+                        f"- [{t['status']}] {t['name']}: {t.get('output', '')[:200]}"
+                        for t in ui_test_results.get("tests", [])
+                        if t["status"] in ("FAILED", "ERROR")
+                    )
+                    if ui_test_results.get("output"):
+                        ui_failures += f"\n\nFull test output:\n{ui_test_results['output'][:800]}"
+
+                    try:
+                        ui_fix_msg = client.messages.create(
+                            model="claude-haiku-4-5-20251001",
+                            max_tokens=4096,
+                            system=ui_system_prompt,
+                            messages=[{
+                                "role": "user",
+                                "content": (
+                                    f"Current UI code:\n```\n{_ui_code}\n```\n\n"
+                                    f"Failing UI tests:\n{ui_failures}\n\n"
+                                    f"Fix the code so all tests pass."
+                                ),
+                            }],
+                        )
+                        _ui_code = ui_fix_msg.content[0].text
+
+                        # Write fixed code + commit
+                        with open(_full_ui_path, "w", encoding="utf-8") as _fh:
+                            _fh.write(_ui_code)
+                        _sp.run(
+                            ["git", "add", req.file_path],
+                            cwd=repo_path, capture_output=True,
+                        )
+                        _sp.run(
+                            ["git", "commit", "-m",
+                             f"fix(ui): self-heal UI tests — attempt {ui_attempt + 1}"],
+                            cwd=repo_path, capture_output=True,
+                        )
+
+                        # Re-run security scan on fixed UI code (must still pass)
+                        _ui_scan = _run_pipeline_on_content(
+                            code=_ui_code,
+                            file_path=req.file_path or "",
+                            changed_files=[req.file_path] if req.file_path else [],
+                            intent=req.description,
+                        )
+                        if _ui_scan["release_readiness"]["recommendation"] != "SHIP IT":
+                            # Security regression introduced — stop
+                            recommendation = "REVIEW REQUIRED"
+                            ui_test_results["note"] = (
+                                "UI self-heal introduced a security issue. "
+                                "Human review required."
+                            )
+                            break
+                    except Exception:
+                        break  # LLM unavailable — best effort
+
         except Exception:
-            pass  # UI test scan is best-effort; never blocks a valid SHIP IT
+            pass  # UI loop is best-effort; never masks a valid security SHIP IT
 
     # ── Push branch + open draft PR if SHIP IT ────────────────────────────────
     final_scan = scan
@@ -3547,6 +3646,8 @@ async def pipeline_run(req: PipelineRunRequest):
         "branch_pushed": branch_pushed,
         "iterations": iterations,
         "ui_test_results": ui_test_results,
+        "ui_fix_iterations": ui_fix_iterations,
+        "ui_self_healed": len(ui_fix_iterations) > 1 and recommendation == "SHIP IT",
         **final_scan,
     }
 

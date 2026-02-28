@@ -5963,7 +5963,8 @@ def render_pipeline_demo():
             key="demo_repo_path",
         )
         auto_fix = col_f.checkbox("Auto-fix and retry if issues found", value=True, key="demo_auto_fix")
-        max_retries = col_f.slider("Max fix attempts", 1, 3, 2, key="demo_max_retries")
+        max_retries = col_f.slider("Max security/test fix attempts", 1, 3, 2, key="demo_max_retries")
+        max_ui_retries = col_f.slider("Max UI self-heal attempts", 0, 3, 2, key="demo_max_ui_retries")
 
     api_key = st.session_state.get("anthropic_api_key", "")
     if not api_key:
@@ -5996,8 +5997,9 @@ def render_pipeline_demo():
                     "github_token": github_token or None,
                     "auto_fix": auto_fix,
                     "max_retries": max_retries,
+                    "max_ui_retries": max_ui_retries,
                 },
-                timeout=180,
+                timeout=300,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -6018,6 +6020,46 @@ def render_pipeline_demo():
             rec_i = iteration["recommendation"]
             icon_i = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🔴"}.get(rec_i, "⚪")
             cols[i].markdown(f"**Attempt {iteration['attempt']}**  \n{icon_i} {rec_i}  \nOWASP critical: {iteration['summary']['owasp_critical']}")
+
+    # ── UI self-healing loop results ──────────────────────────────────────────
+    ui_fix_iters = data.get("ui_fix_iterations", [])
+    ui_test_results = data.get("ui_test_results", {})
+    ui_self_healed = data.get("ui_self_healed", False)
+
+    if ui_fix_iters:
+        st.markdown("---")
+        st.markdown("### UI Self-Healing Loop")
+        if ui_self_healed:
+            st.success(f"UI self-healed in {len(ui_fix_iters)} attempt(s) — all UI tests passing")
+        elif ui_test_results.get("status") == "ALL_PASSED":
+            st.success("UI tests passed on first run — no self-healing needed")
+        else:
+            st.warning(
+                f"UI self-healing exhausted after {len(ui_fix_iters)} attempt(s) — human review needed"
+            )
+
+        ui_cols = st.columns(len(ui_fix_iters))
+        for i, it in enumerate(ui_fix_iters):
+            icon = "✅" if it["ui_status"] in ("ALL_PASSED", "NO_TESTS_COLLECTED") else (
+                "🔄" if i < len(ui_fix_iters) - 1 else "⚠️"
+            )
+            ui_cols[i].metric(
+                f"UI Attempt {it['ui_attempt']}",
+                f"{it['ui_passed']}/{it['ui_passed'] + it['ui_failed']} passed",
+                delta=it["ui_status"],
+            )
+
+        if ui_test_results.get("output"):
+            with st.expander("UI test output"):
+                st.code(ui_test_results["output"][:2000], language="text")
+
+    elif ui_test_results:
+        # UI scan ran but no fix iterations needed
+        ui_status = ui_test_results.get("status", "")
+        if ui_status == "ALL_PASSED":
+            st.success(f"Post-SHIP UI scan: all {ui_test_results.get('passed', 0)} UI tests passing")
+        elif ui_status:
+            st.warning(f"Post-SHIP UI scan: {ui_status} — {ui_test_results.get('failed', 0)} failed")
 
     # ── PR link if created ─────────────────────────────────────────────────────
     pr_url = data.get("pr_url")
