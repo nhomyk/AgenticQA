@@ -100,7 +100,12 @@ class SandboxedAgentAdapter:
             env_passthrough: Env var names to pass into the subprocess (all others stripped).
             block_on_flag:  If True (default), raise on flagged output; if False, annotate only.
         """
-        runner = SubprocessRunner(allowed_dir, timeout_s, env_passthrough)
+        # Explicitly pass PYTHONPATH so agent scripts can import project packages.
+        # (SubprocessRunner no longer inherits it unconditionally.)
+        passthrough = list(env_passthrough or [])
+        if "PYTHONPATH" not in passthrough:
+            passthrough.append("PYTHONPATH")
+        runner = SubprocessRunner(allowed_dir, timeout_s, passthrough)
         scanner = OutputScanner()
 
         def _sandboxed_invoke(input_payload: Dict[str, Any]) -> Dict[str, Any]:

@@ -61,11 +61,10 @@ class SubprocessRunner:
             SubprocessError: if the script exits non-zero.
             ValueError: if stdout is not valid JSON.
         """
-        # Build a clean environment — only passthrough keys, nothing else.
+        # Build a clean environment — only explicitly passthrough'd keys.
+        # PYTHONPATH is NOT inherited by default; callers that need it must
+        # add "PYTHONPATH" to env_passthrough (prevents library-injection attacks).
         clean_env = {k: os.environ[k] for k in self.env_passthrough if k in os.environ}
-        # Always pass PYTHONPATH so the subprocess can import project packages.
-        if "PYTHONPATH" in os.environ:
-            clean_env["PYTHONPATH"] = os.environ["PYTHONPATH"]
 
         stdin_bytes = json.dumps(input_payload).encode()
 

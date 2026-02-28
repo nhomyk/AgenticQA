@@ -8,6 +8,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 import os
 
+try:
+    from src.agenticqa.security.api_middleware import (
+        BearerTokenMiddleware,
+        OriginValidationMiddleware,
+        ResponseScanMiddleware,
+    )
+except ImportError:
+    from agenticqa.security.api_middleware import (
+        BearerTokenMiddleware,
+        OriginValidationMiddleware,
+        ResponseScanMiddleware,
+    )
+
 from src.agents import AgentOrchestrator
 from src.data_store import SecureDataPipeline
 try:
@@ -59,10 +72,31 @@ except Exception:
 
 app = FastAPI(title="AgenticQA API", version="1.0.0")
 
-# CORS middleware
+# ── Security middleware stack (outermost = first to run) ──────────────────
+# Order matters: middlewares are applied in reverse registration order in
+# Starlette — the last added runs first. We want:
+#   OriginValidation → BearerToken → ResponseScan → handler
+# so we register in the opposite order.
+app.add_middleware(ResponseScanMiddleware)
+app.add_middleware(BearerTokenMiddleware)
+app.add_middleware(OriginValidationMiddleware)
+
+# CORS — localhost only (DNS rebinding defence; mirrors docker/mcp-gateway)
+_LOCALHOST_ORIGINS = [
+    "http://localhost",
+    "http://localhost:8501",   # Streamlit dashboard
+    "http://localhost:3000",   # dev React / Next.js
+    "http://localhost:8000",   # uvicorn self
+    "http://localhost:8080",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8501",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8080",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_LOCALHOST_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -514,6 +548,19 @@ async def file_scope_check(request: FileScopeCheckRequest):
 @app.post("/api/agents/execute")
 async def execute_agents(request: ExecutionRequest):
     """Execute all agents with provided data"""
+    # ConstitutionalGate check — same gate used by the RedTeamAgent
+    gate_result = _constitutional_check(
+        action_type="run_agents",
+        context={"source": "api", "data_keys": list(request.dict().keys())},
+    )
+    if not gate_result.get("allowed", True):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "reason": gate_result.get("reason", "Action blocked by constitutional gate"),
+                "gate": "ConstitutionalGate",
+            },
+        )
     try:
         results = orchestrator.execute_all_agents(request.dict())
         return {
@@ -1536,6 +1583,29 @@ async def scaffold_agent_from_prompt(request: FromPromptRequest):
             capabilities=spec.capabilities,
         )
 
+        # Security scan generated code before persisting
+        try:
+            from agenticqa.security.agent_skill_scanner import AgentSkillScanner
+        except ImportError:
+            from src.agenticqa.security.agent_skill_scanner import AgentSkillScanner
+        skill_scan = AgentSkillScanner().scan_source(
+            scaffold_result["generated_code"],
+            filename=f"{spec.agent_name}.py",
+        )
+        if not skill_scan.is_safe:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "Generated agent code failed security scan",
+                    "findings": [
+                        {"line": f.lineno, "attack_type": f.attack_type,
+                         "severity": f.severity, "detail": f.detail}
+                        for f in skill_scan.findings
+                    ],
+                    "risk_score": round(skill_scan.risk_score, 3),
+                },
+            )
+
         persisted_path = None
         if request.persist:
             out_dir = Path(".agenticqa") / "custom_agents"
@@ -1551,6 +1621,7 @@ async def scaffold_agent_from_prompt(request: FromPromptRequest):
             "install_hint": scaffold_result["install_hint"],
             "usage": scaffold_result["usage"],
             "persisted_path": persisted_path,
+            "security_scan": skill_scan.to_dict(),
         }
     except HTTPException:
         raise
@@ -2149,6 +2220,37 @@ async def data_flow_trace(repo_path: str = "."):
                 }
                 for f in report.findings
             ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/security/skill-scan")
+async def skill_scan(agents_dir: str = ".agenticqa/custom_agents"):
+    """
+    AST-scan all custom agent skill files for dangerous patterns.
+
+    Returns a per-file report with findings (attack_type, severity, line) and
+    an aggregate risk score. Files with critical findings or risk_score >= 0.5
+    have is_safe=False and should not be loaded.
+    """
+    try:
+        from agenticqa.security.agent_skill_scanner import AgentSkillScanner
+    except ImportError:
+        from src.agenticqa.security.agent_skill_scanner import AgentSkillScanner
+    try:
+        scanner = AgentSkillScanner()
+        results = scanner.scan_directory(agents_dir)
+        total = len(results)
+        safe = sum(1 for r in results if r.is_safe)
+        blocked = total - safe
+        return {
+            "success": True,
+            "agents_dir": agents_dir,
+            "total_files": total,
+            "safe": safe,
+            "blocked": blocked,
+            "results": [r.to_dict() for r in results],
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

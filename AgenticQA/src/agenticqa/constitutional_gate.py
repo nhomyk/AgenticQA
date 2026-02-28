@@ -103,7 +103,9 @@ _READ_ACTIONS = {"read", "scan", "analyze", "inspect", "list"}
 
 def _path_matches(file_path: str, pattern: str) -> bool:
     """Match a file path against a glob pattern with ** support."""
-    fp = file_path.replace("\\", "/").lstrip("./").lstrip("/")
+    import os.path as _osp
+    # Canonicalize first — prevents path traversal via ".." sequences
+    fp = _osp.normpath(file_path).replace("\\", "/").lstrip("./").lstrip("/")
     pat = pattern.replace("\\", "/").lstrip("./").lstrip("/").rstrip("/")
 
     if pat == "**":

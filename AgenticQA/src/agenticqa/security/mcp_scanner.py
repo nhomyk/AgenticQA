@@ -153,6 +153,47 @@ _CODE_PATTERNS: List[Tuple[str, str, str]] = [
      "AMBIENT_AUTHORITY", "medium"),
     (r"\brequire\s*\(\s*['\"]child_process['\"]", "COMMAND_INJECTION", "high"),
     (r"\bspawnSync?\s*\(|execSync?\s*\(", "COMMAND_INJECTION", "high"),
+
+    # ── Go ────────────────────────────────────────────────────────────────────
+    # Shell execution via os/exec with dynamic argument
+    (r'"/bin/sh"\s*,\s*"-c"\s*,\s*\w',
+     "COMMAND_INJECTION", "critical"),
+    (r"\bexec\.CommandContext\s*\([^,]+,\s*[^,]+,\s*[^)]*\b(?:args|req\.|params\.|input|cmd|Argument)\b",
+     "COMMAND_INJECTION", "critical"),
+    (r"\bexec\.Command\s*\(\s*(?:args\.|req\.|params\.|input\b|cmd\b|userInput\b)",
+     "COMMAND_INJECTION", "high"),
+    # Credential logging: Go log package with sensitive variable names
+    (r"\blog\.\w+f?\s*\([^)]*\b(?:token|authToken|Bearer|secret|password|apiKey|api_key|credential|auth_token)\b",
+     "EXFILTRATION_PATTERN", "high"),
+    # Full env clone to child process
+    (r"\bos\.Environ\(\)",
+     "AMBIENT_AUTHORITY", "high"),
+    # SSRF via net/http with user-controlled URL
+    (r"\bhttp\.(?:Get|Post|Do)\s*\(\s*(?:url\b|args\.|req\.|params\.|input\b)",
+     "SSRF_RISK", "high"),
+    # Memory unsafety
+    (r"\bunsafe\.Pointer\b",
+     "COMMAND_INJECTION", "high"),
+
+    # ── Rust ──────────────────────────────────────────────────────────────────
+    (r"\b(?:std::process::)?Command::new\s*\(\s*(?:cmd\b|args\.|req\.|params\.|input\b|shell\b)",
+     "COMMAND_INJECTION", "high"),
+    (r"\breqwest::(?:get|post|Client)\b[^;]{0,80}\b(?:url\b|args\.|req\.|params\.)",
+     "SSRF_RISK", "high"),
+    (r"\bunsafe\s*\{",
+     "COMMAND_INJECTION", "medium"),
+
+    # ── Java / Kotlin ─────────────────────────────────────────────────────────
+    (r"\bRuntime\.getRuntime\(\)\.exec\s*\(",
+     "COMMAND_INJECTION", "critical"),
+    (r"\bnew\s+ProcessBuilder\s*\(\s*(?:cmd\b|args\b|command\b|Arrays\.asList)",
+     "COMMAND_INJECTION", "high"),
+    (r"\bnew\s+URL\s*\(\s*(?:url\b|args\.|req\.|params\.|input\b|userUrl\b)",
+     "SSRF_RISK", "high"),
+    (r"\bObjectInputStream\b|\breadObject\s*\(\s*\)",
+     "COMMAND_INJECTION", "critical"),
+    (r'statement\.execute\s*\(\s*"[^"]*"\s*\+',
+     "COMMAND_INJECTION", "high"),
 ]
 
 # Config file — transport / auth patterns
@@ -183,6 +224,12 @@ _HIGH_RISK_PARAM_NAMES = frozenset({
 _SKIP_DIRS = frozenset({
     "node_modules", ".git", "__pycache__", ".venv", "venv",
     "dist", "build", "tests", ".mypy_cache", "site-packages",
+    # Go
+    "vendor",
+    # Rust
+    "target",
+    # Java/Kotlin
+    ".gradle", ".mvn",
 })
 
 # MCP config filename patterns
@@ -206,6 +253,31 @@ _TS_MCP_MARKERS = [
     r"require\s*\(\s*['\"]@modelcontextprotocol",
     r"\bListToolsRequestSchema\b", r"\bCallToolRequestSchema\b",
     r"new\s+Server\s*\(", r"server\.setRequestHandler",
+]
+
+# Go MCP markers (go-sdk and popular community SDKs)
+_GO_MCP_MARKERS = [
+    r"github\.com/modelcontextprotocol/go-sdk",
+    r"github\.com/mark3labs/mcp-go",
+    r"mcp\.NewTool\b|mcp\.Tool\{",
+    r"\bToolHandler\b|\bCallToolRequest\b|\bCallToolResult\b",
+    r'\.AddTool\s*\(|s\.Tool\s*\(',
+]
+
+# Rust MCP markers
+_RUST_MCP_MARKERS = [
+    r"\brmcp\b|\bmcp_server\b|\bmcp_core\b",
+    r"\bregister_tool\b|\bToolRegistry\b|\bToolHandler\b",
+    r"async fn \w+_tool\b|#\[tool\]",
+    r"use\s+rmcp::",
+]
+
+# Java / Kotlin MCP markers
+_JAVA_MCP_MARKERS = [
+    r"import.*modelcontextprotocol",
+    r"\bregisterTool\b|\bMcpServer\b|\bMcpClient\b",
+    r"@Tool\b|@McpTool\b",
+    r"\bToolRegistry\b|\bToolHandler\b",
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -340,6 +412,12 @@ class MCPSecurityScanner:
                     findings, tools, servers, names = self._scan_python(f)
                 elif ext in {".ts", ".js", ".mjs"}:
                     findings, tools, servers, names = self._scan_typescript(f)
+                elif ext == ".go":
+                    findings, tools, servers, names = self._scan_go(f)
+                elif ext == ".rs":
+                    findings, tools, servers, names = self._scan_rust(f)
+                elif ext in {".java", ".kt"}:
+                    findings, tools, servers, names = self._scan_java(f)
                 else:
                     continue
                 result.findings.extend(findings)
@@ -362,6 +440,16 @@ class MCPSecurityScanner:
         if root.is_file():
             return [root]
         found: List[Path] = []
+        _ext_markers = {
+            ".py": _PY_MCP_MARKERS,
+            ".ts": _TS_MCP_MARKERS,
+            ".js": _TS_MCP_MARKERS,
+            ".mjs": _TS_MCP_MARKERS,
+            ".go": _GO_MCP_MARKERS,
+            ".rs": _RUST_MCP_MARKERS,
+            ".java": _JAVA_MCP_MARKERS,
+            ".kt": _JAVA_MCP_MARKERS,
+        }
         for p in root.rglob("*"):
             if any(part in _SKIP_DIRS for part in p.parts):
                 continue
@@ -371,14 +459,15 @@ class MCPSecurityScanner:
                 found.append(p)
                 continue
             ext = p.suffix.lower()
-            if ext in {".py", ".ts", ".js", ".mjs"}:
-                try:
-                    src = p.read_text(encoding="utf-8", errors="replace")
-                except OSError:
-                    continue
-                markers = _PY_MCP_MARKERS if ext == ".py" else _TS_MCP_MARKERS
-                if any(re.search(m, src) for m in markers):
-                    found.append(p)
+            markers = _ext_markers.get(ext)
+            if markers is None:
+                continue
+            try:
+                src = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if any(re.search(m, src) for m in markers):
+                found.append(p)
         return found
 
     # ── JSON config scanning ─────────────────────────────────────────────────
@@ -527,6 +616,155 @@ class MCPSecurityScanner:
         findings.extend(self._check_code("<module>", src_text, src, 0))
         servers = 1 if re.search(r"new\s+Server\s*\(", src_text) else 0
         return findings, len(tools), servers, discovered_names
+
+    # ── Go source scanning ───────────────────────────────────────────────────
+
+    def _scan_go(self, path: Path) -> Tuple[List[MCPToolFinding], int, int, List[str]]:
+        findings: List[MCPToolFinding] = []
+        try:
+            src_text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return findings, 0, 0, []
+        src = str(path)
+
+        tools = self._extract_go_tools(src_text)
+        discovered_names = [t[0] for t in tools]
+        for tool_name, desc, body, start_line in tools:
+            findings.extend(self._check_description(tool_name, desc, src, start_line))
+            findings.extend(self._check_code(tool_name, body, src, start_line))
+
+        # Always scan full file for ambient/module-level patterns (env, exec, logging)
+        findings.extend(self._check_code("<module>", src_text, src, 0))
+        servers = 1 if re.search(r"mcp\.NewServer\b|mcpserver\.New\b", src_text) else 0
+        return findings, len(tools), servers, discovered_names
+
+    def _extract_go_tools(self, source: str) -> List[Tuple[str, str, str, int]]:
+        """Extract (name, description, body, start_line) from Go MCP tool registrations."""
+        results = []
+        lines = source.splitlines()
+
+        # Pattern 1: mcp.NewTool("name", mcp.WithDescription("desc"), ...)
+        new_tool_re = re.compile(
+            r'mcp\.NewTool\s*\(\s*["`]([^"`]+)["`]'
+            r'(?:[^)]{0,400}?mcp\.WithDescription\s*\(\s*["`]([^"`]*)["`]\))?',
+            re.DOTALL,
+        )
+        # Pattern 2: Tool struct literal: Tool{Name: "name", Description: "desc"}
+        struct_re = re.compile(
+            r'Tool\s*\{\s*Name\s*:\s*["`]([^"`]+)["`]'
+            r'(?:[^}]{0,300}?Description\s*:\s*["`]([^"`]*)["`])?',
+            re.DOTALL,
+        )
+        # Pattern 3: s.AddTool or server.AddTool
+        add_tool_re = re.compile(r'\.AddTool\s*\(([^,)]+)')
+
+        seen_names: set = set()
+        for pattern in (new_tool_re, struct_re):
+            for m in pattern.finditer(source):
+                name = m.group(1).strip()
+                desc = m.group(2).strip() if m.lastindex and m.lastindex >= 2 and m.group(2) else ""
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
+                start_line = source[:m.start()].count("\n") + 1
+                # Find the handler func within the next 60 lines
+                body_start = m.end()
+                body_end = min(body_start + 3000, len(source))
+                body = source[body_start:body_end]
+                results.append((name, desc, body, start_line))
+
+        return results
+
+    # ── Rust source scanning ─────────────────────────────────────────────────
+
+    def _scan_rust(self, path: Path) -> Tuple[List[MCPToolFinding], int, int, List[str]]:
+        findings: List[MCPToolFinding] = []
+        try:
+            src_text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return findings, 0, 0, []
+        src = str(path)
+
+        tools = self._extract_rust_tools(src_text)
+        discovered_names = [t[0] for t in tools]
+        for tool_name, desc, body, start_line in tools:
+            findings.extend(self._check_description(tool_name, desc, src, start_line))
+            findings.extend(self._check_code(tool_name, body, src, start_line))
+
+        findings.extend(self._check_code("<module>", src_text, src, 0))
+        return findings, len(tools), 0, discovered_names
+
+    def _extract_rust_tools(self, source: str) -> List[Tuple[str, str, str, int]]:
+        """Extract tools from Rust #[tool] attribute or register_tool calls."""
+        results = []
+        # Annotation-based: #[tool] fn tool_name(...)
+        fn_re = re.compile(r'#\[tool\]\s*(?:async\s+)?fn\s+(\w+)', re.DOTALL)
+        # register_tool("name", ...) or add_tool("name", ...)
+        reg_re = re.compile(r'(?:register_tool|add_tool)\s*\(\s*["\'](\w+)["\']')
+
+        seen: set = set()
+        for pattern in (fn_re, reg_re):
+            for m in pattern.finditer(source):
+                name = m.group(1)
+                if name in seen:
+                    continue
+                seen.add(name)
+                start_line = source[:m.start()].count("\n") + 1
+                body_start = m.end()
+                body = source[body_start:min(body_start + 2000, len(source))]
+                results.append((name, "", body, start_line))
+
+        return results
+
+    # ── Java/Kotlin source scanning ──────────────────────────────────────────
+
+    def _scan_java(self, path: Path) -> Tuple[List[MCPToolFinding], int, int, List[str]]:
+        findings: List[MCPToolFinding] = []
+        try:
+            src_text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return findings, 0, 0, []
+        src = str(path)
+
+        tools = self._extract_java_tools(src_text)
+        discovered_names = [t[0] for t in tools]
+        for tool_name, desc, body, start_line in tools:
+            findings.extend(self._check_description(tool_name, desc, src, start_line))
+            findings.extend(self._check_code(tool_name, body, src, start_line))
+
+        findings.extend(self._check_code("<module>", src_text, src, 0))
+        servers = 1 if re.search(r"\bMcpServer\b|\bToolRegistry\b", src_text) else 0
+        return findings, len(tools), servers, discovered_names
+
+    def _extract_java_tools(self, source: str) -> List[Tuple[str, str, str, int]]:
+        """Extract tools from @Tool annotations or registerTool calls in Java/Kotlin."""
+        results = []
+        # @Tool(name = "name", description = "desc")
+        annotation_re = re.compile(
+            r'@(?:Tool|McpTool)\s*\(\s*name\s*=\s*["\']([^"\']+)["\']'
+            r'(?:[^)]{0,300}?description\s*=\s*["\']([^"\']*)["\'])?',
+            re.DOTALL,
+        )
+        # registerTool("name", "description", ...)
+        reg_re = re.compile(
+            r'registerTool\s*\(\s*["\']([^"\']+)["\']'
+            r'(?:\s*,\s*["\']([^"\']*)["\'])?',
+        )
+
+        seen: set = set()
+        for pattern in (annotation_re, reg_re):
+            for m in pattern.finditer(source):
+                name = m.group(1).strip()
+                desc = m.group(2).strip() if m.lastindex and m.lastindex >= 2 and m.group(2) else ""
+                if name in seen:
+                    continue
+                seen.add(name)
+                start_line = source[:m.start()].count("\n") + 1
+                body_start = m.end()
+                body = source[body_start:min(body_start + 2000, len(source))]
+                results.append((name, desc, body, start_line))
+
+        return results
 
     # ── Pattern checkers ─────────────────────────────────────────────────────
 

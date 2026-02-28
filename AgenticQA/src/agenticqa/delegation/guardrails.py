@@ -10,6 +10,26 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Module-level registry for agents registered at runtime via AgentFactory.
+# Kept separate from TASK_AGENT_MAP so the core ontology cannot be mutated.
+_RUNTIME_REGISTRATIONS: Dict[str, List[str]] = {}
+
+
+def register_agent_task(task_type: str, agent_name: str) -> None:
+    """Register a factory-created agent for a task type at runtime.
+
+    This is intentionally separate from TASK_AGENT_MAP so the core ontology
+    remains read-only. Use this instead of mutating TASK_AGENT_MAP directly.
+    """
+    _RUNTIME_REGISTRATIONS.setdefault(task_type, []).append(agent_name)
+
+
+def get_allowed_agents(task_type: str) -> List[str]:
+    """Return all agents authorized for task_type (core ontology + runtime)."""
+    base = list(DelegationGuardrails.TASK_AGENT_MAP.get(task_type, []))
+    base.extend(_RUNTIME_REGISTRATIONS.get(task_type, []))
+    return base
+
 
 class DelegationGuardrails:
     """Prevent bad delegations through pre-validation"""
@@ -84,7 +104,7 @@ class DelegationGuardrails:
                 "confidence": float
             }
         """
-        allowed_agents = cls.TASK_AGENT_MAP.get(task_type, [])
+        allowed_agents = get_allowed_agents(task_type)
         normalized_to_agent = cls.normalize_agent_name(to_agent)
         normalized_allowed_agents = [cls.normalize_agent_name(a) for a in allowed_agents]
 

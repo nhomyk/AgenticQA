@@ -83,6 +83,18 @@ _SOURCE_PATTERNS: List[Tuple[str, str, str]] = [
     # TypeScript/JavaScript: Axios/got request config with auth headers
     (r"headers\s*:\s*\{[^}]*(?:Authorization|Bearer|api.?key)[^}]*\}",
      "SECRET_SOURCE", "medium"),
+    # Go: os.Getenv with credential key
+    (r'os\.Getenv\s*\(\s*"[^"]*(?:KEY|SECRET|TOKEN|PASSWORD|AUTH|CREDENTIAL)[^"]*"',
+     "SECRET_SOURCE", "high"),
+    # Go: credential read from context/config struct field
+    (r'\.\s*(?:AuthToken|ApiKey|SecretKey|Password|Credential|Token)\b',
+     "SECRET_SOURCE", "medium"),
+    # Rust: std::env::var for credentials
+    (r'std::env::var\s*\(\s*"[^"]*(?:KEY|SECRET|TOKEN|PASSWORD|AUTH)[^"]*"',
+     "SECRET_SOURCE", "high"),
+    # Java: System.getenv with credential key
+    (r'System\.getenv\s*\(\s*"[^"]*(?:KEY|SECRET|TOKEN|PASSWORD|AUTH|CREDENTIAL)[^"]*"',
+     "SECRET_SOURCE", "high"),
 ]
 
 # Taint sinks — where sensitive data should NOT end up unredacted
@@ -121,6 +133,19 @@ _SINK_PATTERNS: List[Tuple[str, str, str]] = [
     # Return / yield (cross-agent propagation)
     (r"\breturn\b", "TAINT_PROPAGATION", "medium"),
     (r"\byield\b", "TAINT_PROPAGATION", "low"),
+    # Go logging sinks
+    (r"\blog\.\w+f?\s*\(", "SINK_LOGGING", "medium"),
+    (r"\bfmt\.(?:Print|Fprintf|Fprintln)\s*\(\s*os\.Std(?:err|out)",
+     "SINK_LOGGING", "medium"),
+    # Go network sinks
+    (r"\bhttp\.(?:Post|Do)\s*\(", "SINK_NETWORK", "critical"),
+    (r"\bclient\.Do\s*\(", "SINK_NETWORK", "high"),
+    # Rust logging sinks
+    (r'\bprintln!\s*\(|eprintln!\s*\(|log::(?:info|error|warn|debug)!\s*\(',
+     "SINK_LOGGING", "medium"),
+    # Java logging sinks
+    (r'\bSystem\.out\.print(?:ln)?\s*\(|logger\.(?:info|debug|warn|error)\s*\(',
+     "SINK_LOGGING", "medium"),
 ]
 
 # Patterns indicating sanitization / redaction was applied
@@ -149,7 +174,7 @@ _DELEGATION_PATTERNS = [
     r"transfer_to_\w+\s*\(",
 ]
 
-# Agent framework markers (to identify agent file scope — Python and TypeScript)
+# Agent framework markers (to identify agent file scope — Python, TypeScript, Go, Rust, Java)
 _AGENT_MARKERS = [
     # Python agent frameworks
     r"from\s+(?:mcp|langchain|langgraph|crewai|autogen|fastmcp)\s+import",
@@ -163,11 +188,29 @@ _AGENT_MARKERS = [
     # TypeScript/JavaScript agent frameworks
     r"from\s+['\"](?:langchain|@langchain|openai-agents|@openai/agents)",
     r"new\s+(?:OpenAI|Anthropic|AzureOpenAI)\s*\(",
+    # Go MCP / agent markers
+    r"github\.com/modelcontextprotocol/go-sdk",
+    r"github\.com/mark3labs/mcp-go",
+    r"\bmcp\.CallToolRequest\b|\bmcp\.ToolHandler\b",
+    r'\.AddTool\s*\(|mcp\.NewTool\b',
+    # Rust MCP / agent markers
+    r"use\s+rmcp::|use\s+mcp_server::",
+    r"\bregister_tool\b|\bToolRegistry\b",
+    # Java / Kotlin MCP markers
+    r"import.*modelcontextprotocol",
+    r"\bregisterTool\b|\bMcpServer\b",
+    r"@Tool\b|@McpTool\b",
 ]
 
 _SKIP_DIRS = frozenset({
     "node_modules", ".git", "__pycache__", ".venv", "venv",
     "dist", "build", "tests", ".mypy_cache", "site-packages",
+    # Go
+    "vendor",
+    # Rust
+    "target",
+    # Java/Kotlin
+    ".gradle", ".mvn",
 })
 
 SEVERITY_WEIGHTS: Dict[str, float] = {
@@ -320,7 +363,7 @@ class CrossAgentDataFlowTracer:
         if root.is_file():
             return [root] if self._is_agent_file(root) else []
         found: List[Path] = []
-        for glob in ("*.py", "*.ts", "*.js", "*.mjs"):
+        for glob in ("*.py", "*.ts", "*.js", "*.mjs", "*.go", "*.rs", "*.java", "*.kt"):
             for p in root.rglob(glob):
                 if any(part in _SKIP_DIRS for part in p.parts):
                     continue

@@ -115,14 +115,13 @@ class AgentFactory:
 
         # Register capabilities as task types in the delegation ontology so the
         # new agent is reachable via delegate_to_agent() and GraphRAG routing.
+        # Uses register_agent_task() so the core TASK_AGENT_MAP is not mutated.
         try:
-            from agenticqa.delegation.guardrails import DelegationGuardrails
+            from agenticqa.delegation.guardrails import register_agent_task, get_allowed_agents
             for cap in getattr(wrapper, "capabilities", []):
                 task_type = cap.lower().replace(" ", "_")
-                if task_type not in DelegationGuardrails.TASK_AGENT_MAP:
-                    DelegationGuardrails.TASK_AGENT_MAP[task_type] = []
-                if wrapper.agent_name not in DelegationGuardrails.TASK_AGENT_MAP[task_type]:
-                    DelegationGuardrails.TASK_AGENT_MAP[task_type].append(wrapper.agent_name)
+                if wrapper.agent_name not in get_allowed_agents(task_type):
+                    register_agent_task(task_type, wrapper.agent_name)
             registered.append("ontology")
         except Exception:
             pass

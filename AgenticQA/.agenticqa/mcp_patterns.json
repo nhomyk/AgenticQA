@@ -97,6 +97,24 @@
       "attack_type": "AMBIENT_AUTHORITY",
       "severity": "high",
       "_note": "Full process.env cloned and forwarded to child process or downstream agent. Grants the recipient all host secrets, not just the ones it needs. Discovered: ChromeDevTools/chrome-devtools-mcp eval_gemini.ts:111. Fix: use an explicit allowlist of required env keys."
+    },
+    {
+      "pattern": "log\\.\\w+f?\\s*\\([^)]*(?:token|authToken|Bearer|secret|password|apiKey|api_key|credential|auth_token)",
+      "attack_type": "EXFILTRATION_PATTERN",
+      "severity": "high",
+      "_note": "Go log.Logf/Printf credential logging. Auto-generated auth Bearer token printed to stderr on SSE/streaming gateway startup. Captured by log aggregators, CI pipelines, container logging sidecars. Discovered: docker/mcp-gateway pkg/gateway/run.go:442. Fix: suppress token display or write to secured credential store."
+    },
+    {
+      "pattern": "\"/bin/sh\"\\s*,\\s*\"-c\"\\s*,\\s*\\w",
+      "attack_type": "COMMAND_INJECTION",
+      "severity": "critical",
+      "_note": "Go exec.CommandContext with /bin/sh -c and dynamic argument. Interceptor system passes operator-supplied argument string to shell — any injection in the interceptor config path achieves RCE. Discovered: docker/mcp-gateway pkg/interceptors/interceptors.go:160. Fix: parse command + args separately, never pass to shell -c."
+    },
+    {
+      "pattern": "os\\.Environ\\(\\)",
+      "attack_type": "AMBIENT_AUTHORITY",
+      "severity": "high",
+      "_note": "Go os.Environ() clones the full host environment and passes it to a child process or subprocess. Every credential on the host (AWS keys, GitHub tokens, API keys) is inherited. Discovered: docker/mcp-gateway pkg/mcp/stdio.go:41 (cmd.Env = c.env populated from os.Environ()). Fix: build an explicit env allowlist with only the keys the child process needs."
     }
   ],
   "config_patterns": [

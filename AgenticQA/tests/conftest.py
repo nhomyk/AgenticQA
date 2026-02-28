@@ -4,8 +4,28 @@ Provides shared fixtures and configuration for all pipeline tests.
 Enables meta-testing of the CI/CD pipeline itself.
 """
 
+import os
 import pytest
 from unittest.mock import Mock, MagicMock
+
+
+@pytest.fixture(autouse=True, scope="session")
+def disable_api_auth_in_tests():
+    """
+    Disable Bearer token auth for all tests that use agent_api.app.
+
+    The BearerTokenMiddleware reads AGENTICQA_AUTH_DISABLE at request time.
+    Setting it here means existing API endpoint tests pass without needing
+    to add Authorization headers. Tests in test_api_middleware.py override
+    this by testing the middleware directly in isolation.
+    """
+    original = os.environ.get("AGENTICQA_AUTH_DISABLE", "")
+    os.environ["AGENTICQA_AUTH_DISABLE"] = "1"
+    yield
+    if original:
+        os.environ["AGENTICQA_AUTH_DISABLE"] = original
+    else:
+        os.environ.pop("AGENTICQA_AUTH_DISABLE", None)
 
 
 @pytest.fixture
