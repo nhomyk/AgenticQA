@@ -3125,6 +3125,148 @@ async def pipeline_demo(req: PipelineDemoRequest):
     }
 
 
+# ── Git Diff Scanner — scans actual changed code from a repo ──────────────────
+
+class GitDiffScanRequest(BaseModel):
+    repo_path: str = "."
+    base_ref: str = "HEAD~1"   # branch, commit, or HEAD~N to diff against
+    intent: str = ""           # optional: what the LLM was asked to build
+    max_diff_bytes: int = 500_000
+
+
+def _run_pipeline_on_content(
+    code: str,
+    file_path: str,
+    changed_files: List[str],
+    intent: str = "",
+) -> dict:
+    """Shared pipeline runner used by both /api/pipeline/demo and /api/pipeline/scan-diff."""
+    import tempfile, os as _os
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        code_path = _os.path.join(tmpdir, _os.path.basename(file_path) or "code.py")
+        with open(code_path, "w", encoding="utf-8") as fh:
+            fh.write(code)
+
+        intent_result = None
+        if intent:
+            verifier = IntentToCodeVerifier(static_only=True)
+            intent_result = verifier.verify(intent=intent, code_diff=code, file_path=file_path).to_dict()
+
+        owasp_result = OWASPScanner().scan(tmpdir).to_dict()
+
+    secrets_findings = SecretsHistoryScanner().scan_content(code, file_path)
+    secrets_result = {
+        "findings": [f.to_dict() for f in secrets_findings],
+        "has_live_secrets": any(f.still_present for f in secrets_findings),
+        "count": len(secrets_findings),
+    }
+
+    rc_findings = RaceConditionDetector().scan_content(code, file_path)
+    race_result = {"findings": [f.to_dict() for f in rc_findings], "count": len(rc_findings)}
+
+    checklist = PreflightChecklistGenerator().generate(changed_files=changed_files, diff_content=code)
+
+    owasp_findings_for_rr = [{"severity": f["severity"]} for f in owasp_result["findings"]] + \
+                             [{"severity": f["severity"]} for f in secrets_result["findings"]]
+    n_violations = owasp_result["critical_count"] + len(secrets_result["findings"])
+    conformity = max(0.1, 1.0 - owasp_result["risk_score"])
+
+    readiness = ReleaseReadinessScorer().score(
+        security_findings=owasp_findings_for_rr,
+        compliance_result={"violations": [{}] * n_violations, "conformity_score": conformity},
+    )
+
+    return {
+        "intent_verification": intent_result,
+        "owasp": owasp_result,
+        "secrets": secrets_result,
+        "race_conditions": race_result,
+        "preflight_checklist": checklist.to_dict(),
+        "release_readiness": readiness.to_dict(),
+        "summary": {
+            "owasp_critical": owasp_result["critical_count"],
+            "owasp_high": owasp_result["high_count"],
+            "owasp_total": len(owasp_result["findings"]),
+            "secrets_found": secrets_result["count"],
+            "race_conditions_found": race_result["count"],
+            "release_score": readiness.overall_score,
+            "recommendation": readiness.recommendation,
+        },
+    }
+
+
+@app.post("/api/pipeline/scan-diff")
+async def pipeline_scan_diff(req: GitDiffScanRequest):
+    """
+    Run the full AgenticQA pipeline against actual changed code in a git repo.
+    Diffs base_ref..HEAD, extracts added/modified lines, and runs all scanners.
+    This is the real CI workflow — no copy-pasting required.
+    """
+    import subprocess, tempfile, os as _os
+
+    repo = req.repo_path if req.repo_path != "." else _os.getcwd()
+
+    # Get list of changed files
+    try:
+        files_out = subprocess.run(
+            ["git", "diff", "--name-only", req.base_ref],
+            cwd=repo, capture_output=True, text=True, timeout=30,
+        )
+        if files_out.returncode != 0:
+            # Try staged changes if base_ref diff fails
+            files_out = subprocess.run(
+                ["git", "diff", "--name-only", "--cached"],
+                cwd=repo, capture_output=True, text=True, timeout=30,
+            )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="git diff timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=400, detail="git not found or repo_path is not a git repo")
+
+    changed_files = [f for f in files_out.stdout.strip().splitlines() if f]
+    if not changed_files:
+        return {"success": True, "message": "No changed files detected", "changed_files": [], "summary": {}}
+
+    # Get the full diff content (added lines only across all changed files)
+    try:
+        diff_out = subprocess.run(
+            ["git", "diff", req.base_ref, "--", *changed_files],
+            cwd=repo, capture_output=True, text=True, timeout=60,
+        )
+        diff_text = diff_out.stdout[:req.max_diff_bytes]
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="git diff content timed out")
+
+    # Extract only added lines from the unified diff
+    added_lines = [
+        line[1:]  # strip the leading +
+        for line in diff_text.splitlines()
+        if line.startswith("+") and not line.startswith("+++")
+    ]
+    code = "\n".join(added_lines)
+
+    if not code.strip():
+        return {"success": True, "message": "No added lines in diff", "changed_files": changed_files, "summary": {}}
+
+    # Use first changed file for language/context detection
+    primary_file = changed_files[0]
+
+    result = _run_pipeline_on_content(
+        code=code,
+        file_path=primary_file,
+        changed_files=changed_files,
+        intent=req.intent,
+    )
+    return {
+        "success": True,
+        "repo_path": repo,
+        "base_ref": req.base_ref,
+        "changed_files": changed_files,
+        **result,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 
