@@ -2972,6 +2972,33 @@ async def race_conditions(repo_path: str = "."):
     return {"success": True, **result.to_dict()}
 
 
+# ── Regression Prediction / Smart Test Selection ──────────────────────────────
+
+try:
+    from src.agenticqa.testing.regression_predictor import RegressionPredictor
+except ImportError:
+    from agenticqa.testing.regression_predictor import RegressionPredictor
+
+
+class RegressionPredictRequest(BaseModel):
+    repo_path: str = "."
+    changed_files: List[str] = []
+
+
+@app.post("/api/testing/regression-predict")
+async def regression_predict(req: RegressionPredictRequest):
+    """
+    Predict which tests are most likely to fail given a set of changed files.
+    Returns tests sorted by relevance score (1.0=exact match, 0.1=no match).
+    Priority tests (score >= 0.5) should run first; skip candidates (< 0.1) are safe to defer.
+    """
+    result = RegressionPredictor().predict(
+        repo_path=req.repo_path,
+        changed_files=req.changed_files,
+    )
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
