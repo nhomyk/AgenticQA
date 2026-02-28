@@ -5507,16 +5507,16 @@ def render_red_team():
 
 
 def render_pipeline_demo():
-    """Live Pipeline Demo — paste LLM-generated code, get a full security report card."""
+    """Live Pipeline Demo — scan a git repo diff or paste code for a full security report card."""
     import requests as _req
 
     st.markdown(
         """
         <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;padding:24px;margin-bottom:20px">
-          <h2 style="color:#e94560;margin:0">🔬 Live Pipeline Demo</h2>
+          <h2 style="color:#e94560;margin:0">🔬 AgenticQA Pipeline</h2>
           <p style="color:#a8b2c1;margin:8px 0 0">
-            Paste any LLM-generated code. AgenticQA runs every scanner and returns a
-            <strong style="color:white">Release Readiness Score</strong> in seconds.
+            Point AgenticQA at your repo after an LLM writes code.  Every scanner runs on the diff
+            and you get a <strong style="color:white">Release Readiness Score</strong> in seconds.
           </p>
         </div>
         """,
@@ -5529,22 +5529,53 @@ def render_pipeline_demo():
         key="demo_api_base",
     ).rstrip("/")
 
-    col_intent, col_file = st.columns([3, 1])
-    with col_intent:
-        intent = st.text_input(
-            "What did you ask the LLM to build?",
-            placeholder='e.g. "Add a /api/user/export endpoint that returns all user data as JSON"',
-            key="demo_intent",
-        )
-    with col_file:
-        file_path = st.text_input(
-            "File path (for context)",
-            value="src/feature.py",
-            key="demo_file_path",
+    input_tab_git, input_tab_paste = st.tabs(["📂 Scan Git Repo (Recommended)", "📋 Quick Test — Paste Code"])
+
+    # ── MODE A: Git Repo ───────────────────────────────────────────────────────
+    with input_tab_git:
+        st.markdown(
+            "After your LLM commits or stages code, point AgenticQA at the repo.  "
+            "It runs `git diff` to extract changed lines — **no copy-pasting required.**"
         )
 
-    # Pre-loaded example
-    _EXAMPLE_CODE = '''\
+        col_repo, col_ref = st.columns([3, 1])
+        with col_repo:
+            repo_path = st.text_input(
+                "Repo path",
+                value=os.getcwd(),
+                placeholder="/path/to/your/repo",
+                key="demo_repo_path",
+            )
+        with col_ref:
+            base_ref = st.text_input(
+                "Diff base",
+                value="HEAD~1",
+                help="Branch, commit SHA, or HEAD~N to diff against",
+                key="demo_base_ref",
+            )
+
+        git_intent = st.text_input(
+            "What did you ask the LLM to build? (optional — enables intent verification)",
+            placeholder='e.g. "Add a /api/user/export endpoint that returns all user data as JSON"',
+            key="demo_git_intent",
+        )
+
+        run_git = st.button(
+            "Scan Repo Diff",
+            type="primary",
+            key="demo_run_git",
+            use_container_width=True,
+        )
+
+    # ── MODE B: Paste Code ─────────────────────────────────────────────────────
+    with input_tab_paste:
+        st.markdown(
+            "Use this tab to quickly test a snippet without a git repo.  "
+            "Paste any code and AgenticQA runs the full scanner suite on it."
+        )
+
+        # Pre-loaded example
+        _EXAMPLE_CODE = '''\
 """User data export endpoint — LLM-generated feature."""
 import json, os, pickle, sqlite3
 import yaml
@@ -5577,30 +5608,70 @@ def export_user_data():
     return jsonify({"user_id": user_id, "profile": profile, "preferences": preferences})
 '''
 
-    col_btn, col_ex = st.columns([1, 1])
-    with col_ex:
-        if st.button("Load Example (Vulnerable Code)", key="demo_load_example"):
-            st.session_state["demo_code_value"] = _EXAMPLE_CODE
-            st.session_state["demo_intent_value"] = "Add a /api/user/export endpoint that returns all user data as JSON including profile, activity history, and settings. Make it fast."
+        col_ex, col_file = st.columns([2, 1])
+        with col_ex:
+            if st.button("Load Example (Vulnerable Code)", key="demo_load_example"):
+                st.session_state["demo_code_value"] = _EXAMPLE_CODE
+                st.session_state["demo_paste_intent"] = (
+                    "Add a /api/user/export endpoint that returns all user data as JSON "
+                    "including profile, activity history, and settings. Make it fast."
+                )
+        with col_file:
+            paste_file_path = st.text_input(
+                "File path (for context)",
+                value="src/feature.py",
+                key="demo_file_path",
+            )
 
-    code = st.text_area(
-        "Paste LLM-generated code here",
-        value=st.session_state.get("demo_code_value", ""),
-        height=300,
-        key="demo_code",
-        placeholder="# Paste your LLM-generated code here...",
-    )
+        paste_intent = st.text_input(
+            "What did you ask the LLM to build? (optional)",
+            value=st.session_state.get("demo_paste_intent", ""),
+            placeholder='e.g. "Add a /api/user/export endpoint..."',
+            key="demo_paste_intent_input",
+        )
+
+        code = st.text_area(
+            "Paste code here",
+            value=st.session_state.get("demo_code_value", ""),
+            height=300,
+            key="demo_code",
+            placeholder="# Paste your LLM-generated code here...",
+        )
+
+        run_paste = st.button(
+            "Run Full AgenticQA Pipeline",
+            type="primary",
+            key="demo_run_paste",
+            use_container_width=True,
+        )
 
     st.markdown("---")
 
-    run_clicked = st.button(
-        "Run Full AgenticQA Pipeline",
-        type="primary",
-        key="demo_run",
-        use_container_width=True,
-    )
+    # ── DISPATCH ───────────────────────────────────────────────────────────────
+    data = None
 
-    if run_clicked:
+    if run_git:
+        with st.spinner("Running git diff + all scanners — Intent Verifier → OWASP → Secrets → Race Conditions → Pre-flight → Release Readiness..."):
+            try:
+                resp = _req.post(
+                    f"{api_base}/api/pipeline/scan-diff",
+                    json={
+                        "repo_path": repo_path,
+                        "base_ref": base_ref,
+                        "intent": git_intent,
+                    },
+                    timeout=90,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("message"):   # no changed files
+                    st.info(data["message"])
+                    return
+            except Exception as e:
+                st.error(f"Pipeline error: {e}")
+                return
+
+    elif run_paste:
         if not code.strip():
             st.warning("Paste some code first.")
             return
@@ -5610,10 +5681,10 @@ def export_user_data():
                 resp = _req.post(
                     f"{api_base}/api/pipeline/demo",
                     json={
-                        "intent": intent,
+                        "intent": paste_intent,
                         "code": code,
-                        "file_path": file_path,
-                        "changed_files": [file_path],
+                        "file_path": paste_file_path,
+                        "changed_files": [paste_file_path],
                     },
                     timeout=60,
                 )
@@ -5623,154 +5694,164 @@ def export_user_data():
                 st.error(f"Pipeline error: {e}")
                 return
 
-        rr = data["release_readiness"]
-        summary = data["summary"]
-        score = rr["overall_score"]
-        rec = rr["recommendation"]
-        color = rr["color"]
+    if data is None:
+        return
 
-        # ── BIG SCORE BANNER ────────────────────────────────────────────────
-        banner_bg = {"green": "#155724", "yellow": "#856404", "red": "#721c24"}.get(color, "#343a40")
-        border_col = {"green": "#28a745", "yellow": "#ffc107", "red": "#dc3545"}.get(color, "#6c757d")
-        rec_icon = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🚫"}.get(rec, "")
+    # ── Show changed files (git mode only) ────────────────────────────────────
+    changed_files = data.get("changed_files")
+    if changed_files:
+        with st.expander(f"📁 {len(changed_files)} changed file(s) scanned", expanded=False):
+            for f in changed_files:
+                st.code(f, language=None)
 
-        st.markdown(
-            f"""
-            <div style="background:{banner_bg};border:2px solid {border_col};border-radius:16px;
-                        padding:32px;text-align:center;margin:16px 0">
-              <div style="font-size:80px;font-weight:900;color:white;line-height:1">{score}</div>
-              <div style="font-size:16px;color:rgba(255,255,255,0.7);margin:4px 0 12px">/100 Release Readiness Score</div>
-              <div style="font-size:32px;font-weight:700;color:white">{rec_icon} {rec}</div>
-              <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:8px">{rr['recommendation_reason']}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    rr = data["release_readiness"]
+    summary = data["summary"]
+    score = rr["overall_score"]
+    rec = rr["recommendation"]
+    color = rr["color"]
 
-        # ── QUICK STATS ROW ─────────────────────────────────────────────────
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("OWASP Critical", summary["owasp_critical"], delta=None)
-        c2.metric("OWASP High", summary["owasp_high"])
-        c3.metric("OWASP Total", summary["owasp_total"])
-        c4.metric("Secrets Found", summary["secrets_found"])
-        c5.metric("Race Conditions", summary["race_conditions_found"])
+    # ── BIG SCORE BANNER ──────────────────────────────────────────────────────
+    banner_bg = {"green": "#155724", "yellow": "#856404", "red": "#721c24"}.get(color, "#343a40")
+    border_col = {"green": "#28a745", "yellow": "#ffc107", "red": "#dc3545"}.get(color, "#6c757d")
+    rec_icon = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🚫"}.get(rec, "")
 
-        if rr["blocking_issues"]:
-            st.error("**Blocking Issues:**  \n" + "  \n".join(f"• {b}" for b in rr["blocking_issues"]))
+    st.markdown(
+        f"""
+        <div style="background:{banner_bg};border:2px solid {border_col};border-radius:16px;
+                    padding:32px;text-align:center;margin:16px 0">
+          <div style="font-size:80px;font-weight:900;color:white;line-height:1">{score}</div>
+          <div style="font-size:16px;color:rgba(255,255,255,0.7);margin:4px 0 12px">/100 Release Readiness Score</div>
+          <div style="font-size:32px;font-weight:700;color:white">{rec_icon} {rec}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:8px">{rr['recommendation_reason']}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        st.markdown("---")
+    # ── QUICK STATS ROW ───────────────────────────────────────────────────────
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("OWASP Critical", summary["owasp_critical"], delta=None)
+    c2.metric("OWASP High", summary["owasp_high"])
+    c3.metric("OWASP Total", summary["owasp_total"])
+    c4.metric("Secrets Found", summary["secrets_found"])
+    c5.metric("Race Conditions", summary["race_conditions_found"])
 
-        # ── TABS ────────────────────────────────────────────────────────────
-        tabs = st.tabs(["🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight Checklist", "📊 Signal Breakdown"])
+    if rr["blocking_issues"]:
+        st.error("**Blocking Issues:**  \n" + "  \n".join(f"• {b}" for b in rr["blocking_issues"]))
 
-        # Tab 1: Intent Check
-        with tabs[0]:
-            iv = data.get("intent_verification")
-            if iv is None:
-                st.info("No intent provided — enter what you asked the LLM to build for intent analysis.")
+    st.markdown("---")
+
+    # ── RESULT TABS ───────────────────────────────────────────────────────────
+    tabs = st.tabs(["🔍 Intent Check", "🛡️ OWASP Top 10", "🔐 Secrets", "⚡ Race Conditions", "📋 Pre-flight Checklist", "📊 Signal Breakdown"])
+
+    # Tab 1: Intent Check
+    with tabs[0]:
+        iv = data.get("intent_verification")
+        if iv is None:
+            st.info("No intent provided — enter what you asked the LLM to build for intent analysis.")
+        else:
+            verdict = iv["verdict"]
+            verdict_color = {
+                "INTENT_MET": "green", "GAP_DETECTED": "orange",
+                "HALLUCINATION": "red", "STUB_ONLY": "red", "UNCERTAIN": "grey"
+            }.get(verdict, "grey")
+            st.markdown(f"**Verdict:** :{verdict_color}[{verdict}]  —  Confidence: {iv['confidence']:.0%}")
+            st.markdown(f"**Safe to merge:** {'✅ Yes' if iv['is_safe_to_merge'] else '🚫 No'}")
+
+            col_f, col_m = st.columns(2)
+            with col_f:
+                st.markdown("**Intent signals FOUND in code:**")
+                for s in iv["intent_signals_found"]:
+                    st.markdown(f"  ✅ {s}")
+                if not iv["intent_signals_found"]:
+                    st.caption("None")
+            with col_m:
+                st.markdown("**Intent signals MISSING from code:**")
+                for s in iv["intent_signals_missing"]:
+                    st.markdown(f"  ❌ {s}")
+                if not iv["intent_signals_missing"]:
+                    st.caption("None — good!")
+
+            if iv["issues"]:
+                st.markdown("**Issues detected:**")
+                for issue in iv["issues"]:
+                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(issue["severity"], "⚪")
+                    st.markdown(f"{sev_icon} **{issue['issue_type']}** — {issue['description']}")
+                    if issue["line_snippet"]:
+                        st.code(issue["line_snippet"][:200], language="python")
+
+    # Tab 2: OWASP
+    with tabs[1]:
+        findings = data["owasp"]["findings"]
+        if not findings:
+            st.success("No OWASP Top 10 issues detected.")
+        else:
+            sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+            for f in sorted(findings, key=lambda x: sev_order.get(x["severity"], 4)):
+                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(f["severity"], "⚪")
+                with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['owasp_id']} — {f['description'][:80]}"):
+                    col_a, col_b = st.columns(2)
+                    col_a.markdown(f"**Rule:** `{f['rule_id']}`  \n**Category:** {f['owasp_category']}")
+                    col_b.markdown(f"**CWE:** {f['cwe']}  \n**Line:** {f['line_number']}")
+                    st.code(f["evidence"][:200], language="python")
+
+    # Tab 3: Secrets
+    with tabs[2]:
+        sec_findings = data["secrets"]["findings"]
+        if not sec_findings:
+            st.success("No secrets detected in the code.")
+        else:
+            st.warning(f"**{len(sec_findings)} secret(s) detected** — evidence is redacted below")
+            for f in sec_findings:
+                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
+                st.markdown(f"{sev_icon} **{f['secret_type']}** — `{f['evidence']}` (line {f['line_number']})")
+
+    # Tab 4: Race Conditions
+    with tabs[3]:
+        rc_findings = data["race_conditions"]["findings"]
+        if not rc_findings:
+            st.success("No race condition patterns detected.")
+        else:
+            for f in rc_findings:
+                sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
+                with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['pattern_id']} — {f['description'][:80]}"):
+                    st.markdown(f"**Attack scenario:** {f['attack_scenario']}")
+                    st.code(f["evidence"][:200])
+
+    # Tab 5: Pre-flight Checklist
+    with tabs[4]:
+        cl = data["preflight_checklist"]
+        cats = cl.get("categories_triggered", [])
+        if cats:
+            st.markdown(f"**Categories triggered:** {', '.join(cats)}")
+        items = cl.get("items", [])
+        if not items:
+            st.info("No specific pre-flight checks triggered for this code.")
+        else:
+            for priority in ("MUST", "SHOULD", "CONSIDER"):
+                priority_items = [i for i in items if i["priority"] == priority]
+                if priority_items:
+                    icon = {"MUST": "🔴", "SHOULD": "🟡", "CONSIDER": "🔵"}.get(priority, "")
+                    st.markdown(f"### {icon} {priority}")
+                    for item in priority_items:
+                        st.markdown(f"- [ ] {item['item']}  \n  <small>*Triggered by: {item['triggered_by']}*</small>", unsafe_allow_html=True)
+
+    # Tab 6: Signal Breakdown
+    with tabs[5]:
+        st.markdown("### Release Readiness Signal Breakdown")
+        status_icon = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}
+        for sig in rr["signals"]:
+            icon = status_icon.get(sig["status"], "⚪")
+            block_tag = " 🚫 **BLOCKING**" if sig["blocking"] and sig["status"] == "red" else ""
+            if sig["status"] == "grey":
+                st.markdown(f"{icon} **{sig['display_name']}** — *not provided (score excluded)*")
             else:
-                verdict = iv["verdict"]
-                verdict_color = {
-                    "INTENT_MET": "green", "GAP_DETECTED": "orange",
-                    "HALLUCINATION": "red", "STUB_ONLY": "red", "UNCERTAIN": "grey"
-                }.get(verdict, "grey")
-                st.markdown(f"**Verdict:** :{verdict_color}[{verdict}]  —  Confidence: {iv['confidence']:.0%}")
-                st.markdown(f"**Safe to merge:** {'✅ Yes' if iv['is_safe_to_merge'] else '🚫 No'}")
-
-                col_f, col_m = st.columns(2)
-                with col_f:
-                    st.markdown("**Intent signals FOUND in code:**")
-                    for s in iv["intent_signals_found"]:
-                        st.markdown(f"  ✅ {s}")
-                    if not iv["intent_signals_found"]:
-                        st.caption("None")
-                with col_m:
-                    st.markdown("**Intent signals MISSING from code:**")
-                    for s in iv["intent_signals_missing"]:
-                        st.markdown(f"  ❌ {s}")
-                    if not iv["intent_signals_missing"]:
-                        st.caption("None — good!")
-
-                if iv["issues"]:
-                    st.markdown("**Issues detected:**")
-                    for issue in iv["issues"]:
-                        sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(issue["severity"], "⚪")
-                        st.markdown(f"{sev_icon} **{issue['issue_type']}** — {issue['description']}")
-                        if issue["line_snippet"]:
-                            st.code(issue["line_snippet"][:200], language="python")
-
-        # Tab 2: OWASP
-        with tabs[1]:
-            findings = data["owasp"]["findings"]
-            if not findings:
-                st.success("No OWASP Top 10 issues detected.")
-            else:
-                sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-                for f in sorted(findings, key=lambda x: sev_order.get(x["severity"], 4)):
-                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}.get(f["severity"], "⚪")
-                    with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['owasp_id']} — {f['description'][:80]}"):
-                        col_a, col_b = st.columns(2)
-                        col_a.markdown(f"**Rule:** `{f['rule_id']}`  \n**Category:** {f['owasp_category']}")
-                        col_b.markdown(f"**CWE:** {f['cwe']}  \n**Line:** {f['line_number']}")
-                        st.code(f["evidence"][:200], language="python")
-
-        # Tab 3: Secrets
-        with tabs[2]:
-            sec_findings = data["secrets"]["findings"]
-            if not sec_findings:
-                st.success("No secrets detected in the code.")
-            else:
-                st.warning(f"**{len(sec_findings)} secret(s) detected** — evidence is redacted below")
-                for f in sec_findings:
-                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
-                    st.markdown(f"{sev_icon} **{f['secret_type']}** — `{f['evidence']}` (line {f['line_number']})")
-
-        # Tab 4: Race Conditions
-        with tabs[3]:
-            rc_findings = data["race_conditions"]["findings"]
-            if not rc_findings:
-                st.success("No race condition patterns detected.")
-            else:
-                for f in rc_findings:
-                    sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}.get(f["severity"], "⚪")
-                    with st.expander(f"{sev_icon} [{f['severity'].upper()}] {f['pattern_id']} — {f['description'][:80]}"):
-                        st.markdown(f"**Attack scenario:** {f['attack_scenario']}")
-                        st.code(f["evidence"][:200])
-
-        # Tab 5: Pre-flight Checklist
-        with tabs[4]:
-            cl = data["preflight_checklist"]
-            cats = cl.get("categories_triggered", [])
-            if cats:
-                st.markdown(f"**Categories triggered:** {', '.join(cats)}")
-            items = cl.get("items", [])
-            if not items:
-                st.info("No specific pre-flight checks triggered for this code.")
-            else:
-                for priority in ("MUST", "SHOULD", "CONSIDER"):
-                    priority_items = [i for i in items if i["priority"] == priority]
-                    if priority_items:
-                        icon = {"MUST": "🔴", "SHOULD": "🟡", "CONSIDER": "🔵"}.get(priority, "")
-                        st.markdown(f"### {icon} {priority}")
-                        for item in priority_items:
-                            st.markdown(f"- [ ] {item['item']}  \n  <small>*Triggered by: {item['triggered_by']}*</small>", unsafe_allow_html=True)
-
-        # Tab 6: Signal Breakdown
-        with tabs[5]:
-            st.markdown("### Release Readiness Signal Breakdown")
-            status_icon = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}
-            for sig in rr["signals"]:
-                icon = status_icon.get(sig["status"], "⚪")
-                block_tag = " 🚫 **BLOCKING**" if sig["blocking"] and sig["status"] == "red" else ""
-                if sig["status"] == "grey":
-                    st.markdown(f"{icon} **{sig['display_name']}** — *not provided (score excluded)*")
-                else:
-                    col1, col2 = st.columns([4, 1])
-                    with col1:
-                        st.markdown(f"{icon} **{sig['display_name']}**{block_tag}  \n{sig['detail']}")
-                        st.progress(sig["score"] / 100)
-                    with col2:
-                        st.metric("", f"{sig['score']:.0f}/100")
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"{icon} **{sig['display_name']}**{block_tag}  \n{sig['detail']}")
+                    st.progress(sig["score"] / 100)
+                with col2:
+                    st.metric("", f"{sig['score']:.0f}/100")
 
 
 def render_release_readiness():
