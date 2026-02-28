@@ -5506,6 +5506,139 @@ def render_red_team():
                         st.warning(f"Scan error: {d['scan_error']}")
 
 
+def render_release_readiness():
+    """Release Readiness Score — single 0-100 production confidence score."""
+    import requests as _req
+
+    st.subheader("Release Readiness Score")
+    st.markdown(
+        "Aggregate every AgenticQA signal into one authoritative answer: **can I ship this?**  \n"
+        "Provide any combination of agent outputs — missing signals are excluded from scoring."
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="rr_api_base",
+    ).rstrip("/")
+
+    st.markdown("---")
+
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        st.markdown("**Test Coverage (SDET)**")
+        coverage_pct = st.number_input(
+            "Current coverage %", min_value=0.0, max_value=100.0, value=80.0, step=0.5, key="rr_cov"
+        )
+        include_coverage = st.checkbox("Include", value=True, key="rr_cov_inc")
+
+        st.markdown("**CVE Exposure**")
+        critical_cves = st.number_input("Critical CVEs (reachable)", min_value=0, value=0, key="rr_cve_crit")
+        high_cves = st.number_input("High CVEs (reachable)", min_value=0, value=0, key="rr_cve_high")
+        include_cve = st.checkbox("Include", value=True, key="rr_cve_inc")
+
+        st.markdown("**Performance**")
+        regression = st.checkbox("Regression detected", value=False, key="rr_perf_reg")
+        include_perf = st.checkbox("Include", value=True, key="rr_perf_inc")
+
+    with col_r:
+        st.markdown("**Security Findings**")
+        n_critical_sec = st.number_input("Critical findings", min_value=0, value=0, key="rr_sec_crit")
+        n_high_sec = st.number_input("High findings", min_value=0, value=0, key="rr_sec_high")
+        include_sec = st.checkbox("Include", value=True, key="rr_sec_inc")
+
+        st.markdown("**Compliance**")
+        n_violations = st.number_input("Violations", min_value=0, value=0, key="rr_comp_v")
+        conformity_score = st.slider("Conformity score", 0.0, 1.0, 1.0, 0.05, key="rr_comp_cs")
+        include_comp = st.checkbox("Include", value=True, key="rr_comp_inc")
+
+        st.markdown("**Architecture Coverage**")
+        untested_critical = st.number_input("Untested critical/high areas", min_value=0, value=0, key="rr_arch_u")
+        total_areas = st.number_input("Total areas", min_value=1, value=20, key="rr_arch_t")
+        include_arch = st.checkbox("Include", value=True, key="rr_arch_inc")
+
+    st.markdown("---")
+
+    if st.button("Compute Release Readiness Score", type="primary", key="rr_compute"):
+        payload: dict = {}
+        if include_coverage:
+            payload["sdet_result"] = {"current_coverage": coverage_pct}
+        if include_sec:
+            findings = (
+                [{"severity": "critical"}] * int(n_critical_sec) +
+                [{"severity": "high"}] * int(n_high_sec)
+            )
+            payload["security_findings"] = findings
+        if include_cve:
+            payload["cve_result"] = {"critical_cves": int(critical_cves), "high_cves": int(high_cves), "reachable_cves": []}
+        if include_perf:
+            payload["perf_result"] = {"regression_detected": regression}
+        if include_comp:
+            payload["compliance_result"] = {
+                "violations": [{}] * int(n_violations),
+                "conformity_score": conformity_score,
+            }
+        if include_arch:
+            payload["architecture_result"] = {
+                "untested_critical_high": int(untested_critical),
+                "total_areas": int(total_areas),
+            }
+
+        with st.spinner("Scoring..."):
+            try:
+                resp = _req.post(f"{api_base}/api/release-readiness", json=payload, timeout=15)
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                st.error(f"API error: {e}")
+                return
+
+        score = data["overall_score"]
+        rec   = data["recommendation"]
+        color = data["color"]
+
+        # Big score display
+        banner_color = {"green": "#28a745", "yellow": "#ffc107", "red": "#dc3545"}.get(color, "#6c757d")
+        rec_icon = {"SHIP IT": "✅", "REVIEW REQUIRED": "⚠️", "DO NOT SHIP": "🚫"}.get(rec, "")
+        st.markdown(
+            f"""
+            <div style="background:{banner_color};border-radius:12px;padding:24px;text-align:center;margin-bottom:16px">
+              <div style="font-size:64px;font-weight:900;color:white">{score}</div>
+              <div style="font-size:18px;color:white;opacity:0.9">/100 Release Readiness Score</div>
+              <div style="font-size:28px;margin-top:8px;color:white">{rec_icon} {rec}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.caption(data["recommendation_reason"])
+
+        if data["blocking_issues"]:
+            st.error("**Blocking Issues:**")
+            for issue in data["blocking_issues"]:
+                st.error(f"• {issue}")
+
+        st.markdown("### Signal Breakdown")
+        signals = data.get("signals", [])
+        status_icon = {"green": "🟢", "yellow": "🟡", "red": "🔴", "grey": "⚪"}.get
+
+        for sig in signals:
+            s_icon = status_icon(sig["status"], "⚪")
+            block_tag = " 🚫 BLOCKING" if sig["blocking"] and sig["status"] == "red" else ""
+            if sig["status"] == "grey":
+                st.markdown(f"{s_icon} **{sig['display_name']}** — *not provided*")
+            else:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"{s_icon} **{sig['display_name']}**{block_tag}  \n{sig['detail']}")
+                    st.progress(sig["score"] / 100)
+                with col2:
+                    st.metric("Score", f"{sig['score']:.0f}/100")
+
+        st.caption(f"Signals provided: {data['signals_provided']}/{data['signals_total']}")
+
+
 def render_agent_learning():
     """Agent Learning — developer risk profiles and repo learning metrics."""
     import requests as _req
@@ -6003,7 +6136,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning"]
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -6127,6 +6260,9 @@ def main():
 
     elif page == "Agent Learning":
         render_agent_learning()
+
+    elif page == "Release Readiness":
+        render_release_readiness()
 
     # Footer
     st.markdown("---")

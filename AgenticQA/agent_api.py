@@ -2743,6 +2743,43 @@ async def get_reinforced_prompt(session_id: str, base_prompt: str = ""):
     return {"session_id": session_id, "reinforced_prompt": prompt}
 
 
+# ── Release Readiness Scorer ──────────────────────────────────────────────────
+
+try:
+    from src.agenticqa.scoring.release_readiness import ReleaseReadinessScorer
+except ImportError:
+    from agenticqa.scoring.release_readiness import ReleaseReadinessScorer
+
+_readiness_scorer = ReleaseReadinessScorer()
+
+
+class ReadinessRequest(BaseModel):
+    sdet_result: Optional[Dict[str, Any]] = None
+    security_findings: Optional[List[Dict[str, Any]]] = None
+    cve_result: Optional[Dict[str, Any]] = None
+    perf_result: Optional[Dict[str, Any]] = None
+    compliance_result: Optional[Dict[str, Any]] = None
+    architecture_result: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/release-readiness")
+async def release_readiness(req: ReadinessRequest):
+    """
+    Aggregate all AgenticQA signals into a single 0-100 Release Readiness Score.
+    Returns SHIP IT / REVIEW REQUIRED / DO NOT SHIP with per-signal breakdown.
+    Any subset of signals can be provided — missing ones are excluded from scoring.
+    """
+    report = _readiness_scorer.score(
+        sdet_result=req.sdet_result,
+        security_findings=req.security_findings,
+        cve_result=req.cve_result,
+        perf_result=req.perf_result,
+        compliance_result=req.compliance_result,
+        architecture_result=req.architecture_result,
+    )
+    return {"success": True, **report.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
