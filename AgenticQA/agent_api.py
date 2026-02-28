@@ -2953,6 +2953,25 @@ async def container_scan(repo_path: str = "."):
     return {"success": True, **result.to_dict()}
 
 
+# ── Race Condition & Concurrency Probe ────────────────────────────────────────
+
+try:
+    from src.agenticqa.security.race_condition_detector import RaceConditionDetector
+except ImportError:
+    from agenticqa.security.race_condition_detector import RaceConditionDetector
+
+
+@app.get("/api/security/race-conditions")
+async def race_conditions(repo_path: str = "."):
+    """
+    Static analysis detecting common race condition patterns in Python source code.
+    Detects TOCTOU file access, unsynchronized global mutation, double-checked locking,
+    session/token TOCTOU, shared file writes, and lazy initialization issues.
+    """
+    result = RaceConditionDetector().scan(repo_path)
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
