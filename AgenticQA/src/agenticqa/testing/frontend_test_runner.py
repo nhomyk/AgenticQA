@@ -212,11 +212,22 @@ class FrontendTestRunner:
         test_path.parent.mkdir(parents=True, exist_ok=True)
         test_path.write_text(generated.test_code, encoding="utf-8")
 
-        cmd_parts = generated.test_command.split()
+        # Build the base command — use the executable from test_command but
+        # strip any flags that we will re-add ourselves to avoid duplication
+        # (double -q becomes -qq which suppresses the summary line).
+        base_parts = generated.test_command.split()
+        # Keep only the interpreter/runner prefix: everything up to the runner binary
+        # e.g. ["python", "-m", "pytest"] from "python -m pytest --tb=short -q"
+        runner_end = 0
+        for i, part in enumerate(base_parts):
+            if part in ("pytest", "jest", "vitest", "npx"):
+                runner_end = i + 1
+                break
+        cmd_parts = base_parts[:runner_end] if runner_end else base_parts
 
-        # For pytest-based runners, add the specific test file
+        # For pytest-based runners, add the specific test file with explicit flags
         if generated.test_runner == "pytest":
-            cmd_parts += [str(test_path), "--tb=short", "-q", "--no-header"]
+            cmd_parts += [str(test_path), "--tb=short", "-v", "--no-header"]
 
         try:
             proc = subprocess.run(
