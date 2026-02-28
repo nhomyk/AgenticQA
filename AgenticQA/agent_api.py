@@ -2504,7 +2504,7 @@ async def architecture_scan(repo_path: str = "."):
     try:
         from agenticqa.security.architecture_scanner import ArchitectureScanner
         result = ArchitectureScanner().scan(repo_path)
-        return {
+        payload = {
             "success": True,
             "repo_path": result.repo_path,
             "files_scanned": result.files_scanned,
@@ -2518,6 +2518,22 @@ async def architecture_scan(repo_path: str = "."):
             "integration_areas": [a.to_dict() for a in result.integration_areas],
             "scan_error": result.scan_error,
         }
+        # Auto-save to learning store so scan history feeds the data flywheel
+        try:
+            from data_store.artifact_store import TestArtifactStore
+            _astore = TestArtifactStore(
+                os.getenv("AGENTICQA_ARTIFACT_STORE", ".test-artifact-store")
+            )
+            _astore.store_artifact(
+                artifact_data={"artifact_type": "architecture_scan", **result.to_dict()},
+                artifact_type="architecture_scan",
+                source=repo_path,
+                tags=["architecture", "security",
+                      f"score_{int(result.attack_surface_score)}"],
+            )
+        except Exception:
+            pass  # non-blocking — scan result returned regardless
+        return payload
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

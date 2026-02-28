@@ -43,6 +43,7 @@ Usage
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -62,13 +63,20 @@ _SOURCE_EXTENSIONS = {
     ".yaml", ".yml", ".json",
 }
 
-# ── Severity weights (for attack_surface_score 0-100) ─────────────────────────
-
-_SEVERITY_WEIGHTS = {"critical": 20, "high": 10, "medium": 5, "low": 2}
+# ── Severity weights for density-normalised score (per unique affected file) ──
+# Score = sum(weight × unique_files_with_severity / total_files) × 100
+# Then multiplied by coverage factor (1.0 = fully tested, 2.0 = no tests)
+# Result is capped at 100.  A well-tested large repo won't hit 100 unfairly.
+_DENSITY_WEIGHTS = {"critical": 80, "high": 50, "medium": 25, "low": 10, "info": 0}
 
 # ── Plain-English category descriptions ───────────────────────────────────────
 
 _PLAIN_ENGLISH: Dict[str, str] = {
+    "SCHEMA_VALIDATION": (
+        "This code validates the shape and type of incoming data (e.g. Zod, Pydantic, Joi). "
+        "This is a PROTECTIVE pattern — it reduces injection risk by rejecting malformed input "
+        "before it reaches dangerous operations. High counts here are a positive signal."
+    ),
     "SHELL_EXEC": (
         "This code runs system commands directly on the server. "
         "If an attacker can control any part of these commands, they can run "
@@ -134,6 +142,7 @@ _PLAIN_ENGLISH: Dict[str, str] = {
 # ── Attack vectors per category ───────────────────────────────────────────────
 
 _ATTACK_VECTORS: Dict[str, List[str]] = {
+    "SCHEMA_VALIDATION": [],  # protective pattern — no attack vectors
     "SHELL_EXEC":     ["Remote Code Execution (RCE)", "Command Injection", "Privilege Escalation"],
     "EXTERNAL_HTTP":  ["Server-Side Request Forgery (SSRF)", "Data Exfiltration", "Response Injection"],
     "DATABASE":       ["SQL Injection", "Data Breach", "Data Corruption"],
@@ -151,6 +160,7 @@ _ATTACK_VECTORS: Dict[str, List[str]] = {
 # ── CWE per category ──────────────────────────────────────────────────────────
 
 _CWE: Dict[str, str] = {
+    "SCHEMA_VALIDATION": "",  # protective
     "SHELL_EXEC":     "CWE-78",
     "EXTERNAL_HTTP":  "CWE-918",
     "DATABASE":       "CWE-89",
@@ -231,15 +241,20 @@ _PYTHON_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (_p(r"\bredis\s*\.\s*(Redis|StrictRedis|from_url)"), "EVENT_BUS", "low"),
     (_p(r"\bpika\s*\."), "EVENT_BUS", "low"),
     (_p(r"\bkafka\s*\."), "EVENT_BUS", "low"),
+    # SCHEMA_VALIDATION — info (Pydantic, marshmallow — protective)
+    (_p(r"\bBaseModel\b"), "SCHEMA_VALIDATION", "info"),
+    (_p(r"\bField\s*\("), "SCHEMA_VALIDATION", "info"),
+    (_p(r"\bfrom\s+pydantic\b"), "SCHEMA_VALIDATION", "info"),
 ]
 
 _TS_JS_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
-    # SHELL_EXEC — critical
+    # SHELL_EXEC — critical (string-based, injection-prone)
     (_p(r"\bchild_process\b"), "SHELL_EXEC", "critical"),
     (_p(r"\bexecSync\s*\("), "SHELL_EXEC", "critical"),
     (_p(r"\bspawnSync?\s*\("), "SHELL_EXEC", "critical"),
-    (_p(r"\bexecFileSync?\s*\("), "SHELL_EXEC", "critical"),
-    (_p(r"\b(xcodebuild|xcrun|simctl|xcode-select|lldb)\b"), "SHELL_EXEC", "critical"),
+    # SHELL_EXEC — high (execFile with separate args array is safer, but still a sink)
+    (_p(r"\bexecFileSync?\s*\("), "SHELL_EXEC", "high"),
+    (_p(r"\b(xcodebuild|xcrun|simctl|xcode-select|lldb)\b"), "SHELL_EXEC", "high"),
     # SERIALIZATION — high
     (_p(r"\bJSON\s*\.\s*parse\s*\("), "SERIALIZATION", "high"),
     (_p(r"\byaml\s*\.\s*(load|parse)\s*\("), "SERIALIZATION", "high"),
@@ -274,11 +289,13 @@ _TS_JS_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (_p(r"import\s+.*from\s+[\"']@sentry"), "CLOUD_SERVICE", "medium"),
     (_p(r"\bGoogleAuth\s*\("), "CLOUD_SERVICE", "medium"),
     (_p(r"@azure/"), "CLOUD_SERVICE", "medium"),
-    # AUTH_BOUNDARY — medium
+    # AUTH_BOUNDARY — medium (real authentication/authorisation code)
     (_p(r"\bjwt\s*\.\s*(sign|verify|decode)\s*\("), "AUTH_BOUNDARY", "medium"),
     (_p(r"\bbcrypt\s*\.\s*(hash|compare)"), "AUTH_BOUNDARY", "medium"),
     (_p(r"\bpassport\s*\."), "AUTH_BOUNDARY", "medium"),
-    (_p(r"\bz\s*\.\s*(object|string|number|array)\s*\("), "AUTH_BOUNDARY", "medium"),  # zod
+    # SCHEMA_VALIDATION — info (protective: Zod, Joi — reduces risk, don't penalise)
+    (_p(r"\bz\s*\.\s*(object|string|number|array|enum|union|literal)\s*\("), "SCHEMA_VALIDATION", "info"),
+    (_p(r"\bJoi\s*\.\s*(object|string|number|array)\s*\("), "SCHEMA_VALIDATION", "info"),
     # MIDDLEWARE — medium
     (_p(r"\bapp\s*\.\s*use\s*\("), "MIDDLEWARE", "medium"),
     (_p(r"\brouter\s*\.\s*(get|post|put|delete|use)\s*\("), "MIDDLEWARE", "medium"),
@@ -435,7 +452,8 @@ class ArchitectureScanResult:
         ]
         for cat, areas in sorted(cats.items(), key=lambda x: -len(x[1])):
             sev = areas[0].severity.upper()
-            lines.append(f"  [{sev:8s}] {cat} — {len(areas)} location(s)")
+            prefix = "✓ " if areas[0].severity == "info" else "  "
+            lines.append(f"{prefix}[{sev:8s}] {cat} — {len(areas)} location(s)")
             lines.append(f"             {areas[0].plain_english}")
             lines.append(f"             Attack vectors: {', '.join(areas[0].attack_vectors[:3])}")
             for a in areas[:3]:
@@ -501,7 +519,7 @@ class ArchitectureScanner:
                     seen.add(key)
                     deduped.append(a)
 
-            surface, coverage = self._compute_scores(deduped)
+            surface, coverage = self._compute_scores(deduped, len(source_files))
             return ArchitectureScanResult(
                 repo_path=str(root),
                 integration_areas=deduped,
@@ -607,11 +625,42 @@ class ArchitectureScanner:
         return matched
 
     @staticmethod
-    def _compute_scores(areas: List[IntegrationArea]) -> Tuple[float, float]:
-        if not areas:
-            return 0.0, 100.0
-        raw_score = sum(_SEVERITY_WEIGHTS.get(a.severity, 0) for a in areas)
-        attack_surface = min(float(raw_score), 100.0)
+    def _compute_scores(areas: List[IntegrationArea], files_scanned: int = 1) -> Tuple[float, float]:
+        """
+        Density-normalised attack surface score (0–100).
+
+        Uses unique affected files per severity bucket divided by total files,
+        then weighted and adjusted for test coverage.  This prevents large,
+        well-tested repos from unfairly hitting 100/100.
+        """
+        # Exclude info-level (protective) areas from risk scoring
+        risk_areas = [a for a in areas if a.severity != "info"]
+        if not risk_areas:
+            tested = sum(1 for a in areas if a.test_files)
+            coverage = round(tested / max(len(areas), 1) * 100, 1) if areas else 100.0
+            return 0.0, coverage
+
+        n_files = max(files_scanned, 1)
+
+        # Unique source files with each severity
+        files_by_sev: Dict[str, set] = {s: set() for s in _DENSITY_WEIGHTS}
+        for a in risk_areas:
+            files_by_sev.setdefault(a.severity, set()).add(a.source_file)
+
+        # Density score: weighted % of files affected
+        raw = sum(
+            _DENSITY_WEIGHTS.get(sev, 0) * len(file_set) / n_files
+            for sev, file_set in files_by_sev.items()
+        )
+
+        # Test coverage (include info areas in coverage stats)
         tested = sum(1 for a in areas if a.test_files)
         coverage = round(tested / len(areas) * 100, 1)
-        return round(attack_surface, 1), coverage
+
+        # Coverage discount: fully tested = ×1.0, untested = ×2.0
+        # raw is already in 0-100 range (weighted density % × weight)
+        # cov_factor scales 1.0 (fully tested) → 2.0 (zero tests)
+        cov_factor = 1.0 + (1.0 - coverage / 100.0)
+        score = min(raw * cov_factor, 100.0)
+
+        return round(score, 1), coverage

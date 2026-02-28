@@ -4856,6 +4856,169 @@ def render_compliance_scan():
                 st.warning(f"Scan error: {hipaa_data['scan_error']}")
 
 
+def render_architecture_scan():
+    """Architecture Scanner — maps integration areas, attack surface, and test coverage."""
+    import requests as _req
+    import pandas as pd
+
+    st.subheader("Architecture Scanner")
+    st.markdown(
+        "Scan any repository to map **every integration point** — databases, shell commands, "
+        "external APIs, secrets, MCP tools — and see which areas have test coverage. "
+        "No engineering background required: every finding is explained in plain English."
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="arch_api_base",
+    )
+    repo_path = st.text_input(
+        "Repository path to scan",
+        value=".",
+        key="arch_repo_path",
+        help="Absolute or relative path to the repo root (e.g. /tmp/XcodeBuildMCP)",
+    )
+
+    col_scan, col_help = st.columns([1, 3])
+    with col_scan:
+        run_scan = st.button("Run Architecture Scan", type="primary")
+    with col_help:
+        st.caption("Scans Python, TypeScript, JavaScript, Swift, Go, Java, YAML. "
+                   "Zero network calls — pure static analysis.")
+
+    if not run_scan:
+        st.info("Enter a repo path and click **Run Architecture Scan** to map integration areas.")
+        return
+
+    with st.spinner("Scanning repository…"):
+        try:
+            resp = _req.get(
+                f"{api_base}/api/security/architecture-scan",
+                params={"repo_path": repo_path},
+                timeout=120,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            st.error(f"Scan failed: {e}")
+            return
+
+    if data.get("scan_error"):
+        st.error(f"Scan error: {data['scan_error']}")
+
+    # ── Summary metrics ───────────────────────────────────────────────────────
+    st.markdown("---")
+    m1, m2, m3, m4, m5 = st.columns(5)
+    score = data.get("attack_surface_score", 0)
+    score_colour = "🔴" if score > 60 else ("🟡" if score > 30 else "🟢")
+    m1.metric("Attack Surface Score", f"{score_colour} {score:.0f}/100")
+    m2.metric("Test Coverage", f"{data.get('test_coverage_confidence', 0):.0f}%")
+    m3.metric("Integration Areas", data.get("total_integration_areas", 0))
+    m4.metric("Untested Areas", data.get("untested_count", 0))
+    m5.metric("Files Scanned", data.get("files_scanned", 0))
+
+    # Score guidance
+    if score > 60:
+        st.error(f"**High risk** — large attack surface with limited test coverage. "
+                 f"Prioritize adding tests for the {data.get('untested_count', 0)} untested areas.")
+    elif score > 30:
+        st.warning(f"**Medium risk** — significant integration footprint. "
+                   "Review untested areas and consider adding input validation guards.")
+    else:
+        st.success("**Managed risk** — integration areas are proportional to repo size "
+                   "and test coverage is solid.")
+
+    # ── Category breakdown ────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Integration Areas by Category")
+
+    cats = data.get("categories", {})
+    areas = data.get("integration_areas", [])
+
+    _SEV_COLOUR_DASH = {
+        "critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵", "info": "✅"
+    }
+    _SEV_ORDER_DASH = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+    # Build summary dataframe
+    cat_rows = []
+    for cat, count in cats.items():
+        cat_areas = [a for a in areas if a["category"] == cat]
+        sev = cat_areas[0]["severity"] if cat_areas else "low"
+        tested = sum(1 for a in cat_areas if a.get("test_files"))
+        cat_rows.append({
+            "": _SEV_COLOUR_DASH.get(sev, ""),
+            "Category": cat,
+            "Severity": sev.upper(),
+            "Areas Found": count,
+            "Tested": tested,
+            "Untested": count - tested,
+            "CWE": cat_areas[0].get("cwe", "") if cat_areas else "",
+        })
+    cat_rows.sort(key=lambda r: (_SEV_ORDER_DASH.get(r["Severity"].lower(), 4), -r["Areas Found"]))
+
+    df_cats = pd.DataFrame(cat_rows)
+    st.dataframe(df_cats, use_container_width=True, hide_index=True)
+
+    # ── Plain-English report ──────────────────────────────────────────────────
+    st.markdown("---")
+    with st.expander("Plain-English Report (for non-technical stakeholders)", expanded=False):
+        st.code(data.get("plain_english_report", ""), language=None)
+
+    # ── Category detail tabs ──────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Findings Detail")
+
+    # Group by category for tabs — show risk categories first
+    risk_cats = [r["Category"] for r in cat_rows if r["Severity"] not in ("INFO",)]
+    if not risk_cats:
+        st.success("No risk-level integration areas found.")
+        return
+
+    tabs = st.tabs(risk_cats[:10])  # Streamlit tab limit
+    for tab, cat in zip(tabs, risk_cats[:10]):
+        with tab:
+            cat_areas = [a for a in areas if a["category"] == cat]
+            if not cat_areas:
+                st.write("No findings.")
+                continue
+
+            # Plain-English description
+            st.info(cat_areas[0].get("plain_english", ""))
+
+            # Attack vectors
+            vecs = cat_areas[0].get("attack_vectors", [])
+            if vecs:
+                st.markdown(f"**Attack vectors:** {', '.join(vecs)}")
+
+            # Findings table
+            rows = []
+            for a in cat_areas:
+                tested_str = "✅" if a.get("test_files") else "❌ No tests"
+                rows.append({
+                    "Severity": _SEV_COLOUR_DASH.get(a["severity"], "") + " " + a["severity"].upper(),
+                    "File": a["source_file"],
+                    "Line": a["line_number"],
+                    "Evidence": a["evidence"][:80],
+                    "Tests": tested_str,
+                })
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    # ── Untested high-risk areas ──────────────────────────────────────────────
+    untested = [a for a in areas
+                if not a.get("test_files") and a["severity"] in ("critical", "high")]
+    if untested:
+        st.markdown("---")
+        st.markdown("### ⚠️ Untested High-Risk Areas")
+        st.caption("These critical/high severity integration areas have no matching test files. "
+                   "They are the highest priority for new tests.")
+        rows = [{"Severity": a["severity"].upper(), "Category": a["category"],
+                 "File": a["source_file"], "Line": a["line_number"],
+                 "Evidence": a["evidence"][:60]} for a in untested[:50]]
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
 def render_red_team():
     """Red Team Agent — adversarial governance probing and self-patching."""
     import requests as _req
@@ -5574,7 +5737,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Red Team", "Agent Learning"]
+        pages = ["Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Red Team", "Agent Learning"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -5686,6 +5849,9 @@ def main():
 
     elif page == "Compliance Scan":
         render_compliance_scan()
+
+    elif page == "Architecture Scan":
+        render_architecture_scan()
 
     elif page == "Red Team":
         render_red_team()
