@@ -895,7 +895,179 @@ jobs:
           echo "- External scan (XcodeBuildMCP): 12 category detection across 506 TypeScript/Swift files" >> $GITHUB_STEP_SUMMARY
           echo "- Categories: SHELL_EXEC, EXTERNAL_HTTP, DATABASE, ENV_SECRETS, SERIALIZATION, NETWORK_SOCKET, MCP_TOOL, SCHEMA_VALIDATION, CLOUD_SERVICE, AUTH_BOUNDARY, MIDDLEWARE, EVENT_BUS" >> $GITHUB_STEP_SUMMARY
 
-  # Phase 3: Report — waits for all 13 parallel jobs
+  # ───────────────────────────────────────────────────────────────────────────
+  # Phase 1: Agent Safety Modules — DestructiveActionInterceptor,
+  #          AgentScopeLeaseManager, InstructionPersistenceWarden
+  # ───────────────────────────────────────────────────────────────────────────
+  test-agent-safety-modules:
+    needs: pipeline-health-check
+    if: always()
+    runs-on: ubuntu-latest
+    name: 🛡️ Agent Safety — Interceptor + Leases + Warden
+    defaults:
+      run:
+        working-directory: AgenticQA
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'AgenticQA/pyproject.toml'
+      - name: Install dependencies
+        run: pip install -e ".[dev,quality]"
+
+      - name: Unit tests — all three safety modules (53 tests)
+        run: |
+          python -m pytest \
+            tests/test_destructive_action_interceptor.py \
+            tests/test_scope_lease_manager.py \
+            tests/test_instruction_persistence_warden.py \
+            -m unit -v --tb=short \
+            --junitxml=/tmp/safety-modules.xml
+          echo "✅ All 53 agent safety unit tests passed"
+
+      - name: Smoke test — DestructiveActionInterceptor classifies correctly
+        run: |
+          python -c "
+          from agenticqa.security.destructive_action_interceptor import (
+              DestructiveActionInterceptor, ActionCall, DESTRUCTIVE, SAFE
+          )
+          interceptor = DestructiveActionInterceptor()
+
+          # SAFE: read-only
+          v = interceptor.intercept(ActionCall('list_emails', {}, 'ci-bot'))
+          assert v.allowed, f'list_emails should be allowed, got {v.classification}'
+
+          # DESTRUCTIVE: bulk delete with wildcard param
+          v = interceptor.intercept(ActionCall('bulk_delete', {'all': True}, 'ci-bot'))
+          assert not v.allowed, 'bulk_delete should be blocked'
+          assert v.classification == DESTRUCTIVE
+          assert v.approval_token is not None
+
+          # Pending queue should have 1 entry
+          pending = interceptor.get_pending_approvals()
+          assert len(pending) == 1, f'Expected 1 pending, got {len(pending)}'
+
+          print('✅ DestructiveActionInterceptor: safe=allowed, destructive=blocked, token issued')
+          "
+
+      - name: Smoke test — AgentScopeLeaseManager enforces hard caps
+        run: |
+          python -c "
+          from agenticqa.security.scope_lease_manager import AgentScopeLeaseManager, LeaseConfig
+
+          mgr = AgentScopeLeaseManager()
+
+          # Standard lease: deletes blocked entirely
+          lid = mgr.create_lease('openclaw', 'ci-sess', LeaseConfig.standard())
+          allowed, reason = mgr.check_and_consume(lid, 'delete')
+          assert not allowed, f'Standard lease must block deletes: {reason}'
+
+          # Elevated lease: 3 deletes allowed, 4th blocked
+          lid2 = mgr.create_lease('openclaw', 'ci-sess-2', LeaseConfig.elevated(max_deletes=3))
+          for i in range(3):
+              ok, _ = mgr.check_and_consume(lid2, 'delete')
+              assert ok, f'Delete {i+1}/3 should be allowed'
+          ok4, reason4 = mgr.check_and_consume(lid2, 'delete')
+          assert not ok4, f'4th delete must be blocked: {reason4}'
+
+          # Revoke stops everything
+          mgr.revoke_lease(lid2, 'emergency stop')
+          ok5, reason5 = mgr.check_and_consume(lid2, 'read')
+          assert not ok5, 'Revoked lease must block even reads'
+
+          print('✅ AgentScopeLeaseManager: standard blocks delete, elevated caps at 3, revoke halts all')
+          "
+
+      - name: Smoke test — InstructionPersistenceWarden detects OpenClaw failure mode
+        run: |
+          python -c "
+          from agenticqa.security.instruction_persistence_warden import (
+              InstructionPersistenceWarden, GuardrailBlock
+          )
+
+          warden = InstructionPersistenceWarden(context_window_tokens=10_000)
+
+          warden.register_guardrails('ci-session', [
+              GuardrailBlock(
+                  name='no_bulk_delete',
+                  content='Never delete more than 1 item without explicit user confirmation.',
+                  drift_signals=['deleting all', 'removing everything'],
+                  priority=10,
+              )
+          ])
+
+          # Clean output: no drift, low risk
+          clean = warden.check('ci-session', [], 'Found 3 emails matching your criteria.')
+          assert not clean.constraint_drift_detected, 'Clean output must not trigger drift'
+          assert clean.recommended_action == 'continue'
+
+          # OpenClaw-style output: drift detected → terminate
+          evil = warden.check('ci-session', [],
+              'I will start removing everything from the inbox now.')
+          assert evil.constraint_drift_detected, 'Drift must be detected'
+          assert evil.recommended_action in ('pause', 'terminate'), \
+              f'Expected pause/terminate, got {evil.recommended_action}'
+
+          # Reinforced prompt must contain immutable guardrail blocks
+          prompt = warden.get_reinforced_system_prompt('ci-session')
+          assert 'IMMUTABLE GUARDRAIL' in prompt
+          assert 'no_bulk_delete' in prompt
+
+          print(f'✅ InstructionPersistenceWarden: drift={evil.recommended_action}, '
+                f'guardrail re-injection ready')
+          "
+
+      - name: Integration smoke — all three work together (OpenClaw scenario)
+        run: |
+          python -c "
+          from agenticqa.security.destructive_action_interceptor import (
+              DestructiveActionInterceptor, ActionCall
+          )
+          from agenticqa.security.scope_lease_manager import AgentScopeLeaseManager, LeaseConfig
+          from agenticqa.security.instruction_persistence_warden import (
+              InstructionPersistenceWarden, GuardrailBlock
+          )
+
+          # Simulate: OpenClaw tries to delete all emails
+          # Step 1: Warden detects the intent
+          warden = InstructionPersistenceWarden(context_window_tokens=8_000)
+          warden.register_guardrails('openclaw-sess', [
+              GuardrailBlock('no_bulk', 'Confirm before any deletion.', ['deleting all'])
+          ])
+          report = warden.check('openclaw-sess', [],
+              'Great, I will now start deleting all emails older than 7 days.')
+          assert report.constraint_drift_detected
+
+          # Step 2: Even if warden is bypassed, scope lease blocks it
+          mgr = AgentScopeLeaseManager()
+          lid = mgr.create_lease('openclaw', 'openclaw-sess', LeaseConfig.standard())
+          ok, reason = mgr.check_and_consume(lid, 'delete')
+          assert not ok, 'Standard lease must block delete'
+
+          # Step 3: Even if lease is bypassed, interceptor blocks the tool call
+          interceptor = DestructiveActionInterceptor()
+          verdict = interceptor.intercept(
+              ActionCall('delete_email', {'all_older_than_days': 7, 'all': True}, 'openclaw')
+          )
+          assert not verdict.allowed
+          assert verdict.approval_token is not None
+
+          print('✅ Triple-layer defence: Warden detected drift + Lease blocked op + Interceptor blocked call')
+          print(f'   Interceptor approval token: {verdict.approval_token[:16]}...')
+          "
+
+      - name: Report
+        if: always()
+        run: |
+          echo "## 🛡️ Agent Safety Modules" >> \$GITHUB_STEP_SUMMARY
+          echo "- **DestructiveActionInterceptor**: classifies tool calls pre-execution (safe/reversible/irreversible/destructive); approval token queue; 21 unit tests" >> \$GITHUB_STEP_SUMMARY
+          echo "- **AgentScopeLeaseManager**: hard op caps per session (reads/writes/deletes/executes); TTL + revocation; 18 unit tests" >> \$GITHUB_STEP_SUMMARY
+          echo "- **InstructionPersistenceWarden**: compaction risk (50%/75%/90%); immutable guardrail re-injection; constraint drift detection; 14 unit tests" >> \$GITHUB_STEP_SUMMARY
+          echo "- **Integration**: all three layers validated together against OpenClaw email-deletion scenario" >> \$GITHUB_STEP_SUMMARY
+
+  # Phase 3: Report — waits for all parallel jobs
   # ───────────────────────────────────────────────────────────────────────────
 
   test-mcp-dataflow-scanners:
@@ -1020,6 +1192,7 @@ jobs:
       - test-defense-in-depth
       - external-mcp-scan
       - architecture-scan
+      - test-agent-safety-modules
     if: always()
     runs-on: ubuntu-latest
     name: 📋 Generate Pipeline Health Report
@@ -1051,11 +1224,13 @@ jobs:
           DEFENSE="${{ needs.test-defense-in-depth.result }}"
           EXTMCP="${{ needs.external-mcp-scan.result }}"
           ARCHSCAN="${{ needs.architecture-scan.result }}"
+          SAFETY="${{ needs.test-agent-safety-modules.result }}"
 
           FAILED=0
           for s in "$SRE" "$SDET" "$FULLSTACK" "$FOUR_AGENTS" "$CONSTITUTION" \
                    "$REDTEAM" "$IPMOAT" "$LEARNING" "$FACTORY" "$INFRA_SARIF" "$INTEGRATION" \
-                   "$COLLABORATION" "$RAG" "$DATA" "$TOOLS" "$MCPFLOW" "$DEFENSE" "$EXTMCP" "$ARCHSCAN"; do
+                   "$COLLABORATION" "$RAG" "$DATA" "$TOOLS" "$MCPFLOW" "$DEFENSE" "$EXTMCP" \
+                   "$ARCHSCAN" "$SAFETY"; do
             [[ "$s" != "success" ]] && ((FAILED++)) || true
           done
 
@@ -1074,7 +1249,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Date:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ steps.results.outputs.emoji }} ${{ steps.results.outputs.health }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Failed:** ${{ steps.results.outputs.failed_count }}/18 components" >> $GITHUB_STEP_SUMMARY
+          echo "**Failed:** ${{ steps.results.outputs.failed_count }}/20 components" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -1106,12 +1281,13 @@ jobs:
           echo "| Defense-in-Depth Guards (Prompt+Tenant+Loop+Unicode)  | $(r ${{ needs.test-defense-in-depth.result }})              | 64 tests, 4 new guards + 3 dogfood checks |" >> $GITHUB_STEP_SUMMARY
           echo "| External MCP Scan — Stripe (mcp/com.stripe)          | $(r ${{ needs.external-mcp-scan.result }})                  | MCP+DataFlow+Skill scan on real MCP server |" >> $GITHUB_STEP_SUMMARY
           echo "| Architecture Scan — self + XcodeBuildMCP              | $(r ${{ needs.architecture-scan.result }})                  | 12 categories, score/100, test coverage % |" >> $GITHUB_STEP_SUMMARY
+          echo "| Agent Safety (Interceptor + Lease + Warden)           | $(r ${{ needs.test-agent-safety-modules.result }})          | 53 tests, triple-layer OpenClaw scenario |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ steps.results.outputs.health }}" == "healthy" ]; then
-            echo "✅ **All 19 pipeline components are functioning correctly.**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All 20 pipeline components are functioning correctly.**" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ steps.results.outputs.health }}" == "degraded" ]; then
             echo "⚠️ **${{ steps.results.outputs.failed_count }} component(s) degraded — pipeline functional but needs attention.**" >> $GITHUB_STEP_SUMMARY
           else
@@ -1154,7 +1330,7 @@ jobs:
           echo "PIPELINE SELF-VALIDATION COMPLETE"
           echo "=================================="
           echo ""
-          echo "18 components validated:"
+          echo "20 components validated:"
           echo "  Agents:     SRE, SDET, Fullstack, Compliance/QA/Perf/DevOps"
           echo "  Governance: Constitutional Gate, Agent Scopes, Red Team"
           echo "  IP Moat:    AI Model SBOM, Multi-Agent Trust Graph, Bypass Closures"
@@ -1164,6 +1340,7 @@ jobs:
           echo "  Security:   MCP + DataFlow Scanners (dogfood)"
           echo "  Defense:    SystemPromptGuard, TenantIsolation, LearningLoopIntegrity, Unicode"
           echo "  External:   Stripe MCP server full scan (mcp/com.stripe)"
+          echo "  Safety:     DestructiveActionInterceptor, AgentScopeLeaseManager, InstructionPersistenceWarden"
           echo ""
           echo "Next scheduled run: tomorrow at 02:00 UTC"
           echo "=================================="
