@@ -1,6 +1,8 @@
 # AgenticQA
 
-**The world's first autonomous AI agent platform with constitutional governance, forensic decision traceability, self-healing CI, adversarial red-team hardening, HIPAA/GDPR/EU AI Act compliance scanning, prompt injection detection, LLM model regression testing, and cryptographic output provenance — without LLMs.**
+**The world's first Agentic Development Lifecycle (ADLC) platform — a closed, self-reinforcing cycle that governs, generates, scans, tests, self-heals, and ships features autonomously: describe → generate → security scan → test → self-heal → SHIP IT → learn → repeat.**
+
+Built on constitutional governance, forensic decision traceability, adversarial red-team hardening, HIPAA/GDPR/EU AI Act compliance, prompt injection detection, LLM model regression testing, cryptographic output provenance, cross-language coverage mapping, and a Perplexity-inspired landing page that gives non-technical users a single input into the entire cycle — without requiring LLMs for the governance layer.
 
 [![CI Pipeline](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml)
 [![Pipeline Validation](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml)
@@ -9,15 +11,32 @@
 
 ---
 
-## The Problem
+## The ADLC: A Closed Loop, Not a Pipeline
 
-Enterprise teams adopting AI agents face three unsolved problems:
+Every software development methodology — SDLC, CI/CD, DevSecOps — was invented to answer the same question: *how do we move faster without breaking things?* Every one of them assumed a human at every critical handoff.
 
-1. **No governance.** AI agents take actions — deploy, delete, delegate — with no enforceable laws stopping them from doing something catastrophic.
-2. **No forensics.** When something goes wrong, there's no way to reconstruct *why* an agent made a decision or what it should have done differently.
-3. **No interoperability.** Every agent framework (LangGraph, CrewAI, AutoGen) has its own telemetry silo. There's no common observability layer.
+The **Agentic Development Lifecycle (ADLC)** removes those handoffs. It is a closed, self-reinforcing cycle:
 
-AgenticQA solves all three — and does it in deterministic, LLM-free, sub-50ms operations.
+```
+ ┌─────────────────────────────────────────────────────────────┐
+ │                    THE ADLC CYCLE                           │
+ │                                                             │
+ │   1. DESCRIBE ──▶ 2. GENERATE ──▶ 3. SCAN                  │
+ │        ▲                               │                    │
+ │        │          AgenticQA            ▼                    │
+ │   7. LEARN ◀── 6. SHIP IT ◀── 5. HEAL ◀── 4. TEST          │
+ │                                                             │
+ │   Every phase governed · Every output signed · No handoffs  │
+ └─────────────────────────────────────────────────────────────┘
+```
+
+The human bookends the cycle — *describes* the feature at the start, *reviews the verdict* at the end. Everything in between is governed autonomously. And every cycle makes the next one smarter: patterns accumulate, thresholds adapt, risk profiles sharpen.
+
+### The Three Problems It Solves
+
+1. **No governance.** AI agents take actions — deploy, delete, delegate — with no enforceable laws stopping them. The Agent Constitution enforces `ALLOW / REQUIRE_APPROVAL / DENY` before every action in under 5ms.
+2. **No forensics.** When something goes wrong, there's no way to reconstruct *why* an agent decided what it did. AgenticQA signs every output with HMAC-SHA256 and generates a forensic audit artifact for every trace.
+3. **No learning loop.** Each run is isolated. Knowledge doesn't accumulate. AgenticQA's closed feedback loop means every outcome — pass, fail, repair — feeds back into the system's pattern memory, adaptive thresholds, and developer risk profiles.
 
 ---
 
@@ -262,6 +281,110 @@ The factory automatically inserts the agent's capabilities into the Task-Agent O
 
 ---
 
+### 🌐 Perplexity-Inspired Landing Page — Bridges Non-Technical and Technical Users
+
+A dark minimal landing page (`public/index.html`, served at `GET /`) makes AgenticQA accessible to product managers, security officers, and executives — no terminal required:
+
+```bash
+python agent_api.py        # start API on :8000
+open http://localhost:8000  # landing page
+```
+
+**What the page does:**
+
+- Animated hero: *"Ship features. Fearlessly."* on a teal CSS grid (background `#080b10`)
+- Single AI feature input — type a feature description, press Cmd+Enter
+- **5-step progress overlay** animates in real time: Architecture → Security → Code Gen → Tests → Release
+- **Verdict card** with gradient border and 4 metric tiles: security · tests · coverage · time
+- Returns `SHIP IT` (green) or `REVIEW REQUIRED` (amber) based on `POST /api/demo/submit`
+- "View in Dashboard →" links to Streamlit on `:8501`
+- "For advanced users" section surfaces 6 dashboard modules
+
+Non-technical users get a one-field UI. Advanced users get the full 16-page analytics dashboard. Same backend, same governance.
+
+---
+
+### 🚀 Autonomous Feature Pipeline — End-to-End
+
+Describe a feature in plain English. The pipeline generates code, scans it, tests it, self-heals failures, and delivers a verdict — zero human steps:
+
+```bash
+python run_demo.py
+# Uses pre-written stub by default (no API key needed)
+
+ANTHROPIC_API_KEY=sk-ant-... python run_demo.py
+# Real Claude Haiku generates the UI component
+```
+
+**8-step demo flow:**
+
+1. Create a temp repo
+2. Run 5-phase onboarding (architecture + security + coverage + test gen + baseline)
+3. Submit feature description via `POST /api/demo/submit`
+4. Architecture scan → security scan → stub UI generation
+5. UI tests generated (Streamlit AppTest / Jest / Vitest)
+6. If any test fails → LLM rewrites failing code → security re-scan → re-test (up to `max_ui_retries=2`)
+7. Coverage delta recorded
+8. Verdict: `SHIP IT` or `REVIEW REQUIRED`
+
+**Self-healing loop (in `agent_api.py` + `POST /api/pipeline/ui-test-scan`):**
+
+```python
+for attempt in range(max_ui_retries):
+    result = run_ui_tests(generated_code)
+    if result["passed"]:
+        break
+    generated_code = llm_rewrite(generated_code, result["failures"])
+    security_result = security_scan(generated_code)
+```
+
+**`POST /api/demo/submit`** — public endpoint, no auth required:
+
+```bash
+curl -X POST http://localhost:8000/api/demo/submit \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Add a login form with OAuth support"}'
+# → {"verdict": "SHIP IT", "elapsed_s": 4.2,
+#    "security": {"findings": 0}, "tests": {"passed": 3}, "coverage": 0.34}
+```
+
+---
+
+### 📦 Repo Onboarding + Coverage Intelligence
+
+Drop AgenticQA onto any repo and get a full baseline in one API call:
+
+```bash
+curl -X POST http://localhost:8000/api/onboarding/run \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path": "."}'
+# → {"phases_completed": 5, "architecture": {...}, "security": {...},
+#    "coverage": {"mapped_files": 42, "coverage_pct": 0.33},
+#    "generated_tests": 7, "baseline_delta": {"trend": "improving"}}
+```
+
+**5-phase onboarding orchestrator:**
+
+| Phase | What It Does |
+|---|---|
+| **Architecture** | Scans imports, HTTP calls, ENV usage, EXTERNAL_HTTP exposure |
+| **Security** | 7 sweeps: Legal Risk · HIPAA · EU AI Act · Prompt Injection · CVE Reachability · AI Model SBOM · Agent Trust Graph |
+| **Coverage** | Maps source → test files; computes coverage % per language |
+| **Test Generation** | LLM generates tests for unmapped source files; validates via compile + collect-only |
+| **Baseline** | Captures `BaselineDelta` snapshot at `~/.agenticqa/baselines/{repo_id}.json`; trend: improving / stable / declining |
+
+**CoverageMapper** (`src/agenticqa/onboarding/coverage_mapper.py`) supports stem-variant matching across **11 languages**: Python, TypeScript, Go, Swift, Ruby, Java, Kotlin, JavaScript, Rust, C#, PHP.
+
+`AuthService.py` matches `test_auth.py`, `auth_test.py`, `AuthServiceTest.java` — no configuration required.
+
+**Endpoints:**
+- `POST /api/onboarding/run` — run full 5-phase onboarding
+- `GET  /api/onboarding/status` — retrieve stored baseline and last delta
+
+**Dashboard "Onboarding" page:** Architecture | Security | Coverage | Generated Tests | Baseline Delta tabs.
+
+---
+
 ### 🧠 Agents That Learn — Without Retraining
 
 **Case-Based Reasoning (CBR)** — deterministic pattern matching against historical embeddings. No retraining. No drift.
@@ -353,24 +476,34 @@ Eight specialized agents under constitutional governance across your entire CI/C
 
 ---
 
-## Key Outcomes
+## The ADLC Cycle — What Each Phase Does
 
-| Capability | What Happens | Measured Result |
-|---|---|---|
-| **Self-Healing** | SRE detects linting errors, retrieves fixes, commits | 90% of errors fixed autonomously |
-| **Test Repair** | Haiku generates + sandbox-validates; auto-applies on green | Failing tests repaired without human intervention |
-| **Prompt Injection Detection** | Static scan for injection surface on every CI run | 4 rule categories, SARIF-native, surface score 0–1 |
-| **HIPAA Compliance** | PHI_HARDCODED, PHI_TO_LLM, HIPAA_AUDIT_MISSING on every run | Catches credential/PHI violations CI misses |
-| **EU AI Act Readiness** | Annex III classification + Art.9/13/14/22 conformity evidence | 4-article audit, conformity_score 0–1 |
-| **Output Provenance** | HMAC-SHA256 signed on every agent execution | Full chain of custody for every AI output |
+| Phase | Agent(s) | What Happens | Feeds Back Into |
+|---|---|---|---|
+| **1. Describe** | *(user)* | Feature described in plain English via landing page | Feature → code prompt |
+| **2. Generate** | Fullstack + LLM | UI code generated, written to repo | Security scan input |
+| **3. Scan** | ComplianceAgent + ArchitectureScanner | 12-category security sweep; context-aware severity | Verdict gate |
+| **4. Test** | SDET + FrontendTestRunner | Tests auto-generated (Streamlit AppTest / Jest / Vitest); run headlessly | Self-heal trigger |
+| **5. Heal** | SRE + LLM | Failing tests → LLM rewrite → security re-scan → re-test (max 2 cycles) | Updated code + test results |
+| **6. Ship** | QA + ConstitutionalGate | SHIP IT / REVIEW REQUIRED verdict issued; provenance chain signed | Artifact store |
+| **7. Learn** | All agents | Pass/fail feeds adaptive thresholds, developer profiles, org memory | Future cycle Phase 1 |
+
+**Every cycle reinforces the next.** After 50 cycles: 96% pattern confidence, per-developer risk profiles, cross-repo institutional memory.
+
+---
+
+## Key Outcomes
 | **Model Regression** | Golden snapshot + cosine similarity on model swaps | Regression detected before deployment |
 | **Red Team Hardening** | 20 adversarial bypass attempts, patches scanner, proposes amendments | gate_strength 100%, scanner_strength 64%+ |
 | **Pattern Learning** | Closed feedback loop: boost/penalize docs, adaptive thresholds | 96% confidence after 50 deployments |
 | **Constitutional Enforcement** | Pre-action check before every destructive operation | Zero unauthorized destructive actions |
+| **Autonomous UI Generation** | LLM builds frontend from description, 0 critical security findings | SHIP IT in under 5s |
+| **UI Self-Healing** | Auto-generates tests, rewrites failing code, re-validates | 0 human interventions required |
+| **Coverage Mapping** | Source→test stem matching across 11 languages | 0.0% → 33%+ on first feature |
 
 ---
 
-## 9-Page Analytics Dashboard
+## 16-Page Analytics Dashboard
 
 ```bash
 streamlit run dashboard/app.py
@@ -387,6 +520,13 @@ streamlit run dashboard/app.py
 | **Ontology** | Design-vs-reality — intended paths vs. actual delegation usage |
 | **Pipeline** | Data flow, 6-layer security architecture, API connectivity tester |
 | **Red Team** | Mode/target/auto_patch controls · scanner + gate strength gauges · vulnerability table · prompt injection findings |
+| **Agent Learning** | Developer risk chart · org memory panel · compliance drift · repo fix rate · learning metrics · temporal graphs |
+| **Onboarding** | Architecture · Security · Coverage · Generated Tests · Baseline Delta tabs |
+| **Compliance Scan** | Legal Risk · HIPAA · EU AI Act · CVE Reachability · AI Model SBOM scan results |
+| **Architecture Scan** | Import graph · HTTP exposure · ENV secrets · attack surface score |
+| **Agent Safety** | Multi-agent trust graph · escalation paths · missing HITL checks |
+| **Release Readiness** | Pre-flight risk score · dev profiles · org memory · violation predictions |
+| **Agent Factory** | Natural-language agent builder · spec preview · scaffold viewer |
 
 ---
 
@@ -400,11 +540,17 @@ pip install -e .
 # Start infrastructure (optional — most features work without it)
 docker compose -f docker-compose.weaviate.yml up -d
 
-# Run 632+ unit tests
+# Run 1538+ unit tests
 pytest tests/ -m unit -v
 
 # Launch control plane
 uvicorn agent_api:app --host 0.0.0.0 --port 8000
+
+# Open landing page (no API key needed)
+open http://localhost:8000
+
+# Run full client demo
+python run_demo.py
 
 # Launch dashboard
 streamlit run dashboard/app.py
@@ -452,6 +598,13 @@ agenticqa doctor --repo .             # readiness check with fix commands
 
 **Agent Factory**
 - `POST /api/agent-factory/from-prompt` — natural-language description → scaffold → persisted agent
+
+**Landing Page & Onboarding**
+- `GET  /` — landing page (public, no auth)
+- `POST /api/demo/submit` — lightweight autonomous pipeline for landing page (public, no auth); returns `{ verdict, elapsed_s, security, tests, coverage }`
+- `POST /api/onboarding/run` — 5-phase onboarding: architecture + 7 security sweeps + coverage mapping + LLM test generation + baseline snapshot
+- `GET  /api/onboarding/status` — retrieve stored baseline and last `BaselineDelta` trend
+- `POST /api/pipeline/ui-test-scan` — standalone UI test scan with autonomous self-heal loop
 
 ---
 
@@ -509,11 +662,14 @@ agenticqa doctor --repo .             # readiness check with fix commands
 | **Graph DB** | Neo4j |
 | **Relational DB** | SQLite / PostgreSQL |
 | **Embeddings** | fastembed (local) / Sentence-Transformers |
-| **API** | FastAPI + Pydantic (60+ endpoints) |
-| **Dashboard** | Streamlit + Plotly (9 pages) |
+| **API** | FastAPI + Pydantic (120+ endpoints) |
+| **Dashboard** | Streamlit + Plotly (16 pages) |
 | **CI/CD** | GitHub Actions (16 jobs, SARIF upload, nightly self-validation) |
-| **Testing** | Pytest (632+ unit tests) |
+| **Testing** | Pytest (1538+ unit tests) |
 | **Language** | Python 3.8+ |
+| **Landing Page** | Vanilla HTML/CSS/JS · animated CSS grid · Perplexity-inspired dark UI |
+| **Frontend Testing** | Streamlit AppTest · Jest · Vitest · FrontendTestGenerator · FrontendTestRunner |
+| **Repo Onboarding** | CoverageMapper · ArchitectureScanner · RepoOnboarder · BaselineDelta |
 
 ---
 
@@ -521,6 +677,9 @@ agenticqa doctor --repo .             # readiness check with fix commands
 
 ```
 AgenticQA/
+├── public/                      # Landing page (served at GET /)
+│   └── index.html               # Perplexity-inspired dark minimal UI
+├── run_demo.py                  # 8-step end-to-end client demo (no API key needed)
 ├── src/agenticqa/
 │   ├── constitution.yaml        # Agent Constitution — versioned, machine-readable law set
 │   ├── agent_scopes.yaml        # Per-agent file access scopes (8 agents)
@@ -539,13 +698,15 @@ AgenticQA/
 │   ├── factory/                 # NaturalLanguageSpecExtractor · agent scaffold generator
 │   │   └── sandbox/             # SubprocessRunner · OutputScanner (4-pass decode)
 │   ├── monitoring/              # DataflowHealthMonitor · 5 probes · ontology-aware impact
+│   ├── onboarding/              # CoverageMapper · RepoOnboarder · BaselineDelta
+│   ├── testing/                 # FrontendTestGenerator · FrontendTestRunner (Streamlit/Jest/Vitest)
 │   ├── export/                  # SARIFExporter · SARIF 2.1.0 · 25+ severity mappings
 │   └── cli.py                   # CLI: bootstrap, doctor, ingest-junit
-├── dashboard/                   # 9-page Streamlit analytics dashboard
-├── agent_api.py                 # FastAPI control plane (60+ endpoints)
+├── dashboard/                   # 16-page Streamlit analytics dashboard
+├── agent_api.py                 # FastAPI control plane (120+ endpoints)
 ├── src/agents.py                # 8 agents: QA, Performance, Compliance, DevOps, SRE, SDET, Fullstack, RedTeam
 ├── ingest_ci_artifacts.py       # CI data bridge — ESLint, red-team, migration → learning system
-├── tests/                       # 632+ unit tests — governance, red team, HIPAA, EU AI Act, provenance
+├── tests/                       # 1538+ unit tests — governance, red team, HIPAA, EU AI Act, provenance
 └── .github/workflows/           # 16-job CI pipeline + nightly self-validation
 ```
 
