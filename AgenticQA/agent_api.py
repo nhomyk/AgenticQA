@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from datetime import UTC, datetime
@@ -108,7 +110,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize orchestrator and data store
+# ── Static file serving — landing page ───────────────────────────────────────
+_PUBLIC_DIR = Path(__file__).parent / "public"
+if _PUBLIC_DIR.is_dir():
+    app.mount("/public", StaticFiles(directory=str(_PUBLIC_DIR)), name="public")
+
+@app.get("/", response_class=FileResponse, include_in_schema=False)
+async def root():
+    """Serve the futuristic landing page."""
+    return FileResponse(str(_PUBLIC_DIR / "index.html"))
+
+# ── Initialize orchestrator and data store
 orchestrator = AgentOrchestrator()
 data_pipeline = SecureDataPipeline(use_great_expectations=False)
 workflow_store = PromptWorkflowStore()
@@ -4145,6 +4157,146 @@ async def ui_test_scan(req: UITestScanRequest):
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Landing page demo endpoint ────────────────────────────────────────────────
+
+class DemoSubmitRequest(BaseModel):
+    description: str
+    repo_path: str = "."
+
+
+@app.post("/api/demo/submit")
+async def demo_submit(req: DemoSubmitRequest):
+    """
+    Lightweight pipeline entry-point for the landing page.
+
+    Steps:
+      1. Architecture scan (attack surface score)
+      2. Coverage map before
+      3. Generate UI code stub
+      4. Security scan on generated code
+      5. Generate + run UI tests
+      6. Coverage map after
+      Returns a simplified verdict dict consumed by the landing page JS.
+    """
+    import time
+    import textwrap
+
+    t0 = time.time()
+
+    try:
+        from agenticqa.security.architecture_scanner import ArchitectureScanner
+        from agenticqa.onboarding.coverage_mapper import CoverageMapper
+        from agenticqa.testing.frontend_test_runner import FrontendTestRunner
+        from agenticqa.testing.frontend_test_generator import FrameworkDetector, FrontendTestGenerator
+    except ImportError:
+        from src.agenticqa.security.architecture_scanner import ArchitectureScanner
+        from src.agenticqa.onboarding.coverage_mapper import CoverageMapper
+        from src.agenticqa.testing.frontend_test_runner import FrontendTestRunner
+        from src.agenticqa.testing.frontend_test_generator import FrameworkDetector, FrontendTestGenerator
+
+    repo = req.repo_path or "."
+
+    # 1. Architecture scan
+    try:
+        arch = ArchitectureScanner().scan(repo)
+        attack_surface = arch.attack_surface_score
+        files_scanned  = arch.files_scanned
+    except Exception:
+        attack_surface = 0.0
+        files_scanned  = 0
+
+    # 2. Coverage before
+    try:
+        cov_before = CoverageMapper().scan(repo).coverage_pct
+    except Exception:
+        cov_before = 0.0
+
+    # 3. UI code stub (same stub used by run_demo.py)
+    ui_code = textwrap.dedent("""\
+        \"\"\"Streamlit UI for {desc}\"\"\"
+        import os, requests, streamlit as st
+        API_BASE = os.environ.get("API_BASE", "http://localhost:8000")
+        st.title("Feature UI")
+        with st.form("form", clear_on_submit=True):
+            val = st.text_input("Input")
+            if st.form_submit_button("Submit"):
+                try:
+                    requests.post(f"{{API_BASE}}/api/feature", json={{"value": val}}, timeout=5)
+                    st.success("Done!")
+                except Exception as exc:
+                    st.error(str(exc))
+    """).format(desc=req.description[:60])
+
+    ui_file = "ui/feature.py"
+    ui_abs  = Path(repo) / ui_file
+    try:
+        ui_abs.parent.mkdir(parents=True, exist_ok=True)
+        ui_abs.write_text(ui_code, encoding="utf-8")
+    except Exception:
+        pass
+
+    # 4. Security scan
+    try:
+        scan_result = ArchitectureScanner().scan(repo)
+        ui_areas    = [a for a in scan_result.integration_areas
+                       if "feature" in a.source_file or a.source_file == ui_file]
+        critical_ct = sum(1 for a in ui_areas if a.severity == "critical")
+        high_ct     = sum(1 for a in ui_areas if a.severity == "high")
+    except Exception:
+        critical_ct = 0
+        high_ct     = 0
+
+    # 5. UI tests
+    ui_status = "NO_TESTS_COLLECTED"
+    passed_ct = 0
+    total_ct  = 0
+    try:
+        detection = FrameworkDetector().detect(repo, ui_file)
+        gen       = FrontendTestGenerator().generate(
+            description=req.description, code=ui_code,
+            file_path=ui_file, repo_path=repo, detection=detection,
+        )
+        ui_result  = FrontendTestRunner().run_generated(gen, repo, timeout=30)
+        ui_status  = ui_result.get("status", "NO_TESTS_COLLECTED")
+        passed_ct  = ui_result.get("passed", 0)
+        total_ct   = ui_result.get("total", 0)
+    except Exception:
+        pass
+
+    # 6. Coverage after
+    try:
+        cov_after = CoverageMapper().scan(repo).coverage_pct
+    except Exception:
+        cov_after = cov_before
+
+    elapsed = round(time.time() - t0, 1)
+    verdict = (
+        "SHIP IT"
+        if critical_ct == 0 and ui_status in ("ALL_PASSED", "NO_TESTS_COLLECTED")
+        else "REVIEW REQUIRED"
+    )
+
+    return {
+        "verdict":      verdict,
+        "elapsed_s":    elapsed,
+        "files_scanned": files_scanned,
+        "security": {
+            "critical":       critical_ct,
+            "high":           high_ct,
+            "attack_surface": round(attack_surface, 1),
+        },
+        "tests": {
+            "passed": passed_ct,
+            "total":  total_ct,
+            "status": ui_status,
+        },
+        "coverage": {
+            "before": cov_before,
+            "after":  cov_after,
+        },
+    }
 
 
 if __name__ == "__main__":

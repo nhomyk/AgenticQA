@@ -42,6 +42,9 @@ _AUTH_SKIP_PATHS: frozenset[str] = frozenset(
         "/docs",
         "/openapi.json",
         "/redoc",
+        "/",               # Landing page
+        "/api/demo/submit", # Landing page demo endpoint (public, no auth needed)
+        "/api/docs",
     }
 )
 
