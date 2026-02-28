@@ -2780,6 +2780,39 @@ async def release_readiness(req: ReadinessRequest):
     return {"success": True, **report.to_dict()}
 
 
+# ── Intent-to-Code Verifier ───────────────────────────────────────────────────
+
+try:
+    from src.agenticqa.security.intent_verifier import IntentToCodeVerifier
+except ImportError:
+    from agenticqa.security.intent_verifier import IntentToCodeVerifier
+
+_intent_verifier = IntentToCodeVerifier(static_only=True)
+
+
+class IntentVerifyRequest(BaseModel):
+    intent: str
+    code_diff: str
+    file_path: str = ""
+    llm_assisted: bool = False
+
+
+@app.post("/api/security/intent-verify")
+async def intent_verify(req: IntentVerifyRequest):
+    """
+    Verify that an LLM-generated code diff actually implements the stated intent.
+    Detects: hallucinated APIs, intent gaps, stub-only implementations, syntax errors.
+    Set llm_assisted=true to enable Claude Haiku semantic analysis (requires ANTHROPIC_API_KEY).
+    """
+    verifier = IntentToCodeVerifier(static_only=not req.llm_assisted)
+    result = verifier.verify(
+        intent=req.intent,
+        code_diff=req.code_diff,
+        file_path=req.file_path,
+    )
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
