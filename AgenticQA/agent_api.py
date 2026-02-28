@@ -2934,6 +2934,25 @@ async def preflight_checklist(req: PreflightChecklistRequest):
     return {"success": True, **result.to_dict()}
 
 
+# ── Container & Infrastructure Security Scanner ───────────────────────────────
+
+try:
+    from src.agenticqa.security.container_scanner import ContainerScanner
+except ImportError:
+    from agenticqa.security.container_scanner import ContainerScanner
+
+
+@app.get("/api/security/container-scan")
+async def container_scan(repo_path: str = "."):
+    """
+    Scan Dockerfiles, docker-compose files, and Kubernetes YAML for security issues.
+    Detects: root user, privileged mode, docker.sock mounts, host networking, secrets in ENV, etc.
+    Pure static analysis — no external tools.
+    """
+    result = ContainerScanner().scan(repo_path)
+    return {"success": True, **result.to_dict()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
