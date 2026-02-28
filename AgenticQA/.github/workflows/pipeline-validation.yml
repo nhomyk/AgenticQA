@@ -877,6 +877,53 @@ jobs:
               json.dump(r.to_dict(), f, indent=2)
           "
 
+      - name: Architecture Scan — github/github-mcp-server (external, Go)
+        run: |
+          git clone --depth=1 https://github.com/github/github-mcp-server /tmp/github-mcp-server 2>&1 | tail -2
+          python -c "
+          import sys, json; sys.path.insert(0, 'src')
+          from agenticqa.security.architecture_scanner import ArchitectureScanner
+          r = ArchitectureScanner().scan('/tmp/github-mcp-server')
+          print(f'github-mcp-server — score={r.attack_surface_score}/100  coverage={r.test_coverage_confidence}%  areas={len(r.integration_areas)}  files={r.files_scanned}')
+          cats = r.by_category()
+          for cat, areas in sorted(cats.items(), key=lambda x: -len(x[1]))[:10]:
+              tested = sum(1 for a in areas if a.test_files)
+              print(f'  {cat:22s} {len(areas):4d}  {tested}/{len(areas)} tested  [{areas[0].severity}]')
+          with open('/tmp/arch-scan-github-mcp-server.json', 'w') as f:
+              json.dump(r.to_dict(), f, indent=2)
+          # Surface untested critical/high areas
+          untested_crit = [a for a in r.integration_areas
+                           if not a.test_files and a.severity in ('critical', 'high')]
+          if untested_crit:
+              print(f'WARNING: {len(untested_crit)} critical/high areas have no test coverage')
+              for a in untested_crit[:5]:
+                  print(f'  [{a.severity}] {a.category} {a.source_file}:{a.line_number}')
+          "
+
+      - name: MCP Security Scan — github/github-mcp-server
+        run: |
+          python -c "
+          import sys, json, dataclasses; sys.path.insert(0, 'src')
+          from agenticqa.security.mcp_scanner import MCPSecurityScanner
+          r = MCPSecurityScanner().scan('/tmp/github-mcp-server')
+          print(f'MCP scan: files={r.files_scanned} findings={len(r.findings)} risk={r.risk_score:.3f}')
+          for f in sorted(r.findings, key=lambda x: x.severity)[:10]:
+              print(f'  [{f.severity.upper():8s}] {f.attack_type:30s} {f.source_file}:{f.line_number} — {f.description[:80]}')
+          with open('/tmp/mcp-scan-github-mcp-server.json', 'w') as fh:
+              json.dump(dataclasses.asdict(r), fh, indent=2)
+          "
+
+      - name: DataFlow Tracer — github/github-mcp-server
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from agenticqa.security.data_flow_tracer import CrossAgentDataFlowTracer
+          r = CrossAgentDataFlowTracer().trace('/tmp/github-mcp-server')
+          print(f'DataFlow: files={r.files_scanned} agents={r.agents_analyzed} findings={len(r.findings)} risk={r.risk_score:.3f}')
+          for f in r.critical_findings[:5]:
+              print(f'  CRITICAL: {f.finding_type} — {f.description[:100]}')
+          "
+
       - name: Upload scan reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -885,6 +932,8 @@ jobs:
           path: |
             /tmp/arch-scan-agenticqa.json
             /tmp/arch-scan-xcodebuildmcp.json
+            /tmp/arch-scan-github-mcp-server.json
+            /tmp/mcp-scan-github-mcp-server.json
           retention-days: 30
 
       - name: Report
@@ -893,6 +942,7 @@ jobs:
           echo "## Architecture Scan" >> $GITHUB_STEP_SUMMARY
           echo "- Self-scan (AgenticQA): integration areas, attack surface score, test coverage" >> $GITHUB_STEP_SUMMARY
           echo "- External scan (XcodeBuildMCP): 12 category detection across 506 TypeScript/Swift files" >> $GITHUB_STEP_SUMMARY
+          echo "- External scan (github/github-mcp-server): Go repo — SHELL_EXEC, ENV_SECRETS, SERIALIZATION, EXTERNAL_HTTP; Go _test.go matching" >> $GITHUB_STEP_SUMMARY
           echo "- Categories: SHELL_EXEC, EXTERNAL_HTTP, DATABASE, ENV_SECRETS, SERIALIZATION, NETWORK_SOCKET, MCP_TOOL, SCHEMA_VALIDATION, CLOUD_SERVICE, AUTH_BOUNDARY, MIDDLEWARE, EVENT_BUS" >> $GITHUB_STEP_SUMMARY
 
   # ───────────────────────────────────────────────────────────────────────────
@@ -1280,7 +1330,7 @@ jobs:
           echo "| MCP + DataFlow + Skill Security Scanners (dogfood)   | $(r ${{ needs.test-mcp-dataflow-scanners.result }})         | supply chain, SSRF, taint, AST pre-scan |" >> $GITHUB_STEP_SUMMARY
           echo "| Defense-in-Depth Guards (Prompt+Tenant+Loop+Unicode)  | $(r ${{ needs.test-defense-in-depth.result }})              | 64 tests, 4 new guards + 3 dogfood checks |" >> $GITHUB_STEP_SUMMARY
           echo "| External MCP Scan — Stripe (mcp/com.stripe)          | $(r ${{ needs.external-mcp-scan.result }})                  | MCP+DataFlow+Skill scan on real MCP server |" >> $GITHUB_STEP_SUMMARY
-          echo "| Architecture Scan — self + XcodeBuildMCP              | $(r ${{ needs.architecture-scan.result }})                  | 12 categories, score/100, test coverage % |" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture Scan — self + XcodeBuildMCP + github-mcp  | $(r ${{ needs.architecture-scan.result }})                  | 12 categories, score/100, Go _test.go matching |" >> $GITHUB_STEP_SUMMARY
           echo "| Agent Safety (Interceptor + Lease + Warden)           | $(r ${{ needs.test-agent-safety-modules.result }})          | 53 tests, triple-layer OpenClaw scenario |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -1339,7 +1389,7 @@ jobs:
           echo "  Pipeline:   Data Integrity, Tools, Integration Workflows"
           echo "  Security:   MCP + DataFlow Scanners (dogfood)"
           echo "  Defense:    SystemPromptGuard, TenantIsolation, LearningLoopIntegrity, Unicode"
-          echo "  External:   Stripe MCP server full scan (mcp/com.stripe)"
+          echo "  External:   Stripe MCP server full scan (mcp/com.stripe); github/github-mcp-server (Arch+MCP+DataFlow)"
           echo "  Safety:     DestructiveActionInterceptor, AgentScopeLeaseManager, InstructionPersistenceWarden"
           echo ""
           echo "Next scheduled run: tomorrow at 02:00 UTC"

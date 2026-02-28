@@ -559,9 +559,14 @@ class ArchitectureScanner:
                 continue
             name = f.name.lower()
             # Matches: test_foo.py, foo_test.ts, foo.spec.ts, foo.test.js, tests/foo.py
+            # Also matches Go convention: foo_test.go (co-located with source)
+            # Also matches Rust: foo_test.rs, Java: FooTest.java
             if (
                 name.startswith("test_")
                 or name.endswith("_test.py")
+                or name.endswith("_test.go")       # Go: handler_test.go same dir as handler.go
+                or name.endswith("_test.rs")       # Rust: module_test.rs
+                or name.lower().endswith("test.java")  # Java: FooTest.java
                 or ".test." in name
                 or ".spec." in name
                 or "test" in [p.lower() for p in f.parts[:-1]]
@@ -619,8 +624,16 @@ class ArchitectureScanner:
         matched: List[str] = []
         for tf in test_files:
             tf_name = tf.stem.lower()
+            # Normalise test stem: strip test_ prefix, _test suffix (Python/Go/Rust/Java)
+            # Go: "github_test" → "github"; Java: "GithubTest" → stripped via lower
+            normalised = (
+                tf_name
+                .removeprefix("test_")
+                .removesuffix("_test")
+                .removesuffix("test")   # Java: FooTest → foo
+            )
             # Match if source stem appears in test filename or vice versa
-            if stem in tf_name or tf_name.replace("test_", "").replace("_test", "") in stem:
+            if stem in tf_name or normalised in stem or stem in normalised:
                 matched.append(str(tf.relative_to(root)).replace("\\", "/"))
         return matched
 
