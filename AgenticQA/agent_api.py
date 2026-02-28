@@ -2538,6 +2538,38 @@ async def architecture_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── PR Risk Pre-flight Scorer ──────────────────────────────────────────────────
+
+class PRRiskRequest(BaseModel):
+    author_email: str
+    changed_files: List[str] = []
+    diff_lines: str = ""
+    repo_path: str = "."
+
+
+@app.post("/api/scoring/pr-risk")
+async def pr_risk_score(req: PRRiskRequest):
+    """
+    Score a pull request's risk before CI runs.
+
+    Uses author fix-rate history, org memory of unfixable rules,
+    sensitive file detection, dangerous diff patterns, and learning
+    metrics trend to return a risk score (0-100) and recommendation
+    (LOW RISK | MEDIUM RISK | HIGH RISK).
+    """
+    try:
+        from agenticqa.scoring.pr_risk_scorer import PRRiskScorer
+        report = PRRiskScorer().score(
+            author_email=req.author_email,
+            changed_files=req.changed_files,
+            diff_lines=req.diff_lines,
+            repo_path=req.repo_path,
+        )
+        return {"success": True, **report.to_dict()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Webhook Notifications ──────────────────────────────────────────────────────
 
 class WebhookTestRequest(BaseModel):
