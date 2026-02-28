@@ -2538,6 +2538,49 @@ async def architecture_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Webhook Notifications ──────────────────────────────────────────────────────
+
+class WebhookTestRequest(BaseModel):
+    url: str
+    release_readiness_score: float = 75.0
+    recommendation: str = "SHIP IT"
+    tests_passed: int = 10
+    tests_total: int = 10
+    owasp_critical_count: int = 0
+    feature_description: str = "Test webhook delivery"
+    max_retries: int = 3
+
+
+@app.post("/api/notifications/webhook-test")
+async def webhook_test(req: WebhookTestRequest):
+    """
+    Fire a test webhook POST to the given URL.
+
+    Useful for verifying webhook endpoint connectivity before hooking
+    AgenticQA into your alerting pipeline.
+    """
+    try:
+        from agenticqa.notifications.webhook import WebhookNotifier, WebhookPayload, WebhookDeliveryError
+        payload = WebhookPayload(
+            release_readiness_score=req.release_readiness_score,
+            recommendation=req.recommendation,
+            tests_passed=req.tests_passed,
+            tests_total=req.tests_total,
+            owasp_critical_count=req.owasp_critical_count,
+            feature_description=req.feature_description,
+        )
+        notifier = WebhookNotifier(url=req.url, max_retries=req.max_retries)
+        response = notifier.notify(payload)
+        return {"success": True, "url": req.url, "response": response}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        from agenticqa.notifications.webhook import WebhookDeliveryError
+        if isinstance(exc, WebhookDeliveryError):
+            raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # ── Agent Safety: Destructive Action Interceptor ──────────────────────────────
 
 _interceptor_singleton = None
