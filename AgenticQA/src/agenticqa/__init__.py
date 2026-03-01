@@ -18,36 +18,62 @@ Quick Start (Cloud):
     >>> rag = create_rag_system()
 """
 
-from .rag import (
-    # Vector Store
-    VectorStore,
-    WeaviateVectorStore,
-    QdrantVectorStore,
-    DualWriteVectorStore,
-    VectorDocument,
-    # Embeddings
-    Embedder,
-    SimpleHashEmbedder,
-    SemanticEmbedder,
-    EmbedderFactory,
-    TestResultEmbedder,
-    ErrorEmbedder,
-    ComplianceRuleEmbedder,
-    PerformancePatternEmbedder,
-    # Retrieval & Orchestration
-    RAGRetriever,
-    RetrievalResult,
-    MultiAgentRAG,
-    # Configuration (for cloud/pipeline deployments)
-    RAGConfig,
-    WeaviateConfig,
-    QdrantConfig,
-    DeploymentMode,
-    VectorProvider,
-    create_vector_store,
-    create_vector_store_for_provider,
-    create_rag_system,
-)
+try:
+    from .rag import (
+        # Vector Store
+        VectorStore,
+        WeaviateVectorStore,
+        QdrantVectorStore,
+        DualWriteVectorStore,
+        VectorDocument,
+        # Embeddings
+        Embedder,
+        SimpleHashEmbedder,
+        SemanticEmbedder,
+        EmbedderFactory,
+        TestResultEmbedder,
+        ErrorEmbedder,
+        ComplianceRuleEmbedder,
+        PerformancePatternEmbedder,
+        # Retrieval & Orchestration
+        RAGRetriever,
+        RetrievalResult,
+        MultiAgentRAG,
+        # Configuration (for cloud/pipeline deployments)
+        RAGConfig,
+        WeaviateConfig,
+        QdrantConfig,
+        DeploymentMode,
+        VectorProvider,
+        create_vector_store,
+        create_vector_store_for_provider,
+        create_rag_system,
+    )
+except Exception:  # pragma: no cover - RAG deps optional for lightweight usage
+    VectorStore = None
+    WeaviateVectorStore = None
+    QdrantVectorStore = None
+    DualWriteVectorStore = None
+    VectorDocument = None
+    Embedder = None
+    SimpleHashEmbedder = None
+    SemanticEmbedder = None
+    EmbedderFactory = None
+    TestResultEmbedder = None
+    ErrorEmbedder = None
+    ComplianceRuleEmbedder = None
+    PerformancePatternEmbedder = None
+    RAGRetriever = None
+    RetrievalResult = None
+    MultiAgentRAG = None
+    RAGConfig = None
+    WeaviateConfig = None
+    QdrantConfig = None
+    DeploymentMode = None
+    VectorProvider = None
+    create_vector_store = None
+    create_vector_store_for_provider = None
+    create_rag_system = None
 
 try:
     from agents import AgentOrchestrator
