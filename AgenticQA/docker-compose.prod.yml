@@ -1,0 +1,97 @@
+# AgenticQA Production Stack
+# Usage: docker compose -f docker-compose.prod.yml up
+#
+# Starts: API server + Qdrant + Neo4j
+# Dashboard: docker compose -f docker-compose.prod.yml --profile dashboard up
+
+services:
+  # ── AgenticQA API Server ──────────────────────────────────────────────────
+  agenticqa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AGENTICQA_AUTH_TOKEN=${AGENTICQA_AUTH_TOKEN:-}
+      - AGENTICQA_AUTH_DISABLE=${AGENTICQA_AUTH_DISABLE:-0}
+      - QDRANT_URL=http://qdrant:6333
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-agenticqa123}
+      - WEAVIATE_HOST=http://weaviate:8080
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    networks:
+      - agenticqa
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Qdrant (Primary Vector Store) ────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.13.4
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - agenticqa
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Neo4j (Graph Database) ───────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5.26-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-agenticqa123}
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - agenticqa
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Dashboard (optional, --profile dashboard) ────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports:
+      - "8501:8501"
+    environment:
+      - AGENTICQA_API_URL=http://agenticqa:8000
+    depends_on:
+      - agenticqa
+    networks:
+      - agenticqa
+    profiles:
+      - dashboard
+    restart: unless-stopped
+
+networks:
+  agenticqa:
+    driver: bridge
+
+volumes:
+  qdrant_data:
+  neo4j_data:

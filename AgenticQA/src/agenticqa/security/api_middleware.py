@@ -539,6 +539,44 @@ class InputSizeMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+# ---------------------------------------------------------------------------
+# 6. SecurityHeadersMiddleware — OWASP security response headers
+# ---------------------------------------------------------------------------
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add OWASP-recommended security headers to every response.
+
+    Headers set:
+    - X-Content-Type-Options: nosniff
+    - X-Frame-Options: DENY
+    - X-XSS-Protection: 0 (modern standard — rely on CSP instead)
+    - Content-Security-Policy: default-src 'self'
+    - Strict-Transport-Security: max-age=31536000; includeSubDomains
+    - Referrer-Policy: strict-origin-when-cross-origin
+    - Permissions-Policy: camera=(), microphone=(), geolocation=()
+    - Cache-Control: no-store (for API responses only)
+    """
+
+    _HEADERS = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "0",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    }
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+        for key, value in self._HEADERS.items():
+            response.headers[key] = value
+        # Prevent caching of API responses (not static files)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+
 class PathSanitizationMiddleware(BaseHTTPMiddleware):
     """Validate ``repo_path`` query parameters against allowed roots (CWE-22).
 

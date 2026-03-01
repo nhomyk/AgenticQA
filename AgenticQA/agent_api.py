@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from datetime import UTC, datetime
@@ -28,6 +29,7 @@ try:
         RateLimitMiddleware,
         InputSizeMiddleware,
         PathSanitizationMiddleware,
+        SecurityHeadersMiddleware,
     )
 except ImportError:
     from agenticqa.security.api_middleware import (
@@ -37,7 +39,13 @@ except ImportError:
         RateLimitMiddleware,
         InputSizeMiddleware,
         PathSanitizationMiddleware,
+        SecurityHeadersMiddleware,
     )
+
+try:
+    from src.agenticqa.errors import install_error_handlers
+except ImportError:
+    from agenticqa.errors import install_error_handlers
 
 from src.agents import AgentOrchestrator
 from src.data_store import SecureDataPipeline
@@ -124,7 +132,30 @@ async def _lifespan(application: FastAPI):
     print("[AgenticQA] Shutdown complete.", file=sys.stderr)
 
 
-app = FastAPI(title="AgenticQA API", version="1.0.0", lifespan=_lifespan)
+app = FastAPI(
+    title="AgenticQA API",
+    version="1.0.0",
+    lifespan=_lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+
+# ── API Versioning ────────────────────────────────────────────────────────────
+# /api/v1/* transparently maps to /api/* so clients can opt into versioned URLs
+# while existing /api/* routes keep working (backwards-compatible).
+
+class APIVersionMiddleware(BaseHTTPMiddleware):
+    """Rewrite /api/v1/* requests to /api/* for versioned access."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.scope.get("path", "")
+        if path.startswith("/api/v1/"):
+            request.scope["path"] = "/api/" + path[8:]  # strip /api/v1/ → /api/
+        return await call_next(request)
+
+
+app.add_middleware(APIVersionMiddleware)
 
 
 @app.get("/api/health/shutdown-status")
@@ -143,6 +174,7 @@ app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(OriginValidationMiddleware)
 app.add_middleware(RateLimitMiddleware)    # 60 req/min per token; 15 for heavy endpoints
 app.add_middleware(InputSizeMiddleware)    # 512 KB body limit; depth-20 JSON limit
+app.add_middleware(SecurityHeadersMiddleware)   # OWASP security headers (CSP, HSTS, etc)
 
 # CORS — localhost only (DNS rebinding defence; mirrors docker/mcp-gateway)
 _LOCALHOST_ORIGINS = [
@@ -164,6 +196,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Standardized error responses ──────────────────────────────────────────────
+install_error_handlers(app)
 
 # ── Static file serving — landing page ───────────────────────────────────────
 _PUBLIC_DIR = Path(__file__).parent / "public"
