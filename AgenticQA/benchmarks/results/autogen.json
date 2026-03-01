@@ -1,0 +1,154 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/autogen",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 18,
+    "total_critical": 0,
+    "total_elapsed_s": 2.7
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 2.15,
+      "result": {
+        "total_findings": 11,
+        "files_scanned": 21,
+        "attack_surface_score": 22.9,
+        "categories": {
+          "SHELL_EXEC": 11
+        },
+        "severity_counts": {
+          "critical": 11
+        },
+        "critical_count": 11,
+        "untested_count": 11
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 0.01,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0,
+        "findings": []
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.41,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 0.01,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 0.0,
+      "result": {
+        "providers": [],
+        "unique_models": 0,
+        "risk_score": 0.0,
+        "license_violations": 0
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 0.02,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 0.875,
+        "annex_iii": [
+          "employment",
+          "legal",
+          "education",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 0
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 0.0,
+      "result": {
+        "frameworks": [],
+        "agents": 0,
+        "edges": 0,
+        "findings_count": 0,
+        "has_cycles": false,
+        "risk_score": 0.0
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 0.01,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.01,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 0,
+        "risk_score": 0.0,
+        "categories": {}
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 0.01,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 0,
+        "risk_score": 0.0
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 0.0,
+      "result": {
+        "has_shadow_ai": false,
+        "total_findings": 0,
+        "providers_found": [],
+        "files_scanned": 0
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 0.0,
+      "result": {
+        "total_findings": 0,
+        "max_risk_score": 0.0,
+        "categories_flagged": []
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 0.04,
+      "result": {
+        "total_findings": 3,
+        "unsafe_files": 1,
+        "critical": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,206 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/openai-agents-python",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 1761,
+    "total_critical": 89,
+    "total_elapsed_s": 14.79
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 5.72,
+      "result": {
+        "total_findings": 935,
+        "files_scanned": 499,
+        "attack_surface_score": 23.3,
+        "categories": {
+          "AGENT_FRAMEWORK": 321,
+          "EXTERNAL_HTTP": 92,
+          "ENV_SECRETS": 100,
+          "SCHEMA_VALIDATION": 347,
+          "SHELL_EXEC": 20,
+          "FILE_SYSTEM": 6,
+          "DATABASE": 11,
+          "MIDDLEWARE": 18,
+          "EVENT_BUS": 2,
+          "NETWORK_SOCKET": 7,
+          "SERIALIZATION": 1,
+          "MCP_TOOL": 10
+        },
+        "severity_counts": {
+          "high": 507,
+          "info": 372,
+          "critical": 20,
+          "medium": 34,
+          "low": 2
+        },
+        "critical_count": 20,
+        "untested_count": 207
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 0.41,
+      "result": {
+        "total_findings": 3,
+        "risk_score": 0.5,
+        "critical": 1,
+        "findings": [
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "src/agents/extensions/memory/dapr_session.py",
+            "line": 123,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "src/agents/extensions/memory/dapr_session.py",
+            "line": 125,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "docs/scripts/translate_docs.py",
+            "line": 313,
+            "severity": "high"
+          }
+        ]
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.37,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 0.52,
+      "result": {
+        "total_findings": 3,
+        "risk_score": 0.9,
+        "critical": 3
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 1.24,
+      "result": {
+        "providers": [
+          "anthropic",
+          "google",
+          "huggingface",
+          "openai"
+        ],
+        "unique_models": 36,
+        "risk_score": 0.492,
+        "license_violations": 44
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 0.94,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 0.625,
+        "annex_iii": [
+          "employment",
+          "education",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 1
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 0.7,
+      "result": {
+        "frameworks": [],
+        "agents": 0,
+        "edges": 0,
+        "findings_count": 0,
+        "has_cycles": false,
+        "risk_score": 0.0
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 1.04,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.06,
+      "result": {
+        "total_findings": 2,
+        "files_scanned": 6,
+        "risk_score": 0.3,
+        "categories": {
+          "SSRF_RISK": 1,
+          "SHADOW_TOOL": 1
+        }
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 0.24,
+      "result": {
+        "total_findings": 2,
+        "files_scanned": 32,
+        "risk_score": 0.3
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 0.55,
+      "result": {
+        "has_shadow_ai": true,
+        "total_findings": 561,
+        "providers_found": [
+          "anthropic",
+          "cohere",
+          "deepseek",
+          "openai"
+        ],
+        "files_scanned": 469
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 0.5,
+      "result": {
+        "total_findings": 142,
+        "max_risk_score": 1.0,
+        "categories_flagged": [
+          "age",
+          "disability",
+          "gender",
+          "nationality",
+          "race"
+        ]
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 2.49,
+      "result": {
+        "total_findings": 109,
+        "unsafe_files": 41,
+        "critical": 85
+      }
+    }
+  }
+}

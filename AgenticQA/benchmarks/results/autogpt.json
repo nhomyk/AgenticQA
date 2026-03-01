@@ -1,0 +1,310 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/AutoGPT",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 3052,
+    "total_critical": 119,
+    "total_elapsed_s": 42.3
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 10.81,
+      "result": {
+        "total_findings": 2385,
+        "files_scanned": 2935,
+        "attack_surface_score": 4.4,
+        "categories": {
+          "SHELL_EXEC": 53,
+          "NETWORK_SOCKET": 8,
+          "EXTERNAL_HTTP": 270,
+          "EVENT_BUS": 19,
+          "CLOUD_SERVICE": 60,
+          "ENV_SECRETS": 190,
+          "SCHEMA_VALIDATION": 1530,
+          "AUTH_BOUNDARY": 3,
+          "MIDDLEWARE": 78,
+          "FILE_SYSTEM": 31,
+          "SERIALIZATION": 69,
+          "AGENT_FRAMEWORK": 70,
+          "DATABASE": 4
+        },
+        "severity_counts": {
+          "critical": 53,
+          "high": 552,
+          "low": 19,
+          "medium": 172,
+          "info": 1589
+        },
+        "critical_count": 53,
+        "untested_count": 0
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 2.52,
+      "result": {
+        "total_findings": 83,
+        "risk_score": 0.5627,
+        "critical": 36,
+        "findings": [
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/docker-compose.platform.yml",
+            "line": 24,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/docker-compose.platform.yml",
+            "line": 25,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "autogpt_platform/frontend/orval.config.ts",
+            "line": 21,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/backend/run_tests.py",
+            "line": 98,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/db/docker/docker-compose.s3.yml",
+            "line": 64,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/db/docker/docker-compose.yml",
+            "line": 118,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/db/docker/docker-compose.yml",
+            "line": 184,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/db/docker/docker-compose.yml",
+            "line": 278,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/db/docker/docker-compose.yml",
+            "line": 345,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/db/docker/docker-compose.yml",
+            "line": 398,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/jwt_utils_test.py",
+            "line": 19,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/jwt_utils_test.py",
+            "line": 74,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 17,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 26,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 42,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 65,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 151,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 179,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 188,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "autogpt_platform/autogpt_libs/autogpt_libs/auth/config_test.py",
+            "line": 197,
+            "severity": "high"
+          }
+        ]
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.42,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 2.74,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 3.78,
+      "result": {
+        "providers": [
+          "anthropic",
+          "aws",
+          "groq",
+          "openai",
+          "replicate"
+        ],
+        "unique_models": 9,
+        "risk_score": 0.404,
+        "license_violations": 2
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 6.52,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 1.0,
+        "annex_iii": [
+          "employment",
+          "education",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 0
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 2.27,
+      "result": {
+        "frameworks": [],
+        "agents": 0,
+        "edges": 0,
+        "findings_count": 0,
+        "has_cycles": false,
+        "risk_score": 0.0
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 3.3,
+      "result": {
+        "total_findings": 2,
+        "risk_score": 0.7,
+        "critical": 0
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.29,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 0,
+        "risk_score": 0.0,
+        "categories": {}
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 1.22,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 65,
+        "risk_score": 0.0
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 1.57,
+      "result": {
+        "has_shadow_ai": true,
+        "total_findings": 174,
+        "providers_found": [
+          "anthropic",
+          "cohere",
+          "deepseek",
+          "meta",
+          "mistral",
+          "openai",
+          "replicate"
+        ],
+        "files_scanned": 1727
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 1.19,
+      "result": {
+        "total_findings": 304,
+        "max_risk_score": 1.0,
+        "categories_flagged": [
+          "age",
+          "disability",
+          "gender",
+          "nationality",
+          "race"
+        ]
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 5.66,
+      "result": {
+        "total_findings": 100,
+        "unsafe_files": 41,
+        "critical": 83
+      }
+    }
+  }
+}

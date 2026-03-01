@@ -1,0 +1,171 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/swarm",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 122,
+    "total_critical": 18,
+    "total_elapsed_s": 3.52
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 2.57,
+      "result": {
+        "total_findings": 59,
+        "files_scanned": 267,
+        "attack_surface_score": 11.9,
+        "categories": {
+          "AGENT_FRAMEWORK": 39,
+          "SCHEMA_VALIDATION": 14,
+          "SHELL_EXEC": 1,
+          "DATABASE": 2,
+          "FILE_SYSTEM": 3
+        },
+        "severity_counts": {
+          "high": 41,
+          "info": 14,
+          "critical": 1,
+          "medium": 3
+        },
+        "critical_count": 1,
+        "untested_count": 51
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 0.05,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0,
+        "findings": []
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.4,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 0.05,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 0.06,
+      "result": {
+        "providers": [
+          "openai"
+        ],
+        "unique_models": 3,
+        "risk_score": 0.383,
+        "license_violations": 0
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 0.1,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 0.75,
+        "annex_iii": [
+          "employment",
+          "education",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 1
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 0.05,
+      "result": {
+        "frameworks": [
+          "swarm"
+        ],
+        "agents": 3,
+        "edges": 0,
+        "findings_count": 0,
+        "has_cycles": false,
+        "risk_score": 0.173
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 0.06,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.02,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 0,
+        "risk_score": 0.0,
+        "categories": {}
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 0.05,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 3,
+        "risk_score": 0.0
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 0.02,
+      "result": {
+        "has_shadow_ai": true,
+        "total_findings": 30,
+        "providers_found": [
+          "cohere",
+          "openai"
+        ],
+        "files_scanned": 54
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 0.02,
+      "result": {
+        "total_findings": 11,
+        "max_risk_score": 0.6,
+        "categories_flagged": [
+          "age",
+          "gender",
+          "nationality"
+        ]
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 0.08,
+      "result": {
+        "total_findings": 18,
+        "unsafe_files": 3,
+        "critical": 18
+      }
+    }
+  }
+}

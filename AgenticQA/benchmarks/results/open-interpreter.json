@@ -1,0 +1,280 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/open-interpreter",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 377,
+    "total_critical": 74,
+    "total_elapsed_s": 5.55
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 3.12,
+      "result": {
+        "total_findings": 195,
+        "files_scanned": 157,
+        "attack_surface_score": 47.3,
+        "categories": {
+          "EXTERNAL_HTTP": 31,
+          "ENV_SECRETS": 59,
+          "SHELL_EXEC": 50,
+          "FILE_SYSTEM": 23,
+          "SERIALIZATION": 2,
+          "SCHEMA_VALIDATION": 8,
+          "MIDDLEWARE": 10,
+          "NETWORK_SOCKET": 3,
+          "AGENT_FRAMEWORK": 8,
+          "DATABASE": 1
+        },
+        "severity_counts": {
+          "high": 100,
+          "critical": 50,
+          "medium": 33,
+          "info": 12
+        },
+        "critical_count": 50,
+        "untested_count": 147
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 0.16,
+      "result": {
+        "total_findings": 16,
+        "risk_score": 0.5875,
+        "critical": 9,
+        "findings": [
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/terminal_interface/local_setup.py",
+            "line": 234,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/terminal_interface/local_setup.py",
+            "line": 346,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/terminal_interface/local_setup.py",
+            "line": 451,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/core/archived_server_1.py",
+            "line": 148,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/core/archived_server_1.py",
+            "line": 151,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/core/llm/llm.py",
+            "line": 351,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "interpreter/terminal_interface/profiles/defaults/llama31-database.py",
+            "line": 19,
+            "severity": "critical"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "interpreter/terminal_interface/profiles/defaults/screenpipe.py",
+            "line": 26,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "scripts/wtf.py",
+            "line": 377,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "scripts/wtf.py",
+            "line": 379,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "interpreter/terminal_interface/profiles/profiles.py",
+            "line": 172,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "interpreter/terminal_interface/profiles/profiles.py",
+            "line": 173,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "interpreter/terminal_interface/profiles/profiles.py",
+            "line": 174,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "interpreter/terminal_interface/profiles/profiles.py",
+            "line": 175,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "interpreter/terminal_interface/profiles/profiles.py",
+            "line": 176,
+            "severity": "high"
+          },
+          {
+            "rule_id": "PRIVILEGE_BREACH",
+            "file": "interpreter/terminal_interface/profiles/profiles.py",
+            "line": 177,
+            "severity": "high"
+          }
+        ]
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.41,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 0.18,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 0.3,
+      "result": {
+        "providers": [
+          "anthropic",
+          "google",
+          "huggingface",
+          "openai",
+          "pytorch"
+        ],
+        "unique_models": 19,
+        "risk_score": 0.449,
+        "license_violations": 18
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 0.19,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 0.5,
+        "annex_iii": [
+          "employment",
+          "education",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 2
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 0.14,
+      "result": {
+        "frameworks": [],
+        "agents": 0,
+        "edges": 0,
+        "findings_count": 0,
+        "has_cycles": false,
+        "risk_score": 0.0
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 0.2,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.03,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 0,
+        "risk_score": 0.0,
+        "categories": {}
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 0.08,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 0,
+        "risk_score": 0.0
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 0.1,
+      "result": {
+        "has_shadow_ai": true,
+        "total_findings": 53,
+        "providers_found": [
+          "anthropic",
+          "cohere",
+          "huggingface",
+          "meta",
+          "mistral",
+          "openai"
+        ],
+        "files_scanned": 122
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 0.1,
+      "result": {
+        "total_findings": 26,
+        "max_risk_score": 0.9,
+        "categories_flagged": [
+          "age",
+          "disability",
+          "gender",
+          "race"
+        ]
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 0.54,
+      "result": {
+        "total_findings": 83,
+        "unsafe_files": 25,
+        "critical": 65
+      }
+    }
+  }
+}

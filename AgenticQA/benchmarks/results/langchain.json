@@ -1,0 +1,320 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/langchain",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 10836,
+    "total_critical": 119,
+    "total_elapsed_s": 36.97
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 13.9,
+      "result": {
+        "total_findings": 9723,
+        "files_scanned": 2532,
+        "attack_surface_score": 48.7,
+        "categories": {
+          "EXTERNAL_HTTP": 114,
+          "AGENT_FRAMEWORK": 7931,
+          "SERIALIZATION": 10,
+          "FILE_SYSTEM": 15,
+          "SCHEMA_VALIDATION": 1498,
+          "ENV_SECRETS": 87,
+          "CLOUD_SERVICE": 19,
+          "EVENT_BUS": 1,
+          "SHELL_EXEC": 25,
+          "DATABASE": 14,
+          "MIDDLEWARE": 8,
+          "NETWORK_SOCKET": 1
+        },
+        "severity_counts": {
+          "high": 8145,
+          "medium": 42,
+          "info": 1510,
+          "low": 1,
+          "critical": 25
+        },
+        "critical_count": 25,
+        "untested_count": 2076
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 1.48,
+      "result": {
+        "total_findings": 25,
+        "risk_score": 0.568,
+        "critical": 14,
+        "findings": [
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/embeddings/azure.py",
+            "line": 35,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/embeddings/base.py",
+            "line": 94,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/chat_models/azure.py",
+            "line": 47,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/chat_models/base.py",
+            "line": 2347,
+            "severity": "high"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/openai/langchain_openai/chat_models/base.py",
+            "line": 2981,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/chat_models/base.py",
+            "line": 2982,
+            "severity": "high"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/openai/langchain_openai/chat_models/base.py",
+            "line": 2995,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/openai/langchain_openai/chat_models/base.py",
+            "line": 3035,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/llms/base.py",
+            "line": 61,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/openai/langchain_openai/llms/base.py",
+            "line": 758,
+            "severity": "high"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/huggingface/langchain_huggingface/llms/huggingface_endpoint.py",
+            "line": 40,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/huggingface/langchain_huggingface/llms/huggingface_endpoint.py",
+            "line": 56,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/qdrant/langchain_qdrant/vectorstores.py",
+            "line": 1258,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/qdrant/langchain_qdrant/vectorstores.py",
+            "line": 1495,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "libs/partners/qdrant/langchain_qdrant/qdrant.py",
+            "line": 388,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/xai/langchain_xai/chat_models.py",
+            "line": 54,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/deepseek/langchain_deepseek/chat_models.py",
+            "line": 55,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/groq/langchain_groq/chat_models.py",
+            "line": 100,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/fireworks/langchain_fireworks/embeddings.py",
+            "line": 18,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "libs/partners/exa/langchain_exa/tools.py",
+            "line": 29,
+            "severity": "high"
+          }
+        ]
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.42,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 1.58,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 3.25,
+      "result": {
+        "providers": [
+          "anthropic",
+          "cohere",
+          "google",
+          "groq",
+          "huggingface",
+          "langchain",
+          "openai",
+          "pytorch",
+          "sklearn"
+        ],
+        "unique_models": 112,
+        "risk_score": 0.469,
+        "license_violations": 108
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 2.01,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 0.625,
+        "annex_iii": [
+          "employment",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 1
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 2.01,
+      "result": {
+        "frameworks": [
+          "langchain",
+          "langgraph"
+        ],
+        "agents": 25,
+        "edges": 7,
+        "findings_count": 2,
+        "has_cycles": false,
+        "risk_score": 1.0
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 2.77,
+      "result": {
+        "total_findings": 11,
+        "risk_score": 0.7545,
+        "critical": 2
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.19,
+      "result": {
+        "total_findings": 1,
+        "files_scanned": 1,
+        "risk_score": 0.08,
+        "categories": {
+          "MISSING_AUTH": 1
+        }
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 0.72,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 48,
+        "risk_score": 0.0
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 1.48,
+      "result": {
+        "has_shadow_ai": true,
+        "total_findings": 656,
+        "providers_found": [
+          "anthropic",
+          "cohere",
+          "deepseek",
+          "google",
+          "groq",
+          "huggingface",
+          "meta",
+          "mistral",
+          "openai"
+        ],
+        "files_scanned": 2265
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 1.46,
+      "result": {
+        "total_findings": 286,
+        "max_risk_score": 1.0,
+        "categories_flagged": [
+          "age",
+          "disability",
+          "gender",
+          "nationality",
+          "race",
+          "religion"
+        ]
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 5.68,
+      "result": {
+        "total_findings": 128,
+        "unsafe_files": 41,
+        "critical": 103
+      }
+    }
+  }
+}

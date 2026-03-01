@@ -1,0 +1,315 @@
+{
+  "summary": {
+    "repo_path": "/private/tmp/agenticqa-benchmarks/semantic-kernel",
+    "scanners_ok": 13,
+    "scanners_failed": 0,
+    "total_findings": 8217,
+    "total_critical": 208,
+    "total_elapsed_s": 27.86
+  },
+  "scanners": {
+    "architecture": {
+      "status": "ok",
+      "elapsed_s": 10.15,
+      "result": {
+        "total_findings": 7139,
+        "files_scanned": 1633,
+        "attack_surface_score": 44.3,
+        "categories": {
+          "SHELL_EXEC": 8,
+          "EXTERNAL_HTTP": 131,
+          "SCHEMA_VALIDATION": 827,
+          "MIDDLEWARE": 14,
+          "AGENT_FRAMEWORK": 5641,
+          "ENV_SECRETS": 106,
+          "CLOUD_SERVICE": 363,
+          "DATABASE": 13,
+          "EVENT_BUS": 6,
+          "FILE_SYSTEM": 24,
+          "SERIALIZATION": 4,
+          "AUTH_BOUNDARY": 1,
+          "MCP_TOOL": 1
+        },
+        "severity_counts": {
+          "critical": 8,
+          "high": 5878,
+          "info": 844,
+          "medium": 403,
+          "low": 6
+        },
+        "critical_count": 8,
+        "untested_count": 1391
+      }
+    },
+    "legal_risk": {
+      "status": "ok",
+      "elapsed_s": 1.49,
+      "result": {
+        "total_findings": 27,
+        "risk_score": 0.4778,
+        "critical": 7,
+        "findings": [
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "dotnet/samples/Demos/ProcessWithCloudEvents/ProcessWithCloudEvents.Client/src/services/grpc/DocumentGenerationGrpcClient.ts",
+            "line": 11,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "dotnet/samples/Demos/ProcessFrameworkWithSignalR/src/ProcessFramework.Aspire.SignalR.ReactFrontend/src/services/signalr/ProcessFrameworkClient.ts",
+            "line": 3,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "dotnet/samples/Demos/ProcessFrameworkWithSignalR/src/ProcessFramework.Aspire.SignalR.ReactFrontend/src/services/signalr/documentGeneration.client.ts",
+            "line": 13,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "python/semantic_kernel/connectors/ai/open_ai/services/open_ai_text_to_image_base.py",
+            "line": 103,
+            "severity": "high"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "python/semantic_kernel/connectors/ai/open_ai/services/open_ai_text_to_image_base.py",
+            "line": 180,
+            "severity": "high"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/semantic_kernel/connectors/memory_stores/milvus/milvus_memory_store.py",
+            "line": 159,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/semantic_kernel/connectors/memory_stores/milvus/milvus_memory_store.py",
+            "line": 172,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/agent/main.py",
+            "line": 178,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/agent/main.py",
+            "line": 191,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/agent/main.py",
+            "line": 201,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/agent/main.py",
+            "line": 230,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/agent/main.py",
+            "line": 231,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/server.py",
+            "line": 36,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/server.py",
+            "line": 39,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/server.py",
+            "line": 40,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/auth_server.py",
+            "line": 40,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/auth_server.py",
+            "line": 41,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/legacy_as_server.py",
+            "line": 37,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "SSRF_RISK",
+            "file": "python/samples/demos/mcp_with_oauth/server/mcp_simple_auth/legacy_as_server.py",
+            "line": 38,
+            "severity": "medium"
+          },
+          {
+            "rule_id": "CREDENTIAL_EXPOSURE",
+            "file": "python/samples/concepts/filtering/retry_with_different_model.py",
+            "line": 71,
+            "severity": "high"
+          }
+        ]
+      }
+    },
+    "cve_reachability": {
+      "status": "ok",
+      "elapsed_s": 0.37,
+      "result": {
+        "python_cves": 0,
+        "python_reachable": 0,
+        "python_error": "pip-audit unavailable or failed",
+        "js_cves": 0,
+        "js_reachable": 0,
+        "js_error": "npm audit unavailable or failed"
+      }
+    },
+    "hipaa": {
+      "status": "ok",
+      "elapsed_s": 1.44,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "ai_model_sbom": {
+      "status": "ok",
+      "elapsed_s": 2.4,
+      "result": {
+        "providers": [
+          "anthropic",
+          "aws",
+          "azure",
+          "google",
+          "huggingface",
+          "mistral",
+          "openai",
+          "pytorch"
+        ],
+        "unique_models": 20,
+        "risk_score": 0.445,
+        "license_violations": 13
+      }
+    },
+    "ai_act": {
+      "status": "ok",
+      "elapsed_s": 1.6,
+      "result": {
+        "risk_category": "high_risk",
+        "conformity_score": 0.875,
+        "annex_iii": [
+          "employment",
+          "education",
+          "critical_infra"
+        ],
+        "findings_count": 4,
+        "missing": 0
+      }
+    },
+    "trust_graph": {
+      "status": "ok",
+      "elapsed_s": 1.25,
+      "result": {
+        "frameworks": [
+          "autogen"
+        ],
+        "agents": 0,
+        "edges": 0,
+        "findings_count": 3,
+        "has_cycles": false,
+        "risk_score": 0.927
+      }
+    },
+    "prompt_injection": {
+      "status": "ok",
+      "elapsed_s": 2.12,
+      "result": {
+        "total_findings": 0,
+        "risk_score": 0.0,
+        "critical": 0
+      }
+    },
+    "mcp_security": {
+      "status": "ok",
+      "elapsed_s": 0.21,
+      "result": {
+        "total_findings": 0,
+        "files_scanned": 4,
+        "risk_score": 0.0,
+        "categories": {}
+      }
+    },
+    "data_flow": {
+      "status": "ok",
+      "elapsed_s": 0.8,
+      "result": {
+        "total_findings": 4,
+        "files_scanned": 65,
+        "risk_score": 0.6
+      }
+    },
+    "shadow_ai": {
+      "status": "ok",
+      "elapsed_s": 0.94,
+      "result": {
+        "has_shadow_ai": true,
+        "total_findings": 573,
+        "providers_found": [
+          "cohere",
+          "deepseek",
+          "google",
+          "huggingface",
+          "meta",
+          "mistral",
+          "openai"
+        ],
+        "files_scanned": 1201
+      }
+    },
+    "bias_detection": {
+      "status": "ok",
+      "elapsed_s": 0.91,
+      "result": {
+        "total_findings": 230,
+        "max_risk_score": 1.0,
+        "categories_flagged": [
+          "age",
+          "disability",
+          "gender",
+          "nationality",
+          "race"
+        ]
+      }
+    },
+    "injection_guard": {
+      "status": "ok",
+      "elapsed_s": 4.18,
+      "result": {
+        "total_findings": 237,
+        "unsafe_files": 102,
+        "critical": 201
+      }
+    }
+  }
+}

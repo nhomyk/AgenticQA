@@ -185,6 +185,66 @@ def scan_repo(repo_path: str) -> dict:
         }
     results["data_flow"] = _run_scanner("data_flow", run_dft)
 
+    # 11. Shadow AI Detection (AI-specific — no traditional tool equivalent)
+    def run_shadow():
+        from agenticqa.security.shadow_ai_detector import ShadowAIDetector
+        r = ShadowAIDetector().scan(repo_path)
+        return {
+            "has_shadow_ai": r.has_shadow_ai,
+            "total_findings": r.total_findings,
+            "providers_found": sorted(r.providers_found),
+            "files_scanned": r.files_scanned,
+        }
+    results["shadow_ai"] = _run_scanner("shadow_ai", run_shadow)
+
+    # 12. Bias Detection (AI-specific — scans for demographic bias in outputs)
+    def run_bias():
+        from agenticqa.security.bias_detector import BiasDetector
+        from agenticqa.security.safe_file_iter import iter_source_files, safe_read_text
+        detector = BiasDetector(sensitivity="high")
+        total_risk = 0.0
+        files_flagged = 0
+        categories: set = set()
+        for fpath in iter_source_files(Path(repo_path), extensions={".py", ".js", ".ts"}, max_files=5000):
+            content = safe_read_text(fpath)
+            if not content:
+                continue
+            report = detector.scan(content)
+            if report.has_bias_risk:
+                files_flagged += 1
+                total_risk = max(total_risk, report.risk_score)
+                categories.update(report.categories_flagged)
+        return {
+            "total_findings": files_flagged,
+            "max_risk_score": round(total_risk, 2),
+            "categories_flagged": sorted(categories),
+        }
+    results["bias_detection"] = _run_scanner("bias_detection", run_bias)
+
+    # 13. Indirect Injection Guard (AI-specific — RAG pipeline safety)
+    def run_injection():
+        from agenticqa.security.indirect_injection_guard import IndirectInjectionGuard
+        from agenticqa.security.safe_file_iter import iter_source_files, safe_read_text
+        guard = IndirectInjectionGuard()
+        unsafe_files = 0
+        total_findings = 0
+        critical_findings = 0
+        for fpath in iter_source_files(Path(repo_path), extensions={".py", ".js", ".ts", ".md", ".txt"}, max_files=5000):
+            content = safe_read_text(fpath)
+            if not content:
+                continue
+            report = guard.scan(content)
+            if not report.is_safe:
+                unsafe_files += 1
+                total_findings += report.total_findings
+                critical_findings += len(report.critical_findings)
+        return {
+            "total_findings": total_findings,
+            "unsafe_files": unsafe_files,
+            "critical": critical_findings,
+        }
+    results["injection_guard"] = _run_scanner("injection_guard", run_injection)
+
     return results
 
 
