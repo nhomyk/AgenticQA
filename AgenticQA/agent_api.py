@@ -4729,6 +4729,180 @@ async def workspace_safety_invariants():
     }
 
 
+# ── PII Redaction endpoints ──────────────────────────────────────────────────
+
+
+@app.post("/api/security/pii-redact")
+async def pii_redact(request: Request):
+    """Redact PII from agent output (dict/list/string)."""
+    from agenticqa.security.pii_redactor import PIIRedactor
+    body = await request.json()
+    text = body.get("text", "")
+    data = body.get("data")
+    redactor = PIIRedactor()
+    if data is not None:
+        report = redactor.redact(data)
+    else:
+        redacted, events = redactor.redact_text(text)
+        report_dict = {
+            "redacted_text": redacted,
+            "redaction_count": len(events),
+            "events": [{"pii_type": e.pii_type, "replacement": e.replacement} for e in events],
+        }
+        return report_dict
+    return {
+        "clean": report.clean,
+        "redaction_count": report.redaction_count,
+        "redacted_output": report.redacted_output,
+        "events": [{"pii_type": e.pii_type, "field_path": e.field_path, "replacement": e.replacement} for e in report.events],
+    }
+
+
+@app.post("/api/security/pii-scan")
+async def pii_scan(request: Request):
+    """Detect PII without modifying output (dry run)."""
+    from agenticqa.security.pii_redactor import PIIRedactor
+    body = await request.json()
+    data = body.get("data", body.get("text", ""))
+    redactor = PIIRedactor()
+    report = redactor.scan_only(data)
+    return {
+        "clean": report.clean,
+        "redaction_count": report.redaction_count,
+        "events": [{"pii_type": e.pii_type, "field_path": e.field_path} for e in report.events],
+    }
+
+
+# ── Shadow AI Detection endpoints ───────────────────────────────────────────
+
+
+@app.post("/api/security/shadow-ai-scan")
+async def shadow_ai_scan(request: Request):
+    """Scan source code for unauthorized AI model usage."""
+    from agenticqa.security.shadow_ai_detector import ShadowAIDetector
+    body = await request.json()
+    text = body.get("text", "")
+    approved_models = body.get("approved_models")
+    approved_providers = body.get("approved_providers")
+    detector = ShadowAIDetector(
+        approved_models=set(approved_models) if approved_models else None,
+        approved_providers=set(approved_providers) if approved_providers else None,
+    )
+    report = detector.scan_text(text)
+    return {
+        "has_shadow_ai": report.has_shadow_ai,
+        "total_findings": report.total_findings,
+        "providers_found": sorted(report.providers_found),
+        "findings": [
+            {"rule_id": f.rule_id, "provider": f.provider, "model_id": f.model_id,
+             "evidence": f.evidence[:200], "severity": f.severity}
+            for f in report.findings
+        ],
+    }
+
+
+# ── Cost Tracker endpoints ──────────────────────────────────────────────────
+
+
+@app.post("/api/security/cost-record")
+async def cost_record(request: Request):
+    """Record an LLM API call for cost tracking."""
+    from agenticqa.security.cost_tracker import CostTracker
+    body = await request.json()
+    tracker = CostTracker()
+    record = tracker.record(
+        agent_id=body["agent_id"],
+        model=body["model"],
+        input_tokens=body["input_tokens"],
+        output_tokens=body["output_tokens"],
+        session_id=body.get("session_id", ""),
+        team=body.get("team", ""),
+    )
+    return {
+        "estimated_cost_usd": record.estimated_cost_usd,
+        "timestamp": record.timestamp,
+    }
+
+
+@app.post("/api/security/cost-check")
+async def cost_check(request: Request):
+    """Check if an agent has budget remaining."""
+    from agenticqa.security.cost_tracker import CostTracker
+    body = await request.json()
+    tracker = CostTracker()
+    result = tracker.check_quota(
+        agent_id=body["agent_id"],
+        model=body.get("model", ""),
+        estimated_tokens=body.get("estimated_tokens", 0),
+    )
+    return {
+        "allowed": result.allowed,
+        "current_cost_usd": result.current_cost_usd,
+        "remaining_budget_usd": result.remaining_budget_usd,
+        "remaining_tokens": result.remaining_tokens,
+        "alert": result.alert,
+        "block_reason": result.block_reason,
+    }
+
+
+@app.get("/api/security/cost-summary")
+async def cost_summary():
+    """Get cost summaries for all agents."""
+    from agenticqa.security.cost_tracker import CostTracker
+    tracker = CostTracker()
+    return {
+        "total_cost_usd": tracker.get_total_cost(),
+        "agents": tracker.get_all_summaries(),
+    }
+
+
+# ── Bias Detection endpoints ────────────────────────────────────────────────
+
+
+@app.post("/api/security/bias-scan")
+async def bias_scan(request: Request):
+    """Scan agent output for bias and fairness concerns."""
+    from agenticqa.security.bias_detector import BiasDetector
+    body = await request.json()
+    text = body.get("text", "")
+    data = body.get("data")
+    sensitivity = body.get("sensitivity", "standard")
+    detector = BiasDetector(sensitivity=sensitivity)
+    if data is not None:
+        report = detector.scan_dict(data)
+    else:
+        report = detector.scan(text)
+    return {
+        "has_bias_risk": report.has_bias_risk,
+        "risk_score": report.risk_score,
+        "total_findings": report.total_findings,
+        "categories_flagged": sorted(report.categories_flagged),
+        "protected_attrs_detected": report.protected_attrs_detected,
+        "findings": [
+            {"rule_id": f.rule_id, "category": f.category, "severity": f.severity,
+             "evidence": f.evidence[:200], "recommendation": f.recommendation}
+            for f in report.findings
+        ],
+    }
+
+
+# ── Indirect Injection Guard endpoints ──────────────────────────────────────
+
+
+@app.post("/api/security/injection-scan")
+async def injection_scan(request: Request):
+    """Scan document for indirect prompt injection before RAG ingest."""
+    from agenticqa.security.indirect_injection_guard import IndirectInjectionGuard
+    body = await request.json()
+    text = body.get("text", "")
+    strict = body.get("strict", False)
+    source_type = body.get("source_type", "document")
+    source_id = body.get("source_id", "")
+    guard = IndirectInjectionGuard(strict=strict)
+    result = guard.scan_for_rag_ingest(text, source_type=source_type, source_id=source_id)
+    return result
+
+
 if __name__ == "__main__":
     import uvicorn
 
