@@ -313,6 +313,17 @@ class MCPScanResult:
     scan_error: Optional[str] = None
 
     @property
+    def total_findings(self) -> int:
+        return len(self.findings)
+
+    @property
+    def category_counts(self) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for f in self.findings:
+            counts[f.attack_type] = counts.get(f.attack_type, 0) + 1
+        return counts
+
+    @property
     def critical_findings(self) -> List[MCPToolFinding]:
         return [f for f in self.findings if f.severity == "critical"]
 

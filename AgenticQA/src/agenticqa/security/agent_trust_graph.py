@@ -177,6 +177,23 @@ class AgentTrustGraph:
     risk_score: float
     scan_error: Optional[str] = None
 
+    # ── Convenience aliases ────────────────────────────────────────────────
+
+    @property
+    def agents(self) -> List[AgentNode]:
+        """Alias for ``nodes`` — more intuitive for callers."""
+        return self.nodes
+
+    @property
+    def findings(self) -> List[TrustViolation]:
+        """Alias for ``violations`` — consistent with other scanners."""
+        return self.violations
+
+    @property
+    def has_cycles(self) -> bool:
+        """True if any CIRCULAR_TRUST violation was detected."""
+        return any(v.rule_id == "CIRCULAR_TRUST" for v in self.violations)
+
 
 # ---------------------------------------------------------------------------
 # Severity weights

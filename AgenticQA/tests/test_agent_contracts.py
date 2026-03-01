@@ -32,8 +32,8 @@ def test_contracts_registry_has_8_agents():
 
 @pytest.mark.unit
 def test_contracts_registry_keys():
-    expected = {"QA_Assistant", "Performance", "Compliance", "DevOps",
-                "SRE", "SDET", "Fullstack", "RedTeam_Agent"}
+    expected = {"QA_Assistant", "Performance_Agent", "Compliance_Agent", "DevOps_Agent",
+                "SRE_Agent", "SDET_Agent", "Fullstack_Agent", "RedTeam_Agent"}
     assert set(AGENT_CONTRACTS.keys()) == expected
 
 
@@ -239,7 +239,7 @@ def test_performance_agent_output_passes_contract():
     from agents import PerformanceAgent
     agent = PerformanceAgent()
     result = agent.execute({"duration_ms": 500, "baseline_ms": 400, "memory_mb": 128})
-    validated = validate_agent_output("Performance", result)
+    validated = validate_agent_output("Performance_Agent", result)
     assert validated.status == "optimal"
 
 
@@ -248,7 +248,7 @@ def test_compliance_agent_output_passes_contract():
     from agents import ComplianceAgent
     agent = ComplianceAgent()
     result = agent.execute({"encrypted": True, "pii_masked": True, "audit_enabled": True})
-    validated = validate_agent_output("Compliance", result)
+    validated = validate_agent_output("Compliance_Agent", result)
     assert validated.data_encryption is True
 
 
@@ -257,7 +257,7 @@ def test_devops_agent_output_passes_contract():
     from agents import DevOpsAgent
     agent = DevOpsAgent()
     result = agent.execute({"version": "v1.0.0", "environment": "staging"})
-    validated = validate_agent_output("DevOps", result)
+    validated = validate_agent_output("DevOps_Agent", result)
     assert validated.deployment_status == "success"
 
 
@@ -269,7 +269,7 @@ def test_sre_agent_output_passes_contract():
         "file_path": "app.py",
         "errors": [{"rule": "E301", "message": "expected 2 blank lines", "line": 1, "file": "app.py"}],
     })
-    validated = validate_agent_output("SRE", result)
+    validated = validate_agent_output("SRE_Agent", result)
     assert validated.total_errors >= 1
 
 
@@ -280,7 +280,7 @@ def test_sdet_agent_output_passes_contract():
     result = agent.execute({
         "coverage_percent": 70, "uncovered_files": ["app.py"], "test_type": "unit",
     })
-    validated = validate_agent_output("SDET", result)
+    validated = validate_agent_output("SDET_Agent", result)
     assert validated.current_coverage == 70
 
 
@@ -291,5 +291,5 @@ def test_fullstack_agent_output_passes_contract():
     result = agent.execute({
         "title": "Add endpoint", "category": "api", "description": "GET /health returns 200",
     })
-    validated = validate_agent_output("Fullstack", result)
+    validated = validate_agent_output("Fullstack_Agent", result)
     assert validated.code_generated is True

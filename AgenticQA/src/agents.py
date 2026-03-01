@@ -1873,15 +1873,21 @@ class SREAgent(BaseAgent):
 
             errors = linting_data.get("errors", [])
 
-            # Auto-detect TypeScript repo and run linter if no errors were pre-supplied
+            # Auto-detect language and run appropriate linter if no errors pre-supplied
             lang = (linting_data.get("language") or "").lower()
             repo_path = linting_data.get("repo_path", ".")
             if not errors and lang in ("typescript", "javascript", "ts", "js", "tsx", "jsx"):
                 errors = self._run_typescript_linter(repo_path)
+            elif not errors and lang in ("python", "py"):
+                errors = self._run_python_linter(repo_path)
             elif not errors and not lang:
                 import os as _os
                 if _os.path.exists(_os.path.join(repo_path, "tsconfig.json")):
                     errors = self._run_typescript_linter(repo_path)
+                elif _os.path.exists(_os.path.join(repo_path, "setup.py")) or \
+                     _os.path.exists(_os.path.join(repo_path, "pyproject.toml")) or \
+                     _os.path.exists(_os.path.join(repo_path, "requirements.txt")):
+                    errors = self._run_python_linter(repo_path)
 
             # Auto-detect shell scripts and run shellcheck
             shell_errors = linting_data.get("shell_errors", [])
@@ -2074,6 +2080,68 @@ class SREAgent(BaseAgent):
                 "message": item.get("message", ""),
                 "severity": item.get("level", "warning"),
             })
+        return errors
+
+    def _run_python_linter(self, repo_path: str) -> List[Dict]:
+        """Run flake8 on a Python repo and return normalized error dicts.
+
+        flake8 must be installed. Returns [] if not available — never raises.
+        """
+        import subprocess as _sp, os as _os
+
+        # Check if there are any Python files
+        py_indicators = [
+            _os.path.exists(_os.path.join(repo_path, "setup.py")),
+            _os.path.exists(_os.path.join(repo_path, "pyproject.toml")),
+            _os.path.exists(_os.path.join(repo_path, "setup.cfg")),
+            _os.path.exists(_os.path.join(repo_path, "requirements.txt")),
+        ]
+        has_src = _os.path.isdir(_os.path.join(repo_path, "src"))
+        if not any(py_indicators) and not has_src:
+            # Also check for any .py files at all
+            import glob as _gl
+            if not _gl.glob(_os.path.join(repo_path, "**", "*.py"), recursive=True):
+                return []
+
+        # Determine scan targets — prefer src/ if it exists
+        targets = []
+        for d in ["src", "lib", "app", "."]:
+            full = _os.path.join(repo_path, d)
+            if _os.path.isdir(full):
+                targets.append(d)
+                break
+        if not targets:
+            targets = ["."]
+
+        try:
+            proc = _sp.run(
+                [
+                    "flake8",
+                    "--format=%(path)s:%(row)d:%(col)d:%(code)s:%(text)s",
+                    "--max-line-length=120",
+                    "--max-complexity=10",
+                    "--count",
+                    *targets,
+                ],
+                capture_output=True, text=True, timeout=120, cwd=repo_path,
+            )
+        except (FileNotFoundError, _sp.TimeoutExpired):
+            return []
+        except Exception:
+            return []
+
+        errors = []
+        for line in proc.stdout.splitlines():
+            parts = line.split(":", 4)
+            if len(parts) >= 5:
+                errors.append({
+                    "file": parts[0],
+                    "line": int(parts[1]) if parts[1].isdigit() else 1,
+                    "col": int(parts[2]) if parts[2].isdigit() else 1,
+                    "rule": parts[3],
+                    "message": parts[4],
+                })
+        self.log(f"flake8 found {len(errors)} issue(s) in {repo_path}")
         return errors
 
     def _run_typescript_linter(self, repo_path: str) -> List[Dict]:

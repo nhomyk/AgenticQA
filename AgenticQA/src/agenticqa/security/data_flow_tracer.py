@@ -274,6 +274,10 @@ class DataFlowReport:
     tainted_variables_detected: int = 0
 
     @property
+    def total_findings(self) -> int:
+        return len(self.findings)
+
+    @property
     def critical_findings(self) -> List[DataFlowFinding]:
         return [f for f in self.findings if f.severity == "critical"]
 

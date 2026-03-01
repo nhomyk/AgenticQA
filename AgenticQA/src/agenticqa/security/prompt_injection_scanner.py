@@ -130,6 +130,21 @@ class InjectionScanResult:
     surface_score: float    # 0.0–1.0, weighted by severity
     scan_error: Optional[str] = None
 
+    # ── Convenience aliases ────────────────────────────────────────────────
+
+    @property
+    def risk_score(self) -> float:
+        """Alias for ``surface_score`` — consistent with other scanners."""
+        return self.surface_score
+
+    @property
+    def critical_findings(self) -> List[InjectionFinding]:
+        return [f for f in self.findings if f.severity == "critical"]
+
+    @property
+    def total_findings(self) -> int:
+        return len(self.findings)
+
 
 # ---------------------------------------------------------------------------
 # Scanner

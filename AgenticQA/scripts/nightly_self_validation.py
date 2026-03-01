@@ -314,6 +314,125 @@ def check_demo_pipeline() -> tuple:
     return True, "run_demo.py exists"
 
 
+def check_scanner_self_scan() -> tuple:
+    """All scanners must complete without error when pointed at our own repo."""
+    repo = str(Path(__file__).parent.parent)
+    failures = []
+    ok = 0
+    scanners = [
+        ("ArchitectureScanner", lambda: __import__("agenticqa.security.architecture_scanner", fromlist=["ArchitectureScanner"]).ArchitectureScanner().scan(repo)),
+        ("LegalRiskScanner", lambda: __import__("agenticqa.security.legal_risk_scanner", fromlist=["LegalRiskScanner"]).LegalRiskScanner().scan(repo)),
+        ("HIPAAPHIScanner", lambda: __import__("agenticqa.security.hipaa_phi_scanner", fromlist=["HIPAAPHIScanner"]).HIPAAPHIScanner().scan(repo)),
+        ("PromptInjectionScanner", lambda: __import__("agenticqa.security.prompt_injection_scanner", fromlist=["PromptInjectionScanner"]).PromptInjectionScanner().scan(repo)),
+        ("MCPSecurityScanner", lambda: __import__("agenticqa.security.mcp_scanner", fromlist=["MCPSecurityScanner"]).MCPSecurityScanner().scan(repo)),
+        ("CrossAgentDataFlowTracer", lambda: __import__("agenticqa.security.data_flow_tracer", fromlist=["CrossAgentDataFlowTracer"]).CrossAgentDataFlowTracer().trace(repo)),
+        ("AgentTrustGraphAnalyzer", lambda: __import__("agenticqa.security.agent_trust_graph", fromlist=["AgentTrustGraphAnalyzer"]).AgentTrustGraphAnalyzer().analyze(repo)),
+        ("AIModelSBOMScanner", lambda: __import__("agenticqa.security.ai_model_sbom", fromlist=["AIModelSBOMScanner"]).AIModelSBOMScanner().scan(repo)),
+        ("AIActComplianceChecker", lambda: __import__("agenticqa.compliance.ai_act", fromlist=["AIActComplianceChecker"]).AIActComplianceChecker().check(repo)),
+    ]
+    for name, fn in scanners:
+        try:
+            result = fn()
+            if getattr(result, "scan_error", None):
+                failures.append(f"{name}: scan_error={result.scan_error}")
+            else:
+                ok += 1
+        except Exception as exc:
+            failures.append(f"{name}: {type(exc).__name__}: {exc}")
+    if failures:
+        return False, f"{ok}/{len(scanners)} OK; failures: {'; '.join(failures[:3])}"
+    return True, f"{len(scanners)}/{len(scanners)} scanners completed self-scan"
+
+
+def check_convenience_properties() -> tuple:
+    """Scanner results must expose total_findings, risk_score, and aliases."""
+    import tempfile
+    from agenticqa.security.architecture_scanner import ArchitectureScanner
+    from agenticqa.security.mcp_scanner import MCPSecurityScanner
+    from agenticqa.security.data_flow_tracer import CrossAgentDataFlowTracer
+    from agenticqa.security.agent_trust_graph import AgentTrustGraphAnalyzer
+    from agenticqa.security.prompt_injection_scanner import PromptInjectionScanner
+
+    with tempfile.TemporaryDirectory() as td:
+        (Path(td) / "app.py").write_text("import subprocess\nsubprocess.run(['ls'])\n")
+        arch = ArchitectureScanner().scan(td)
+        mcp = MCPSecurityScanner().scan(td)
+        dft = CrossAgentDataFlowTracer().trace(td)
+        trust = AgentTrustGraphAnalyzer().analyze(td)
+        pi = PromptInjectionScanner().scan(td)
+
+    checks = [
+        ("arch.total_findings", hasattr(arch, "total_findings") and isinstance(arch.total_findings, int)),
+        ("arch.category_counts", hasattr(arch, "category_counts") and isinstance(arch.category_counts, dict)),
+        ("arch.severity_counts", hasattr(arch, "severity_counts") and isinstance(arch.severity_counts, dict)),
+        ("mcp.total_findings", hasattr(mcp, "total_findings") and isinstance(mcp.total_findings, int)),
+        ("mcp.category_counts", hasattr(mcp, "category_counts") and isinstance(mcp.category_counts, dict)),
+        ("dft.total_findings", hasattr(dft, "total_findings") and isinstance(dft.total_findings, int)),
+        ("trust.agents", hasattr(trust, "agents")),
+        ("trust.findings", hasattr(trust, "findings")),
+        ("trust.has_cycles", hasattr(trust, "has_cycles")),
+        ("pi.risk_score", hasattr(pi, "risk_score")),
+        ("pi.total_findings", hasattr(pi, "total_findings") and isinstance(pi.total_findings, int)),
+        ("pi.critical_findings", hasattr(pi, "critical_findings")),
+    ]
+    failed = [name for name, ok in checks if not ok]
+    if failed:
+        return False, f"Missing properties: {', '.join(failed)}"
+    return True, f"{len(checks)}/{len(checks)} convenience properties verified"
+
+
+def check_python_auto_linting() -> tuple:
+    """SREAgent._run_python_linter must exist and handle a temp repo."""
+    import tempfile
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from agents import SREAgent
+    if not hasattr(SREAgent, "_run_python_linter"):
+        return False, "_run_python_linter method missing from SREAgent"
+    agent = SREAgent.__new__(SREAgent)
+    agent.agent_name = "SRE_Agent"
+    agent._strategy_selector = None
+    with tempfile.TemporaryDirectory() as td:
+        # No Python indicators → should return []
+        (Path(td) / "index.js").write_text("console.log('hi')")
+        result = agent._run_python_linter(td)
+        if result != []:
+            return False, f"Expected [] for non-Python repo, got {len(result)} errors"
+    return True, "_run_python_linter works: returns [] for non-Python repos"
+
+
+def check_agent_output_contracts() -> tuple:
+    """Agent output contracts must be registered for all 8 agents."""
+    from agenticqa.contracts import AGENT_CONTRACTS, validate_agent_output
+    expected = {"QA_Assistant", "Performance_Agent", "Compliance_Agent", "DevOps_Agent",
+                "SRE_Agent", "SDET_Agent", "Fullstack_Agent", "RedTeam_Agent"}
+    missing = expected - set(AGENT_CONTRACTS.keys())
+    if missing:
+        return False, f"Missing contracts: {', '.join(sorted(missing))}"
+    return True, f"{len(expected)}/{len(expected)} agent output contracts registered"
+
+
+def check_path_sanitization() -> tuple:
+    """Path sanitizer must block traversal attacks."""
+    from agenticqa.security.path_sanitizer import sanitize_repo_path
+    # Valid path must pass
+    try:
+        sanitize_repo_path("/tmp")
+    except ValueError:
+        return False, "/tmp should be allowed but was rejected"
+    # Traversal must be blocked
+    try:
+        sanitize_repo_path("/etc/passwd")
+        return False, "/etc/passwd should be blocked but was allowed"
+    except ValueError:
+        pass
+    try:
+        sanitize_repo_path("/tmp/../etc/passwd")
+        return False, "Traversal escape should be blocked but was allowed"
+    except ValueError:
+        pass
+    return True, "Path sanitizer blocks /etc/passwd and traversal escapes"
+
+
 def check_test_count() -> tuple:
     """pytest must discover 1500+ unit tests."""
     import subprocess
@@ -352,6 +471,11 @@ def run_all() -> ValidationReport:
         ("Output provenance sign+verify", "provenance", check_provenance),
         ("PR Risk Scorer", "scoring", check_pr_risk_scorer),
         ("Demo pipeline exists", "pipeline", check_demo_pipeline),
+        ("Scanner self-scan (9 scanners)", "client", check_scanner_self_scan),
+        ("Convenience properties (12 checks)", "client", check_convenience_properties),
+        ("Python auto-linting", "sre", check_python_auto_linting),
+        ("Agent output contracts (8 agents)", "contracts", check_agent_output_contracts),
+        ("Path sanitization (CWE-22)", "security", check_path_sanitization),
         ("Unit test count (1500+)", "tests", check_test_count),
     ]
 

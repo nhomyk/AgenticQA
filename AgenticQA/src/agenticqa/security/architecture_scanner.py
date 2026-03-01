@@ -500,6 +500,24 @@ class ArchitectureScanResult:
     # ── Convenience properties ────────────────────────────────────────────────
 
     @property
+    def total_findings(self) -> int:
+        return len(self.integration_areas)
+
+    @property
+    def category_counts(self) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for a in self.integration_areas:
+            counts[a.category] = counts.get(a.category, 0) + 1
+        return counts
+
+    @property
+    def severity_counts(self) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for a in self.integration_areas:
+            counts[a.severity] = counts.get(a.severity, 0) + 1
+        return counts
+
+    @property
     def critical_areas(self) -> List[IntegrationArea]:
         return [a for a in self.integration_areas if a.severity == "critical"]
 

@@ -175,12 +175,12 @@ class RedTeamOutput(BaseModel):
 
 AGENT_CONTRACTS: Dict[str, Type[BaseModel]] = {
     "QA_Assistant": QAOutput,
-    "Performance": PerformanceOutput,
-    "Compliance": ComplianceOutput,
-    "DevOps": DevOpsOutput,
-    "SRE": SREOutput,
-    "SDET": SDETOutput,
-    "Fullstack": FullstackOutput,
+    "Performance_Agent": PerformanceOutput,
+    "Compliance_Agent": ComplianceOutput,
+    "DevOps_Agent": DevOpsOutput,
+    "SRE_Agent": SREOutput,
+    "SDET_Agent": SDETOutput,
+    "Fullstack_Agent": FullstackOutput,
     "RedTeam_Agent": RedTeamOutput,
 }
 
