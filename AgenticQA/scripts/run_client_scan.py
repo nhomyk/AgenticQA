@@ -245,6 +245,24 @@ def scan_repo(repo_path: str) -> dict:
         }
     results["injection_guard"] = _run_scanner("injection_guard", run_injection)
 
+    # 14. Custom Rules (if .agenticqa/custom_rules.json or ~/.agenticqa/global_rules.json exist)
+    def run_custom():
+        from agenticqa.security.custom_rules import CustomRuleEngine
+        engine = CustomRuleEngine()
+        loaded = engine.load_from_repo(repo_path)
+        loaded += engine.load_global()
+        if loaded == 0:
+            return {"total_findings": 0, "rules_loaded": 0, "note": "No custom rules configured"}
+        r = engine.scan(repo_path)
+        return {
+            "total_findings": r.total_findings,
+            "rules_loaded": r.rules_loaded,
+            "rules_matched": r.rules_matched,
+            "critical": r.critical,
+            "findings": [f.to_dict() for f in r.findings[:20]],
+        }
+    results["custom_rules"] = _run_scanner("custom_rules", run_custom)
+
     return results
 
 

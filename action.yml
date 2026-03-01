@@ -66,6 +66,12 @@ outputs:
   detected-languages:
     description: 'Comma-separated list of detected languages'
     value: ${{ steps.scan.outputs.detected_languages }}
+  security-grade:
+    description: 'Security grade (A+ through F) benchmarked against major AI frameworks'
+    value: ${{ steps.scan.outputs.security_grade }}
+  security-percentile:
+    description: 'Security percentile (0-100) vs benchmark frameworks'
+    value: ${{ steps.scan.outputs.security_percentile }}
 
 runs:
   using: 'composite'

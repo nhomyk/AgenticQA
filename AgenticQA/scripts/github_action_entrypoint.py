@@ -484,12 +484,39 @@ def main() -> int:
 
     _write_summary(summary_md)
 
+    # Record scan for trend tracking
+    try:
+        from agenticqa.monitoring.scan_trend import ScanTrendAggregator
+        repo_id = os.environ.get("GITHUB_REPOSITORY", repo_path)
+        ScanTrendAggregator().record(output, repo_id=repo_id)
+    except Exception:
+        pass  # Non-blocking
+
+    # Security benchmarking
+    try:
+        from agenticqa.scoring.security_benchmark import benchmark_scan
+        bench = benchmark_scan(output)
+        _set_output("security_grade", bench.grade)
+        _set_output("security_percentile", str(bench.overall_percentile))
+        print(f"\n  Benchmark: Grade {bench.grade} — {bench.comparison_text}")
+    except Exception:
+        pass
+
     # Post PR comment
     if pr_comment:
         try:
             _post_pr_comment(results, delta, build_info, elapsed)
         except Exception as e:
             print(f"WARN: PR comment failed: {e}")
+
+    # Slack notification (if configured)
+    try:
+        from agenticqa.notifications.slack import SlackNotifier
+        slack = SlackNotifier()
+        if slack.configured:
+            slack.notify_scan(output)
+    except Exception:
+        pass
 
     # Generate SARIF if requested
     if generate_sarif:
