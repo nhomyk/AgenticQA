@@ -14,6 +14,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
 jobs:
   self-scan:
     name: Security Self-Scan
@@ -24,6 +29,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Restore baseline for delta scanning on PRs
+      - name: Restore scan baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: agenticqa-baseline.json
+          key: agenticqa-baseline-${{ github.event.pull_request.base.sha }}
+          restore-keys: agenticqa-baseline-
+        continue-on-error: true
+
       - name: Run AgenticQA scan (local action)
         id: scan
         uses: ./
@@ -32,6 +47,8 @@ jobs:
           fail-on-critical: 'false'   # Don't fail our own CI (we have intentional test fixtures)
           output-file: 'agenticqa-self-scan.json'
           sarif: 'true'
+          pr-comment: 'true'
+          baseline: 'agenticqa-baseline.json'
 
       - name: Print scan summary
         if: always()
@@ -41,6 +58,7 @@ jobs:
           echo "- Critical findings: ${{ steps.scan.outputs.critical-findings }}"
           echo "- Scanners OK: ${{ steps.scan.outputs.scanners-ok }}"
           echo "- Risk level: ${{ steps.scan.outputs.risk-level }}"
+          echo "- Detected languages: ${{ steps.scan.outputs.detected-languages }}"
 
       - name: Verify scan produced results
         if: always()

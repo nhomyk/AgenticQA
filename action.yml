@@ -31,6 +31,18 @@ inputs:
     description: 'Path to save SARIF output'
     required: false
     default: 'agenticqa.sarif'
+  github-token:
+    description: 'GitHub token for posting PR comments (default: github.token)'
+    required: false
+    default: ${{ github.token }}
+  pr-comment:
+    description: 'Post scan results as a PR comment (requires github-token)'
+    required: false
+    default: 'true'
+  baseline:
+    description: 'Path to a previous scan result JSON for delta comparison'
+    required: false
+    default: ''
 
 outputs:
   total-findings:
@@ -45,9 +57,15 @@ outputs:
   risk-level:
     description: 'Overall risk level (low/medium/high/critical)'
     value: ${{ steps.scan.outputs.risk_level }}
+  risk-color:
+    description: 'Shield.io color for the risk level badge'
+    value: ${{ steps.scan.outputs.risk_color }}
   result-file:
     description: 'Path to the JSON results file'
     value: ${{ steps.scan.outputs.result_file }}
+  detected-languages:
+    description: 'Comma-separated list of detected languages'
+    value: ${{ steps.scan.outputs.detected_languages }}
 
 runs:
   using: 'composite'
@@ -77,6 +95,9 @@ runs:
         AGENTICQA_SCANNERS: ${{ inputs.scanners }}
         AGENTICQA_SARIF: ${{ inputs.sarif }}
         AGENTICQA_SARIF_FILE: ${{ inputs.sarif-file }}
+        AGENTICQA_BASELINE: ${{ inputs.baseline }}
+        AGENTICQA_PR_COMMENT: ${{ inputs.pr-comment }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         python "${{ github.action_path }}/AgenticQA/scripts/github_action_entrypoint.py"
 
@@ -94,3 +115,11 @@ runs:
         name: agenticqa-security-report
         path: ${{ inputs.output-file }}
         retention-days: 30
+
+    - name: Cache baseline for delta scans
+      if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ inputs.output-file }}
+        key: agenticqa-baseline-${{ github.sha }}
+      continue-on-error: true

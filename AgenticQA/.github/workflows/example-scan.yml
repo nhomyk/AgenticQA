@@ -1,8 +1,11 @@
 # Example: How to use AgenticQA in your CI/CD pipeline
 # Copy this file to your repo's .github/workflows/ directory
 #
-# Usage:
-#   uses: nhomyk/AgenticQA@v1
+# Quick setup (recommended):
+#   python -m agenticqa.init   # Auto-generates this file
+#
+# Manual setup:
+#   uses: nhomyk/AgenticQA@main
 #
 # For the full list of inputs, see action.yml
 
@@ -14,6 +17,11 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
 jobs:
   security-scan:
     name: AI Agent Security Scan
@@ -23,14 +31,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Restore baseline from main branch for delta scanning
+      - name: Restore scan baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: agenticqa-baseline.json
+          key: agenticqa-baseline-${{ github.event.pull_request.base.sha }}
+          restore-keys: agenticqa-baseline-
+        continue-on-error: true
+
       - name: Run AgenticQA scan
         id: scan
-        uses: nhomyk/AgenticQA@v1
+        uses: nhomyk/AgenticQA@main
         with:
           path: '.'
           fail-on-critical: 'true'
           output-file: 'agenticqa-results.json'
           sarif: 'true'
+          pr-comment: 'true'               # Posts results on PRs
+          baseline: 'agenticqa-baseline.json'  # Delta scan vs main branch
 
       - name: Print results
         if: always()
@@ -38,3 +58,4 @@ jobs:
           echo "Total findings: ${{ steps.scan.outputs.total-findings }}"
           echo "Critical: ${{ steps.scan.outputs.critical-findings }}"
           echo "Risk level: ${{ steps.scan.outputs.risk-level }}"
+          echo "Languages: ${{ steps.scan.outputs.detected-languages }}"

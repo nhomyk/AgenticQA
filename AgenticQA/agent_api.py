@@ -4938,6 +4938,65 @@ async def injection_scan(request: Request):
     return result
 
 
+# ── Badge endpoint (shields.io compatible) ─────────────────────────────────
+
+@app.get("/api/badge")
+async def badge(label: str = "AgenticQA", status: str = "scanned", color: str = "brightgreen"):
+    """Return a shields.io-compatible JSON badge.
+
+    Usage in README:
+      ![AgenticQA](https://img.shields.io/endpoint?url=<your-api>/api/badge)
+
+    Or with custom params from a scan result:
+      ![AgenticQA](https://img.shields.io/endpoint?url=<your-api>/api/badge?status=low%20risk&color=brightgreen)
+    """
+    return {
+        "schemaVersion": 1,
+        "label": label,
+        "message": status,
+        "color": color,
+        "namedLogo": "shield",
+    }
+
+
+@app.get("/api/badge/scan")
+async def badge_scan(repo: str = ""):
+    """Dynamic badge that reflects the latest cached scan result.
+
+    Reads agenticqa-results.json from the repo if it exists, otherwise returns
+    a 'no data' badge. Designed for shields.io endpoint badge integration.
+    """
+    if not repo:
+        return {"schemaVersion": 1, "label": "AgenticQA", "message": "no data", "color": "lightgrey"}
+
+    # Try to load cached results
+    results_path = Path(repo) / "agenticqa-results.json"
+    if not results_path.exists():
+        return {"schemaVersion": 1, "label": "AgenticQA", "message": "not scanned", "color": "lightgrey"}
+
+    try:
+        with open(results_path) as f:
+            data = json.load(f)
+        summary = data.get("summary", {})
+        risk = summary.get("risk_level", "unknown")
+        findings = summary.get("total_findings", 0)
+        critical = summary.get("total_critical", 0)
+
+        color_map = {"critical": "red", "high": "orange", "medium": "yellow", "low": "brightgreen"}
+        color = color_map.get(risk, "lightgrey")
+
+        if critical > 0:
+            message = f"{critical} critical"
+        elif findings > 0:
+            message = f"{findings} findings"
+        else:
+            message = "clean"
+
+        return {"schemaVersion": 1, "label": "AgenticQA", "message": message, "color": color}
+    except Exception:
+        return {"schemaVersion": 1, "label": "AgenticQA", "message": "error", "color": "red"}
+
+
 if __name__ == "__main__":
     import uvicorn
 
