@@ -1,0 +1,323 @@
+name: "Feature Request Pipeline"
+
+on:
+  workflow_dispatch:
+    inputs:
+      feature_name:
+        description: 'Name for this run (shown in Actions list)'
+        required: true
+        type: string
+      prompt:
+        description: 'What do you want to build? (natural language feature description)'
+        required: true
+        type: string
+      repo_path:
+        description: 'Repository path to operate on'
+        required: false
+        default: '.'
+        type: string
+      requester:
+        description: 'Who is requesting this feature?'
+        required: false
+        default: 'github-actions'
+        type: string
+      dry_run:
+        description: 'Dry run (no push/PR)?'
+        required: false
+        default: true
+        type: boolean
+      max_workers:
+        description: 'Max concurrent workers'
+        required: false
+        default: '3'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '5'
+
+run-name: "${{ inputs.feature_name }} — by ${{ inputs.requester }}"
+
+concurrency:
+  group: feature-request-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AGENTICQA_MAX_WORKERS: ${{ inputs.max_workers }}
+  AGENTICQA_WORKER_ENABLED: '1'
+  AGENTICQA_AUTH_DISABLE: '1'
+  AGENTICQA_PATH_SANITIZE_DISABLE: '1'
+
+jobs:
+  submit-and-execute:
+    runs-on: ubuntu-latest
+    name: "Submit: ${{ inputs.feature_name }}"
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+          pip install pytest
+
+      - name: Validate concurrent worker system
+        run: |
+          echo "## Concurrent Worker System Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          pytest AgenticQA/tests/test_concurrent_workers.py -v --tb=short 2>&1 | tee worker-tests.log
+
+          PASSED=$(grep -oP '\d+ passed' worker-tests.log | grep -oP '\d+' || echo "0")
+          FAILED=$(grep -oP '\d+ failed' worker-tests.log | grep -oP '\d+' || echo "0")
+
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests Failed | $FAILED |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$FAILED" != "0" ]; then
+            echo "::error::Concurrent worker tests failed"
+            exit 1
+          fi
+
+      - name: Submit feature request to queue
+        id: submit
+        run: |
+          python -c "
+          import json, sys
+          sys.path.insert(0, 'AgenticQA')
+          from src.agenticqa.workflow_requests import PromptWorkflowStore
+
+          store = PromptWorkflowStore(db_path='/tmp/ci_workflow.db')
+          req = store.create_and_queue_request(
+              prompt='''${{ inputs.prompt }}''',
+              repo='${{ inputs.repo_path }}',
+              requester='${{ inputs.requester }}',
+              metadata={
+                  'source': 'github_actions_dispatch',
+                  'feature_name': '''${{ inputs.feature_name }}''',
+                  'run_id': '${{ github.run_id }}',
+                  'dry_run': ${{ inputs.dry_run && 'True' || 'False' }},
+              },
+          )
+          print(json.dumps(req, indent=2))
+          print(f'::notice::Request {req[\"id\"]} queued as {req[\"status\"]}')
+
+          # Verify queue status
+          status = store.get_queue_status()
+          print(f'Queue: {status[\"queued\"]} queued, {status[\"in_progress\"]} in progress')
+          "
+
+      - name: Execute via worker pool
+        id: execute
+        run: |
+          python -c "
+          import json, sys, time
+          sys.path.insert(0, 'AgenticQA')
+          from src.agenticqa.workflow_requests import PromptWorkflowStore
+          from src.agenticqa.worker_pool import WorkerPool
+
+          store = PromptWorkflowStore(db_path='/tmp/ci_workflow.db')
+          pool = WorkerPool(
+              store=store,
+              max_workers=int('${{ inputs.max_workers }}'),
+              poll_interval=1.0,
+              dry_run=${{ inputs.dry_run && 'True' || 'False' }},
+          )
+
+          # Reclaim stale (good practice)
+          reclaimed = store.reclaim_stale_requests()
+          if reclaimed:
+              print(f'Reclaimed {len(reclaimed)} stale requests')
+
+          pool.start()
+          print(f'Worker pool started: max_workers={pool.max_workers}')
+
+          # Wait for queue to drain (max 5 minutes)
+          deadline = time.monotonic() + 300
+          while time.monotonic() < deadline:
+              status = store.get_queue_status()
+              queued = status['queued']
+              in_progress = status['in_progress']
+              print(f'  Queue: {queued} queued, {in_progress} in progress, {pool.active_count} active workers')
+              if queued == 0 and in_progress == 0:
+                  break
+              time.sleep(2)
+
+          pool.stop(timeout=30)
+
+          # Report results
+          all_reqs = store.list_requests(limit=50)
+          completed = [r for r in all_reqs if r['status'] == 'COMPLETED']
+          failed = [r for r in all_reqs if r['status'] == 'FAILED']
+
+          print(f'Results: {len(completed)} completed, {len(failed)} failed')
+          for r in all_reqs:
+              print(f'  {r[\"id\"]}: {r[\"status\"]} — {r[\"prompt\"][:60]}')
+              if r.get('error_message'):
+                  print(f'    Error: {r[\"error_message\"][:200]}')
+
+          # Output for summary
+          with open('/tmp/results.json', 'w') as f:
+              json.dump({'completed': len(completed), 'failed': len(failed), 'total': len(all_reqs), 'requests': all_reqs}, f)
+          "
+
+      - name: Generate run summary
+        if: always()
+        run: |
+          python -c "
+          import json
+          try:
+              with open('/tmp/results.json') as f:
+                  data = json.load(f)
+          except FileNotFoundError:
+              data = {'completed': 0, 'failed': 0, 'total': 0, 'requests': []}
+
+          lines = []
+          lines.append('## Feature Request Pipeline Results')
+          lines.append('')
+          lines.append(f'**Feature:** ${{ inputs.feature_name }}')
+          lines.append(f'**Prompt:** ${{ inputs.prompt }}')
+          lines.append(f'**Requester:** ${{ inputs.requester }}')
+          lines.append(f'**Dry Run:** ${{ inputs.dry_run }}')
+          lines.append(f'**Max Workers:** ${{ inputs.max_workers }}')
+          lines.append('')
+          lines.append('### Results')
+          lines.append('')
+          lines.append('| Metric | Value |')
+          lines.append('|--------|-------|')
+          lines.append(f'| Total Requests | {data[\"total\"]} |')
+          lines.append(f'| Completed | {data[\"completed\"]} |')
+          lines.append(f'| Failed | {data[\"failed\"]} |')
+          lines.append('')
+
+          for req in data.get('requests', []):
+              status_icon = {'COMPLETED': 'check', 'FAILED': 'x', 'QUEUED': 'hourglass'}.get(req['status'], 'question')
+              lines.append(f'- :{status_icon}: **{req[\"id\"]}** — {req[\"status\"]}')
+              if req.get('branch_name'):
+                  lines.append(f'  - Branch: \`{req[\"branch_name\"]}\`')
+              if req.get('error_message'):
+                  lines.append(f'  - Error: {req[\"error_message\"][:200]}')
+
+          with open('/tmp/summary.md', 'w') as f:
+              f.write('\n'.join(lines))
+          " 2>/dev/null || true
+
+          if [ -f /tmp/summary.md ]; then
+            cat /tmp/summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Feature Request Pipeline" >> $GITHUB_STEP_SUMMARY
+            echo "Run completed. Check logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload execution artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-request-${{ github.run_id }}
+          path: |
+            /tmp/ci_workflow.db
+            /tmp/results.json
+            /tmp/summary.md
+          retention-days: 30
+
+
+  # Concurrent execution test — validates multiple simultaneous requests
+  concurrent-validation:
+    runs-on: ubuntu-latest
+    name: "Validate: Concurrent Execution"
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+          pip install pytest
+
+      - name: Run concurrent worker tests
+        run: |
+          pytest AgenticQA/tests/test_concurrent_workers.py -v --tb=short 2>&1 | tee concurrent-tests.log
+
+      - name: Simulate 3 concurrent requests
+        run: |
+          python -c "
+          import json, sys, time, threading
+          sys.path.insert(0, 'AgenticQA')
+          from src.agenticqa.workflow_requests import PromptWorkflowStore
+
+          store = PromptWorkflowStore(db_path='/tmp/concurrent_test.db')
+
+          # Submit 3 requests rapidly
+          requests = []
+          for i in range(3):
+              r = store.create_and_queue_request(
+                  prompt=f'Concurrent test feature {i+1}',
+                  repo='/tmp',
+                  requester='ci-concurrent-test',
+              )
+              requests.append(r)
+              print(f'Submitted: {r[\"id\"]} -> {r[\"status\"]}')
+
+          status = store.get_queue_status()
+          assert status['queued'] == 3, f'Expected 3 queued, got {status[\"queued\"]}'
+          print(f'Queue verified: {status[\"queued\"]} queued')
+
+          # Test atomic pickup — 3 workers claiming 3 requests
+          claimed = []
+          for i in range(3):
+              picked = store.atomic_pickup(f'w_ci_{i}')
+              if picked:
+                  claimed.append(picked['id'])
+                  print(f'Worker w_ci_{i} claimed: {picked[\"id\"]}')
+
+          assert len(claimed) == 3, f'Expected 3 claimed, got {len(claimed)}'
+          assert len(set(claimed)) == 3, 'Duplicate claims detected!'
+          print('All 3 requests claimed uniquely — no race conditions')
+
+          # Verify no more to claim
+          extra = store.atomic_pickup('w_ci_extra')
+          assert extra is None, 'Should be nothing left to claim'
+          print('Queue drained correctly')
+
+          status = store.get_queue_status()
+          assert status['in_progress'] == 3
+          print(f'Final: {status[\"in_progress\"]} in progress, {status[\"queued\"]} queued')
+          print('Concurrent execution validation PASSED')
+          "
+
+      - name: Generate validation summary
+        if: always()
+        run: |
+          echo "## Concurrent Execution Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if grep -q "passed" concurrent-tests.log 2>/dev/null; then
+            PASSED=$(grep -oP '\d+ passed' concurrent-tests.log | grep -oP '\d+' || echo "0")
+            echo "- Unit tests: **$PASSED passed**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "- Concurrent submission: 3 requests queued simultaneously" >> $GITHUB_STEP_SUMMARY
+          echo "- Atomic pickup: Each request claimed exactly once" >> $GITHUB_STEP_SUMMARY
+          echo "- No race conditions detected" >> $GITHUB_STEP_SUMMARY

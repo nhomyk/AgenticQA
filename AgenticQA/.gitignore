@@ -6,3 +6,6 @@ __pycache__/
 
 # Local test artifact output
 .test-artifact-store/
+
+# Worker pool git worktrees (concurrent execution isolation)
+.agenticqa/worktrees/

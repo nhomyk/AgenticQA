@@ -7,8 +7,10 @@ and optionally opening a GitHub pull request.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -18,6 +20,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib import error as url_error
 from urllib import request as url_request
+
+logger = logging.getLogger(__name__)
 
 from .prompt_ops_orchestrator import PromptOpsOrchestrator
 from .repo_profile import detect_repo_profile, resolve_generated_test_command
@@ -43,15 +47,23 @@ class WorkflowExecutionWorker:
             return None
         return self.run_request(queued["id"], dry_run=dry_run, open_pr=open_pr)
 
-    def run_request(self, request_id: str, dry_run: bool = True, open_pr: bool = True) -> Dict[str, Any]:
+    def run_request(
+        self,
+        request_id: str,
+        dry_run: bool = True,
+        open_pr: bool = True,
+        use_worktree: bool = False,
+        worker_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         trace_id = f"tr_{uuid.uuid4().hex[:12]}"
         root_span_id = f"sp_{request_id}_run"
         started = time.perf_counter()
         req = self.store.get_request(request_id)
         if not req:
             raise ValueError("request_not_found")
-        if req["status"] != "QUEUED":
-            raise ValueError(f"request_not_queued:{req['status']}")
+        # Allow both QUEUED (legacy) and IN_PROGRESS (atomic_pickup path)
+        if req["status"] not in ("QUEUED", "IN_PROGRESS"):
+            raise ValueError(f"request_not_runnable:{req['status']}")
 
         repo_path = Path(req["repo"]).expanduser().resolve()
         if not repo_path.exists() or not repo_path.is_dir():
@@ -62,6 +74,7 @@ class WorkflowExecutionWorker:
         commit_sha = None
         pr_url = None
         pushed = False
+        worktree_path: Optional[Path] = None
 
         try:
             self._emit_event(
@@ -73,37 +86,50 @@ class WorkflowExecutionWorker:
                 span_id=root_span_id,
                 event_type="workflow",
                 step_key="worker.run_request",
-                metadata={"dry_run": dry_run, "open_pr": open_pr},
+                metadata={"dry_run": dry_run, "open_pr": open_pr, "use_worktree": use_worktree},
                 input_payload={"dry_run": dry_run, "open_pr": open_pr},
             )
             metadata = req.get("metadata") or {}
             metadata["trace_id"] = trace_id
             metadata["root_span_id"] = root_span_id
+            if worker_id:
+                metadata["worker_id"] = worker_id
             repo_profile = detect_repo_profile(repo_path)
             metadata["repo_profile"] = repo_profile.to_dict()
             scan_results = RepoScanner().scan(repo_path, repo_profile)
             metadata.update(scan_results.to_metadata_patch())
             metadata["repo_scan"] = scan_results.to_dict()
             req["metadata"] = metadata
-            self.store.start_request(request_id)
+
+            # Transition QUEUED → IN_PROGRESS if not already done by atomic_pickup
+            if req["status"] == "QUEUED":
+                self.store.start_request(request_id)
 
             base_branch = self._git(repo_path, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
             branch_name = self._build_branch_name(req)
             branch_name = self._ensure_unique_branch_name(repo_path, branch_name)
 
-            self._git(repo_path, ["checkout", "-B", branch_name])
+            # Choose isolation strategy: worktree (concurrent-safe) or checkout (legacy)
+            if use_worktree:
+                worktree_path = self._create_worktree(repo_path, branch_name, request_id)
+                self.store.set_worktree_path(request_id, str(worktree_path))
+                work_dir = worktree_path
+                logger.info("worktree created for %s at %s", request_id, worktree_path)
+            else:
+                self._git(repo_path, ["checkout", "-B", branch_name])
+                work_dir = repo_path
 
-            generated_paths, orchestration = self._generate_and_apply_code(repo_path=repo_path, req=req)
+            generated_paths, orchestration = self._generate_and_apply_code(repo_path=work_dir, req=req)
             orchestration["pre_scan_analysis"] = self._run_pre_scan_agents(scan_results, req)
             orchestration["trace_id"] = trace_id
             artifact_path = self._write_execution_artifact(
-                repo_path=repo_path,
+                repo_path=work_dir,
                 req=req,
                 orchestration=orchestration,
             )
-            self._git(repo_path, ["add", str(artifact_path)])
+            self._git(work_dir, ["add", str(artifact_path)])
             for generated_path in generated_paths:
-                self._git(repo_path, ["add", str(generated_path)])
+                self._git(work_dir, ["add", str(generated_path)])
 
             commit_message = f"chore(workflow): execute {request_id}"
             commit_body = f"Prompt: {req['prompt'][:220]}"
@@ -118,8 +144,8 @@ class WorkflowExecutionWorker:
                     )
             except ImportError:
                 pass
-            self._git(repo_path, ["commit", "-m", commit_message, "-m", commit_body])
-            commit_sha = self._git(repo_path, ["rev-parse", "HEAD"]).strip()
+            self._git(work_dir, ["commit", "-m", commit_message, "-m", commit_body])
+            commit_sha = self._git(work_dir, ["rev-parse", "HEAD"]).strip()
 
             self._enforce_policy_gates(
                 req=req,
@@ -129,12 +155,12 @@ class WorkflowExecutionWorker:
             )
 
             if not dry_run:
-                self._git(repo_path, ["push", "-u", "origin", branch_name])
+                self._git(work_dir, ["push", "-u", "origin", branch_name])
                 pushed = True
                 if open_pr:
                     pr_url = self._open_github_pr(
                         req=req,
-                        repo_path=repo_path,
+                        repo_path=work_dir,
                         branch_name=branch_name,
                         base_branch=base_branch,
                     )
@@ -166,14 +192,21 @@ class WorkflowExecutionWorker:
             )
             return result
         except Exception as exc:
-            self._attempt_rollback(
-                repo_path=repo_path,
-                base_branch=base_branch,
-                branch_name=branch_name,
-                dry_run=dry_run,
-                pushed=pushed,
-                req=req,
-            )
+            if not use_worktree:
+                self._attempt_rollback(
+                    repo_path=repo_path,
+                    base_branch=base_branch,
+                    branch_name=branch_name,
+                    dry_run=dry_run,
+                    pushed=pushed,
+                    req=req,
+                )
+            # In worktree mode, remote branch cleanup still needed if pushed
+            if use_worktree and pushed and branch_name:
+                try:
+                    self._git(repo_path, ["push", "origin", "--delete", branch_name])
+                except Exception:
+                    pass
             self._emit_event(
                 trace_id=trace_id,
                 request_id=request_id,
@@ -195,11 +228,44 @@ class WorkflowExecutionWorker:
                 pr_url=pr_url,
             )
         finally:
-            if base_branch:
+            if worktree_path:
+                self._remove_worktree(repo_path, worktree_path)
+            elif base_branch:
                 try:
                     self._git(repo_path, ["checkout", base_branch])
                 except Exception:
                     pass
+
+    # ── Git worktree isolation ───────────────────────────────────────────────
+
+    def _create_worktree(self, repo_path: Path, branch_name: str, request_id: str) -> Path:
+        """Create an isolated git worktree for a concurrent execution.
+
+        The worktree lives at .agenticqa/worktrees/<request_id>/ and gets its
+        own branch.  It shares the .git object store with the main repo so
+        clones are instant.
+        """
+        wt_dir = repo_path / ".agenticqa" / "worktrees" / request_id
+        wt_dir.parent.mkdir(parents=True, exist_ok=True)
+        self._git(
+            repo_path,
+            ["worktree", "add", "-b", branch_name, str(wt_dir), "HEAD"],
+        )
+        return wt_dir
+
+    def _remove_worktree(self, repo_path: Path, worktree_path: Path) -> None:
+        """Clean up a worktree after execution completes or fails."""
+        try:
+            self._git(repo_path, ["worktree", "remove", "--force", str(worktree_path)])
+        except Exception:
+            # Fallback: manual directory removal + prune
+            if worktree_path.exists():
+                shutil.rmtree(worktree_path, ignore_errors=True)
+            try:
+                self._git(repo_path, ["worktree", "prune"])
+            except Exception:
+                pass
+        logger.info("worktree removed: %s", worktree_path)
 
     def _enforce_policy_gates(
         self,

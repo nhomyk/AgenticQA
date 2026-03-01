@@ -52,6 +52,7 @@ from src.data_store import SecureDataPipeline
 try:
     from src.agenticqa.workflow_requests import PromptWorkflowStore
     from src.agenticqa.workflow_worker import WorkflowExecutionWorker
+    from src.agenticqa.worker_pool import WorkerPool
     from src.agenticqa.observability import ObservabilityStore
     from src.agenticqa.reliability_evidence import build_evidence_summary, check_tcp, read_latest_jsonl
     from src.agenticqa.repo_profile import detect_repo_profile
@@ -75,6 +76,7 @@ try:
 except Exception:
     from agenticqa.workflow_requests import PromptWorkflowStore
     from agenticqa.workflow_worker import WorkflowExecutionWorker
+    from agenticqa.worker_pool import WorkerPool
     from agenticqa.observability import ObservabilityStore
     from agenticqa.reliability_evidence import build_evidence_summary, check_tcp, read_latest_jsonl
     from agenticqa.repo_profile import detect_repo_profile
@@ -127,8 +129,24 @@ async def _lifespan(application: FastAPI):
         except NotImplementedError:
             pass  # Windows doesn't support add_signal_handler
 
+    # Reclaim any stale requests from previous crashes
+    reclaimed = workflow_store.reclaim_stale_requests()
+    if reclaimed:
+        print(f"[AgenticQA] Reclaimed {len(reclaimed)} stale requests: {reclaimed}", file=sys.stderr)
+
+    # Start background worker pool (disabled via AGENTICQA_WORKER_ENABLED=0)
+    pool_enabled = os.getenv("AGENTICQA_WORKER_ENABLED", "1") != "0"
+    if pool_enabled:
+        worker_pool.start()
+        print(f"[AgenticQA] Worker pool started (max_workers={worker_pool.max_workers})", file=sys.stderr)
+    else:
+        print("[AgenticQA] Worker pool disabled via AGENTICQA_WORKER_ENABLED=0", file=sys.stderr)
+
     print("[AgenticQA] API started — press Ctrl+C for graceful shutdown", file=sys.stderr)
     yield
+
+    if pool_enabled:
+        worker_pool.stop()
     print("[AgenticQA] Shutdown complete.", file=sys.stderr)
 
 
@@ -216,6 +234,7 @@ data_pipeline = SecureDataPipeline(use_great_expectations=False)
 workflow_store = PromptWorkflowStore()
 observability_store = ObservabilityStore()
 workflow_worker = WorkflowExecutionWorker(workflow_store, observability_store=observability_store)
+worker_pool = WorkerPool(store=workflow_store)
 
 
 # Request/Response Models
@@ -1330,6 +1349,98 @@ async def run_workflow_request(request_id: str, body: WorkflowRunRequest):
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Auto-submit + Queue endpoints ────────────────────────────────────────────
+
+@app.post("/api/workflows/submit")
+async def submit_workflow_request(request: WorkflowRequestCreate):
+    """Auto-queue a workflow request — skips manual approval, worker pool picks it up."""
+    try:
+        item = workflow_store.create_and_queue_request(
+            prompt=request.prompt,
+            repo=_safe_repo_path(request.repo),
+            requester=request.requester,
+            metadata=request.metadata,
+        )
+        return {"success": True, "request": item}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/queue")
+async def get_workflow_queue():
+    """Return pool status and queue snapshot for dashboard."""
+    try:
+        return {"success": True, **worker_pool.status()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/requests/{request_id}/status")
+async def get_workflow_request_status(request_id: str):
+    """Lightweight polling endpoint — returns just status + key fields."""
+    try:
+        item = workflow_store.get_request(request_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="workflow request not found")
+        return {
+            "success": True,
+            "id": item["id"],
+            "status": item["status"],
+            "worker_id": item.get("worker_id"),
+            "branch_name": item.get("branch_name"),
+            "commit_sha": item.get("commit_sha"),
+            "pr_url": item.get("pr_url"),
+            "error_message": item.get("error_message"),
+            "updated_at": item.get("updated_at"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows/requests/{request_id}/stream")
+async def stream_workflow_request_status(request_id: str):
+    """SSE endpoint — emits events on status change, closes on terminal state."""
+    from starlette.responses import StreamingResponse
+    import json as _json
+
+    item = workflow_store.get_request(request_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="workflow request not found")
+
+    async def _event_generator():
+        last_status = None
+        terminal = {"COMPLETED", "FAILED", "CANCELLED"}
+        while True:
+            req = workflow_store.get_request(request_id)
+            if not req:
+                yield f"data: {_json.dumps({'status': 'NOT_FOUND'})}\n\n"
+                return
+            current = req["status"]
+            if current != last_status:
+                payload = {
+                    "status": current,
+                    "worker_id": req.get("worker_id"),
+                    "branch_name": req.get("branch_name"),
+                    "commit_sha": req.get("commit_sha"),
+                    "pr_url": req.get("pr_url"),
+                    "error_message": req.get("error_message"),
+                    "updated_at": req.get("updated_at"),
+                }
+                yield f"data: {_json.dumps(payload)}\n\n"
+                last_status = current
+                if current in terminal:
+                    return
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/observability/traces")

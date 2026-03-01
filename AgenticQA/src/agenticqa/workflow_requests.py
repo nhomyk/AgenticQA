@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import threading
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
@@ -36,7 +40,9 @@ class PromptWorkflowStore:
 
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._lock = threading.Lock()
         self._init_schema()
+        self._migrate_schema()
 
     def _init_schema(self) -> None:
         c = self.conn.cursor()
@@ -102,6 +108,196 @@ class PromptWorkflowStore:
         c.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_created ON chat_sessions(created_at DESC)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages(session_id, created_at)")
         self.conn.commit()
+
+    def _migrate_schema(self) -> None:
+        """Add columns needed for concurrent worker support."""
+        c = self.conn.cursor()
+        existing = {row[1] for row in c.execute("PRAGMA table_info(workflow_requests)").fetchall()}
+        migrations = [
+            ("worker_id", "TEXT"),
+            ("worktree_path", "TEXT"),
+        ]
+        for col, col_type in migrations:
+            if col not in existing:
+                c.execute(f"ALTER TABLE workflow_requests ADD COLUMN {col} {col_type}")
+                logger.info("migrated workflow_requests: added column %s", col)
+        self.conn.commit()
+
+    # ── Concurrent worker methods ────────────────────────────────────────────
+
+    def atomic_pickup(self, worker_id: str) -> Optional[Dict[str, Any]]:
+        """Atomically claim the oldest QUEUED request for a worker.
+
+        Uses BEGIN IMMEDIATE to acquire a reserved lock before the SELECT,
+        preventing TOCTOU races between concurrent workers.
+        """
+        with self._lock:
+            now = datetime.now(UTC).isoformat()
+            c = self.conn.cursor()
+            try:
+                c.execute("BEGIN IMMEDIATE")
+                row = c.execute(
+                    "SELECT id, status FROM workflow_requests "
+                    "WHERE status = 'QUEUED' ORDER BY created_at ASC LIMIT 1"
+                ).fetchone()
+                if not row:
+                    self.conn.commit()
+                    return None
+
+                request_id = row["id"]
+                c.execute(
+                    "UPDATE workflow_requests SET status = 'IN_PROGRESS', "
+                    "next_action = 'execute_changes', worker_id = ?, updated_at = ? "
+                    "WHERE id = ? AND status = 'QUEUED'",
+                    (worker_id, now, request_id),
+                )
+                if c.rowcount == 0:
+                    self.conn.commit()
+                    return None
+
+                c.execute(
+                    "INSERT INTO workflow_events "
+                    "(request_id, from_status, to_status, note, timestamp) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (request_id, "QUEUED", "IN_PROGRESS",
+                     f"Picked up by worker {worker_id}", now),
+                )
+                self.conn.commit()
+            except Exception:
+                self.conn.rollback()
+                raise
+
+        return self.get_request(request_id)
+
+    def create_and_queue_request(
+        self,
+        prompt: str,
+        repo: str,
+        requester: str = "dashboard",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Create a request directly in QUEUED state for auto-execution.
+
+        Skips the AWAITING_APPROVAL → APPROVED manual steps and logs
+        fast-path transitions for audit trail.
+        """
+        now = datetime.now(UTC).isoformat()
+        request_id = f"wr_{uuid.uuid4().hex[:12]}"
+        plan = self._build_plan(prompt=prompt, repo=repo)
+
+        meta = dict(metadata or {})
+        meta["auto_queued"] = True
+
+        c = self.conn.cursor()
+        c.execute(
+            """
+            INSERT INTO workflow_requests (
+                id, prompt, repo, requester, status, plan_json,
+                next_action, metadata, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                request_id, prompt, repo, requester, "QUEUED",
+                json.dumps(plan), "worker_pickup", json.dumps(meta), now, now,
+            ),
+        )
+        # Log the fast-path transitions for the audit trail
+        for from_s, to_s, note in [
+            ("RECEIVED", "PLANNED", "Prompt ingested and plan generated"),
+            ("PLANNED", "AWAITING_APPROVAL", "Auto-queue: skipped approval"),
+            ("AWAITING_APPROVAL", "APPROVED", "Auto-queue: auto-approved"),
+            ("APPROVED", "QUEUED", "Auto-queue: queued for worker pickup"),
+        ]:
+            c.execute(
+                "INSERT INTO workflow_events "
+                "(request_id, from_status, to_status, note, timestamp) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (request_id, from_s, to_s, note, now),
+            )
+        self.conn.commit()
+        logger.info("auto-queued request %s for repo %s", request_id, repo)
+        return self.get_request(request_id)
+
+    def reclaim_stale_requests(self, timeout_minutes: int = 30) -> List[str]:
+        """Move stale IN_PROGRESS requests back to QUEUED.
+
+        Called on startup to recover from worker crashes. Returns list
+        of reclaimed request IDs.
+        """
+        cutoff = (datetime.now(UTC) - timedelta(minutes=timeout_minutes)).isoformat()
+        now = datetime.now(UTC).isoformat()
+        reclaimed: list[str] = []
+
+        with self._lock:
+            c = self.conn.cursor()
+            rows = c.execute(
+                "SELECT id FROM workflow_requests "
+                "WHERE status = 'IN_PROGRESS' AND updated_at < ?",
+                (cutoff,),
+            ).fetchall()
+
+            for row in rows:
+                rid = row["id"]
+                c.execute(
+                    "UPDATE workflow_requests SET status = 'QUEUED', "
+                    "next_action = 'worker_pickup', worker_id = NULL, "
+                    "worktree_path = NULL, updated_at = ? "
+                    "WHERE id = ?",
+                    (now, rid),
+                )
+                c.execute(
+                    "INSERT INTO workflow_events "
+                    "(request_id, from_status, to_status, note, timestamp) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (rid, "IN_PROGRESS", "QUEUED",
+                     f"Reclaimed after {timeout_minutes}min timeout", now),
+                )
+                reclaimed.append(rid)
+                logger.warning("reclaimed stale request %s", rid)
+
+            if reclaimed:
+                self.conn.commit()
+
+        return reclaimed
+
+    def set_worktree_path(self, request_id: str, path: str) -> None:
+        """Record which git worktree is handling this request."""
+        now = datetime.now(UTC).isoformat()
+        c = self.conn.cursor()
+        c.execute(
+            "UPDATE workflow_requests SET worktree_path = ?, updated_at = ? WHERE id = ?",
+            (path, now, request_id),
+        )
+        self.conn.commit()
+
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Return a snapshot of the queue for dashboard display."""
+        c = self.conn.cursor()
+        queued = c.execute(
+            "SELECT COUNT(*) FROM workflow_requests WHERE status = 'QUEUED'"
+        ).fetchone()[0]
+        in_progress = c.execute(
+            "SELECT COUNT(*) FROM workflow_requests WHERE status = 'IN_PROGRESS'"
+        ).fetchone()[0]
+        recent_completed = c.execute(
+            "SELECT id, prompt, repo, updated_at FROM workflow_requests "
+            "WHERE status IN ('COMPLETED', 'FAILED') "
+            "ORDER BY updated_at DESC LIMIT 10"
+        ).fetchall()
+        active_workers = c.execute(
+            "SELECT id, prompt, repo, worker_id, worktree_path, updated_at "
+            "FROM workflow_requests WHERE status = 'IN_PROGRESS' "
+            "ORDER BY updated_at ASC"
+        ).fetchall()
+
+        return {
+            "queued": queued,
+            "in_progress": in_progress,
+            "active_jobs": [dict(r) for r in active_workers],
+            "recent_completed": [dict(r) for r in recent_completed],
+        }
+
+    # ── Chat methods ─────────────────────────────────────────────────────────
 
     def create_chat_session(
         self,
@@ -561,6 +757,8 @@ class PromptWorkflowStore:
     def _row_to_request(self, row: sqlite3.Row) -> Dict[str, Any]:
         plan = json.loads(row["plan_json"]) if row["plan_json"] else None
         metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+        # worker_id / worktree_path may not exist on old DBs before migration
+        keys = row.keys() if hasattr(row, "keys") else []
         return {
             "id": row["id"],
             "prompt": row["prompt"],
@@ -574,6 +772,8 @@ class PromptWorkflowStore:
             "next_action": row["next_action"],
             "error_message": row["error_message"],
             "metadata": metadata,
+            "worker_id": row["worker_id"] if "worker_id" in keys else None,
+            "worktree_path": row["worktree_path"] if "worktree_path" in keys else None,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }

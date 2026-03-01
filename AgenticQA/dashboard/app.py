@@ -2457,9 +2457,12 @@ def render_prompt_ops():
                 key="prompt_ops_max_sdet_fix_attempts",
             )
 
-        col_submit, col_ping = st.columns([1, 1])
+        col_submit, col_auto, col_ping = st.columns([1, 1, 1])
         with col_submit:
             submit = st.button("Create Workflow Request", type="primary", key="prompt_ops_submit")
+        with col_auto:
+            auto_submit = st.button("Submit & Auto-Execute", key="prompt_ops_auto_submit",
+                                    help="Skips approval — queued immediately for worker pickup")
         with col_ping:
             ping = st.button("Health Check API", key="prompt_ops_ping")
 
@@ -2512,6 +2515,77 @@ def render_prompt_ops():
                         st.error(f"Request failed ({response.status_code}): {response.text[:500]}")
                 except Exception as e:
                     st.error(f"Failed to create workflow request: {e}")
+
+        if auto_submit:
+            if not prompt.strip():
+                st.error("Prompt cannot be empty.")
+            else:
+                try:
+                    import requests as req_lib
+
+                    payload = {
+                        "prompt": prompt,
+                        "repo": repo,
+                        "requester": requester,
+                        "metadata": {
+                            "source": "dashboard_auto_submit",
+                            "approved_by": approved_by.strip(),
+                            "policy_ticket": policy_ticket.strip(),
+                            "allow_high_risk": allow_high_risk,
+                            "auto_rollback": auto_rollback,
+                            "max_sdet_iterations": int(max_sdet_iterations),
+                            "require_sdet_loop": require_sdet_loop,
+                            "enable_sdet_autofix": enable_sdet_autofix,
+                            "max_sdet_fix_attempts": int(max_sdet_fix_attempts),
+                        },
+                    }
+                    response = req_lib.post(f"{api_base}/api/workflows/submit", json=payload, timeout=12)
+                    if response.status_code < 300:
+                        body = response.json()
+                        st.success("Request auto-queued — worker pool will pick it up within seconds.")
+                        st.json(body.get("request", body))
+                    else:
+                        st.error(f"Auto-submit failed ({response.status_code}): {response.text[:500]}")
+                except Exception as e:
+                    st.error(f"Failed to auto-submit workflow request: {e}")
+
+    # ── Live Queue ───────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Live Queue")
+    auto_refresh = st.checkbox("Auto-refresh (5s)", value=False, key="prompt_ops_queue_auto_refresh")
+    try:
+        import requests as req_lib
+        queue_resp = req_lib.get(f"{api_base}/api/workflows/queue", timeout=6)
+        if queue_resp.status_code == 200:
+            qdata = queue_resp.json()
+            col_q1, col_q2, col_q3 = st.columns(3)
+            col_q1.metric("Queued", qdata.get("queued", 0))
+            col_q2.metric("In Progress", qdata.get("in_progress", 0))
+            col_q3.metric("Active / Max Workers",
+                          f"{qdata.get('active_workers_count', qdata.get('active_workers', 0) if isinstance(qdata.get('active_workers'), int) else len(qdata.get('active_jobs', [])))} / {qdata.get('max_workers', '?')}")
+
+            active_jobs = qdata.get("active_jobs", [])
+            if active_jobs:
+                st.markdown("**Active Jobs:**")
+                for job in active_jobs:
+                    st.markdown(f"- `{job.get('id', '?')}` — {job.get('prompt', '?')[:80]}  (worker: `{job.get('worker_id', '?')}`)")
+            else:
+                st.info("No jobs currently executing.")
+
+            recent = qdata.get("recent_completed", [])
+            if recent:
+                st.markdown("**Recently Completed:**")
+                for r in recent[:5]:
+                    st.markdown(f"- `{r.get('id', '?')}` — {r.get('prompt', '?')[:80]} ({r.get('updated_at', '?')})")
+        else:
+            st.warning(f"Queue endpoint returned {queue_resp.status_code}")
+    except Exception:
+        st.info("Queue status unavailable — API may not be running.")
+
+    if auto_refresh:
+        import time as _time
+        _time.sleep(5)
+        st.rerun()
 
     st.markdown("---")
     st.markdown("### 💬 Operator Chat (In-Dashboard)")
