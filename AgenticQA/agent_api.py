@@ -3198,6 +3198,71 @@ async def race_conditions(repo_path: str = "."):
     return {"success": True, **result.to_dict()}
 
 
+# ── Full Security Scan + Ingestion ────────────────────────────────────────────
+
+
+@app.post("/api/security/full-scan")
+async def full_security_scan(repo_path: str = "."):
+    """Run all 10 security scanners against a repo. No API key required.
+
+    Returns a unified report with per-scanner results, summary stats,
+    and total_critical count for CI gating.
+    """
+    repo_path = _safe_repo_path(repo_path)
+    sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+    from scripts.run_client_scan import scan_repo
+    results = scan_repo(repo_path)
+
+    scanners_ok = sum(1 for v in results.values() if v["status"] == "ok")
+    total_findings = 0
+    total_critical = 0
+    for v in results.values():
+        if v["status"] == "ok":
+            r = v["result"]
+            total_findings += r.get("total_findings", r.get("findings_count", 0))
+            total_critical += r.get("critical", 0)
+
+    return {
+        "success": True,
+        "summary": {
+            "scanners_ok": scanners_ok,
+            "scanners_total": len(results),
+            "total_findings": total_findings,
+            "total_critical": total_critical,
+        },
+        "scanners": results,
+    }
+
+
+@app.post("/api/ingest/scan-result")
+async def ingest_scan_result(body: dict):
+    """Ingest external scanner output into the learning system.
+
+    Accepts output from ``run_client_scan.py`` or any scanner that produces
+    ``{summary: {...}, scanners: {...}}`` JSON.
+    """
+    import time as _time
+    import json as _json
+    scanners = body.get("scanners", {})
+    repo_path = body.get("summary", {}).get("repo_path", "unknown")
+    ingested = 0
+    for scanner_name, scanner_data in scanners.items():
+        if scanner_data.get("status") != "ok":
+            continue
+        store_dir = Path(".test-artifact-store")
+        store_dir.mkdir(exist_ok=True)
+        artifact_id = f"scan_{scanner_name}_{int(_time.time())}"
+        artifact_path = store_dir / f"{artifact_id}.json"
+        artifact_path.write_text(_json.dumps({
+            "artifact_type": f"scan_{scanner_name}",
+            "scanner_name": scanner_name,
+            "repo_path": repo_path,
+            "result": scanner_data.get("result", {}),
+        }, indent=2))
+        ingested += 1
+    return {"success": True, "ingested": ingested, "total": len(scanners)}
+
+
 # ── Regression Prediction / Smart Test Selection ──────────────────────────────
 
 try:

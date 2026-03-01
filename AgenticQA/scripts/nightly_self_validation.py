@@ -433,6 +433,54 @@ def check_path_sanitization() -> tuple:
     return True, "Path sanitizer blocks /etc/passwd and traversal escapes"
 
 
+def check_ontology_coverage() -> tuple:
+    """TASK_AGENT_MAP must cover all 30+ scanner/task types."""
+    from agenticqa.delegation.guardrails import DelegationGuardrails
+    count = len(DelegationGuardrails.TASK_AGENT_MAP)
+    required = ["architecture_scan", "secrets_scan", "prompt_injection_scan",
+                 "hipaa_scan", "ai_act_check", "lint", "data_flow_trace"]
+    missing = [t for t in required if t not in DelegationGuardrails.TASK_AGENT_MAP]
+    if missing:
+        return False, f"Missing task types: {', '.join(missing)}"
+    if count < 30:
+        return False, f"Only {count} task types (expected >= 30)"
+    return True, f"{count} task types, all required entries present"
+
+
+def check_ai_act_false_positive_guard() -> tuple:
+    """EU AI Act must NOT classify non-AI repos as high_risk."""
+    import tempfile
+    from agenticqa.compliance.ai_act import AIActComplianceChecker
+    with tempfile.TemporaryDirectory() as td:
+        (Path(td) / "README.md").write_text("# Financial Utils\nHandles financial data.\n")
+        (Path(td) / "setup.py").write_text("from setuptools import setup\nsetup(name='fin')")
+        result = AIActComplianceChecker().check(td)
+    if result.risk_category == "high_risk":
+        return False, f"Non-AI repo falsely classified as high_risk"
+    return True, f"Non-AI financial repo correctly classified as {result.risk_category}"
+
+
+def check_safe_file_iter() -> tuple:
+    """Safe file iterator must respect max_files limit."""
+    import tempfile
+    from agenticqa.security.safe_file_iter import iter_source_files
+    with tempfile.TemporaryDirectory() as td:
+        for i in range(20):
+            (Path(td) / f"f{i}.py").write_text(f"x={i}")
+        files = list(iter_source_files(Path(td), max_files=10))
+    if len(files) != 10:
+        return False, f"Expected 10 files, got {len(files)}"
+    return True, "Safe iterator respects max_files=10 limit"
+
+
+def check_client_scan_script() -> tuple:
+    """run_client_scan.py must exist and be importable."""
+    script = Path(__file__).parent / "run_client_scan.py"
+    if not script.exists():
+        return False, "scripts/run_client_scan.py not found"
+    return True, "Client scan script exists"
+
+
 def check_test_count() -> tuple:
     """pytest must discover 1500+ unit tests."""
     import subprocess
@@ -476,6 +524,10 @@ def run_all() -> ValidationReport:
         ("Python auto-linting", "sre", check_python_auto_linting),
         ("Agent output contracts (8 agents)", "contracts", check_agent_output_contracts),
         ("Path sanitization (CWE-22)", "security", check_path_sanitization),
+        ("Ontology coverage (30+ task types)", "ontology", check_ontology_coverage),
+        ("AI Act false positive guard", "compliance", check_ai_act_false_positive_guard),
+        ("Safe file iterator limits", "security", check_safe_file_iter),
+        ("Client scan script exists", "ci", check_client_scan_script),
         ("Unit test count (1500+)", "tests", check_test_count),
     ]
 

@@ -1884,6 +1884,9 @@ class SREAgent(BaseAgent):
                 import os as _os
                 if _os.path.exists(_os.path.join(repo_path, "tsconfig.json")):
                     errors = self._run_typescript_linter(repo_path)
+                elif _os.path.exists(_os.path.join(repo_path, "package.json")):
+                    # JS repo without tsconfig — still try linting
+                    errors = self._run_typescript_linter(repo_path)
                 elif _os.path.exists(_os.path.join(repo_path, "setup.py")) or \
                      _os.path.exists(_os.path.join(repo_path, "pyproject.toml")) or \
                      _os.path.exists(_os.path.join(repo_path, "requirements.txt")):

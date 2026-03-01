@@ -151,6 +151,26 @@ class DelegationGuardrails:
         # Agent Skill Security — AST-based pre-load scanning of custom agent code
         "agent_skill_scan": ["RedTeam_Agent", "Compliance_Agent"],
         "skill_vulnerability_audit": ["RedTeam_Agent"],
+        # Architecture & integration point analysis
+        "architecture_scan": ["Compliance_Agent", "SRE_Agent"],
+        # Secrets & credential detection
+        "secrets_scan": ["Compliance_Agent", "RedTeam_Agent"],
+        # CI/CD pipeline YAML security scanning
+        "ci_yaml_scan": ["DevOps_Agent", "SRE_Agent"],
+        # Container and Dockerfile security
+        "container_scan": ["DevOps_Agent", "Compliance_Agent"],
+        # OWASP web vulnerability scanning
+        "owasp_scan": ["Compliance_Agent", "RedTeam_Agent"],
+        # Prompt injection detection
+        "prompt_injection_scan": ["RedTeam_Agent"],
+        # HIPAA PHI compliance
+        "hipaa_scan": ["Compliance_Agent"],
+        # EU AI Act conformity
+        "ai_act_check": ["Compliance_Agent"],
+        # Legal risk & credential exposure
+        "legal_risk_scan": ["Compliance_Agent"],
+        # Linting and code quality
+        "lint": ["SRE_Agent"],
     }
 
     @classmethod

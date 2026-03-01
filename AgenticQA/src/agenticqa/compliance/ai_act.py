@@ -161,7 +161,12 @@ class AIActComplianceChecker:
     # ------------------------------------------------------------------
 
     def _classify_risk(self, repo: Path) -> Tuple[str, List[str]]:
-        """Scan descriptive files for Annex III keywords."""
+        """Scan descriptive files for Annex III keywords.
+
+        Only classifies as high_risk if the repo actually uses AI/ML — prevents
+        false positives on non-AI repos that mention business keywords like
+        "financial", "contract", "compliance", "learning", etc.
+        """
         probe_texts: List[str] = []
         for fname in ["README.md", "readme.md", "README.rst", "package.json",
                       "pyproject.toml", "setup.py", "DESCRIPTION.md"]:
@@ -172,15 +177,86 @@ class AIActComplianceChecker:
                 except OSError:
                     pass
         combined = " ".join(probe_texts)
+
+        # Pre-check: is this actually an AI/ML system?
+        # Without AI indicators, business keywords alone don't trigger high_risk
+        is_ai_system = self._detect_ai_system(repo, combined)
+
         matched_categories: List[str] = []
         for category, keywords in _HIGH_RISK_KEYWORDS.items():
             if any(kw.lower() in combined for kw in keywords):
                 matched_categories.append(category)
-        if matched_categories:
+
+        if matched_categories and is_ai_system:
             return "high_risk", matched_categories
+        if matched_categories and not is_ai_system:
+            # Non-AI repo with business keywords — flag but don't classify as high_risk
+            return "minimal_risk", matched_categories
         if any(kw.lower() in combined for kw in _LIMITED_RISK_KEYWORDS):
             return "limited_risk", []
         return "minimal_risk", []
+
+    def _detect_ai_system(self, repo: Path, combined_text: str) -> bool:
+        """Return True if the repo appears to use AI/ML models or LLMs.
+
+        Checks for:
+          - AI/ML library imports (torch, transformers, openai, anthropic, etc.)
+          - AI keywords in README (AI, machine learning, deep learning, LLM, etc.)
+          - Model files (.pt, .onnx, .h5, .safetensors)
+          - AI config files (model_config.json, tokenizer.json)
+        """
+        # Text-based indicators in README/package.json
+        ai_text_markers = [
+            "artificial intelligence", "machine learning", "deep learning",
+            "neural network", "language model", "llm", "gpt", "openai",
+            "anthropic", "claude", "hugging face", "huggingface", "transformers",
+            "tensorflow", "pytorch", "torch", "model training", "fine-tuning",
+            "inference", "embedding", "vector database", "rag ",
+            "retrieval augmented", "agent framework", "multi-agent",
+            "natural language processing", "nlp", "computer vision",
+            "generative ai", "gen ai", "chatbot", "ai-powered",
+        ]
+        if any(marker in combined_text for marker in ai_text_markers):
+            return True
+
+        # Whole-word "AI" check (avoids false positives from "email", "maintain", etc.)
+        import re as _re
+        if _re.search(r'\bai\b', combined_text):
+            return True
+
+        # Check for AI library dependencies in requirements/package files
+        dep_files = ["requirements.txt", "pyproject.toml", "setup.py",
+                     "package.json", "Pipfile"]
+        ai_deps = {
+            "torch", "tensorflow", "transformers", "openai", "anthropic",
+            "langchain", "llama-index", "autogen", "crewai", "keras",
+            "sklearn", "scikit-learn", "xgboost", "lightgbm", "sentence-transformers",
+            "tiktoken", "tokenizers", "safetensors", "onnx", "onnxruntime",
+            "fastai", "jax", "flax", "@anthropic-ai/sdk", "@openai/api",
+            "langchainjs", "@langchain", "ai", "replicate", "cohere",
+        }
+        for fname in dep_files:
+            fp = repo / fname
+            if fp.exists():
+                try:
+                    content = fp.read_text(encoding="utf-8", errors="replace").lower()
+                    if any(dep in content for dep in ai_deps):
+                        return True
+                except OSError:
+                    pass
+
+        # Check for model files
+        model_exts = {".pt", ".pth", ".onnx", ".h5", ".safetensors", ".pkl",
+                      ".joblib", ".pb", ".tflite"}
+        model_configs = {"model_config.json", "tokenizer.json", "config.json",
+                         "tokenizer_config.json", "special_tokens_map.json"}
+        for fp in repo.iterdir():
+            if fp.suffix.lower() in model_exts:
+                return True
+            if fp.name in model_configs:
+                return True
+
+        return False
 
     # ------------------------------------------------------------------
     # Article checks

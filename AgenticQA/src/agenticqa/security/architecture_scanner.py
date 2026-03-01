@@ -637,19 +637,16 @@ class ArchitectureScanner:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _find_source_files(self, root: Path) -> List[Path]:
-        files: List[Path] = []
-        for f in root.rglob("*"):
-            if not f.is_file():
-                continue
-            if any(part in _SKIP_DIRS for part in f.parts):
-                continue
-            if f.suffix.lower() in _SOURCE_EXTENSIONS:
-                files.append(f)
-        return files
+        from agenticqa.security.safe_file_iter import iter_source_files
+        return list(iter_source_files(root, extensions=_SOURCE_EXTENSIONS, skip_dirs=_SKIP_DIRS))
 
     def _find_test_files(self, root: Path) -> List[Path]:
+        from agenticqa.security.safe_file_iter import MAX_FILES
         test_files: List[Path] = []
+        count = 0
         for f in root.rglob("*"):
+            if count >= MAX_FILES:
+                break
             if not f.is_file():
                 continue
             if any(part in _SKIP_DIRS for part in f.parts):
@@ -670,6 +667,7 @@ class ArchitectureScanner:
                 or "__tests__" in [p for p in f.parts]
             ):
                 test_files.append(f)
+            count += 1
         return test_files
 
     @staticmethod

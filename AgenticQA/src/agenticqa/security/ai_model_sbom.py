@@ -282,13 +282,8 @@ class AIModelSBOMScanner:
     # ------------------------------------------------------------------
 
     def _iter_source_files(self, repo: Path):
-        for fpath in repo.rglob("*"):
-            if not fpath.is_file():
-                continue
-            if any(p in _SKIP_DIRS for p in fpath.parts):
-                continue
-            if fpath.suffix.lower() in _SOURCE_EXTS:
-                yield fpath
+        from agenticqa.security.safe_file_iter import iter_source_files
+        yield from iter_source_files(repo, extensions=_SOURCE_EXTS, skip_dirs=_SKIP_DIRS)
 
     def _make_provider_component(self, provider: str, source_file: str, lineno: int) -> ModelComponent:
         lic = "proprietary" if provider in _EXTERNAL_API_PROVIDERS else "varies"

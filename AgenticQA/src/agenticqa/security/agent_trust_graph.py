@@ -448,13 +448,8 @@ class AgentTrustGraphAnalyzer:
     # ------------------------------------------------------------------
 
     def _iter_source_files(self, repo: Path):
-        for fpath in repo.rglob("*"):
-            if not fpath.is_file():
-                continue
-            if any(p in _SKIP_DIRS for p in fpath.parts):
-                continue
-            if fpath.suffix.lower() in _SOURCE_EXTS:
-                yield fpath
+        from agenticqa.security.safe_file_iter import iter_source_files
+        yield from iter_source_files(repo, extensions=_SOURCE_EXTS, skip_dirs=_SKIP_DIRS)
 
     def _extract_human_mode(self, context: str) -> Optional[str]:
         m = re.search(r'human_input_mode\s*=\s*["\']([^"\']+)["\']', context)

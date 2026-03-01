@@ -278,13 +278,8 @@ class PromptInjectionScanner:
     # ------------------------------------------------------------------
 
     def _iter_source_files(self, repo: Path):
-        for fpath in repo.rglob("*"):
-            if not fpath.is_file():
-                continue
-            if any(part in _SKIP_DIRS for part in fpath.parts):
-                continue
-            if fpath.suffix.lower() in _SOURCE_EXTS:
-                yield fpath
+        from agenticqa.security.safe_file_iter import iter_source_files
+        yield from iter_source_files(repo, extensions=_SOURCE_EXTS, skip_dirs=_SKIP_DIRS)
 
     def _build_result(self, findings: List[InjectionFinding]) -> InjectionScanResult:
         if not findings:

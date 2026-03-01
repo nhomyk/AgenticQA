@@ -407,19 +407,25 @@ class LegalRiskScanner:
         self, repo: Path, exts: Optional[set] = None
     ):
         """Yield source files, skipping common non-code directories."""
+        from agenticqa.security.safe_file_iter import iter_source_files
+        # Also yield .env-style files by name
         target_exts = exts if exts is not None else _SOURCE_EXTS
+        all_exts = target_exts | {".env"}  # include .env files
+        for fpath in iter_source_files(repo, extensions=all_exts, skip_dirs=_SKIP_DIRS):
+            yield fpath
+        # Catch .env files with no extension (e.g., .env, .env.local)
+        from agenticqa.security.safe_file_iter import MAX_FILES, SKIP_DIRS as _SAFE_SKIP
+        count = 0
         for fpath in repo.rglob("*"):
+            if count >= MAX_FILES:
+                break
             if not fpath.is_file():
                 continue
-            # Skip blacklisted directories anywhere in path
-            if any(part in _SKIP_DIRS for part in fpath.parts):
+            if any(part in _SAFE_SKIP for part in fpath.parts):
                 continue
-            # .env-style files (no extension but special names)
-            if fpath.name in _ENV_NAMES:
+            if fpath.name in _ENV_NAMES and fpath.suffix.lower() not in all_exts:
                 yield fpath
-                continue
-            if fpath.suffix.lower() in target_exts:
-                yield fpath
+            count += 1
 
     def _build_result(self, findings: List[LegalRiskFinding]) -> LegalRiskResult:
         critical_findings = [
