@@ -8,7 +8,10 @@ import json
 import os
 import re
 import tempfile
-from src.data_store import SecureDataPipeline
+try:
+    from src.data_store import SecureDataPipeline
+except ImportError:
+    from data_store import SecureDataPipeline
 
 
 # ---------------------------------------------------------------------------
@@ -550,7 +553,10 @@ class BaseAgent(ABC):
                 return selector.select_strategy(self._get_agent_type())
             except Exception:
                 pass
-        from src.agenticqa.verification.strategy_selector import STRATEGIES
+        try:
+            from src.agenticqa.verification.strategy_selector import STRATEGIES
+        except ImportError:
+            from agenticqa.verification.strategy_selector import STRATEGIES
         return STRATEGIES["standard"]
 
     def _get_execution_strategy(self) -> Dict[str, Any]:

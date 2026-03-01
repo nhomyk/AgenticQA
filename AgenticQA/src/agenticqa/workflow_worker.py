@@ -119,6 +119,8 @@ class WorkflowExecutionWorker:
                 self._git(repo_path, ["checkout", "-B", branch_name])
                 work_dir = repo_path
 
+            self._ensure_git_identity(work_dir)
+
             generated_paths, orchestration = self._generate_and_apply_code(repo_path=work_dir, req=req)
             orchestration["pre_scan_analysis"] = self._run_pre_scan_agents(scan_results, req)
             orchestration["trace_id"] = trace_id
@@ -1064,6 +1066,25 @@ class WorkflowExecutionWorker:
             return f"{desired[:70]}-{suffix}"
         except Exception:
             return desired
+
+    def _ensure_git_identity(self, work_dir: Path) -> None:
+        """Ensure git user.name and user.email are set for commits.
+
+        Checks local/global config.  If neither exists, sets a local
+        identity so ``git commit`` won't fail on fresh CI runners.
+        """
+        for key, fallback in [
+            ("user.name", "AgenticQA Bot"),
+            ("user.email", "agenticqa-bot@users.noreply.github.com"),
+        ]:
+            try:
+                value = self._git(work_dir, ["config", key]).strip()
+                if value:
+                    continue
+            except RuntimeError:
+                pass
+            self._git(work_dir, ["config", "--local", key, fallback])
+            logger.info("set git %s = %s (was unset)", key, fallback)
 
     def _git(self, cwd: Path, args: List[str]) -> str:
         completed = subprocess.run(

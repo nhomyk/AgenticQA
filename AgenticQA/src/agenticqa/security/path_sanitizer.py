@@ -36,6 +36,12 @@ def _get_allowed_roots() -> list[str]:
     home = os.environ.get("HOME") or os.environ.get("USERPROFILE")
     if home:
         roots.append(str(Path(home).resolve()))
+
+    # GitHub Actions / CI runner paths
+    gh_workspace = os.environ.get("GITHUB_WORKSPACE")
+    if gh_workspace:
+        roots.append(str(Path(gh_workspace).resolve()))
+
     return roots
 
 

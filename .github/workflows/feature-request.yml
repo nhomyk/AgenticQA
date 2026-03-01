@@ -72,6 +72,31 @@ jobs:
           pip install -e ./AgenticQA
           pip install pytest
 
+      - name: Configure git identity
+        run: |
+          git config user.name "agenticqa-bot[bot]"
+          git config user.email "agenticqa-bot[bot]@users.noreply.github.com"
+
+      - name: Run deployment preflight check
+        run: |
+          python -m agenticqa.client_preflight \
+            --repo "${{ inputs.repo_path }}" \
+            --json \
+            | tee /tmp/preflight.json
+
+          echo "## Preflight Check" >> $GITHUB_STEP_SUMMARY
+          python -c "
+          import json
+          with open('/tmp/preflight.json') as f:
+              data = json.load(f)
+          print('| Check | Status | Message |')
+          print('|-------|--------|---------|')
+          for c in data['checks']:
+              icon = {'pass': 'white_check_mark', 'warn': 'warning', 'fail': 'x'}[c['status']]
+              print(f'| {c[\"name\"]} | :{icon}: | {c[\"message\"]} |')
+          " >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
       - name: Validate concurrent worker system
         run: |
           echo "## Concurrent Worker System Validation" >> $GITHUB_STEP_SUMMARY
@@ -321,3 +346,65 @@ jobs:
           echo "- Concurrent submission: 3 requests queued simultaneously" >> $GITHUB_STEP_SUMMARY
           echo "- Atomic pickup: Each request claimed exactly once" >> $GITHUB_STEP_SUMMARY
           echo "- No race conditions detected" >> $GITHUB_STEP_SUMMARY
+
+
+  # End-to-end pipeline verification
+  e2e-verification:
+    runs-on: ubuntu-latest
+    name: "Verify: E2E Pipeline"
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install AgenticQA
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./AgenticQA
+          pip install pytest
+
+      - name: Configure git identity
+        run: |
+          git config user.name "agenticqa-bot[bot]"
+          git config user.email "agenticqa-bot[bot]@users.noreply.github.com"
+
+      - name: Run deployment preflight
+        run: |
+          python -m agenticqa.client_preflight --repo . --json | tee /tmp/preflight.json
+          echo "## Preflight Check" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/preflight.json | python -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for c in data['checks']:
+              icon = {'pass': 'white_check_mark', 'warn': 'warning', 'fail': 'x'}[c['status']]
+              print(f'- :{icon}: **{c[\"name\"]}**: {c[\"message\"]}')
+          " >> $GITHUB_STEP_SUMMARY
+
+      - name: Run e2e pipeline tests
+        run: |
+          pytest AgenticQA/tests/test_e2e_full_pipeline.py -v --tb=long 2>&1 | tee e2e-results.log
+
+      - name: Generate e2e summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## E2E Pipeline Verification" >> $GITHUB_STEP_SUMMARY
+
+          if grep -q "passed" e2e-results.log 2>/dev/null; then
+            PASSED=$(grep -oP '\d+ passed' e2e-results.log | grep -oP '\d+' || echo "0")
+            echo "- E2E tests: **$PASSED passed**" >> $GITHUB_STEP_SUMMARY
+          fi
+          if grep -q "failed" e2e-results.log 2>/dev/null; then
+            FAILED=$(grep -oP '\d+ failed' e2e-results.log | grep -oP '\d+' || echo "0")
+            if [ "$FAILED" != "0" ]; then
+              echo "- E2E failures: **$FAILED**" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi

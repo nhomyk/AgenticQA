@@ -262,40 +262,42 @@ class PromptWorkflowStore:
 
     def set_worktree_path(self, request_id: str, path: str) -> None:
         """Record which git worktree is handling this request."""
-        now = datetime.now(UTC).isoformat()
-        c = self.conn.cursor()
-        c.execute(
-            "UPDATE workflow_requests SET worktree_path = ?, updated_at = ? WHERE id = ?",
-            (path, now, request_id),
-        )
-        self.conn.commit()
+        with self._lock:
+            now = datetime.now(UTC).isoformat()
+            c = self.conn.cursor()
+            c.execute(
+                "UPDATE workflow_requests SET worktree_path = ?, updated_at = ? WHERE id = ?",
+                (path, now, request_id),
+            )
+            self.conn.commit()
 
     def get_queue_status(self) -> Dict[str, Any]:
         """Return a snapshot of the queue for dashboard display."""
-        c = self.conn.cursor()
-        queued = c.execute(
-            "SELECT COUNT(*) FROM workflow_requests WHERE status = 'QUEUED'"
-        ).fetchone()[0]
-        in_progress = c.execute(
-            "SELECT COUNT(*) FROM workflow_requests WHERE status = 'IN_PROGRESS'"
-        ).fetchone()[0]
-        recent_completed = c.execute(
-            "SELECT id, prompt, repo, updated_at FROM workflow_requests "
-            "WHERE status IN ('COMPLETED', 'FAILED') "
-            "ORDER BY updated_at DESC LIMIT 10"
-        ).fetchall()
-        active_workers = c.execute(
-            "SELECT id, prompt, repo, worker_id, worktree_path, updated_at "
-            "FROM workflow_requests WHERE status = 'IN_PROGRESS' "
-            "ORDER BY updated_at ASC"
-        ).fetchall()
+        with self._lock:
+            c = self.conn.cursor()
+            queued = c.execute(
+                "SELECT COUNT(*) FROM workflow_requests WHERE status = 'QUEUED'"
+            ).fetchone()[0]
+            in_progress = c.execute(
+                "SELECT COUNT(*) FROM workflow_requests WHERE status = 'IN_PROGRESS'"
+            ).fetchone()[0]
+            recent_completed = c.execute(
+                "SELECT id, prompt, repo, updated_at FROM workflow_requests "
+                "WHERE status IN ('COMPLETED', 'FAILED') "
+                "ORDER BY updated_at DESC LIMIT 10"
+            ).fetchall()
+            active_workers = c.execute(
+                "SELECT id, prompt, repo, worker_id, worktree_path, updated_at "
+                "FROM workflow_requests WHERE status = 'IN_PROGRESS' "
+                "ORDER BY updated_at ASC"
+            ).fetchall()
 
-        return {
-            "queued": queued,
-            "in_progress": in_progress,
-            "active_jobs": [dict(r) for r in active_workers],
-            "recent_completed": [dict(r) for r in recent_completed],
-        }
+            return {
+                "queued": queued,
+                "in_progress": in_progress,
+                "active_jobs": [dict(r) for r in active_workers],
+                "recent_completed": [dict(r) for r in recent_completed],
+            }
 
     # ── Chat methods ─────────────────────────────────────────────────────────
 
@@ -445,26 +447,28 @@ class PromptWorkflowStore:
         return self.get_request(request_id)
 
     def list_requests(self, limit: int = 50) -> List[Dict[str, Any]]:
-        c = self.conn.cursor()
-        rows = c.execute(
-            "SELECT * FROM workflow_requests ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        return [self._row_to_request(r) for r in rows]
+        with self._lock:
+            c = self.conn.cursor()
+            rows = c.execute(
+                "SELECT * FROM workflow_requests ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [self._row_to_request(r) for r in rows]
 
     def get_request(self, request_id: str) -> Optional[Dict[str, Any]]:
-        c = self.conn.cursor()
-        row = c.execute("SELECT * FROM workflow_requests WHERE id = ?", (request_id,)).fetchone()
-        if not row:
-            return None
+        with self._lock:
+            c = self.conn.cursor()
+            row = c.execute("SELECT * FROM workflow_requests WHERE id = ?", (request_id,)).fetchone()
+            if not row:
+                return None
 
-        req = self._row_to_request(row)
-        events = c.execute(
-            "SELECT from_status, to_status, note, timestamp FROM workflow_events WHERE request_id = ? ORDER BY id ASC",
-            (request_id,),
-        ).fetchall()
-        req["events"] = [dict(ev) for ev in events]
-        return req
+            req = self._row_to_request(row)
+            events = c.execute(
+                "SELECT from_status, to_status, note, timestamp FROM workflow_events WHERE request_id = ? ORDER BY id ASC",
+                (request_id,),
+            ).fetchall()
+            req["events"] = [dict(ev) for ev in events]
+            return req
 
     def approve_request(self, request_id: str) -> Dict[str, Any]:
         req = self.get_request(request_id)
@@ -499,10 +503,11 @@ class PromptWorkflowStore:
         return self.get_request(request_id) or req
 
     def get_next_queued_request(self) -> Optional[Dict[str, Any]]:
-        c = self.conn.cursor()
-        row = c.execute(
-            "SELECT id FROM workflow_requests WHERE status = 'QUEUED' ORDER BY created_at ASC LIMIT 1"
-        ).fetchone()
+        with self._lock:
+            c = self.conn.cursor()
+            row = c.execute(
+                "SELECT id FROM workflow_requests WHERE status = 'QUEUED' ORDER BY created_at ASC LIMIT 1"
+            ).fetchone()
         if not row:
             return None
         return self.get_request(row["id"])
@@ -676,32 +681,33 @@ class PromptWorkflowStore:
         note: str,
         extra_updates: Optional[Dict[str, Any]] = None,
     ) -> None:
-        now = datetime.now(UTC).isoformat()
-        c = self.conn.cursor()
-        row = c.execute("SELECT status FROM workflow_requests WHERE id = ?", (request_id,)).fetchone()
-        if not row:
-            raise ValueError("request_not_found")
+        with self._lock:
+            now = datetime.now(UTC).isoformat()
+            c = self.conn.cursor()
+            row = c.execute("SELECT status FROM workflow_requests WHERE id = ?", (request_id,)).fetchone()
+            if not row:
+                raise ValueError("request_not_found")
 
-        current = row["status"]
-        if current not in expected_statuses:
-            raise ValueError(f"invalid_transition:{current}->{to_status}")
+            current = row["status"]
+            if current not in expected_statuses:
+                raise ValueError(f"invalid_transition:{current}->{to_status}")
 
-        update_pairs = {
-            "status": to_status,
-            "next_action": next_action,
-            "updated_at": now,
-        }
-        if extra_updates:
-            update_pairs.update(extra_updates)
+            update_pairs = {
+                "status": to_status,
+                "next_action": next_action,
+                "updated_at": now,
+            }
+            if extra_updates:
+                update_pairs.update(extra_updates)
 
-        assignments = ", ".join([f"{k} = ?" for k in update_pairs.keys()])
-        values = list(update_pairs.values()) + [request_id]
-        c.execute(f"UPDATE workflow_requests SET {assignments} WHERE id = ?", values)
-        c.execute(
-            "INSERT INTO workflow_events (request_id, from_status, to_status, note, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (request_id, current, to_status, note, now),
-        )
-        self.conn.commit()
+            assignments = ", ".join([f"{k} = ?" for k in update_pairs.keys()])
+            values = list(update_pairs.values()) + [request_id]
+            c.execute(f"UPDATE workflow_requests SET {assignments} WHERE id = ?", values)
+            c.execute(
+                "INSERT INTO workflow_events (request_id, from_status, to_status, note, timestamp) VALUES (?, ?, ?, ?, ?)",
+                (request_id, current, to_status, note, now),
+            )
+            self.conn.commit()
 
     def _build_plan(self, prompt: str, repo: str) -> Dict[str, Any]:
         normalized = prompt.lower()
