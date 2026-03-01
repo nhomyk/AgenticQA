@@ -4997,6 +4997,208 @@ async def badge_scan(repo: str = ""):
         return {"schemaVersion": 1, "label": "AgenticQA", "message": "error", "color": "red"}
 
 
+# ── Autonomous Fix PR endpoint ─────────────────────────────────────────────
+
+@app.post("/api/remediation/auto-fix")
+async def auto_fix_pr(request: Request):
+    """Generate fixes for scan findings and optionally open a draft PR.
+
+    Body:
+        scan_results: dict — output from scan_repo() or GitHub Action
+        repo_path: str — path to the git repository
+        github_token: str — optional, for PR creation
+        base_branch: str — default "main"
+        dry_run: bool — default false
+    """
+    from agenticqa.remediation.auto_fix_pr import generate_fix_pr
+    body = await request.json()
+    result = generate_fix_pr(
+        repo_path=sanitize_repo_path(body.get("repo_path", ".")),
+        scan_results=body.get("scan_results", {}),
+        github_token=body.get("github_token", ""),
+        base_branch=body.get("base_branch", "main"),
+        dry_run=body.get("dry_run", False),
+    )
+    return result.to_dict()
+
+
+@app.post("/api/remediation/extract-findings")
+async def extract_findings(request: Request):
+    """Extract fixable findings from scan results without applying fixes."""
+    from agenticqa.remediation.auto_fix_pr import extract_fixable_findings
+    body = await request.json()
+    patches = extract_fixable_findings(body.get("scan_results", {}))
+    return {
+        "fixable_count": len(patches),
+        "patches": [
+            {"file": p.file, "line": p.line, "scanner": p.scanner,
+             "rule_id": p.rule_id, "severity": p.severity,
+             "description": p.description, "fix": p.fix_description}
+            for p in patches
+        ],
+    }
+
+
+# ── Scan Trend endpoints ──────────────────────────────────────────────────
+
+@app.post("/api/scan-trend/record")
+async def scan_trend_record(request: Request):
+    """Record a scan result for trend tracking."""
+    from agenticqa.monitoring.scan_trend import ScanTrendAggregator
+    body = await request.json()
+    agg = ScanTrendAggregator()
+    snapshot = agg.record(body.get("scan_output", {}), repo_id=body.get("repo_id", ""))
+    return snapshot.to_dict()
+
+
+@app.get("/api/scan-trend/history")
+async def scan_trend_history(repo_id: str = "", limit: int = 50):
+    """Get scan history for a repo (or all repos)."""
+    from agenticqa.monitoring.scan_trend import ScanTrendAggregator
+    agg = ScanTrendAggregator()
+    return {"history": agg.history(repo_id=repo_id, limit=limit)}
+
+
+@app.get("/api/scan-trend/trend")
+async def scan_trend_direction(repo_id: str = "", window: int = 10):
+    """Get trend direction (improving/stable/worsening)."""
+    from agenticqa.monitoring.scan_trend import ScanTrendAggregator
+    agg = ScanTrendAggregator()
+    return agg.trend(repo_id=repo_id, window=window)
+
+
+@app.get("/api/scan-trend/org-rollup")
+async def scan_trend_org_rollup(limit: int = 100):
+    """Aggregate scan data across all repos for org-level view."""
+    from agenticqa.monitoring.scan_trend import ScanTrendAggregator
+    agg = ScanTrendAggregator()
+    return agg.org_rollup(limit=limit)
+
+
+# ── Compliance Report endpoint ─────────────────────────────────────────────
+
+@app.post("/api/compliance/report")
+async def compliance_report(request: Request):
+    """Generate a compliance report from scan results.
+
+    Body:
+        scan_output: dict — scan results
+        repo_id: str
+        frameworks: list[str] — optional, default all
+        format: str — "json" | "markdown" | "html"
+    """
+    from agenticqa.compliance.report_generator import ComplianceReportGenerator
+    body = await request.json()
+    gen = ComplianceReportGenerator()
+    report = gen.generate(
+        scan_output=body.get("scan_output", {}),
+        repo_id=body.get("repo_id", ""),
+        frameworks=body.get("frameworks"),
+    )
+    fmt = body.get("format", "json")
+    if fmt == "markdown":
+        return {"format": "markdown", "content": gen.to_markdown(report)}
+    if fmt == "html":
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(gen.to_html(report))
+    return report.to_dict()
+
+
+# ── Security Benchmarking endpoint ─────────────────────────────────────────
+
+@app.post("/api/benchmark")
+async def security_benchmark(request: Request):
+    """Benchmark scan results against known AI frameworks.
+
+    Body:
+        scan_output: dict — scan results from scan_repo()
+    """
+    from agenticqa.scoring.security_benchmark import benchmark_scan
+    body = await request.json()
+    result = benchmark_scan(body.get("scan_output", {}))
+    return result.to_dict()
+
+
+# ── Custom Rules endpoints ─────────────────────────────────────────────────
+
+@app.post("/api/custom-rules/scan")
+async def custom_rules_scan(request: Request):
+    """Scan a repo with custom rules.
+
+    Body:
+        repo_path: str — path to scan
+        rules: list[dict] — optional inline rules
+    """
+    from agenticqa.security.custom_rules import CustomRuleEngine, CustomRule
+    body = await request.json()
+    repo_path = sanitize_repo_path(body.get("repo_path", "."))
+    engine = CustomRuleEngine()
+    engine.load_from_repo(repo_path)
+    engine.load_global()
+    # Also accept inline rules
+    for rd in body.get("rules", []):
+        if rd.get("id") and rd.get("pattern"):
+            engine.add_rule(CustomRule(
+                id=rd["id"], name=rd.get("name", rd["id"]),
+                description=rd.get("description", ""), severity=rd.get("severity", "medium"),
+                pattern=rd["pattern"], file_pattern=rd.get("file_pattern", "*"),
+                message=rd.get("message", ""), tags=rd.get("tags", []),
+            ))
+    result = engine.scan(repo_path)
+    return result.to_dict()
+
+
+@app.post("/api/custom-rules/save")
+async def custom_rules_save(request: Request):
+    """Save custom rules to a repo's .agenticqa/custom_rules.json.
+
+    Body:
+        repo_path: str
+        rules: list[dict]
+    """
+    from agenticqa.security.custom_rules import CustomRuleEngine, CustomRule
+    body = await request.json()
+    repo_path = sanitize_repo_path(body.get("repo_path", "."))
+    engine = CustomRuleEngine()
+    for rd in body.get("rules", []):
+        if rd.get("id") and rd.get("pattern"):
+            engine.add_rule(CustomRule(
+                id=rd["id"], name=rd.get("name", rd["id"]),
+                description=rd.get("description", ""), severity=rd.get("severity", "medium"),
+                pattern=rd["pattern"], file_pattern=rd.get("file_pattern", "*"),
+                message=rd.get("message", ""), tags=rd.get("tags", []),
+            ))
+    path = engine.save_to_repo(repo_path)
+    return {"saved": True, "path": str(path), "rules_count": len(engine.rules)}
+
+
+# ── Slack / Teams Notification endpoints ───────────────────────────────────
+
+@app.post("/api/notifications/slack")
+async def notify_slack(request: Request):
+    """Send scan results to Slack.
+
+    Body:
+        scan_output: dict — scan results
+        webhook_url: str — optional override (else uses AGENTICQA_SLACK_WEBHOOK_URL)
+    """
+    from agenticqa.notifications.slack import SlackNotifier
+    body = await request.json()
+    notifier = SlackNotifier(webhook_url=body.get("webhook_url"))
+    result = notifier.notify_scan(body.get("scan_output", {}))
+    return {"sent": result.sent, "error": result.error, "platform": result.platform}
+
+
+@app.post("/api/notifications/teams")
+async def notify_teams(request: Request):
+    """Send scan results to Microsoft Teams."""
+    from agenticqa.notifications.slack import TeamsNotifier
+    body = await request.json()
+    notifier = TeamsNotifier(webhook_url=body.get("webhook_url"))
+    result = notifier.notify_scan(body.get("scan_output", {}))
+    return {"sent": result.sent, "error": result.error, "platform": result.platform}
+
+
 if __name__ == "__main__":
     import uvicorn
 
