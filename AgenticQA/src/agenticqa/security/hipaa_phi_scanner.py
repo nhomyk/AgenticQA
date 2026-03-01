@@ -57,7 +57,17 @@ _PHI_FILENAME_PATTERN = re.compile(
 # ---------------------------------------------------------------------------
 _PHI_HARDCODED_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (
-        re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+        # SSN format: 3-2-4 digits, but exclude version strings, dates,
+        # and other numeric patterns that happen to match.
+        # Valid SSN area numbers: 001-899 (excluding 666).
+        re.compile(
+            r"(?<![.\d/])"  # Not preceded by digit, dot, or slash (version/date)
+            r"\b(?:0[0-9]{2}|[1-5]\d{2}|6[0-57-9]\d|[7-8]\d{2})"  # area: 001-899 excl 666
+            r"-(?:0[1-9]|[1-9]\d)"   # group: 01-99
+            r"-(?:(?!0000)\d{4})"   # serial: 0001-9999 (exclude 0000)
+            r"\b"
+            r"(?![.\d/])"  # Not followed by digit, dot, or slash
+        ),
         "critical",
         "Social Security Number (SSN) literal hardcoded in source",
     ),
@@ -79,7 +89,7 @@ _PHI_HARDCODED_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     ),
     (
         re.compile(
-            r"(mrn|medical_record_num|medical_record_number|patient_id)\s*[:=]\s*[\"'][^\"']{3,}[\"']",
+            r"(mrn|medical_record_num|medical_record_number)\s*[:=]\s*[\"'][^\"']{3,}[\"']",
             re.IGNORECASE,
         ),
         "critical",

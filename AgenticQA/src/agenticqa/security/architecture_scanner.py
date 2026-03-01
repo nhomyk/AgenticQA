@@ -616,6 +616,26 @@ class ArchitectureScanner:
                     seen.add(key)
                     deduped.append(a)
 
+            # Consolidate AGENT_FRAMEWORK to one finding per file to reduce noise.
+            # Large AI repos (langchain, etc.) have thousands of framework imports;
+            # reporting each line individually obscures other findings.
+            agent_fw = [a for a in deduped if a.category == "AGENT_FRAMEWORK"]
+            others = [a for a in deduped if a.category != "AGENT_FRAMEWORK"]
+            if agent_fw:
+                by_file: dict = {}
+                for a in agent_fw:
+                    if a.source_file not in by_file:
+                        by_file[a.source_file] = a
+                    else:
+                        # Keep the first, but aggregate evidence
+                        existing = by_file[a.source_file]
+                        existing.evidence = f"{existing.evidence}; {a.evidence}"[:120]
+                        # Keep best test coverage
+                        for tf in a.test_files:
+                            if tf not in existing.test_files:
+                                existing.test_files.append(tf)
+                deduped = others + list(by_file.values())
+
             surface, coverage = self._compute_scores(deduped, len(source_files))
             return ArchitectureScanResult(
                 repo_path=str(root),

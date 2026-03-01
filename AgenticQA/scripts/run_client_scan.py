@@ -226,18 +226,31 @@ def scan_repo(repo_path: str) -> dict:
         from agenticqa.security.indirect_injection_guard import IndirectInjectionGuard
         from agenticqa.security.safe_file_iter import iter_source_files, safe_read_text
         guard = IndirectInjectionGuard()
+        # Only scan code files for critical injection patterns.
+        # .md/.txt are documentation — "Human:" / "Assistant:" / "[INST]" are
+        # expected in docs and produce massive false positives.
+        _CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx"}
+        _DOC_EXTS = {".md", ".txt"}
         unsafe_files = 0
         total_findings = 0
         critical_findings = 0
-        for fpath in iter_source_files(Path(repo_path), extensions={".py", ".js", ".ts", ".md", ".txt"}, max_files=5000):
+        for fpath in iter_source_files(Path(repo_path), extensions=_CODE_EXTS | _DOC_EXTS, max_files=5000):
             content = safe_read_text(fpath)
             if not content:
                 continue
             report = guard.scan(content)
             if not report.is_safe:
-                unsafe_files += 1
-                total_findings += report.total_findings
-                critical_findings += len(report.critical_findings)
+                is_doc = fpath.suffix.lower() in _DOC_EXTS
+                if is_doc:
+                    # Docs get downgraded: only count non-critical findings
+                    doc_findings = [f for f in report.findings if f.severity not in ("critical",)]
+                    if doc_findings:
+                        unsafe_files += 1
+                        total_findings += len(doc_findings)
+                else:
+                    unsafe_files += 1
+                    total_findings += report.total_findings
+                    critical_findings += len(report.critical_findings)
         return {
             "total_findings": total_findings,
             "unsafe_files": unsafe_files,
@@ -295,12 +308,31 @@ def main():
             total_findings += r.get("total_findings", r.get("findings_count", 0))
             total_critical += r.get("critical", 0)
 
+    # Compute risk level from critical findings
+    if total_critical >= 10:
+        risk_level = "critical"
+    elif total_critical >= 3:
+        risk_level = "high"
+    elif total_findings >= 50:
+        risk_level = "medium"
+    else:
+        risk_level = "low"
+
+    # Detect build system / languages
+    try:
+        from agenticqa.utils.build_detect import detect_build_system
+        build_info = detect_build_system(repo)
+    except Exception:
+        build_info = {"languages": [], "build_systems": [], "package_managers": []}
+
     summary = {
         "repo_path": str(Path(repo).resolve()),
         "scanners_ok": scanners_ok,
         "scanners_failed": scanners_failed,
         "total_findings": total_findings,
         "total_critical": total_critical,
+        "risk_level": risk_level,
+        "build_info": build_info,
         "total_elapsed_s": total_elapsed,
     }
 

@@ -133,6 +133,12 @@ class ShadowAIDetector:
         if not root.is_dir():
             return report
 
+        # Auto-detect if this repo IS an AI framework/provider.
+        # If so, its own provider references are legitimate, not shadow AI.
+        auto_approved = self._detect_ai_provider_repo(root)
+        if auto_approved:
+            self.approved_providers = self.approved_providers | auto_approved
+
         try:
             from agenticqa.security.safe_file_iter import iter_source_files, safe_read_text
         except ImportError:
@@ -148,6 +154,80 @@ class ShadowAIDetector:
             self._scan_file(content, rel, report)
 
         return report
+
+    @staticmethod
+    def _detect_ai_provider_repo(root: Path) -> Set[str]:
+        """Detect if the repo itself is an AI framework/provider.
+
+        Returns a set of provider names to auto-approve if the repo is
+        an AI project (to avoid massive false positives).
+        """
+        auto_approve: Set[str] = set()
+
+        # Check package identity files for AI framework names
+        _AI_IDENTITY = {
+            "ollama": {"openai", "anthropic", "google", "meta", "mistral",
+                       "cohere", "deepseek", "huggingface", "replicate"},
+            "langchain": {"openai", "anthropic", "google", "meta", "mistral",
+                          "cohere", "deepseek", "huggingface", "replicate"},
+            "langgraph": {"openai", "anthropic", "google", "meta", "mistral",
+                          "cohere", "deepseek", "huggingface", "replicate"},
+            "crewai": {"openai", "anthropic", "google", "huggingface"},
+            "autogen": {"openai", "anthropic", "google", "huggingface"},
+            "llamaindex": {"openai", "anthropic", "google", "huggingface", "cohere"},
+            "llama_index": {"openai", "anthropic", "google", "huggingface", "cohere"},
+            "transformers": {"huggingface", "openai", "google", "meta"},
+            "vllm": {"openai", "anthropic", "google", "meta", "mistral", "huggingface"},
+            "openai": {"openai"},
+            "anthropic": {"anthropic"},
+        }
+
+        # Check go.mod
+        go_mod = root / "go.mod"
+        if go_mod.exists():
+            try:
+                content = go_mod.read_text(errors="ignore")[:2000]
+                for name, providers in _AI_IDENTITY.items():
+                    if name in content.lower():
+                        auto_approve |= providers
+            except OSError:
+                pass
+
+        # Check pyproject.toml / setup.py / setup.cfg
+        for cfg_file in ["pyproject.toml", "setup.py", "setup.cfg"]:
+            cfg = root / cfg_file
+            if cfg.exists():
+                try:
+                    content = cfg.read_text(errors="ignore")[:5000].lower()
+                    for name, providers in _AI_IDENTITY.items():
+                        if name in content:
+                            auto_approve |= providers
+                except OSError:
+                    pass
+
+        # Check package.json
+        pkg = root / "package.json"
+        if pkg.exists():
+            try:
+                content = pkg.read_text(errors="ignore")[:5000].lower()
+                for name, providers in _AI_IDENTITY.items():
+                    if name in content:
+                        auto_approve |= providers
+            except OSError:
+                pass
+
+        # Check Cargo.toml
+        cargo = root / "Cargo.toml"
+        if cargo.exists():
+            try:
+                content = cargo.read_text(errors="ignore")[:5000].lower()
+                for name, providers in _AI_IDENTITY.items():
+                    if name in content:
+                        auto_approve |= providers
+            except OSError:
+                pass
+
+        return auto_approve
 
     def scan_text(self, text: str, file_path: str = "<inline>") -> ShadowAIReport:
         """Scan a single text blob for unauthorized model usage."""
@@ -165,6 +245,8 @@ class ShadowAIDetector:
 
         # 1. Check for model IDs
         for provider, pattern in _MODEL_PATTERNS:
+            if provider in self.approved_providers:
+                continue  # Provider is approved — its models are fine
             for i, line in enumerate(lines, 1):
                 for m in pattern.finditer(line):
                     model_id = m.group().strip("\"'")
