@@ -64,8 +64,13 @@ def main() -> int:
     print(f"  Scanning: {repo_path}")
     print(f"{'='*60}")
 
-    # Import and run scanner
-    from scripts.run_client_scan import scan_repo
+    # Import scan_repo from sibling script
+    import importlib.util
+    _scan_script = Path(__file__).parent / "run_client_scan.py"
+    _spec = importlib.util.spec_from_file_location("run_client_scan", _scan_script)
+    _mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    scan_repo = _mod.scan_repo
 
     t0 = time.time()
     results = scan_repo(repo_path)

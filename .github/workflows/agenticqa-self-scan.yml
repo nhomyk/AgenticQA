@@ -1,0 +1,56 @@
+# Self-scan: Run AgenticQA's own security scanners against this repository
+# This proves the action works and produces a real security report
+
+name: AgenticQA Self-Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AgenticQA/src/**'
+      - 'AgenticQA/scripts/**'
+      - 'action.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  self-scan:
+    name: Security Self-Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run AgenticQA scan (local action)
+        id: scan
+        uses: ./
+        with:
+          path: '.'
+          fail-on-critical: 'false'   # Don't fail our own CI (we have intentional test fixtures)
+          output-file: 'agenticqa-self-scan.json'
+          sarif: 'true'
+
+      - name: Print scan summary
+        if: always()
+        run: |
+          echo "## Scan Results"
+          echo "- Total findings: ${{ steps.scan.outputs.total-findings }}"
+          echo "- Critical findings: ${{ steps.scan.outputs.critical-findings }}"
+          echo "- Scanners OK: ${{ steps.scan.outputs.scanners-ok }}"
+          echo "- Risk level: ${{ steps.scan.outputs.risk-level }}"
+
+      - name: Verify scan produced results
+        if: always()
+        run: |
+          if [ ! -f agenticqa-self-scan.json ]; then
+            echo "::error::Scan did not produce output file"
+            exit 1
+          fi
+          FINDINGS=$(python3 -c "import json; d=json.load(open('agenticqa-self-scan.json')); print(d['summary']['total_findings'])")
+          echo "Total findings from JSON: $FINDINGS"
+          if [ "$FINDINGS" -eq 0 ]; then
+            echo "::warning::Zero findings — scanner may not be working correctly"
+          fi
