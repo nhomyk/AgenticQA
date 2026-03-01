@@ -4445,6 +4445,290 @@ async def demo_submit(req: DemoSubmitRequest):
     }
 
 
+# ── Workspace endpoints ──────────────────────────────────────────────────────
+
+
+@app.get("/api/workspace/files")
+async def workspace_list_files(path: str = ""):
+    """List files in the sandboxed workspace."""
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    fm = SandboxedFileManager()
+    result = fm.list_dir(path)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    entries = []
+    for e in (result.data or []):
+        entries.append({
+            "name": e.name, "path": e.path, "is_dir": e.is_dir,
+            "size": e.size, "modified": e.modified, "mime_type": e.mime_type,
+        })
+    return {"success": True, "path": path, "entries": entries}
+
+
+@app.get("/api/workspace/files/read")
+async def workspace_read_file(path: str):
+    """Read a text file from the sandboxed workspace."""
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    fm = SandboxedFileManager()
+    result = fm.read_file(path)
+    if not result.success:
+        code = 403 if result.blocked_reason == "path_traversal" else 400
+        raise HTTPException(status_code=code, detail=result.error)
+    return {"success": True, "path": path, "content": result.data}
+
+
+@app.post("/api/workspace/files/write")
+async def workspace_write_file(body: dict):
+    """Write a text file to the sandboxed workspace."""
+    path = body.get("path", "")
+    content = body.get("content", "")
+    if not path:
+        raise HTTPException(status_code=400, detail="path is required")
+
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    from agenticqa.workspace.workspace_safety import WorkspaceSafetyGate
+    gate = WorkspaceSafetyGate(session_id="api")
+    verdict = gate.check("file_write", {"path": path})
+    if not verdict.allowed:
+        raise HTTPException(status_code=403, detail=verdict.block_reason)
+
+    fm = SandboxedFileManager()
+    result = fm.write_file(path, content)
+    if not result.success:
+        code = 403 if result.blocked_reason else 400
+        raise HTTPException(status_code=code, detail=result.error)
+    return {"success": True, "path": path}
+
+
+@app.delete("/api/workspace/files")
+async def workspace_delete_file(path: str):
+    """Delete a file from the sandboxed workspace (requires safety check)."""
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    from agenticqa.workspace.workspace_safety import WorkspaceSafetyGate
+    gate = WorkspaceSafetyGate(session_id="api")
+    verdict = gate.check("file_delete", {"path": path})
+    if not verdict.allowed:
+        if verdict.requires_approval:
+            return {
+                "success": False,
+                "requires_approval": True,
+                "approval_token": verdict.approval_token,
+                "reason": verdict.block_reason,
+            }
+        raise HTTPException(status_code=403, detail=verdict.block_reason)
+
+    fm = SandboxedFileManager()
+    result = fm.delete_file(path)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "path": path}
+
+
+@app.post("/api/workspace/files/mkdir")
+async def workspace_mkdir(body: dict):
+    """Create a directory in the sandboxed workspace."""
+    path = body.get("path", "")
+    if not path:
+        raise HTTPException(status_code=400, detail="path is required")
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    fm = SandboxedFileManager()
+    result = fm.mkdir(path)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "path": path}
+
+
+@app.get("/api/workspace/files/info")
+async def workspace_info():
+    """Get workspace usage statistics."""
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    fm = SandboxedFileManager()
+    return {"success": True, **fm.get_workspace_info()}
+
+
+# ── Mail endpoints ───────────────────────────────────────────────────────────
+
+
+@app.get("/api/workspace/mail/folders")
+async def workspace_mail_folders():
+    """List IMAP mail folders."""
+    from agenticqa.workspace.mail_client import SafeMailClient
+    client = SafeMailClient()
+    result = client.list_folders()
+    client.close()
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "folders": result.data}
+
+
+@app.get("/api/workspace/mail/messages")
+async def workspace_mail_messages(folder: str = "INBOX", limit: int = 25):
+    """List recent messages from a folder."""
+    from agenticqa.workspace.mail_client import SafeMailClient
+    client = SafeMailClient()
+    result = client.list_messages(folder=folder, limit=limit)
+    client.close()
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "folder": folder, "messages": result.data}
+
+
+@app.get("/api/workspace/mail/read")
+async def workspace_mail_read(uid: str, folder: str = "INBOX"):
+    """Read a single email by UID."""
+    from agenticqa.workspace.mail_client import SafeMailClient
+    client = SafeMailClient()
+    result = client.read_message(uid=uid, folder=folder)
+    client.close()
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    msg = result.data
+    return {
+        "success": True,
+        "message": {
+            "uid": msg.uid, "subject": msg.subject, "sender": msg.sender,
+            "to": msg.to, "date": msg.date, "body_plain": msg.body_plain,
+            "body_html": msg.body_html, "has_attachments": msg.has_attachments,
+            "folder": msg.folder,
+        },
+    }
+
+
+@app.post("/api/workspace/mail/send")
+async def workspace_mail_send(body: dict):
+    """Send an email (requires safety approval)."""
+    to = body.get("to", "")
+    subject = body.get("subject", "")
+    mail_body = body.get("body", "")
+    approved = body.get("approved", False)
+
+    if not to or not subject:
+        raise HTTPException(status_code=400, detail="to and subject required")
+
+    from agenticqa.workspace.mail_client import SafeMailClient
+    from agenticqa.workspace.workspace_safety import WorkspaceSafetyGate
+
+    gate = WorkspaceSafetyGate(session_id="api")
+    verdict = gate.check("mail_send", {"to": to, "subject": subject})
+    if not verdict.allowed:
+        return {
+            "success": False,
+            "requires_approval": verdict.requires_approval,
+            "approval_token": verdict.approval_token,
+            "reason": verdict.block_reason,
+        }
+
+    client = SafeMailClient()
+    result = client.send_message(to, subject, mail_body, approved=approved)
+    client.close()
+    if not result.success:
+        if result.requires_approval:
+            return {"success": False, "requires_approval": True,
+                    "reason": result.error}
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, "sent_to": to, "subject": subject}
+
+
+# ── Link endpoints ───────────────────────────────────────────────────────────
+
+
+@app.post("/api/workspace/links/fetch")
+async def workspace_link_fetch(body: dict):
+    """Fetch a URL safely (with SSRF prevention + output scanning)."""
+    url = body.get("url", "")
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    from agenticqa.workspace.link_tools import SafeLinkManager
+    mgr = SafeLinkManager()
+    result = mgr.fetch_url(url)
+    if not result.success:
+        code = 403 if result.blocked_reason else 400
+        raise HTTPException(status_code=code, detail=result.error)
+    return {
+        "success": True, "url": result.url,
+        "status_code": result.status_code,
+        "content_type": result.content_type,
+        "text": result.text[:50000],  # cap response size
+        "scan_flags": result.scan_flags,
+    }
+
+
+@app.get("/api/workspace/links/bookmarks")
+async def workspace_list_bookmarks(tag: Optional[str] = None):
+    """List saved bookmarks."""
+    from agenticqa.workspace.link_tools import SafeLinkManager
+    mgr = SafeLinkManager()
+    result = mgr.list_bookmarks(tag=tag)
+    return {"success": True, "bookmarks": result.data}
+
+
+@app.post("/api/workspace/links/bookmarks")
+async def workspace_add_bookmark(body: dict):
+    """Add a bookmark."""
+    url = body.get("url", "")
+    title = body.get("title", "")
+    tags = body.get("tags", [])
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    from agenticqa.workspace.link_tools import SafeLinkManager
+    mgr = SafeLinkManager()
+    result = mgr.add_bookmark(url, title=title, tags=tags)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True, **result.data}
+
+
+@app.delete("/api/workspace/links/bookmarks")
+async def workspace_delete_bookmark(bookmark_id: str):
+    """Delete a bookmark by ID."""
+    from agenticqa.workspace.link_tools import SafeLinkManager
+    mgr = SafeLinkManager()
+    result = mgr.delete_bookmark(bookmark_id)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error)
+    return {"success": True}
+
+
+@app.get("/api/workspace/safety/status")
+async def workspace_safety_status():
+    """Get current workspace safety status (lease, pending approvals)."""
+    from agenticqa.workspace.workspace_safety import WorkspaceSafetyGate
+    gate = WorkspaceSafetyGate(session_id="api")
+    return {
+        "success": True,
+        "lease": gate.get_lease_status(),
+        "pending_approvals": gate.get_pending_approvals(),
+    }
+
+
+@app.post("/api/workspace/safety/emergency-stop")
+async def workspace_emergency_stop():
+    """Emergency stop — revoke ALL active workspace leases immediately.
+
+    Inspired by Meta/OpenClaw incident (2026-02-23): operator had to
+    physically sprint to kill the process.  This endpoint provides a
+    single-click kill switch.
+    """
+    from agenticqa.workspace.workspace_safety import WorkspaceSafetyGate
+    gate = WorkspaceSafetyGate(session_id="emergency")
+    result = gate.emergency_stop()
+    return {"success": True, **result}
+
+
+@app.get("/api/workspace/safety/invariants")
+async def workspace_safety_invariants():
+    """Return safety invariants for prompt re-injection after compaction."""
+    from agenticqa.workspace.workspace_safety import (
+        WORKSPACE_SAFETY_INVARIANTS,
+        get_safety_invariants_prompt,
+    )
+    return {
+        "success": True,
+        "invariants": WORKSPACE_SAFETY_INVARIANTS,
+        "prompt": get_safety_invariants_prompt(),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

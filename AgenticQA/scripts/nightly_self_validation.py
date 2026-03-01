@@ -501,6 +501,56 @@ def check_test_count() -> tuple:
     return False, f"Could not parse test count from pytest output"
 
 
+def check_workspace_modules():
+    """Workspace modules import and are functional."""
+    from agenticqa.workspace.file_manager import SandboxedFileManager
+    from agenticqa.workspace.mail_client import SafeMailClient, MailConfig
+    from agenticqa.workspace.link_tools import SafeLinkManager, validate_url
+    from agenticqa.workspace.workspace_safety import (
+        WorkspaceSafetyGate, WORKSPACE_SAFETY_INVARIANTS,
+        get_safety_invariants_prompt,
+    )
+
+    checks_passed = 0
+
+    # File manager sandbox
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        fm = SandboxedFileManager(root=Path(tmp))
+        r = fm.write_file("test.txt", "hello")
+        assert r.success, "file write failed"
+        r2 = fm.read_file("test.txt")
+        assert r2.success and r2.data == "hello", "file read failed"
+        checks_passed += 1
+
+    # Path traversal blocked
+    with tempfile.TemporaryDirectory() as tmp:
+        fm = SandboxedFileManager(root=Path(tmp))
+        r = fm.read_file("../../etc/passwd")
+        assert not r.success, "traversal not blocked"
+        checks_passed += 1
+
+    # Mail delete hard-blocked
+    client = SafeMailClient(config=MailConfig())
+    r = client.delete_message("1")
+    assert not r.success, "mail delete should be blocked"
+    assert "permanently disabled" in r.error.lower()
+    checks_passed += 1
+
+    # SSRF prevention
+    assert validate_url("http://169.254.169.254/") is not None, "SSRF not blocked"
+    assert validate_url("https://example.com") is None, "valid URL rejected"
+    checks_passed += 1
+
+    # Safety invariants
+    assert len(WORKSPACE_SAFETY_INVARIANTS) >= 5
+    prompt = get_safety_invariants_prompt()
+    assert "[WORKSPACE SAFETY INVARIANTS" in prompt
+    checks_passed += 1
+
+    return True, f"{checks_passed}/5 workspace checks passed"
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
@@ -528,6 +578,7 @@ def run_all() -> ValidationReport:
         ("AI Act false positive guard", "compliance", check_ai_act_false_positive_guard),
         ("Safe file iterator limits", "security", check_safe_file_iter),
         ("Client scan script exists", "ci", check_client_scan_script),
+        ("Workspace modules (5 checks)", "workspace", check_workspace_modules),
         ("Unit test count (1500+)", "tests", check_test_count),
     ]
 

@@ -6692,6 +6692,467 @@ def render_agent_learning():
             st.error(f"Could not reach API: {exc}")
 
 
+def render_workspace():
+    """Workspace — safe in-browser files, email, and links."""
+    api_base = os.getenv("AGENTICQA_API_URL", "http://localhost:8000")
+
+    # Minimal workspace sidebar (within the page)
+    ws_tab = st.radio(
+        "Workspace",
+        ["Files", "Email", "Links", "Safety"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+    if ws_tab == "Files":
+        _render_workspace_files(api_base)
+    elif ws_tab == "Email":
+        _render_workspace_email(api_base)
+    elif ws_tab == "Links":
+        _render_workspace_links(api_base)
+    elif ws_tab == "Safety":
+        _render_workspace_safety(api_base)
+
+
+def _render_workspace_files(api_base: str):
+    """File manager tab — sandboxed file browser + editor."""
+    st.subheader("Files")
+    st.caption("All files are sandboxed. Agents cannot access files outside your workspace.")
+
+    col_nav, col_content = st.columns([1, 2])
+
+    # Current path from session state
+    if "ws_file_path" not in st.session_state:
+        st.session_state["ws_file_path"] = ""
+
+    current_path = st.session_state["ws_file_path"]
+
+    with col_nav:
+        st.markdown("**Browser**")
+
+        # Back button
+        if current_path:
+            if st.button(".. (up)"):
+                parts = current_path.rstrip("/").rsplit("/", 1)
+                st.session_state["ws_file_path"] = parts[0] if len(parts) > 1 else ""
+                st.rerun()
+
+        # List directory
+        try:
+            resp = requests.get(
+                f"{api_base}/api/workspace/files",
+                params={"path": current_path},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                entries = data.get("entries", [])
+
+                # Directories first, then files
+                dirs = [e for e in entries if e["is_dir"]]
+                files = [e for e in entries if not e["is_dir"]]
+
+                for d in dirs:
+                    if st.button(f"[dir] {d['name']}", key=f"dir_{d['path']}"):
+                        st.session_state["ws_file_path"] = d["path"]
+                        st.rerun()
+
+                for f in files:
+                    size_kb = round(f["size"] / 1024, 1)
+                    if st.button(f"{f['name']} ({size_kb} KB)", key=f"file_{f['path']}"):
+                        st.session_state["ws_selected_file"] = f["path"]
+                        st.rerun()
+            else:
+                st.warning(f"Could not list files: {resp.text[:200]}")
+        except Exception as exc:
+            st.info(f"API not reachable: {exc}")
+            st.markdown("Start the API with: `python agent_api.py`")
+
+        st.markdown("---")
+
+        # New file / folder
+        with st.expander("New file"):
+            new_name = st.text_input("File name", key="ws_new_file_name")
+            new_content = st.text_area("Content", key="ws_new_file_content", height=100)
+            if st.button("Create", key="ws_create_file"):
+                if new_name:
+                    path = f"{current_path}/{new_name}" if current_path else new_name
+                    try:
+                        wr = requests.post(
+                            f"{api_base}/api/workspace/files/write",
+                            json={"path": path, "content": new_content},
+                            timeout=10,
+                        )
+                        if wr.status_code == 200:
+                            st.success(f"Created {path}")
+                            st.rerun()
+                        else:
+                            st.error(wr.json().get("detail", wr.text[:200]))
+                    except Exception as exc:
+                        st.error(str(exc))
+
+        with st.expander("New folder"):
+            folder_name = st.text_input("Folder name", key="ws_new_folder_name")
+            if st.button("Create folder", key="ws_create_folder"):
+                if folder_name:
+                    path = f"{current_path}/{folder_name}" if current_path else folder_name
+                    try:
+                        resp = requests.post(
+                            f"{api_base}/api/workspace/files/mkdir",
+                            json={"path": path},
+                            timeout=10,
+                        )
+                        if resp.status_code == 200:
+                            st.success(f"Created {path}/")
+                            st.rerun()
+                        else:
+                            st.error(resp.json().get("detail", resp.text[:200]))
+                    except Exception as exc:
+                        st.error(str(exc))
+
+    with col_content:
+        selected = st.session_state.get("ws_selected_file", "")
+        if selected:
+            st.markdown(f"**{selected}**")
+            try:
+                resp = requests.get(
+                    f"{api_base}/api/workspace/files/read",
+                    params={"path": selected},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    file_content = resp.json().get("content", "")
+                    edited = st.text_area("Editor", value=file_content, height=400, key="ws_editor")
+
+                    col_save, col_del = st.columns(2)
+                    with col_save:
+                        if st.button("Save", type="primary", key="ws_save"):
+                            try:
+                                wr = requests.post(
+                                    f"{api_base}/api/workspace/files/write",
+                                    json={"path": selected, "content": edited},
+                                    timeout=10,
+                                )
+                                if wr.status_code == 200:
+                                    st.success("Saved")
+                                else:
+                                    st.error(wr.json().get("detail", "Save failed"))
+                            except Exception as exc:
+                                st.error(str(exc))
+                    with col_del:
+                        if st.button("Delete", key="ws_delete_file"):
+                            try:
+                                dr = requests.delete(
+                                    f"{api_base}/api/workspace/files",
+                                    params={"path": selected},
+                                    timeout=10,
+                                )
+                                if dr.status_code == 200:
+                                    d = dr.json()
+                                    if d.get("requires_approval"):
+                                        st.warning(f"Approval required (token: {d.get('approval_token', 'N/A')})")
+                                    else:
+                                        st.success("Deleted")
+                                        st.session_state.pop("ws_selected_file", None)
+                                        st.rerun()
+                                else:
+                                    st.error(dr.json().get("detail", "Delete failed"))
+                            except Exception as exc:
+                                st.error(str(exc))
+                else:
+                    st.error(resp.json().get("detail", resp.text[:200]))
+            except Exception as exc:
+                st.error(f"API error: {exc}")
+        else:
+            st.info("Select a file from the browser to view and edit it.")
+
+    # Workspace info
+    try:
+        info_resp = requests.get(f"{api_base}/api/workspace/files/info", timeout=5)
+        if info_resp.status_code == 200:
+            info = info_resp.json()
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Files", info.get("file_count", 0))
+            used_mb = round(info.get("total_size_bytes", 0) / 1024 / 1024, 1)
+            max_mb = round(info.get("max_workspace_size", 0) / 1024 / 1024, 0)
+            col2.metric("Storage", f"{used_mb} MB / {max_mb} MB")
+            col3.metric("Max per file", f"{round(info.get('max_file_size', 0) / 1024 / 1024, 0)} MB")
+    except Exception:
+        pass
+
+
+def _render_workspace_email(api_base: str):
+    """Email tab — read-only inbox with send approval gate."""
+    st.subheader("Email")
+    st.caption("Read is always safe. Sending requires explicit approval.")
+
+    # Check if mail is configured
+    mail_configured = bool(os.getenv("AGENTICQA_MAIL_IMAP_HOST"))
+
+    if not mail_configured:
+        st.info(
+            "Mail is not configured. Set these environment variables to connect:\n"
+            "- `AGENTICQA_MAIL_IMAP_HOST` (e.g., imap.gmail.com)\n"
+            "- `AGENTICQA_MAIL_SMTP_HOST` (e.g., smtp.gmail.com)\n"
+            "- `AGENTICQA_MAIL_USER`\n"
+            "- `AGENTICQA_MAIL_PASSWORD`"
+        )
+        return
+
+    tab_inbox, tab_compose = st.tabs(["Inbox", "Compose"])
+
+    with tab_inbox:
+        folder = st.selectbox("Folder", ["INBOX"], key="ws_mail_folder")
+        limit = st.slider("Messages to show", 5, 50, 25, key="ws_mail_limit")
+
+        if st.button("Refresh", key="ws_mail_refresh"):
+            st.rerun()
+
+        try:
+            resp = requests.get(
+                f"{api_base}/api/workspace/mail/messages",
+                params={"folder": folder, "limit": limit},
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                messages = resp.json().get("messages", [])
+                if not messages:
+                    st.info("No messages found.")
+                for msg in messages:
+                    with st.expander(f"**{msg.get('subject', '(no subject)')}** — {msg.get('from', '')}"):
+                        st.text(f"Date: {msg.get('date', '')}")
+                        uid = msg.get("uid", "")
+                        if st.button(f"Read full message", key=f"ws_read_{uid}"):
+                            read_resp = requests.get(
+                                f"{api_base}/api/workspace/mail/read",
+                                params={"uid": uid, "folder": folder},
+                                timeout=15,
+                            )
+                            if read_resp.status_code == 200:
+                                full = read_resp.json().get("message", {})
+                                st.text(full.get("body_plain", "(empty)"))
+                                if full.get("has_attachments"):
+                                    st.caption("(message has attachments — not shown for safety)")
+                            else:
+                                st.error("Failed to read message")
+            else:
+                st.error(f"Failed to fetch messages: {resp.text[:200]}")
+        except Exception as exc:
+            st.error(f"API error: {exc}")
+
+    with tab_compose:
+        st.warning("Sending email requires approval through the safety gate.")
+        with st.form("ws_compose_form"):
+            to_addr = st.text_input("To", key="ws_mail_to")
+            subject = st.text_input("Subject", key="ws_mail_subject")
+            body = st.text_area("Message", height=200, key="ws_mail_body")
+            submitted = st.form_submit_button("Request Send Approval", type="primary")
+
+        if submitted and to_addr and subject:
+            try:
+                resp = requests.post(
+                    f"{api_base}/api/workspace/mail/send",
+                    json={"to": to_addr, "subject": subject, "body": body},
+                    timeout=15,
+                )
+                data = resp.json()
+                if data.get("success"):
+                    st.success(f"Email sent to {to_addr}")
+                elif data.get("requires_approval"):
+                    st.warning(f"Send requires approval: {data.get('reason', '')}")
+                    if data.get("approval_token"):
+                        st.code(f"Approval token: {data['approval_token']}")
+                else:
+                    st.error(data.get("reason", "Send failed"))
+            except Exception as exc:
+                st.error(f"API error: {exc}")
+
+
+def _render_workspace_links(api_base: str):
+    """Links tab — safe URL fetch + bookmark manager."""
+    st.subheader("Links")
+    st.caption("URLs are fetched server-side with SSRF prevention and content scanning.")
+
+    tab_fetch, tab_bookmarks = st.tabs(["Fetch URL", "Bookmarks"])
+
+    with tab_fetch:
+        with st.form("ws_fetch_form"):
+            url = st.text_input("URL", placeholder="https://example.com", key="ws_fetch_url")
+            submitted = st.form_submit_button("Fetch", type="primary")
+
+        if submitted and url:
+            with st.spinner("Fetching..."):
+                try:
+                    resp = requests.post(
+                        f"{api_base}/api/workspace/links/fetch",
+                        json={"url": url},
+                        timeout=20,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        st.success(f"Status: {data.get('status_code')} | Type: {data.get('content_type', '')}")
+
+                        flags = data.get("scan_flags", [])
+                        if flags:
+                            st.warning(f"Output scanner flagged {len(flags)} issue(s):")
+                            for f in flags:
+                                st.text(f"  - {f.get('label', 'unknown')}: {f.get('match', '')[:80]}")
+
+                        text = data.get("text", "")
+                        if text:
+                            st.text_area("Content", value=text[:10000], height=300, key="ws_fetch_result")
+
+                        # Quick-save as bookmark
+                        if st.button("Save as bookmark", key="ws_save_bookmark_from_fetch"):
+                            requests.post(
+                                f"{api_base}/api/workspace/links/bookmarks",
+                                json={"url": url, "title": url},
+                                timeout=10,
+                            )
+                            st.success("Bookmarked")
+                    elif resp.status_code == 403:
+                        st.error(f"Blocked: {resp.json().get('detail', '')}")
+                    else:
+                        st.error(f"Fetch failed: {resp.text[:200]}")
+                except Exception as exc:
+                    st.error(f"API error: {exc}")
+
+    with tab_bookmarks:
+        # Add bookmark form
+        with st.expander("Add bookmark"):
+            bm_url = st.text_input("URL", key="ws_bm_url")
+            bm_title = st.text_input("Title", key="ws_bm_title")
+            bm_tags = st.text_input("Tags (comma-separated)", key="ws_bm_tags")
+            if st.button("Save", key="ws_bm_save"):
+                if bm_url:
+                    tags = [t.strip() for t in bm_tags.split(",") if t.strip()] if bm_tags else []
+                    try:
+                        resp = requests.post(
+                            f"{api_base}/api/workspace/links/bookmarks",
+                            json={"url": bm_url, "title": bm_title or bm_url, "tags": tags},
+                            timeout=10,
+                        )
+                        if resp.status_code == 200:
+                            st.success("Bookmark saved")
+                            st.rerun()
+                        else:
+                            st.error(resp.json().get("detail", "Failed"))
+                    except Exception as exc:
+                        st.error(str(exc))
+
+        # List bookmarks
+        try:
+            resp = requests.get(f"{api_base}/api/workspace/links/bookmarks", timeout=10)
+            if resp.status_code == 200:
+                bookmarks = resp.json().get("bookmarks", [])
+                if not bookmarks:
+                    st.info("No bookmarks yet. Add one above or save from a fetch.")
+                for bm in bookmarks:
+                    col_info, col_action = st.columns([3, 1])
+                    with col_info:
+                        st.markdown(f"**{bm.get('title', '')}**")
+                        st.caption(bm.get("url", ""))
+                        if bm.get("tags"):
+                            st.text(f"Tags: {', '.join(bm['tags'])}")
+                    with col_action:
+                        if st.button("Delete", key=f"ws_bm_del_{bm.get('bookmark_id', '')}"):
+                            requests.delete(
+                                f"{api_base}/api/workspace/links/bookmarks",
+                                params={"bookmark_id": bm["bookmark_id"]},
+                                timeout=10,
+                            )
+                            st.rerun()
+        except Exception:
+            pass
+
+
+def _render_workspace_safety(api_base: str):
+    """Safety tab — workspace lease status and pending approvals."""
+    st.subheader("Workspace Safety")
+    st.caption("Your workspace is protected by 4 safety modules working together.")
+
+    # Safety architecture
+    with st.expander("How your data is protected", expanded=False):
+        st.markdown("""
+**4-Layer Safety Stack:**
+
+1. **Destructive Action Interceptor** — classifies every operation before execution
+   - SAFE: read-only (list files, read email)
+   - REVERSIBLE: writes that can be undone (create file, draft email)
+   - IRREVERSIBLE: permanent actions requiring approval (send email, delete file)
+
+2. **Scope Lease Manager** — hard operational caps per session
+   - Limits reads, writes, deletes per workspace session
+   - Cannot be bypassed — hard block when exhausted
+
+3. **Constitutional Gate** — semantic action validation
+   - Enforces governance laws (no bulk delete, no PII in logs)
+   - File-scope enforcement per agent
+
+4. **Output Scanner** — scans all content for credential leaks
+   - 9-pass decode (base64, URL, hex, unicode, reversed)
+   - 15+ danger patterns (API keys, path traversal, shell injection)
+""")
+
+    try:
+        resp = requests.get(f"{api_base}/api/workspace/safety/status", timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+
+            # Lease status
+            lease = data.get("lease", {})
+            if lease:
+                st.markdown("### Workspace Lease")
+                col1, col2, col3, col4 = st.columns(4)
+                caps = lease.get("caps", {})
+                used = lease.get("used", {})
+                col1.metric("Reads", f"{used.get('reads', 0)}/{caps.get('reads', 0)}")
+                col2.metric("Writes", f"{used.get('writes', 0)}/{caps.get('writes', 0)}")
+                col3.metric("Deletes", f"{used.get('deletes', 0)}/{caps.get('deletes', 0)}")
+                remaining_s = lease.get("seconds_remaining", 0)
+                col4.metric("TTL", f"{remaining_s // 60}m {remaining_s % 60}s")
+
+                if lease.get("revoked_reason"):
+                    st.error(f"Lease REVOKED: {lease['revoked_reason']}")
+                elif lease.get("is_expired"):
+                    st.warning("Lease expired — operations blocked")
+                else:
+                    st.success("Lease active")
+
+            # Pending approvals
+            pending = data.get("pending_approvals", [])
+            if pending:
+                st.markdown("### Pending Approvals")
+                for item in pending:
+                    with st.expander(f"{item.get('tool_name', 'unknown')} — {item.get('classification', '')}"):
+                        st.json(item)
+            else:
+                st.info("No pending approval requests.")
+        else:
+            st.error(f"Could not fetch safety status: {resp.text[:200]}")
+    except Exception as exc:
+        st.info(f"API not reachable: {exc}")
+
+    # Emergency stop
+    st.markdown("---")
+    st.markdown("### Emergency Stop")
+    st.caption(
+        "Immediately revokes ALL active workspace leases. "
+        "Inspired by the Meta/OpenClaw incident where an agent deleted emails "
+        "and could not be stopped via chat commands."
+    )
+    if st.button("EMERGENCY STOP", type="primary", key="ws_emergency_stop"):
+        try:
+            resp = requests.post(f"{api_base}/api/workspace/safety/emergency-stop", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                st.error(f"All leases revoked ({data.get('revoked_count', 0)} lease(s)). All workspace operations are now blocked.")
+            else:
+                st.error("Emergency stop failed")
+        except Exception as exc:
+            st.error(f"API error: {exc}")
+
+
 def main():
     """Main dashboard"""
     render_header()
@@ -6712,7 +7173,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Live Pipeline Demo", "Onboarding", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
+        pages = ["Workspace", "Live Pipeline Demo", "Onboarding", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -6725,8 +7186,10 @@ def main():
             default_index = pages.index("Live Pipeline Demo")
         elif selected_view in {"onboarding", "onboard"}:
             default_index = pages.index("Onboarding")
+        elif selected_view in {"workspace", "files", "mail", "links"}:
+            default_index = pages.index("Workspace")
         else:
-            default_index = pages.index("Live Pipeline Demo")  # default landing page
+            default_index = pages.index("Workspace")  # default landing page
 
         page = st.radio(
             "Select View:",
@@ -6806,7 +7269,10 @@ def main():
         return
 
     # Render selected page
-    if page == "Onboarding":
+    if page == "Workspace":
+        render_workspace()
+
+    elif page == "Onboarding":
         render_onboarding()
 
     elif page == "Operator Console":
