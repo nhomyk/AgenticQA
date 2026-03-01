@@ -1,0 +1,40 @@
+# Example: How to use AgenticQA in your CI/CD pipeline
+# Copy this file to your repo's .github/workflows/ directory
+#
+# Usage:
+#   uses: nhomyk/AgenticQA@v1
+#
+# For the full list of inputs, see action.yml
+
+name: AgenticQA Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-scan:
+    name: AI Agent Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run AgenticQA scan
+        id: scan
+        uses: nhomyk/AgenticQA@v1
+        with:
+          path: '.'
+          fail-on-critical: 'true'
+          output-file: 'agenticqa-results.json'
+          sarif: 'true'
+
+      - name: Print results
+        if: always()
+        run: |
+          echo "Total findings: ${{ steps.scan.outputs.total-findings }}"
+          echo "Critical: ${{ steps.scan.outputs.critical-findings }}"
+          echo "Risk level: ${{ steps.scan.outputs.risk-level }}"

@@ -1,0 +1,96 @@
+name: 'AgenticQA Security Scan'
+description: 'AI agent security scanner — 13 scanners for prompt injection, bias, shadow AI, EU AI Act compliance, and more'
+author: 'nhomyk'
+
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  path:
+    description: 'Path to the repository to scan (default: current workspace)'
+    required: false
+    default: '.'
+  fail-on-critical:
+    description: 'Fail the workflow if critical findings are detected'
+    required: false
+    default: 'true'
+  output-file:
+    description: 'Path to save JSON results'
+    required: false
+    default: 'agenticqa-results.json'
+  scanners:
+    description: 'Comma-separated list of scanners to run (default: all)'
+    required: false
+    default: 'all'
+  sarif:
+    description: 'Generate SARIF output for GitHub Code Scanning integration'
+    required: false
+    default: 'false'
+  sarif-file:
+    description: 'Path to save SARIF output'
+    required: false
+    default: 'agenticqa.sarif'
+
+outputs:
+  total-findings:
+    description: 'Total number of findings across all scanners'
+    value: ${{ steps.scan.outputs.total_findings }}
+  critical-findings:
+    description: 'Number of critical findings'
+    value: ${{ steps.scan.outputs.critical_findings }}
+  scanners-ok:
+    description: 'Number of scanners that completed successfully'
+    value: ${{ steps.scan.outputs.scanners_ok }}
+  risk-level:
+    description: 'Overall risk level (low/medium/high/critical)'
+    value: ${{ steps.scan.outputs.risk_level }}
+  result-file:
+    description: 'Path to the JSON results file'
+    value: ${{ steps.scan.outputs.result_file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install AgenticQA
+      shell: bash
+      run: |
+        pip install --quiet --no-cache-dir \
+          numpy>=1.26.0 \
+          pydantic>=2.0.0 \
+          requests>=2.32.3 \
+          rich>=13.0.0
+        pip install --quiet --no-cache-dir -e "${{ github.action_path }}"
+
+    - name: Run security scan
+      id: scan
+      shell: bash
+      env:
+        AGENTICQA_SCAN_PATH: ${{ inputs.path }}
+        AGENTICQA_OUTPUT_FILE: ${{ inputs.output-file }}
+        AGENTICQA_FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
+        AGENTICQA_SCANNERS: ${{ inputs.scanners }}
+        AGENTICQA_SARIF: ${{ inputs.sarif }}
+        AGENTICQA_SARIF_FILE: ${{ inputs.sarif-file }}
+      run: |
+        python "${{ github.action_path }}/scripts/github_action_entrypoint.py"
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: inputs.sarif == 'true' && always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+      continue-on-error: true
+
+    - name: Upload results artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: agenticqa-security-report
+        path: ${{ inputs.output-file }}
+        retention-days: 30
