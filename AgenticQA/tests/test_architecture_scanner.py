@@ -379,3 +379,180 @@ def test_is_frontend_file_recognises_ui_dir():
     assert ArchitectureScanner._is_frontend_file("client/src/pages/Home.tsx")
     assert not ArchitectureScanner._is_frontend_file("src/service.py")
     assert not ArchitectureScanner._is_frontend_file("api/server.py")
+
+
+# ── Agent Framework detection ────────────────────────────────────────────────
+
+@pytest.mark.unit
+def test_agent_framework_langchain_python(tmp_path):
+    """LangChain import in Python must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "agent.py",
+          "from langchain.agents import AgentExecutor\nagent = AgentExecutor(agent=my_agent)\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+    assert agents[0].severity == "high"
+    assert "CWE-693" in agents[0].cwe
+
+
+@pytest.mark.unit
+def test_agent_framework_langgraph_python(tmp_path):
+    """LangGraph StateGraph must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "graph.py",
+          "from langgraph.graph import StateGraph\ngraph = StateGraph(AgentState)\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_crewai_python(tmp_path):
+    """CrewAI import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "crew.py",
+          "from crewai import Crew, Agent, Task\ncrew = Crew(agents=[a1, a2])\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_autogen_python(tmp_path):
+    """AutoGen AssistantAgent must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "chat.py",
+          "from autogen import AssistantAgent\nassistant = AssistantAgent('coder')\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_openai_python(tmp_path):
+    """OpenAI SDK import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "llm.py",
+          "from openai import OpenAI\nclient = OpenAI()\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_anthropic_python(tmp_path):
+    """Anthropic SDK import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "claude.py",
+          "from anthropic import Anthropic\nclient = Anthropic()\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_langchain_ts(tmp_path):
+    """LangChain import in TypeScript must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "agent.ts",
+          "import { AgentExecutor } from '@langchain/core';\nconst agent = AgentExecutor({});\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+    assert agents[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_agent_framework_openai_ts(tmp_path):
+    """OpenAI SDK in TypeScript must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "llm.ts",
+          "import OpenAI from 'openai';\nconst client = new OpenAI();\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_anthropic_ts(tmp_path):
+    """Anthropic SDK in TypeScript must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "claude.ts",
+          "import Anthropic from '@anthropic-ai/sdk';\nconst client = new Anthropic();\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_go(tmp_path):
+    """Go langchaingo import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "agent.go",
+          'package main\nimport "github.com/tmc/langchaingo/agents"\nfunc main() {}\n')
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_java(tmp_path):
+    """Java langchain4j import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "Agent.java",
+          "import dev.langchain4j.model.chat.ChatLanguageModel;\npublic class Agent {}\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_has_plain_english(tmp_path):
+    """AGENT_FRAMEWORK findings must have a plain-English description."""
+    write(tmp_path / "agent.py",
+          "from langchain.agents import AgentExecutor\nagent = AgentExecutor(agent=my_agent)\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+    assert "agent framework" in agents[0].plain_english.lower() or \
+           "agent" in agents[0].plain_english.lower()
+
+
+@pytest.mark.unit
+def test_agent_framework_has_attack_vectors(tmp_path):
+    """AGENT_FRAMEWORK findings must list attack vectors."""
+    write(tmp_path / "agent.py",
+          "from crewai import Crew\ncrew = Crew(agents=[])\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+    assert len(agents[0].attack_vectors) >= 1
+    assert any("injection" in v.lower() or "escalation" in v.lower() for v in agents[0].attack_vectors)
+
+
+@pytest.mark.unit
+def test_agent_framework_no_false_positive_on_clean_file(tmp_path):
+    """A file with no agent code must not produce AGENT_FRAMEWORK findings."""
+    write(tmp_path / "clean.py", "x = 1\ny = 2\nresult = x + y\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) == 0
+
+
+@pytest.mark.unit
+def test_agent_framework_semantic_kernel_python(tmp_path):
+    """Semantic Kernel import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "sk.py",
+          "from semantic_kernel import Kernel\nkernel = Kernel()\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_agent_framework_llama_index_python(tmp_path):
+    """LlamaIndex import must be detected as AGENT_FRAMEWORK."""
+    write(tmp_path / "rag.py",
+          "from llama_index import GPTSimpleVectorIndex\nindex = GPTSimpleVectorIndex([])\n")
+    result = scanner().scan(str(tmp_path))
+    agents = [a for a in result.integration_areas if a.category == "AGENT_FRAMEWORK"]
+    assert len(agents) >= 1
+
+
+@pytest.mark.unit
+def test_total_categories_is_13(tmp_path):
+    """ArchitectureScanner must have exactly 13 integration categories + SCHEMA_VALIDATION."""
+    from agenticqa.security.architecture_scanner import _PLAIN_ENGLISH
+    # 13 categories + SCHEMA_VALIDATION (protective)
+    assert len(_PLAIN_ENGLISH) == 14, \
+        f"Expected 14 category descriptions (13 + SCHEMA_VALIDATION), got {len(_PLAIN_ENGLISH)}: {sorted(_PLAIN_ENGLISH.keys())}"

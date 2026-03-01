@@ -13,7 +13,7 @@ or agent architecture.  Before they can trust a product, they need answers to:
 Solution
 --------
 Walk any repo (Python, TypeScript, JavaScript, Swift, Go, Java, YAML, JSON).
-For every file, detect 12 integration categories using pre-compiled patterns.
+For every file, detect 13 integration categories using pre-compiled patterns.
 Return plain-English findings any non-engineer can read, cross-referenced with
 the test files that cover them.
 
@@ -31,6 +31,7 @@ AUTH_BOUNDARY     — authentication/authz code  CWE-306 (medium)
 MIDDLEWARE        — HTTP middleware/routing     CWE-284 (medium)
 EVENT_BUS         — async event / message queue CWE-400 (low)
 MCP_TOOL          — MCP server tool exposure   CWE-284 (medium)
+AGENT_FRAMEWORK   — AI agent / multi-agent     CWE-693 (high)
 
 Usage
 -----
@@ -153,6 +154,13 @@ _PLAIN_ENGLISH: Dict[str, str] = {
         "call. Each tool is an attack surface: a prompt-injected agent could invoke "
         "any registered tool with attacker-controlled arguments."
     ),
+    "AGENT_FRAMEWORK": (
+        "This code uses an AI agent framework (LangChain, LangGraph, CrewAI, AutoGen, "
+        "Swarm, Semantic Kernel, etc.) to orchestrate autonomous or multi-agent workflows. "
+        "Agents can execute tool calls, delegate to sub-agents, and chain actions — "
+        "a compromised or prompt-injected agent can escalate privileges, exfiltrate data, "
+        "or trigger destructive operations across the entire agent graph."
+    ),
 }
 
 # ── Attack vectors per category ───────────────────────────────────────────────
@@ -171,6 +179,7 @@ _ATTACK_VECTORS: Dict[str, List[str]] = {
     "MIDDLEWARE":     ["Injection Attacks", "Bypass Rate Limiting", "Privilege Escalation"],
     "EVENT_BUS":      ["Event Poisoning", "Denial of Service", "Cross-Service Attack"],
     "MCP_TOOL":       ["Prompt Injection via Tool", "Indirect Tool Abuse", "Data Exfiltration"],
+    "AGENT_FRAMEWORK": ["Prompt Injection Escalation", "Agent-to-Agent Privilege Escalation", "Uncontrolled Tool Invocation", "Data Exfiltration via Agent Chain"],
 }
 
 # ── CWE per category ──────────────────────────────────────────────────────────
@@ -189,6 +198,7 @@ _CWE: Dict[str, str] = {
     "MIDDLEWARE":     "CWE-284",
     "EVENT_BUS":      "CWE-400",
     "MCP_TOOL":       "CWE-284",
+    "AGENT_FRAMEWORK": "CWE-693",
 }
 
 # ── Pattern definitions ────────────────────────────────────────────────────────
@@ -257,6 +267,30 @@ _PYTHON_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (_p(r"\bredis\s*\.\s*(Redis|StrictRedis|from_url)"), "EVENT_BUS", "low"),
     (_p(r"\bpika\s*\."), "EVENT_BUS", "low"),
     (_p(r"\bkafka\s*\."), "EVENT_BUS", "low"),
+    # AGENT_FRAMEWORK — high (AI agent orchestration)
+    (_p(r"\bfrom\s+langchain"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+langgraph"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+crewai\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+autogen\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+pyautogen\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+swarm\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+semantic_kernel\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+llama_index\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+anthropic\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bfrom\s+openai\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bAgentExecutor\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bStateGraph\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bCrew\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bAssistantAgent\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bGroupChat\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bcreate_react_agent\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bcreate_tool_calling_agent\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bBaseTool\s*\)"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\b@tool\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bToolNode\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bChatAnthropic\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bChatOpenAI\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bbind_tools\s*\("), "AGENT_FRAMEWORK", "high"),
     # SCHEMA_VALIDATION — info (Pydantic, marshmallow — protective)
     (_p(r"\bBaseModel\b"), "SCHEMA_VALIDATION", "info"),
     (_p(r"\bField\s*\("), "SCHEMA_VALIDATION", "info"),
@@ -329,6 +363,25 @@ _TS_JS_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (_p(r"\bnew\s+EventEmitter\s*\("), "EVENT_BUS", "low"),
     (_p(r"require\s*\(\s*[\"'](kafkajs|amqplib|bull|bullmq)[\"']\s*\)"), "EVENT_BUS", "low"),
     (_p(r"\bRedis\s*\("), "EVENT_BUS", "low"),
+    # AGENT_FRAMEWORK — high (AI agent orchestration in JS/TS)
+    (_p(r"from\s+[\"']@langchain"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']@langchain/langgraph"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']langchain"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"require\s*\(\s*[\"']@langchain"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']openai[\"']"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']@anthropic-ai/sdk[\"']"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']@anthropic-ai/claude-code[\"']"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"require\s*\(\s*[\"']openai[\"']\s*\)"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"require\s*\(\s*[\"']@anthropic-ai"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bnew\s+OpenAI\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bnew\s+Anthropic\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bAgentExecutor\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bStateGraph\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bcreateReactAgent\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bcreateToolCallingAgent\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']crewai[\"']"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"from\s+[\"']autogen[\"']"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bbindTools\s*\("), "AGENT_FRAMEWORK", "high"),
 ]
 
 _SWIFT_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
@@ -353,6 +406,10 @@ _GO_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (_p(r"\bjson\s*\.\s*Unmarshal\s*\("), "SERIALIZATION", "high"),
     (_p(r"\bgob\s*\.\s*NewDecoder"), "SERIALIZATION", "high"),
     (_p(r"\bos\s*\.\s*(Create|OpenFile)\s*\("), "FILE_SYSTEM", "medium"),
+    # AGENT_FRAMEWORK — high
+    (_p(r"\"github\.com/tmc/langchaingo"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\"github\.com/sashabaranov/go-openai"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\"github\.com/liushuangls/go-anthropic"), "AGENT_FRAMEWORK", "high"),
 ]
 
 _YAML_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
@@ -373,6 +430,12 @@ _JAVA_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (_p(r"\bSystem\s*\.\s*getenv\s*\("), "ENV_SECRETS", "high"),
     (_p(r"\bnew\s+ServerSocket\s*\("), "NETWORK_SOCKET", "high"),
     (_p(r"\bFileWriter\s*\("), "FILE_SYSTEM", "medium"),
+    # AGENT_FRAMEWORK — high
+    (_p(r"\bimport\s+dev\.langchain4j\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bimport\s+com\.microsoft\.semantickernel\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bimport\s+com\.theokanning\.openai\b"), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bAiServices\s*\.\s*builder\s*\("), "AGENT_FRAMEWORK", "high"),
+    (_p(r"\bChatLanguageModel\b"), "AGENT_FRAMEWORK", "high"),
 ]
 
 # Map extension → patterns list

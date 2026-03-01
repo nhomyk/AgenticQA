@@ -6779,7 +6779,7 @@ def main():
         if store:
             st.success("Neo4j: Connected")
         else:
-            st.error("Neo4j: Disconnected")
+            st.warning("Neo4j: Disconnected")
 
         st.markdown("---")
         st.markdown("### 📚 Resources")
