@@ -38,7 +38,6 @@ class MigrationValidationError(ValueError):
     """Raised when migration records are invalid."""
 
 
-
 def _to_canonical_record(document: Any) -> CanonicalVectorRecord:
     metadata = document.metadata or {}
     return CanonicalVectorRecord(
@@ -51,11 +50,9 @@ def _to_canonical_record(document: Any) -> CanonicalVectorRecord:
     )
 
 
-
 def _record_key(record: Dict[str, Any]) -> str:
     metadata = record.get("metadata") or {}
     return str(metadata.get("source_id") or record["id"])
-
 
 
 def _record_hash(record: Dict[str, Any]) -> str:
@@ -74,7 +71,6 @@ def _record_hash(record: Dict[str, Any]) -> str:
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return sha256(encoded).hexdigest()
-
 
 
 def iter_store_documents(
@@ -106,7 +102,6 @@ def iter_store_documents(
     for doc_type in selected_types:
         for doc in vector_store.get_documents_by_type(doc_type):
             yield _to_canonical_record(doc)
-
 
 
 def validate_jsonl_schema(jsonl_path: str) -> Dict[str, Any]:
@@ -148,7 +143,6 @@ def validate_jsonl_schema(jsonl_path: str) -> Dict[str, Any]:
     }
 
 
-
 def export_vector_store_to_jsonl(
     vector_store: Any,
     output_path: str,
@@ -185,7 +179,6 @@ def export_vector_store_to_jsonl(
         "records_missing_embeddings": missing_embeddings,
         "records_by_type": by_type,
     }
-
 
 
 def import_jsonl_to_vector_store(vector_store: Any, input_path: str) -> Dict[str, Any]:
@@ -226,7 +219,6 @@ def import_jsonl_to_vector_store(vector_store: Any, input_path: str) -> Dict[str
         "records_imported": imported,
         "records_by_type": by_type,
     }
-
 
 
 def parity_report(

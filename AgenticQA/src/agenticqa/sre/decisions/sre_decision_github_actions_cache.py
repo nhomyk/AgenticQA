@@ -5,8 +5,8 @@ This decision captures the resolution for workflow cache configuration issues wh
 actions/setup-python fails because pip cache cannot find requirements.txt or pyproject.toml.
 
 Issue Pattern:
-  Error: No file in /home/runner/work/AgenticQA/AgenticQA matched to 
-  [**/requirements.txt or **/pyproject.toml], make sure you have checked out 
+  Error: No file in /home/runner/work/AgenticQA/AgenticQA matched to
+  [**/requirements.txt or **/pyproject.toml], make sure you have checked out
   the target repository
 
 Root Cause:
@@ -20,7 +20,7 @@ Solution Applied:
   3. Ensured all workflow jobs can now cache pip dependencies
 
 Fix Details:
-  
+
   Before:
   ```yaml
   - uses: actions/setup-python@v4
@@ -28,7 +28,7 @@ Fix Details:
       python-version: ${{ matrix.python-version }}
       cache: 'pip'
   ```
-  
+
   After:
   ```yaml
   - uses: actions/setup-python@v4
