@@ -537,3 +537,30 @@ class InputSizeMiddleware(BaseHTTPMiddleware):
 
         request._receive = receive
         return await call_next(request)
+
+
+class PathSanitizationMiddleware(BaseHTTPMiddleware):
+    """Validate ``repo_path`` query parameters against allowed roots (CWE-22).
+
+    Any request with a ``repo_path`` query param whose resolved value escapes
+    the allowed roots receives an immediate 400.  Requests without the param
+    pass through untouched.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable):
+        if os.getenv("AGENTICQA_PATH_SANITIZE_DISABLE") == "1":
+            return await call_next(request)
+
+        repo_path = request.query_params.get("repo_path")
+        if repo_path and repo_path != ".":
+            try:
+                from agenticqa.security.path_sanitizer import sanitize_repo_path
+                sanitize_repo_path(repo_path)
+            except ValueError as exc:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "path_traversal", "detail": str(exc)},
+                )
+            except Exception:
+                pass  # non-blocking — let the endpoint handle its own validation
+        return await call_next(request)

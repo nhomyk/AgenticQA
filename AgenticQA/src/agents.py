@@ -494,6 +494,19 @@ class BaseAgent(ABC):
             except Exception:
                 pass  # non-blocking
 
+        # 8. Output contract validation — non-blocking; logs warning on schema drift
+        if status == "success" and isinstance(output, dict):
+            try:
+                from agenticqa.contracts import validate_agent_output
+                validate_agent_output(self.agent_name, output)
+            except KeyError:
+                pass  # agent not in registry — custom/unregistered agent
+            except Exception as _contract_err:
+                self.log(
+                    f"Contract violation: {_contract_err}",
+                    "WARNING",
+                )
+
         return artifact_id
 
     def get_pattern_insights(self) -> Dict[str, Any]:

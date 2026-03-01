@@ -1,5 +1,10 @@
 """FastAPI integration for agent orchestration and data store access"""
 
+import asyncio
+import signal
+import sys
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -11,12 +16,18 @@ from pathlib import Path
 import os
 
 try:
+    from src.agenticqa.security.path_sanitizer import sanitize_repo_path
+except ImportError:
+    from agenticqa.security.path_sanitizer import sanitize_repo_path
+
+try:
     from src.agenticqa.security.api_middleware import (
         BearerTokenMiddleware,
         OriginValidationMiddleware,
         ResponseScanMiddleware,
         RateLimitMiddleware,
         InputSizeMiddleware,
+        PathSanitizationMiddleware,
     )
 except ImportError:
     from agenticqa.security.api_middleware import (
@@ -25,6 +36,7 @@ except ImportError:
         ResponseScanMiddleware,
         RateLimitMiddleware,
         InputSizeMiddleware,
+        PathSanitizationMiddleware,
     )
 
 from src.agents import AgentOrchestrator
@@ -76,7 +88,49 @@ except Exception:
     from agenticqa.factory.spec_extractor import NaturalLanguageSpecExtractor, AgentSpec
     from agents import RedTeamAgent
 
-app = FastAPI(title="AgenticQA API", version="1.0.0")
+
+# ── Path sanitization helper ────────────────────────────────────────────────
+def _safe_repo_path(repo_path: str) -> str:
+    """Validate repo_path against allowed roots; raise HTTPException on escape."""
+    if os.getenv("AGENTICQA_PATH_SANITIZE_DISABLE") == "1":
+        return repo_path
+    try:
+        return sanitize_repo_path(repo_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Graceful shutdown ───────────────────────────────────────────────────────
+_shutdown_event = asyncio.Event()
+
+
+@asynccontextmanager
+async def _lifespan(application: FastAPI):
+    """Application lifespan — sets up signal handlers for graceful shutdown."""
+    loop = asyncio.get_running_loop()
+
+    def _signal_handler(sig: signal.Signals) -> None:
+        print(f"\n[AgenticQA] Received {sig.name}, shutting down gracefully…", file=sys.stderr)
+        _shutdown_event.set()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _signal_handler, sig)
+        except NotImplementedError:
+            pass  # Windows doesn't support add_signal_handler
+
+    print("[AgenticQA] API started — press Ctrl+C for graceful shutdown", file=sys.stderr)
+    yield
+    print("[AgenticQA] Shutdown complete.", file=sys.stderr)
+
+
+app = FastAPI(title="AgenticQA API", version="1.0.0", lifespan=_lifespan)
+
+
+@app.get("/api/health/shutdown-status")
+async def shutdown_status():
+    """Check if the server is in graceful shutdown mode."""
+    return {"shutting_down": _shutdown_event.is_set()}
 
 # ── Security middleware stack (outermost = first to run) ──────────────────
 # Order matters: middlewares are applied in reverse registration order in
@@ -84,6 +138,7 @@ app = FastAPI(title="AgenticQA API", version="1.0.0")
 #   OriginValidation → BearerToken → ResponseScan → handler
 # so we register in the opposite order.
 app.add_middleware(ResponseScanMiddleware)
+app.add_middleware(PathSanitizationMiddleware)  # CWE-22: repo_path traversal defence
 app.add_middleware(BearerTokenMiddleware)
 app.add_middleware(OriginValidationMiddleware)
 app.add_middleware(RateLimitMiddleware)    # 60 req/min per token; 15 for heavy endpoints
@@ -811,13 +866,16 @@ async def create_chat_session(body: ChatSessionCreateRequest):
 
 
 @app.get("/api/chat/sessions")
-async def list_chat_sessions(limit: int = 25):
-    """List recent chat sessions."""
+async def list_chat_sessions(limit: int = 25, offset: int = 0):
+    """List recent chat sessions with pagination."""
     try:
-        sessions = workflow_store.list_chat_sessions(limit=limit)
+        all_sessions = workflow_store.list_chat_sessions(limit=limit + offset)
+        sessions = all_sessions[offset:offset + limit]
         return {
             "success": True,
             "count": len(sessions),
+            "offset": offset,
+            "limit": limit,
             "sessions": sessions,
         }
     except Exception as e:
@@ -997,13 +1055,18 @@ async def test_operator_llm_connection():
 
 
 @app.get("/api/workflows/requests")
-async def list_workflow_requests(limit: int = 25):
-    """List recent workflow requests."""
+async def list_workflow_requests(limit: int = 25, offset: int = 0):
+    """List recent workflow requests with pagination."""
     try:
+        _limit = min(max(limit, 1), 200)
+        all_reqs = workflow_store.list_requests(limit=_limit + offset)
+        reqs = all_reqs[offset:offset + _limit]
         return {
             "success": True,
-            "count": min(max(limit, 1), 200),
-            "requests": workflow_store.list_requests(limit=min(max(limit, 1), 200)),
+            "count": len(reqs),
+            "offset": offset,
+            "limit": _limit,
+            "requests": reqs,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1235,11 +1298,12 @@ async def run_workflow_request(request_id: str, body: WorkflowRunRequest):
 
 
 @app.get("/api/observability/traces")
-async def list_observability_traces(limit: int = 100):
-    """List recent execution traces across workflow/agent actions."""
+async def list_observability_traces(limit: int = 100, offset: int = 0):
+    """List recent execution traces with pagination."""
     try:
-        traces = observability_store.list_traces(limit=limit)
-        return {"success": True, "count": len(traces), "traces": traces}
+        all_traces = observability_store.list_traces(limit=limit + offset)
+        traces = all_traces[offset:offset + limit]
+        return {"success": True, "count": len(traces), "offset": offset, "limit": limit, "traces": traces}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1316,6 +1380,7 @@ async def get_observability_audit_report(trace_id: str, format: str = "json", li
 @app.get("/api/observability/events")
 async def list_observability_events(
     limit: int = 100,
+    offset: int = 0,
     trace_id: Optional[str] = None,
     request_id: Optional[str] = None,
     agent: Optional[str] = None,
@@ -1323,10 +1388,10 @@ async def list_observability_events(
     status: Optional[str] = None,
     event_type: Optional[str] = None,
 ):
-    """Query raw observability events with optional filters."""
+    """Query raw observability events with optional filters and pagination."""
     try:
-        events = observability_store.list_events(
-            limit=limit,
+        all_events = observability_store.list_events(
+            limit=limit + offset,
             trace_id=trace_id,
             request_id=request_id,
             agent=agent,
@@ -1334,7 +1399,8 @@ async def list_observability_events(
             status=status,
             event_type=event_type,
         )
-        return {"success": True, "count": len(events), "events": events}
+        events = all_events[offset:offset + limit]
+        return {"success": True, "count": len(events), "offset": offset, "limit": limit, "events": events}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1731,6 +1797,7 @@ async def redteam_history(mode: str = "", limit: int = 50, window: int = 10):
 @app.get("/api/sdet/generated-tests")
 async def sdet_generated_tests(repo_path: str = "."):
     """List all LLM-generated test files in .agenticqa/generated_tests/."""
+    repo_path = _safe_repo_path(repo_path)
     try:
         from pathlib import Path as _Path
         gen_dir = _Path(repo_path) / ".agenticqa" / "generated_tests"
@@ -1755,6 +1822,7 @@ async def sdet_generated_tests(repo_path: str = "."):
 @app.get("/api/developer-profiles")
 async def developer_profiles(repo_path: str = ".", top_n: int = 10):
     """Return the developer risk leaderboard for the given repo."""
+    repo_path = _safe_repo_path(repo_path)
     try:
         import hashlib
         import subprocess as _sp
@@ -1777,6 +1845,7 @@ async def developer_profiles(repo_path: str = ".", top_n: int = 10):
 @app.get("/api/org-memory")
 async def org_memory(repo_path: str = "."):
     """Return cross-repo org memory for the org owning the given repo."""
+    repo_path = _safe_repo_path(repo_path)
     try:
         from data_store.org_memory import OrgMemory
         mem = OrgMemory.for_repo(repo_path)
@@ -1797,6 +1866,7 @@ async def semantic_diff(
     Returns high/medium risk removals: null checks, error handlers, auth decorators,
     input validation, timeouts, and assertions.
     """
+    repo_path = _safe_repo_path(repo_path)
     try:
         from agenticqa.diff.semantic_diff import SemanticDiffAnalyzer
         result = SemanticDiffAnalyzer().analyze_git_range(base=base, head=head, cwd=repo_path)
@@ -1808,6 +1878,7 @@ async def semantic_diff(
 @app.get("/api/compliance/drift")
 async def compliance_drift(repo_path: str = ".", lookback: int = 10):
     """Return compliance violation drift between the last two runs for this repo."""
+    repo_path = _safe_repo_path(repo_path)
     try:
         from agenticqa.compliance.drift_detector import ComplianceDriftDetector
         detector = ComplianceDriftDetector()
@@ -1824,6 +1895,7 @@ async def risk_gate(
     files: List[str] = Query(default=[]),
     threshold: float = 0.70,
 ):
+    repo_path = _safe_repo_path(repo_path)
     """
     Evaluate changed files against developer risk scores.
 
@@ -1913,6 +1985,7 @@ async def post_pr_comment_endpoint(request: dict):
 @app.get("/api/security/cve-reachability")
 async def cve_reachability(repo_path: str = "."):
     """Scan the repo for CVEs (pip-audit + npm audit) and determine import-level reachability."""
+    repo_path = _safe_repo_path(repo_path)
     try:
         from agenticqa.security.cve_reachability import CVEReachabilityAnalyzer
         analyzer = CVEReachabilityAnalyzer()
@@ -2040,14 +2113,17 @@ async def provenance_verify(output_hash: str, agent: str):
 
 
 @app.get("/api/provenance/chain")
-async def provenance_chain(agent: str, limit: int = 20):
-    """Return the most-recent provenance records for an agent."""
+async def provenance_chain(agent: str, limit: int = 20, offset: int = 0):
+    """Return the most-recent provenance records for an agent with pagination."""
     try:
         from agenticqa.provenance.output_provenance import OutputProvenanceLogger
-        records = OutputProvenanceLogger().get_chain(agent, limit=limit)
+        all_records = OutputProvenanceLogger().get_chain(agent, limit=limit + offset)
+        records = all_records[offset:offset + limit]
         return {
             "agent": agent,
             "count": len(records),
+            "offset": offset,
+            "limit": limit,
             "records": [
                 {"output_hash": r.output_hash, "model_id": r.model_id,
                  "timestamp": r.timestamp, "run_id": r.run_id,
@@ -2486,23 +2562,28 @@ async def gdpr_erasure_status(request_id: str):
 async def audit_chain_log(
     tenant_id: str = "",
     limit: int = 100,
+    offset: int = 0,
 ):
     """
     Return the verified immutable audit chain (EU AI Act Art.12 compliance log).
-    Query: ?tenant_id=xxx&limit=100
+    Query: ?tenant_id=xxx&limit=100&offset=0
     """
     try:
         from agenticqa.security.immutable_audit import ImmutableAuditChain
         chain = ImmutableAuditChain()
         ok, violations = chain.verify_chain()
-        entries = chain.get_compliance_log(
+        all_entries = chain.get_compliance_log(
             tenant_id=tenant_id or None,
-            limit=limit,
+            limit=limit + offset,
         )
+        entries = all_entries[offset:offset + limit]
         return {
             "chain_length": chain.length(),
             "chain_intact": ok,
             "violations": [str(v) for v in violations],
+            "count": len(entries),
+            "offset": offset,
+            "limit": limit,
             "entries": entries,
         }
     except Exception as e:

@@ -21,17 +21,20 @@ def disable_api_auth_in_tests():
     """
     original_auth = os.environ.get("AGENTICQA_AUTH_DISABLE", "")
     original_rate = os.environ.get("AGENTICQA_RATE_LIMIT_DISABLE", "")
+    original_path = os.environ.get("AGENTICQA_PATH_SANITIZE_DISABLE", "")
     os.environ["AGENTICQA_AUTH_DISABLE"] = "1"
     os.environ["AGENTICQA_RATE_LIMIT_DISABLE"] = "1"
+    os.environ["AGENTICQA_PATH_SANITIZE_DISABLE"] = "1"
     yield
-    if original_auth:
-        os.environ["AGENTICQA_AUTH_DISABLE"] = original_auth
-    else:
-        os.environ.pop("AGENTICQA_AUTH_DISABLE", None)
-    if original_rate:
-        os.environ["AGENTICQA_RATE_LIMIT_DISABLE"] = original_rate
-    else:
-        os.environ.pop("AGENTICQA_RATE_LIMIT_DISABLE", None)
+    for key, orig in [
+        ("AGENTICQA_AUTH_DISABLE", original_auth),
+        ("AGENTICQA_RATE_LIMIT_DISABLE", original_rate),
+        ("AGENTICQA_PATH_SANITIZE_DISABLE", original_path),
+    ]:
+        if orig:
+            os.environ[key] = orig
+        else:
+            os.environ.pop(key, None)
 
 
 @pytest.fixture
