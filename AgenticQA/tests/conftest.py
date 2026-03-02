@@ -8,6 +8,19 @@ import os
 import pytest
 from unittest.mock import Mock, MagicMock
 
+# Pre-load numpy, pandas, and plotly into sys.modules at session start.
+# This prevents test_streamlit_dashboard.py's patch.dict(sys.modules, {"streamlit": ...})
+# from removing them on context exit (patch.dict restores pre-context state, which
+# would be "not present" if they hadn't been imported yet). NumPy 2.x raises
+# "cannot load module more than once per process" if its C extension is re-initialized,
+# which is what AppTest triggers after patch.dict removes numpy from sys.modules.
+try:
+    import numpy  # noqa: F401
+    import pandas  # noqa: F401
+    import plotly  # noqa: F401
+except ImportError:
+    pass  # Optional deps — skip silently if not installed
+
 
 @pytest.fixture(autouse=True, scope="session")
 def disable_api_auth_in_tests():
