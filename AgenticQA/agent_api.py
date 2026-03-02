@@ -153,6 +153,54 @@ async def _lifespan(application: FastAPI):
 app = FastAPI(
     title="AgenticQA API",
     version="1.0.0",
+    description=(
+        "Multi-agent CI/CD quality platform. Orchestrates 8 specialized agents "
+        "(QA, Performance, Compliance, DevOps, SRE, SDET, Fullstack, RedTeam) "
+        "across security scanning, test coverage analysis, release gating, "
+        "red-team adversarial testing, and adaptive learning.\n\n"
+        "**Authentication**: Bearer token via `Authorization: Bearer <token>` header. "
+        "Health and docs endpoints are unauthenticated.\n\n"
+        "**Source**: [github.com/nhomyk/AgenticQA](https://github.com/nhomyk/AgenticQA)"
+    ),
+    contact={"name": "Nick Homyk", "url": "https://github.com/nhomyk/AgenticQA"},
+    license_info={"name": "MIT"},
+    openapi_tags=[
+        {"name": "Health", "description": "System health probes and dataflow integrity checks."},
+        {"name": "System", "description": "Constitutional AI guardrails, agent scopes, and readiness."},
+        {"name": "Agents", "description": "Execute agents directly and retrieve execution history."},
+        {"name": "Agent Factory", "description": "Natural language to governed agent scaffolding."},
+        {"name": "Workflows", "description": "Prompt workflow lifecycle: submit, approve, queue, stream, metrics."},
+        {"name": "Chat", "description": "Session-based conversational interface to AgenticQA."},
+        {"name": "Pipeline", "description": "Full ADLC pipeline: scan, test, feature, demo, and UI test runs."},
+        {"name": "Observability", "description": "Execution traces, quality events, agent complexity, and insights."},
+        {"name": "Red Team", "description": "Adversarial scanning, prompt injection detection, and agent trust graphs."},
+        {"name": "Security", "description": "CVE reachability, MCP scan, OWASP, secrets, PII, architecture scan."},
+        {"name": "Compliance", "description": "HIPAA, EU AI Act, GDPR erasure, legal risk, and obligations timeline."},
+        {"name": "Safety", "description": "Human-in-the-loop intercept, approval leases, and warden checks."},
+        {"name": "SDET", "description": "LLM-generated test files and coverage gap analysis."},
+        {"name": "Datastore", "description": "Artifact search, retrieval, stats, and failure pattern analysis."},
+        {"name": "Learning", "description": "Learning metrics snapshots, improvement curves, and repo profiles."},
+        {"name": "Developer Intelligence", "description": "Per-developer risk profiles and cross-repo org memory."},
+        {"name": "Provenance", "description": "HMAC-signed AI output verification and provenance chains."},
+        {"name": "GitHub", "description": "PR inline review comments and summary comment upsert."},
+        {"name": "Release", "description": "Release readiness gate and risk scoring."},
+        {"name": "Scoring", "description": "PR risk scoring and portability scorecards."},
+        {"name": "Remediation", "description": "Auto-fix application and findings extraction."},
+        {"name": "Scan Trends", "description": "Scan result history, trend analysis, and org rollup."},
+        {"name": "Regression", "description": "Regression comparison and prediction."},
+        {"name": "Code Analysis", "description": "Semantic diff and change impact analysis."},
+        {"name": "Workspace", "description": "File, mail, links, and workspace safety operations."},
+        {"name": "Notifications", "description": "Slack, Teams, and webhook notification dispatch."},
+        {"name": "Operator", "description": "Operator configuration and connection testing."},
+        {"name": "Onboarding", "description": "Repo onboarding wizard and status tracking."},
+        {"name": "Plugin", "description": "Plugin bootstrap and doctor diagnostics."},
+        {"name": "Ingest", "description": "Scan result ingestion into the learning system."},
+        {"name": "Testing", "description": "Mutation testing and regression prediction."},
+        {"name": "Demo", "description": "Demo submission and showcase pipeline."},
+        {"name": "Badge", "description": "SVG quality badge generation and scan badge."},
+        {"name": "Benchmark", "description": "Performance benchmarking runs."},
+        {"name": "Custom Rules", "description": "Custom scan rules: save and execute."},
+    ],
     lifespan=_lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -176,7 +224,7 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 app.add_middleware(APIVersionMiddleware)
 
 
-@app.get("/api/health/shutdown-status")
+@app.get("/api/health/shutdown-status", tags=["Health"])
 async def shutdown_status():
     """Check if the server is in graceful shutdown mode."""
     return {"shutting_down": _shutdown_event.is_set()}
@@ -489,7 +537,7 @@ def _llm_provider_config() -> Dict[str, Any]:
     }
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint"""
     return {
@@ -499,7 +547,7 @@ async def health_check():
     }
 
 
-@app.get("/api/health/dataflow")
+@app.get("/api/health/dataflow", tags=["Health"])
 async def dataflow_health():
     """
     Check all infrastructure nodes in the agent pipeline.
@@ -526,7 +574,7 @@ async def dataflow_health():
         }
 
 
-@app.get("/api/health/integrity")
+@app.get("/api/health/integrity", tags=["Health"])
 async def system_integrity():
     """
     Application-level integrity check — verifies ontology, constitutional gate,
@@ -552,7 +600,7 @@ async def system_integrity():
         }
 
 
-@app.get("/api/system/readiness")
+@app.get("/api/system/readiness", tags=["System"])
 async def system_readiness():
     """Detailed readiness checks for local dependencies and data stores."""
     try:
@@ -581,7 +629,7 @@ async def system_readiness():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/system/constitution")
+@app.get("/api/system/constitution", tags=["System"])
 async def get_system_constitution():
     """Return the AgenticQA Agent Constitution.
 
@@ -613,7 +661,7 @@ class ConstitutionalCheckRequest(BaseModel):
     context: Dict[str, Any] = {}
 
 
-@app.post("/api/system/constitution/check")
+@app.post("/api/system/constitution/check", tags=["System"])
 async def constitutional_check(request: ConstitutionalCheckRequest):
     """Pre-action constitutional check for any agent platform.
 
@@ -634,7 +682,7 @@ async def constitutional_check(request: ConstitutionalCheckRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/system/agent-scopes")
+@app.get("/api/system/agent-scopes", tags=["System"])
 async def get_system_agent_scopes():
     """Return all declared agent file scopes.
 
@@ -678,7 +726,7 @@ class FileScopeCheckRequest(BaseModel):
     file_path: str
 
 
-@app.post("/api/system/agent-scopes/check")
+@app.post("/api/system/agent-scopes/check", tags=["System"])
 async def file_scope_check(request: FileScopeCheckRequest):
     """Check whether an agent is permitted to perform an action on a specific file.
 
@@ -698,7 +746,7 @@ async def file_scope_check(request: FileScopeCheckRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/agents/execute")
+@app.post("/api/agents/execute", tags=["Agents"])
 async def execute_agents(request: ExecutionRequest):
     """Execute all agents with provided data"""
     # ConstitutionalGate check — same gate used by the RedTeamAgent
@@ -725,7 +773,7 @@ async def execute_agents(request: ExecutionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/agents/insights")
+@app.get("/api/agents/insights", tags=["Agents"])
 async def get_agent_insights():
     """Get pattern insights from all agents"""
     try:
@@ -739,7 +787,7 @@ async def get_agent_insights():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/agents/{agent_name}/history")
+@app.get("/api/agents/{agent_name}/history", tags=["Agents"])
 async def get_agent_history(agent_name: str, limit: int = 10):
     """Get execution history for a specific agent"""
     try:
@@ -757,7 +805,7 @@ async def get_agent_history(agent_name: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/datastore/search")
+@app.post("/api/datastore/search", tags=["Datastore"])
 async def search_artifacts(request: ArtifactSearchRequest):
     """Search for artifacts in data store"""
     try:
@@ -775,7 +823,7 @@ async def search_artifacts(request: ArtifactSearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/datastore/artifact/{artifact_id}")
+@app.get("/api/datastore/artifact/{artifact_id}", tags=["Datastore"])
 async def get_artifact(artifact_id: str):
     """Retrieve a specific artifact"""
     try:
@@ -793,7 +841,7 @@ async def get_artifact(artifact_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/datastore/stats")
+@app.get("/api/datastore/stats", tags=["Datastore"])
 async def get_datastore_stats():
     """Get data store statistics"""
     try:
@@ -823,7 +871,7 @@ async def get_datastore_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/datastore/patterns")
+@app.get("/api/datastore/patterns", tags=["Datastore"])
 async def get_patterns():
     """Get analyzed patterns from data store"""
     try:
@@ -837,7 +885,7 @@ async def get_patterns():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/plugin/bootstrap")
+@app.post("/api/plugin/bootstrap", tags=["Plugin"])
 async def plugin_bootstrap(body: PluginRepoRequest):
     """Bootstrap AgenticQA plug-in files for any target repository."""
     try:
@@ -857,7 +905,7 @@ async def plugin_bootstrap(body: PluginRepoRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/plugin/doctor")
+@app.post("/api/plugin/doctor", tags=["Plugin"])
 async def plugin_doctor(body: PluginRepoRequest):
     """Run onboarding health checks for a target repository."""
     try:
@@ -877,7 +925,7 @@ async def plugin_doctor(body: PluginRepoRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/requests")
+@app.post("/api/workflows/requests", tags=["Workflows"])
 async def create_workflow_request(request: WorkflowRequestCreate):
     """Create a prompt-driven development workflow request."""
     try:
@@ -901,7 +949,7 @@ async def create_workflow_request(request: WorkflowRequestCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/chat/sessions")
+@app.post("/api/chat/sessions", tags=["Chat"])
 async def create_chat_session(body: ChatSessionCreateRequest):
     """Create a new persisted chat session for dashboard operator flow."""
     try:
@@ -919,7 +967,7 @@ async def create_chat_session(body: ChatSessionCreateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/chat/sessions")
+@app.get("/api/chat/sessions", tags=["Chat"])
 async def list_chat_sessions(limit: int = 25, offset: int = 0):
     """List recent chat sessions with pagination."""
     try:
@@ -936,7 +984,7 @@ async def list_chat_sessions(limit: int = 25, offset: int = 0):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/chat/sessions/{session_id}")
+@app.get("/api/chat/sessions/{session_id}", tags=["Chat"])
 async def get_chat_session(session_id: str, limit: int = 200):
     """Get a chat session with message history."""
     try:
@@ -953,7 +1001,7 @@ async def get_chat_session(session_id: str, limit: int = 200):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/chat/sessions/{session_id}/messages")
+@app.post("/api/chat/sessions/{session_id}/messages", tags=["Chat"])
 async def add_chat_message(session_id: str, body: ChatMessageRequest):
     """Append a message to a chat session."""
     try:
@@ -984,7 +1032,7 @@ async def add_chat_message(session_id: str, body: ChatMessageRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/chat/turn")
+@app.post("/api/chat/turn", tags=["Chat"])
 async def chat_turn(body: ChatTurnRequest):
     """Persist a chat turn and optionally create a workflow request from the prompt."""
     try:
@@ -1071,7 +1119,7 @@ async def chat_turn(body: ChatTurnRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/operator/config")
+@app.get("/api/operator/config", tags=["Operator"])
 async def get_operator_config():
     """Return operator console configuration summary (safe/no secrets)."""
     try:
@@ -1090,7 +1138,7 @@ async def get_operator_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/operator/config/test-connection")
+@app.post("/api/operator/config/test-connection", tags=["Operator"])
 async def test_operator_llm_connection():
     """Validate LLM configuration wiring (dry check, no remote call)."""
     try:
@@ -1108,7 +1156,7 @@ async def test_operator_llm_connection():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/requests")
+@app.get("/api/workflows/requests", tags=["Workflows"])
 async def list_workflow_requests(limit: int = 25, offset: int = 0):
     """List recent workflow requests with pagination."""
     try:
@@ -1126,7 +1174,7 @@ async def list_workflow_requests(limit: int = 25, offset: int = 0):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/requests/{request_id}")
+@app.get("/api/workflows/requests/{request_id}", tags=["Workflows"])
 async def get_workflow_request(request_id: str):
     """Get a single workflow request with lifecycle events."""
     try:
@@ -1140,7 +1188,7 @@ async def get_workflow_request(request_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/requests/{request_id}/approve")
+@app.post("/api/workflows/requests/{request_id}/approve", tags=["Workflows"])
 async def approve_workflow_request(request_id: str):
     """Approve a workflow request for execution queueing."""
     try:
@@ -1154,7 +1202,7 @@ async def approve_workflow_request(request_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/requests/{request_id}/queue")
+@app.post("/api/workflows/requests/{request_id}/queue", tags=["Workflows"])
 async def queue_workflow_request(request_id: str):
     """Queue an approved workflow request for worker pickup."""
     try:
@@ -1168,7 +1216,7 @@ async def queue_workflow_request(request_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/requests/{request_id}/cancel")
+@app.post("/api/workflows/requests/{request_id}/cancel", tags=["Workflows"])
 async def cancel_workflow_request(request_id: str, body: WorkflowActionRequest):
     """Cancel a workflow request."""
     try:
@@ -1182,7 +1230,7 @@ async def cancel_workflow_request(request_id: str, body: WorkflowActionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/requests/{request_id}/replay")
+@app.post("/api/workflows/requests/{request_id}/replay", tags=["Workflows"])
 async def replay_workflow_request(request_id: str, body: WorkflowActionRequest):
     """Replay an existing workflow request with self-heal metadata and queue it immediately."""
     try:
@@ -1199,7 +1247,7 @@ async def replay_workflow_request(request_id: str, body: WorkflowActionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/metrics")
+@app.get("/api/workflows/metrics", tags=["Workflows"])
 async def get_workflow_metrics(limit: int = 200):
     """Return Prompt Ops outcome metrics (MTTR, pass-rate uplift, flaky reduction)."""
     try:
@@ -1209,7 +1257,7 @@ async def get_workflow_metrics(limit: int = 200):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/evidence")
+@app.get("/api/workflows/evidence", tags=["Workflows"])
 async def get_workflow_evidence(limit: int = 500):
     """Client-facing evidence bundle mapping system claims to measurable signals."""
     try:
@@ -1227,7 +1275,7 @@ async def get_workflow_evidence(limit: int = 500):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/portability-scorecard")
+@app.get("/api/workflows/portability-scorecard", tags=["Workflows"])
 async def get_portability_scorecard(repo: str = ".", limit: int = 500):
     """Build portability scorecard and baseline delta for any target repository."""
     try:
@@ -1253,7 +1301,7 @@ async def get_portability_scorecard(repo: str = ".", limit: int = 500):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/portability-scorecard/baseline")
+@app.post("/api/workflows/portability-scorecard/baseline", tags=["Workflows"])
 async def save_portability_scorecard_baseline(body: PortabilityBaselineRequest):
     """Persist current portability scorecard as baseline for future delta comparisons."""
     try:
@@ -1282,7 +1330,7 @@ async def save_portability_scorecard_baseline(body: PortabilityBaselineRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/portability-scorecard/roi-report")
+@app.get("/api/workflows/portability-scorecard/roi-report", tags=["Workflows"])
 async def get_portability_roi_report(repo: str = ".", limit: int = 500):
     """Export a compact baseline/current/delta ROI report for a repository."""
     try:
@@ -1313,7 +1361,7 @@ async def get_portability_roi_report(repo: str = ".", limit: int = 500):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/worker/run-next")
+@app.post("/api/workflows/worker/run-next", tags=["Workflows"])
 async def run_next_workflow_request(body: WorkflowRunRequest):
     """Run worker execution for the oldest queued workflow request."""
     try:
@@ -1333,7 +1381,7 @@ async def run_next_workflow_request(body: WorkflowRunRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/workflows/worker/run/{request_id}")
+@app.post("/api/workflows/worker/run/{request_id}", tags=["Workflows"])
 async def run_workflow_request(request_id: str, body: WorkflowRunRequest):
     """Run worker execution for a specific queued workflow request."""
     try:
@@ -1353,7 +1401,7 @@ async def run_workflow_request(request_id: str, body: WorkflowRunRequest):
 
 # ── Auto-submit + Queue endpoints ────────────────────────────────────────────
 
-@app.post("/api/workflows/submit")
+@app.post("/api/workflows/submit", tags=["Workflows"])
 async def submit_workflow_request(request: WorkflowRequestCreate):
     """Auto-queue a workflow request — skips manual approval, worker pool picks it up."""
     try:
@@ -1368,7 +1416,7 @@ async def submit_workflow_request(request: WorkflowRequestCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/queue")
+@app.get("/api/workflows/queue", tags=["Workflows"])
 async def get_workflow_queue():
     """Return pool status and queue snapshot for dashboard."""
     try:
@@ -1377,7 +1425,7 @@ async def get_workflow_queue():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/requests/{request_id}/status")
+@app.get("/api/workflows/requests/{request_id}/status", tags=["Workflows"])
 async def get_workflow_request_status(request_id: str):
     """Lightweight polling endpoint — returns just status + key fields."""
     try:
@@ -1401,7 +1449,7 @@ async def get_workflow_request_status(request_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workflows/requests/{request_id}/stream")
+@app.get("/api/workflows/requests/{request_id}/stream", tags=["Workflows"])
 async def stream_workflow_request_status(request_id: str):
     """SSE endpoint — emits events on status change, closes on terminal state."""
     from starlette.responses import StreamingResponse
@@ -1443,7 +1491,7 @@ async def stream_workflow_request_status(request_id: str):
     )
 
 
-@app.get("/api/observability/traces")
+@app.get("/api/observability/traces", tags=["Observability"])
 async def list_observability_traces(limit: int = 100, offset: int = 0):
     """List recent execution traces with pagination."""
     try:
@@ -1454,7 +1502,7 @@ async def list_observability_traces(limit: int = 100, offset: int = 0):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/traces/{trace_id}")
+@app.get("/api/observability/traces/{trace_id}", tags=["Observability"])
 async def get_observability_trace(trace_id: str, limit: int = 500):
     """Get all events for a single trace."""
     try:
@@ -1464,7 +1512,7 @@ async def get_observability_trace(trace_id: str, limit: int = 500):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/traces/{trace_id}/analysis")
+@app.get("/api/observability/traces/{trace_id}/analysis", tags=["Observability"])
 async def get_observability_trace_analysis(trace_id: str, limit: int = 1000):
     """Get computed span tree and quality analysis for a single trace."""
     try:
@@ -1484,7 +1532,7 @@ async def get_observability_trace_analysis(trace_id: str, limit: int = 1000):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/traces/{trace_id}/counterfactuals")
+@app.get("/api/observability/traces/{trace_id}/counterfactuals", tags=["Observability"])
 async def get_observability_counterfactuals(trace_id: str, limit: int = 300):
     """Get counterfactual recommendations for failed/retried actions in a trace."""
     try:
@@ -1498,7 +1546,7 @@ async def get_observability_counterfactuals(trace_id: str, limit: int = 300):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/traces/{trace_id}/audit-report")
+@app.get("/api/observability/traces/{trace_id}/audit-report", tags=["Observability"])
 async def get_observability_audit_report(trace_id: str, format: str = "json", limit: int = 500):
     """Build a shareable AI Decision Audit Report for a single trace.
 
@@ -1523,7 +1571,7 @@ async def get_observability_audit_report(trace_id: str, format: str = "json", li
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/events")
+@app.get("/api/observability/events", tags=["Observability"])
 async def list_observability_events(
     limit: int = 100,
     offset: int = 0,
@@ -1551,7 +1599,7 @@ async def list_observability_events(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/quality")
+@app.get("/api/observability/quality", tags=["Observability"])
 async def get_observability_quality(
     limit: int = 100,
     min_completeness: float = 0.95,
@@ -1573,7 +1621,7 @@ async def get_observability_quality(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/observability/ingest")
+@app.post("/api/observability/ingest", tags=["Observability"])
 async def ingest_event(event: IngestEventRequest):
     """Ingest a single agent event from any external platform.
 
@@ -1611,7 +1659,7 @@ async def ingest_event(event: IngestEventRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/observability/ingest/batch")
+@app.post("/api/observability/ingest/batch", tags=["Observability"])
 async def ingest_events_batch(batch: IngestBatchRequest):
     """Ingest a batch of agent events. Processes all events; returns per-event status."""
     results = []
@@ -1654,7 +1702,7 @@ async def ingest_events_batch(batch: IngestBatchRequest):
     }
 
 
-@app.get("/api/observability/agent-complexity")
+@app.get("/api/observability/agent-complexity", tags=["Observability"])
 async def get_agent_complexity(agent: Optional[str] = None, window_days: int = 14):
     """Return RAG retrieval complexity trends per agent for degradation detection.
 
@@ -1688,7 +1736,7 @@ async def get_agent_complexity(agent: Optional[str] = None, window_days: int = 1
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/observability/insights")
+@app.get("/api/observability/insights", tags=["Observability"])
 async def get_observability_insights(limit: int = 500):
     """Get aggregate observability insights (quality, failures, policy impact)."""
     try:
@@ -1712,7 +1760,7 @@ class AgentScaffoldRequest(BaseModel):
     capabilities: List[str] = []
 
 
-@app.get("/api/agent-factory/frameworks")
+@app.get("/api/agent-factory/frameworks", tags=["Agent Factory"])
 async def list_agent_frameworks():
     """List all supported agent frameworks for scaffolding."""
     return {
@@ -1722,7 +1770,7 @@ async def list_agent_frameworks():
     }
 
 
-@app.post("/api/agent-factory/scaffold")
+@app.post("/api/agent-factory/scaffold", tags=["Agent Factory"])
 async def scaffold_agent(request: AgentScaffoldRequest):
     """
     Generate governed agent starter code for the requested framework.
@@ -1761,7 +1809,7 @@ class SandboxWrapRequest(BaseModel):
     block_on_flag: bool = True
 
 
-@app.post("/api/agent-factory/sandbox-wrap")
+@app.post("/api/agent-factory/sandbox-wrap", tags=["Agent Factory"])
 async def sandbox_wrap_agent(request: SandboxWrapRequest):
     """
     Register a sandboxed agent: subprocess isolation + constitutional gate + output scanner.
@@ -1808,7 +1856,7 @@ class FromPromptRequest(BaseModel):
     persist: bool = True
 
 
-@app.post("/api/agent-factory/from-prompt")
+@app.post("/api/agent-factory/from-prompt", tags=["Agent Factory"])
 async def scaffold_agent_from_prompt(request: FromPromptRequest):
     """
     Natural language → governed agent.
@@ -1895,7 +1943,7 @@ class RedTeamScanRequest(BaseModel):
     auto_patch: bool = True
 
 
-@app.post("/api/red-team/scan")
+@app.post("/api/red-team/scan", tags=["Red Team"])
 async def red_team_scan(request: RedTeamScanRequest):
     """Probe governance stack for bypasses and optionally self-patch OutputScanner patterns."""
     if request.mode not in ("fast", "thorough"):
@@ -1914,7 +1962,7 @@ async def red_team_scan(request: RedTeamScanRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/redteam/history")
+@app.get("/api/redteam/history", tags=["Red Team"])
 async def redteam_history(mode: str = "", limit: int = 50, window: int = 10):
     """Return red team scan history, trend curves, and security posture summary."""
     try:
@@ -1940,7 +1988,7 @@ async def redteam_history(mode: str = "", limit: int = 50, window: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/sdet/generated-tests")
+@app.get("/api/sdet/generated-tests", tags=["SDET"])
 async def sdet_generated_tests(repo_path: str = "."):
     """List all LLM-generated test files in .agenticqa/generated_tests/."""
     repo_path = _safe_repo_path(repo_path)
@@ -1965,7 +2013,7 @@ async def sdet_generated_tests(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/developer-profiles")
+@app.get("/api/developer-profiles", tags=["Developer Intelligence"])
 async def developer_profiles(repo_path: str = ".", top_n: int = 10):
     """Return the developer risk leaderboard for the given repo."""
     repo_path = _safe_repo_path(repo_path)
@@ -1988,7 +2036,7 @@ async def developer_profiles(repo_path: str = ".", top_n: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/org-memory")
+@app.get("/api/org-memory", tags=["Developer Intelligence"])
 async def org_memory(repo_path: str = "."):
     """Return cross-repo org memory for the org owning the given repo."""
     repo_path = _safe_repo_path(repo_path)
@@ -2000,7 +2048,7 @@ async def org_memory(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/semantic-diff")
+@app.get("/api/semantic-diff", tags=["Code Analysis"])
 async def semantic_diff(
     repo_path: str = ".",
     base: str = "HEAD~1",
@@ -2021,7 +2069,7 @@ async def semantic_diff(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/compliance/drift")
+@app.get("/api/compliance/drift", tags=["Compliance"])
 async def compliance_drift(repo_path: str = ".", lookback: int = 10):
     """Return compliance violation drift between the last two runs for this repo."""
     repo_path = _safe_repo_path(repo_path)
@@ -2035,7 +2083,7 @@ async def compliance_drift(repo_path: str = ".", lookback: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/risk-gate")
+@app.get("/api/risk-gate", tags=["Release"])
 async def risk_gate(
     repo_path: str = ".",
     files: List[str] = Query(default=[]),
@@ -2068,7 +2116,7 @@ async def risk_gate(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/github/pr-inline-comments")
+@app.post("/api/github/pr-inline-comments", tags=["GitHub"])
 async def post_inline_comments(request: dict):
     """Post inline review comments on specific PR diff lines."""
     try:
@@ -2089,7 +2137,7 @@ async def post_inline_comments(request: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/github/pr-comment")
+@app.post("/api/github/pr-comment", tags=["GitHub"])
 async def post_pr_comment_endpoint(request: dict):
     """Post or update AgenticQA CI results as a PR comment."""
     try:
@@ -2128,7 +2176,7 @@ async def post_pr_comment_endpoint(request: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/cve-reachability")
+@app.get("/api/security/cve-reachability", tags=["Security"])
 async def cve_reachability(repo_path: str = "."):
     """Scan the repo for CVEs (pip-audit + npm audit) and determine import-level reachability."""
     repo_path = _safe_repo_path(repo_path)
@@ -2176,7 +2224,7 @@ async def cve_reachability(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/compliance/legal-risk")
+@app.get("/api/compliance/legal-risk", tags=["Compliance"])
 async def legal_risk_scan(repo_path: str = "."):
     """Scan a repo for legal compliance risks: credentials, PII docs, privilege exposure, SSRF, missing auth."""
     try:
@@ -2204,7 +2252,7 @@ async def legal_risk_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/regression/compare")
+@app.get("/api/regression/compare", tags=["Regression"])
 async def regression_compare(
     agent: str,
     baseline_model: str,
@@ -2236,7 +2284,7 @@ async def regression_compare(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/provenance/verify")
+@app.get("/api/provenance/verify", tags=["Provenance"])
 async def provenance_verify(output_hash: str, agent: str):
     """Verify an AI output hash against the provenance log."""
     try:
@@ -2258,7 +2306,7 @@ async def provenance_verify(output_hash: str, agent: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/provenance/chain")
+@app.get("/api/provenance/chain", tags=["Provenance"])
 async def provenance_chain(agent: str, limit: int = 20, offset: int = 0):
     """Return the most-recent provenance records for an agent with pagination."""
     try:
@@ -2281,7 +2329,7 @@ async def provenance_chain(agent: str, limit: int = 20, offset: int = 0):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/compliance/ai-model-sbom")
+@app.get("/api/compliance/ai-model-sbom", tags=["Compliance"])
 async def ai_model_sbom_scan(repo_path: str = "."):
     """Produce an AI Model SBOM: inventory of all ML models, providers, licenses, and risk flags."""
     try:
@@ -2311,7 +2359,7 @@ async def ai_model_sbom_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/compliance/hipaa")
+@app.get("/api/compliance/hipaa", tags=["Compliance"])
 async def hipaa_phi_scan(repo_path: str = "."):
     """Scan repo for HIPAA PHI risks: hardcoded SSN/DOB/MRN, PHI in logs, PHI to LLM, missing audit."""
     try:
@@ -2333,7 +2381,7 @@ async def hipaa_phi_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/compliance/ai-act")
+@app.get("/api/compliance/ai-act", tags=["Compliance"])
 async def ai_act_check(repo_path: str = "."):
     """Check EU AI Act conformity: Annex III classification + Art.9/13/14/22 evidence."""
     try:
@@ -2355,7 +2403,7 @@ async def ai_act_check(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/compliance/obligations-timeline")
+@app.get("/api/compliance/obligations-timeline", tags=["Compliance"])
 async def obligations_timeline(
     repo_path: str = ".",
     eu_conformity_score: float = -1.0,
@@ -2413,7 +2461,7 @@ async def obligations_timeline(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/redteam/prompt-injection")
+@app.get("/api/redteam/prompt-injection", tags=["Red Team"])
 async def prompt_injection_scan(repo_path: str = "."):
     """Scan repo for prompt injection attack surface."""
     try:
@@ -2434,7 +2482,7 @@ async def prompt_injection_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/redteam/agent-trust-graph")
+@app.get("/api/redteam/agent-trust-graph", tags=["Red Team"])
 async def agent_trust_graph_scan(repo_path: str = "."):
     """Analyze multi-agent trust graph: circular trust, missing human oversight, privileged tools, escalation paths."""
     try:
@@ -2471,7 +2519,7 @@ async def agent_trust_graph_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/mcp-scan")
+@app.get("/api/security/mcp-scan", tags=["Security"])
 async def mcp_security_scan(repo_path: str = "."):
     """Scan MCP server definitions and implementations for security vulnerabilities."""
     try:
@@ -2507,7 +2555,7 @@ async def mcp_security_scan(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/data-flow-trace")
+@app.get("/api/security/data-flow-trace", tags=["Security"])
 async def data_flow_trace(repo_path: str = "."):
     """Trace sensitive data (PII/credentials) flows across agent trust boundaries."""
     try:
@@ -2549,7 +2597,7 @@ async def data_flow_trace(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/skill-scan")
+@app.get("/api/security/skill-scan", tags=["Security"])
 async def skill_scan(agents_dir: str = ".agenticqa/custom_agents"):
     """
     AST-scan all custom agent skill files for dangerous patterns.
@@ -2580,7 +2628,7 @@ async def skill_scan(agents_dir: str = ".agenticqa/custom_agents"):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/temporal/violations")
+@app.get("/api/temporal/violations", tags=["Learning"])
 async def temporal_violations(
     repo_id: str,
     days: int = 30,
@@ -2601,7 +2649,7 @@ async def temporal_violations(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/learning-metrics")
+@app.get("/api/learning-metrics", tags=["Learning"])
 async def learning_metrics(repo_id: str = "", limit: int = 30):
     """Return per-run learning metrics history and improvement curve."""
     try:
@@ -2619,7 +2667,7 @@ async def learning_metrics(repo_id: str = "", limit: int = 30):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/repo-profile")
+@app.get("/api/repo-profile", tags=["Learning"])
 async def repo_profile_endpoint(repo_path: str = "."):
     """Return the current repo's RepoProfile including run_history for trend charts."""
     try:
@@ -2640,7 +2688,7 @@ async def repo_profile_endpoint(repo_path: str = "."):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/export/sarif")
+@app.post("/api/export/sarif", tags=["Provenance"])
 async def export_sarif(request: Request):
     """
     Convert agent results to SARIF 2.1.0 for GitHub Code Scanning.
@@ -2666,7 +2714,7 @@ async def export_sarif(request: Request):
         return {"error": str(e)}
 
 
-@app.post("/api/gdpr/erasure-request")
+@app.post("/api/gdpr/erasure-request", tags=["Compliance"])
 async def gdpr_erasure_request(request: Request):
     """
     Create a GDPR Art.17 erasure request for a tenant.
@@ -2688,7 +2736,7 @@ async def gdpr_erasure_request(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/gdpr/erasure-status/{request_id}")
+@app.get("/api/gdpr/erasure-status/{request_id}", tags=["Compliance"])
 async def gdpr_erasure_status(request_id: str):
     """
     Verify that all stores have been purged for a given erasure request.
@@ -2704,7 +2752,7 @@ async def gdpr_erasure_status(request_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/audit-chain")
+@app.get("/api/security/audit-chain", tags=["Security"])
 async def audit_chain_log(
     tenant_id: str = "",
     limit: int = 100,
@@ -2736,7 +2784,7 @@ async def audit_chain_log(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/security/classify-intent")
+@app.post("/api/security/classify-intent", tags=["Security"])
 async def classify_intent(request: Request):
     """
     Run SemanticIntentClassifier on a text snippet.
@@ -2759,7 +2807,7 @@ async def classify_intent(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/ci-scan")
+@app.get("/api/security/ci-scan", tags=["Security"])
 async def ci_yaml_scan(path: str = ".github/workflows"):
     """
     Scan GitHub Actions YAML files for injection vulnerabilities.
@@ -2788,7 +2836,7 @@ async def ci_yaml_scan(path: str = ".github/workflows"):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/security/architecture-scan")
+@app.get("/api/security/architecture-scan", tags=["Security"])
 async def architecture_scan(repo_path: str = "."):
     """
     Scan a repository for integration areas and attack surface.
@@ -2844,7 +2892,7 @@ class PRRiskRequest(BaseModel):
     repo_path: str = "."
 
 
-@app.post("/api/scoring/pr-risk")
+@app.post("/api/scoring/pr-risk", tags=["Scoring"])
 async def pr_risk_score(req: PRRiskRequest):
     """
     Score a pull request's risk before CI runs.
@@ -2880,7 +2928,7 @@ class WebhookTestRequest(BaseModel):
     max_retries: int = 3
 
 
-@app.post("/api/notifications/webhook-test")
+@app.post("/api/notifications/webhook-test", tags=["Notifications"])
 async def webhook_test(req: WebhookTestRequest):
     """
     Fire a test webhook POST to the given URL.
@@ -2930,7 +2978,7 @@ class InterceptRequest(BaseModel):
     context_snippet: str = ""
 
 
-@app.post("/api/safety/intercept")
+@app.post("/api/safety/intercept", tags=["Safety"])
 async def intercept_action(req: InterceptRequest):
     """Classify and gate a tool call before execution."""
     from agenticqa.security.destructive_action_interceptor import ActionCall
@@ -2946,14 +2994,14 @@ async def intercept_action(req: InterceptRequest):
     return verdict.to_dict()
 
 
-@app.get("/api/safety/pending")
+@app.get("/api/safety/pending", tags=["Safety"])
 async def get_pending_approvals():
     """List all pending approval requests requiring human sign-off."""
     interceptor = _get_interceptor()
     return {"pending": interceptor.get_pending_approvals()}
 
 
-@app.post("/api/safety/approve/{token}")
+@app.post("/api/safety/approve/{token}", tags=["Safety"])
 async def approve_action(token: str, approved_by: str = "human"):
     """Approve a pending action by its approval token."""
     interceptor = _get_interceptor()
@@ -2963,7 +3011,7 @@ async def approve_action(token: str, approved_by: str = "human"):
     return {"approved": True, "token": token}
 
 
-@app.post("/api/safety/deny/{token}")
+@app.post("/api/safety/deny/{token}", tags=["Safety"])
 async def deny_action(token: str):
     """Deny and remove a pending approval request."""
     interceptor = _get_interceptor()
@@ -2999,7 +3047,7 @@ class LeaseCheckRequest(BaseModel):
     action: str   # read | write | delete | execute (or tool name alias)
 
 
-@app.post("/api/safety/lease")
+@app.post("/api/safety/lease", tags=["Safety"])
 async def create_lease(req: LeaseCreateRequest):
     """Issue a new scope lease for an agent session."""
     from agenticqa.security.scope_lease_manager import LeaseConfig
@@ -3021,7 +3069,7 @@ async def create_lease(req: LeaseCreateRequest):
     return {"lease_id": lease_id, **mgr.get_lease_status(lease_id)}
 
 
-@app.get("/api/safety/lease/{lease_id}")
+@app.get("/api/safety/lease/{lease_id}", tags=["Safety"])
 async def get_lease(lease_id: str):
     """Get current status and counters for a lease."""
     mgr = _get_lease_mgr()
@@ -3031,7 +3079,7 @@ async def get_lease(lease_id: str):
     return status
 
 
-@app.post("/api/safety/lease/check")
+@app.post("/api/safety/lease/check", tags=["Safety"])
 async def check_lease(req: LeaseCheckRequest):
     """Check-and-consume one operation unit from a lease (hard enforcement)."""
     mgr = _get_lease_mgr()
@@ -3041,7 +3089,7 @@ async def check_lease(req: LeaseCheckRequest):
     return {"allowed": True, "reason": reason}
 
 
-@app.delete("/api/safety/lease/{lease_id}")
+@app.delete("/api/safety/lease/{lease_id}", tags=["Safety"])
 async def revoke_lease(lease_id: str, reason: str = "manual revocation"):
     """Immediately revoke a lease — all further ops blocked."""
     mgr = _get_lease_mgr()
@@ -3051,7 +3099,7 @@ async def revoke_lease(lease_id: str, reason: str = "manual revocation"):
     return {"revoked": True, "lease_id": lease_id}
 
 
-@app.get("/api/safety/leases")
+@app.get("/api/safety/leases", tags=["Safety"])
 async def list_leases():
     """List all active (non-expired, non-revoked) leases."""
     mgr = _get_lease_mgr()
@@ -3081,7 +3129,7 @@ class GuardrailRegisterRequest(BaseModel):
     guardrails: list              # [{name, content, drift_signals?, priority?}]
 
 
-@app.post("/api/safety/warden/register")
+@app.post("/api/safety/warden/register", tags=["Safety"])
 async def register_guardrails(req: GuardrailRegisterRequest):
     """Register immutable guardrail blocks for a session."""
     from agenticqa.security.instruction_persistence_warden import GuardrailBlock
@@ -3099,7 +3147,7 @@ async def register_guardrails(req: GuardrailRegisterRequest):
     return {"registered": len(blocks), "session_id": req.session_id}
 
 
-@app.post("/api/safety/warden/check")
+@app.post("/api/safety/warden/check", tags=["Safety"])
 async def warden_check(req: WardCheckRequest):
     """Check compaction risk and constraint drift for a session."""
     warden = _get_warden()
@@ -3107,7 +3155,7 @@ async def warden_check(req: WardCheckRequest):
     return report.to_dict()
 
 
-@app.get("/api/safety/warden/prompt/{session_id}")
+@app.get("/api/safety/warden/prompt/{session_id}", tags=["Safety"])
 async def get_reinforced_prompt(session_id: str, base_prompt: str = ""):
     """Get a system prompt with all guardrail blocks re-injected."""
     warden = _get_warden()
@@ -3134,7 +3182,7 @@ class ReadinessRequest(BaseModel):
     architecture_result: Optional[Dict[str, Any]] = None
 
 
-@app.post("/api/release-readiness")
+@app.post("/api/release-readiness", tags=["Release"])
 async def release_readiness(req: ReadinessRequest):
     """
     Aggregate all AgenticQA signals into a single 0-100 Release Readiness Score.
@@ -3169,7 +3217,7 @@ class IntentVerifyRequest(BaseModel):
     llm_assisted: bool = False
 
 
-@app.post("/api/security/intent-verify")
+@app.post("/api/security/intent-verify", tags=["Security"])
 async def intent_verify(req: IntentVerifyRequest):
     """
     Verify that an LLM-generated code diff actually implements the stated intent.
@@ -3193,7 +3241,7 @@ except ImportError:
     from agenticqa.security.owasp_scanner import OWASPScanner
 
 
-@app.get("/api/security/owasp-scan")
+@app.get("/api/security/owasp-scan", tags=["Security"])
 async def owasp_scan(repo_path: str = "."):
     """
     Static analysis covering OWASP Top 10 (2021): Injection, Broken Auth,
@@ -3217,7 +3265,7 @@ class BlastRadiusRequest(BaseModel):
     changed_files: List[str] = []
 
 
-@app.post("/api/security/blast-radius")
+@app.post("/api/security/blast-radius", tags=["Security"])
 async def blast_radius(req: BlastRadiusRequest):
     """
     Analyze which modules are affected by a set of changed files.
@@ -3240,7 +3288,7 @@ class MutationRequest(BaseModel):
     target_files: Optional[List[str]] = None
 
 
-@app.post("/api/testing/mutation")
+@app.post("/api/testing/mutation", tags=["Testing"])
 async def mutation_test(req: MutationRequest):
     """
     Run mutation testing via mutmut and report the kill rate.
@@ -3265,7 +3313,7 @@ class SecretsScanRequest(BaseModel):
     max_commits: int = 100
 
 
-@app.post("/api/security/secrets-scan")
+@app.post("/api/security/secrets-scan", tags=["Security"])
 async def secrets_scan(req: SecretsScanRequest):
     """
     Scan git commit history and current HEAD for accidentally committed secrets.
@@ -3293,7 +3341,7 @@ class PreflightChecklistRequest(BaseModel):
     diff_content: str = ""
 
 
-@app.post("/api/security/preflight-checklist")
+@app.post("/api/security/preflight-checklist", tags=["Security"])
 async def preflight_checklist(req: PreflightChecklistRequest):
     """
     Generate a personalized deploy checklist based on changed files and diff content.
@@ -3314,7 +3362,7 @@ except ImportError:
     from agenticqa.security.container_scanner import ContainerScanner
 
 
-@app.get("/api/security/container-scan")
+@app.get("/api/security/container-scan", tags=["Security"])
 async def container_scan(repo_path: str = "."):
     """
     Scan Dockerfiles, docker-compose files, and Kubernetes YAML for security issues.
@@ -3333,7 +3381,7 @@ except ImportError:
     from agenticqa.security.race_condition_detector import RaceConditionDetector
 
 
-@app.get("/api/security/race-conditions")
+@app.get("/api/security/race-conditions", tags=["Security"])
 async def race_conditions(repo_path: str = "."):
     """
     Static analysis detecting common race condition patterns in Python source code.
@@ -3347,7 +3395,7 @@ async def race_conditions(repo_path: str = "."):
 # ── Full Security Scan + Ingestion ────────────────────────────────────────────
 
 
-@app.post("/api/security/full-scan")
+@app.post("/api/security/full-scan", tags=["Security"])
 async def full_security_scan(repo_path: str = "."):
     """Run all 10 security scanners against a repo. No API key required.
 
@@ -3380,7 +3428,7 @@ async def full_security_scan(repo_path: str = "."):
     }
 
 
-@app.post("/api/ingest/scan-result")
+@app.post("/api/ingest/scan-result", tags=["Ingest"])
 async def ingest_scan_result(body: dict):
     """Ingest external scanner output into the learning system.
 
@@ -3422,7 +3470,7 @@ class RegressionPredictRequest(BaseModel):
     changed_files: List[str] = []
 
 
-@app.post("/api/testing/regression-predict")
+@app.post("/api/testing/regression-predict", tags=["Testing"])
 async def regression_predict(req: RegressionPredictRequest):
     """
     Predict which tests are most likely to fail given a set of changed files.
@@ -3465,7 +3513,7 @@ class PipelineDemoRequest(BaseModel):
     llm_assisted: bool = False
 
 
-@app.post("/api/pipeline/demo")
+@app.post("/api/pipeline/demo", tags=["Pipeline"])
 async def pipeline_demo(req: PipelineDemoRequest):
     """
     Run the full AgenticQA pipeline against pasted LLM-generated code.
@@ -3575,7 +3623,7 @@ class PipelineRunRequest(BaseModel):
     max_ui_retries: int = 2                 # max UI self-heal attempts post-SHIP
 
 
-@app.post("/api/pipeline/run")
+@app.post("/api/pipeline/run", tags=["Pipeline"])
 async def pipeline_run(req: PipelineRunRequest):
     """
     The complete AgenticQA loop:
@@ -3965,7 +4013,7 @@ class GenerateAndScanRequest(BaseModel):
     api_key: Optional[str] = None          # user-supplied; falls back to env var
 
 
-@app.post("/api/pipeline/generate-and-scan")
+@app.post("/api/pipeline/generate-and-scan", tags=["Pipeline"])
 async def generate_and_scan(req: GenerateAndScanRequest):
     """
     1. Send the user's feature description to Claude.
@@ -4245,7 +4293,7 @@ def _run_pipeline_on_content(
     }
 
 
-@app.post("/api/pipeline/scan-diff")
+@app.post("/api/pipeline/scan-diff", tags=["Pipeline"])
 async def pipeline_scan_diff(req: GitDiffScanRequest):
     """
     Run the full AgenticQA pipeline against actual changed code in a git repo.
@@ -4327,7 +4375,7 @@ class OnboardingRunRequest(BaseModel):
     max_generated: int = 10
 
 
-@app.post("/api/onboarding/run")
+@app.post("/api/onboarding/run", tags=["Onboarding"])
 async def onboarding_run(req: OnboardingRunRequest):
     """
     Phase 1–5 first-run onboarding scan.
@@ -4352,7 +4400,7 @@ async def onboarding_run(req: OnboardingRunRequest):
     return {"success": True, **report.to_dict()}
 
 
-@app.get("/api/onboarding/status")
+@app.get("/api/onboarding/status", tags=["Onboarding"])
 async def onboarding_status(repo_path: str = "."):
     """
     Return the stored baseline for a repo (if it exists), without running a
@@ -4389,7 +4437,7 @@ class UITestScanRequest(BaseModel):
     timeout: int = 60
 
 
-@app.post("/api/pipeline/ui-test-scan")
+@app.post("/api/pipeline/ui-test-scan", tags=["Pipeline"])
 async def ui_test_scan(req: UITestScanRequest):
     """
     Run framework-aware UI tests against generated (or existing) frontend code.
@@ -4458,7 +4506,7 @@ class DemoSubmitRequest(BaseModel):
     repo_path: str = "."
 
 
-@app.post("/api/demo/submit")
+@app.post("/api/demo/submit", tags=["Demo"])
 async def demo_submit(req: DemoSubmitRequest):
     """
     Lightweight pipeline entry-point for the landing page.
@@ -4594,7 +4642,7 @@ async def demo_submit(req: DemoSubmitRequest):
 # ── Workspace endpoints ──────────────────────────────────────────────────────
 
 
-@app.get("/api/workspace/files")
+@app.get("/api/workspace/files", tags=["Workspace"])
 async def workspace_list_files(path: str = ""):
     """List files in the sandboxed workspace."""
     from agenticqa.workspace.file_manager import SandboxedFileManager
@@ -4611,7 +4659,7 @@ async def workspace_list_files(path: str = ""):
     return {"success": True, "path": path, "entries": entries}
 
 
-@app.get("/api/workspace/files/read")
+@app.get("/api/workspace/files/read", tags=["Workspace"])
 async def workspace_read_file(path: str):
     """Read a text file from the sandboxed workspace."""
     from agenticqa.workspace.file_manager import SandboxedFileManager
@@ -4623,7 +4671,7 @@ async def workspace_read_file(path: str):
     return {"success": True, "path": path, "content": result.data}
 
 
-@app.post("/api/workspace/files/write")
+@app.post("/api/workspace/files/write", tags=["Workspace"])
 async def workspace_write_file(body: dict):
     """Write a text file to the sandboxed workspace."""
     path = body.get("path", "")
@@ -4646,7 +4694,7 @@ async def workspace_write_file(body: dict):
     return {"success": True, "path": path}
 
 
-@app.delete("/api/workspace/files")
+@app.delete("/api/workspace/files", tags=["Workspace"])
 async def workspace_delete_file(path: str):
     """Delete a file from the sandboxed workspace (requires safety check)."""
     from agenticqa.workspace.file_manager import SandboxedFileManager
@@ -4670,7 +4718,7 @@ async def workspace_delete_file(path: str):
     return {"success": True, "path": path}
 
 
-@app.post("/api/workspace/files/mkdir")
+@app.post("/api/workspace/files/mkdir", tags=["Workspace"])
 async def workspace_mkdir(body: dict):
     """Create a directory in the sandboxed workspace."""
     path = body.get("path", "")
@@ -4684,7 +4732,7 @@ async def workspace_mkdir(body: dict):
     return {"success": True, "path": path}
 
 
-@app.get("/api/workspace/files/info")
+@app.get("/api/workspace/files/info", tags=["Workspace"])
 async def workspace_info():
     """Get workspace usage statistics."""
     from agenticqa.workspace.file_manager import SandboxedFileManager
@@ -4695,7 +4743,7 @@ async def workspace_info():
 # ── Mail endpoints ───────────────────────────────────────────────────────────
 
 
-@app.get("/api/workspace/mail/folders")
+@app.get("/api/workspace/mail/folders", tags=["Workspace"])
 async def workspace_mail_folders():
     """List IMAP mail folders."""
     from agenticqa.workspace.mail_client import SafeMailClient
@@ -4707,7 +4755,7 @@ async def workspace_mail_folders():
     return {"success": True, "folders": result.data}
 
 
-@app.get("/api/workspace/mail/messages")
+@app.get("/api/workspace/mail/messages", tags=["Workspace"])
 async def workspace_mail_messages(folder: str = "INBOX", limit: int = 25):
     """List recent messages from a folder."""
     from agenticqa.workspace.mail_client import SafeMailClient
@@ -4719,7 +4767,7 @@ async def workspace_mail_messages(folder: str = "INBOX", limit: int = 25):
     return {"success": True, "folder": folder, "messages": result.data}
 
 
-@app.get("/api/workspace/mail/read")
+@app.get("/api/workspace/mail/read", tags=["Workspace"])
 async def workspace_mail_read(uid: str, folder: str = "INBOX"):
     """Read a single email by UID."""
     from agenticqa.workspace.mail_client import SafeMailClient
@@ -4740,7 +4788,7 @@ async def workspace_mail_read(uid: str, folder: str = "INBOX"):
     }
 
 
-@app.post("/api/workspace/mail/send")
+@app.post("/api/workspace/mail/send", tags=["Workspace"])
 async def workspace_mail_send(body: dict):
     """Send an email (requires safety approval)."""
     to = body.get("to", "")
@@ -4778,7 +4826,7 @@ async def workspace_mail_send(body: dict):
 # ── Link endpoints ───────────────────────────────────────────────────────────
 
 
-@app.post("/api/workspace/links/fetch")
+@app.post("/api/workspace/links/fetch", tags=["Workspace"])
 async def workspace_link_fetch(body: dict):
     """Fetch a URL safely (with SSRF prevention + output scanning)."""
     url = body.get("url", "")
@@ -4799,7 +4847,7 @@ async def workspace_link_fetch(body: dict):
     }
 
 
-@app.get("/api/workspace/links/bookmarks")
+@app.get("/api/workspace/links/bookmarks", tags=["Workspace"])
 async def workspace_list_bookmarks(tag: Optional[str] = None):
     """List saved bookmarks."""
     from agenticqa.workspace.link_tools import SafeLinkManager
@@ -4808,7 +4856,7 @@ async def workspace_list_bookmarks(tag: Optional[str] = None):
     return {"success": True, "bookmarks": result.data}
 
 
-@app.post("/api/workspace/links/bookmarks")
+@app.post("/api/workspace/links/bookmarks", tags=["Workspace"])
 async def workspace_add_bookmark(body: dict):
     """Add a bookmark."""
     url = body.get("url", "")
@@ -4824,7 +4872,7 @@ async def workspace_add_bookmark(body: dict):
     return {"success": True, **result.data}
 
 
-@app.delete("/api/workspace/links/bookmarks")
+@app.delete("/api/workspace/links/bookmarks", tags=["Workspace"])
 async def workspace_delete_bookmark(bookmark_id: str):
     """Delete a bookmark by ID."""
     from agenticqa.workspace.link_tools import SafeLinkManager
@@ -4835,7 +4883,7 @@ async def workspace_delete_bookmark(bookmark_id: str):
     return {"success": True}
 
 
-@app.get("/api/workspace/safety/status")
+@app.get("/api/workspace/safety/status", tags=["Workspace"])
 async def workspace_safety_status():
     """Get current workspace safety status (lease, pending approvals)."""
     from agenticqa.workspace.workspace_safety import WorkspaceSafetyGate
@@ -4847,7 +4895,7 @@ async def workspace_safety_status():
     }
 
 
-@app.post("/api/workspace/safety/emergency-stop")
+@app.post("/api/workspace/safety/emergency-stop", tags=["Workspace"])
 async def workspace_emergency_stop():
     """Emergency stop — revoke ALL active workspace leases immediately.
 
@@ -4861,7 +4909,7 @@ async def workspace_emergency_stop():
     return {"success": True, **result}
 
 
-@app.get("/api/workspace/safety/invariants")
+@app.get("/api/workspace/safety/invariants", tags=["Workspace"])
 async def workspace_safety_invariants():
     """Return safety invariants for prompt re-injection after compaction."""
     from agenticqa.workspace.workspace_safety import (
@@ -4878,7 +4926,7 @@ async def workspace_safety_invariants():
 # ── PII Redaction endpoints ──────────────────────────────────────────────────
 
 
-@app.post("/api/security/pii-redact")
+@app.post("/api/security/pii-redact", tags=["Security"])
 async def pii_redact(request: Request):
     """Redact PII from agent output (dict/list/string)."""
     from agenticqa.security.pii_redactor import PIIRedactor
@@ -4904,7 +4952,7 @@ async def pii_redact(request: Request):
     }
 
 
-@app.post("/api/security/pii-scan")
+@app.post("/api/security/pii-scan", tags=["Security"])
 async def pii_scan(request: Request):
     """Detect PII without modifying output (dry run)."""
     from agenticqa.security.pii_redactor import PIIRedactor
@@ -4922,7 +4970,7 @@ async def pii_scan(request: Request):
 # ── Shadow AI Detection endpoints ───────────────────────────────────────────
 
 
-@app.post("/api/security/shadow-ai-scan")
+@app.post("/api/security/shadow-ai-scan", tags=["Security"])
 async def shadow_ai_scan(request: Request):
     """Scan source code for unauthorized AI model usage."""
     from agenticqa.security.shadow_ai_detector import ShadowAIDetector
@@ -4950,7 +4998,7 @@ async def shadow_ai_scan(request: Request):
 # ── Cost Tracker endpoints ──────────────────────────────────────────────────
 
 
-@app.post("/api/security/cost-record")
+@app.post("/api/security/cost-record", tags=["Security"])
 async def cost_record(request: Request):
     """Record an LLM API call for cost tracking."""
     from agenticqa.security.cost_tracker import CostTracker
@@ -4970,7 +5018,7 @@ async def cost_record(request: Request):
     }
 
 
-@app.post("/api/security/cost-check")
+@app.post("/api/security/cost-check", tags=["Security"])
 async def cost_check(request: Request):
     """Check if an agent has budget remaining."""
     from agenticqa.security.cost_tracker import CostTracker
@@ -4991,7 +5039,7 @@ async def cost_check(request: Request):
     }
 
 
-@app.get("/api/security/cost-summary")
+@app.get("/api/security/cost-summary", tags=["Security"])
 async def cost_summary():
     """Get cost summaries for all agents."""
     from agenticqa.security.cost_tracker import CostTracker
@@ -5005,7 +5053,7 @@ async def cost_summary():
 # ── Bias Detection endpoints ────────────────────────────────────────────────
 
 
-@app.post("/api/security/bias-scan")
+@app.post("/api/security/bias-scan", tags=["Security"])
 async def bias_scan(request: Request):
     """Scan agent output for bias and fairness concerns."""
     from agenticqa.security.bias_detector import BiasDetector
@@ -5035,7 +5083,7 @@ async def bias_scan(request: Request):
 # ── Indirect Injection Guard endpoints ──────────────────────────────────────
 
 
-@app.post("/api/security/injection-scan")
+@app.post("/api/security/injection-scan", tags=["Security"])
 async def injection_scan(request: Request):
     """Scan document for indirect prompt injection before RAG ingest."""
     from agenticqa.security.indirect_injection_guard import IndirectInjectionGuard
@@ -5051,7 +5099,7 @@ async def injection_scan(request: Request):
 
 # ── Badge endpoint (shields.io compatible) ─────────────────────────────────
 
-@app.get("/api/badge")
+@app.get("/api/badge", tags=["Badge"])
 async def badge(label: str = "AgenticQA", status: str = "scanned", color: str = "brightgreen"):
     """Return a shields.io-compatible JSON badge.
 
@@ -5070,7 +5118,7 @@ async def badge(label: str = "AgenticQA", status: str = "scanned", color: str = 
     }
 
 
-@app.get("/api/badge/scan")
+@app.get("/api/badge/scan", tags=["Badge"])
 async def badge_scan(repo: str = ""):
     """Dynamic badge that reflects the latest cached scan result.
 
@@ -5110,7 +5158,7 @@ async def badge_scan(repo: str = ""):
 
 # ── Autonomous Fix PR endpoint ─────────────────────────────────────────────
 
-@app.post("/api/remediation/auto-fix")
+@app.post("/api/remediation/auto-fix", tags=["Remediation"])
 async def auto_fix_pr(request: Request):
     """Generate fixes for scan findings and optionally open a draft PR.
 
@@ -5133,7 +5181,7 @@ async def auto_fix_pr(request: Request):
     return result.to_dict()
 
 
-@app.post("/api/remediation/extract-findings")
+@app.post("/api/remediation/extract-findings", tags=["Remediation"])
 async def extract_findings(request: Request):
     """Extract fixable findings from scan results without applying fixes."""
     from agenticqa.remediation.auto_fix_pr import extract_fixable_findings
@@ -5152,7 +5200,7 @@ async def extract_findings(request: Request):
 
 # ── Scan Trend endpoints ──────────────────────────────────────────────────
 
-@app.post("/api/scan-trend/record")
+@app.post("/api/scan-trend/record", tags=["Scan Trends"])
 async def scan_trend_record(request: Request):
     """Record a scan result for trend tracking."""
     from agenticqa.monitoring.scan_trend import ScanTrendAggregator
@@ -5162,7 +5210,7 @@ async def scan_trend_record(request: Request):
     return snapshot.to_dict()
 
 
-@app.get("/api/scan-trend/history")
+@app.get("/api/scan-trend/history", tags=["Scan Trends"])
 async def scan_trend_history(repo_id: str = "", limit: int = 50):
     """Get scan history for a repo (or all repos)."""
     from agenticqa.monitoring.scan_trend import ScanTrendAggregator
@@ -5170,7 +5218,7 @@ async def scan_trend_history(repo_id: str = "", limit: int = 50):
     return {"history": agg.history(repo_id=repo_id, limit=limit)}
 
 
-@app.get("/api/scan-trend/trend")
+@app.get("/api/scan-trend/trend", tags=["Scan Trends"])
 async def scan_trend_direction(repo_id: str = "", window: int = 10):
     """Get trend direction (improving/stable/worsening)."""
     from agenticqa.monitoring.scan_trend import ScanTrendAggregator
@@ -5178,7 +5226,7 @@ async def scan_trend_direction(repo_id: str = "", window: int = 10):
     return agg.trend(repo_id=repo_id, window=window)
 
 
-@app.get("/api/scan-trend/org-rollup")
+@app.get("/api/scan-trend/org-rollup", tags=["Scan Trends"])
 async def scan_trend_org_rollup(limit: int = 100):
     """Aggregate scan data across all repos for org-level view."""
     from agenticqa.monitoring.scan_trend import ScanTrendAggregator
@@ -5188,7 +5236,7 @@ async def scan_trend_org_rollup(limit: int = 100):
 
 # ── Compliance Report endpoint ─────────────────────────────────────────────
 
-@app.post("/api/compliance/report")
+@app.post("/api/compliance/report", tags=["Compliance"])
 async def compliance_report(request: Request):
     """Generate a compliance report from scan results.
 
@@ -5217,7 +5265,7 @@ async def compliance_report(request: Request):
 
 # ── Security Benchmarking endpoint ─────────────────────────────────────────
 
-@app.post("/api/benchmark")
+@app.post("/api/benchmark", tags=["Benchmark"])
 async def security_benchmark(request: Request):
     """Benchmark scan results against known AI frameworks.
 
@@ -5232,7 +5280,7 @@ async def security_benchmark(request: Request):
 
 # ── Custom Rules endpoints ─────────────────────────────────────────────────
 
-@app.post("/api/custom-rules/scan")
+@app.post("/api/custom-rules/scan", tags=["Custom Rules"])
 async def custom_rules_scan(request: Request):
     """Scan a repo with custom rules.
 
@@ -5259,7 +5307,7 @@ async def custom_rules_scan(request: Request):
     return result.to_dict()
 
 
-@app.post("/api/custom-rules/save")
+@app.post("/api/custom-rules/save", tags=["Custom Rules"])
 async def custom_rules_save(request: Request):
     """Save custom rules to a repo's .agenticqa/custom_rules.json.
 
@@ -5285,7 +5333,7 @@ async def custom_rules_save(request: Request):
 
 # ── Slack / Teams Notification endpoints ───────────────────────────────────
 
-@app.post("/api/notifications/slack")
+@app.post("/api/notifications/slack", tags=["Notifications"])
 async def notify_slack(request: Request):
     """Send scan results to Slack.
 
@@ -5300,7 +5348,7 @@ async def notify_slack(request: Request):
     return {"sent": result.sent, "error": result.error, "platform": result.platform}
 
 
-@app.post("/api/notifications/teams")
+@app.post("/api/notifications/teams", tags=["Notifications"])
 async def notify_teams(request: Request):
     """Send scan results to Microsoft Teams."""
     from agenticqa.notifications.slack import TeamsNotifier

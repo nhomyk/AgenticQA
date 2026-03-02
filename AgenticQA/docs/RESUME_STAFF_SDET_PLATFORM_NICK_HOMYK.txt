@@ -1,0 +1,70 @@
+Nick Homyk
+nickhomyk@gmail.com | +1 914 204 2139
+linkedin.com/in/nhomyk | github.com/nhomyk | medium.com/@nickhomyk
+
+SUMMARY
+
+Staff SDET with 15+ years of experience building automation from the ground up. Built the entire QA function from zero at Blue Bite, grew it through scale, and led a 15-person engineering organization as Interim Head of Engineering. Currently building AgenticQA, an open-source multi-agent quality platform with CI/CD-native test automation, adaptive coverage analysis, and AI-assisted self-healing. Experience automating React/Java platforms in regulated financial environments (Tax.com), and deep ownership of CI/CD quality gates across GitHub Actions and Azure DevOps. Strong Python and JavaScript/TypeScript practitioner across UI, API, integration, and backend test layers.
+
+TECHNICAL SKILLS
+
+Languages: Python, JavaScript, TypeScript, Java, SQL
+Test Frameworks: Playwright, Selenium, Cypress, pytest, TestNG
+API and Integration Testing: REST API automation, contract testing, end-to-end integration validation, async workflow testing
+UI Automation: Playwright (TypeScript), Selenium, React and Next.js application testing
+CI/CD: GitHub Actions, Azure DevOps, CircleCI, quality gate design, release indicator pipelines
+Cloud and Infrastructure: AWS, Docker, containerized test environments, distributed system validation
+Quality Systems: Risk-based test strategy, coverage gap analysis, quality metrics and reporting, defect triage, root cause analysis
+Databases: PostgreSQL, MySQL, SQLite; schema-aware test design
+
+PROFESSIONAL EXPERIENCE
+
+AgenticQA (Open Source) | Independent
+Builder and Author | 2024 - Present
+- Built an end-to-end quality automation platform from scratch: multi-agent CI/CD orchestration, coverage gap detection, LLM-assisted test generation, and adaptive release gating.
+- Designed and shipped 110 REST API endpoints, a 16-page quality dashboard, and 3 GitHub Actions published to the Marketplace (MCP security, EU AI Act compliance, architecture scanning).
+- Built self-healing CI capabilities: SRE agent detects linting violations, generates fixes via LLM, validates against the test suite, and commits only passing changes.
+- Implemented risk-based release indicators across all test layers, SARIF 2.1.0 export for security findings, and HMAC-signed AI output provenance.
+github.com/nhomyk/AgenticQA
+
+Launch Consulting Group | Remote (Client: Paychex, Fortune 500)
+Lead Agentic AI Engineer | Mar 2025 - Present
+- Led an AI modernization project and delivered a company-wide AI engineering curriculum at a Fortune 500 payroll and HR platform.
+- Designed agent data flow contracts and integration architecture across the full stack.
+
+Tax.com | New York, NY
+Contract Automation Engineer | Aug 2024 - Feb 2025
+- Built production-grade automation for a distributed React/Java tax SaaS platform in a regulated financial environment.
+- Designed and owned CI/CD validation pipelines in Azure DevOps across multiple environments.
+- Applied risk-based test strategy to prioritize coverage of high-integrity financial calculation paths and tax rule engines.
+- Worked directly with engineering and product to improve test infrastructure and release confidence.
+
+Blue Bite | New York, NY
+Interim Head of Engineering / Senior SDET | Jan 2020 - Dec 2022
+- Led a 15-person engineering organization spanning product, infrastructure, and QA at a scaling IoT SaaS company.
+- Owned quality strategy across teams: CI quality gates, triage operating model, delivery risk management, and release readiness.
+- Drove adoption of automation-first practices across engineering, increasing release confidence and reducing manual regression cycles.
+
+Blue Bite | New York, NY
+Senior Software Development Engineer in Test (SDET) | Jan 2017 - Jun 2024
+- Built the QA function from zero at Blue Bite — designed the automation architecture, selected the tooling, and created the frameworks engineering teams depended on.
+- Architected end-to-end automation across UI, API, and integration layers for an IoT SaaS platform with asynchronous device-cloud workflows.
+- Reduced regression cycles from weekly to same-day through framework modernization and CI pipeline integration.
+- Owned defect triage, root-cause analysis tooling, quality metrics, and continuous expansion of coverage depth across all product surfaces.
+
+Blue Bite | New York, NY
+Software Development Engineer in Test (SDET) | Jan 2016 - Dec 2016
+- Built and maintained automated suites for distributed IoT services and customer-facing web applications.
+
+EDUCATION
+
+College of Saint Rose
+B.S. in Business
+
+ROLE ALIGNMENT
+
+0 to 1 builder: Built the QA function from zero at Blue Bite and built AgenticQA end-to-end from scratch. This is the work I know best.
+Financial and regulated systems: Automated a regulated tax SaaS platform at Tax.com, with specific focus on high-integrity financial calculation paths.
+React and Next.js stack: Automated React-based applications at Tax.com and Blue Bite using Playwright and Selenium; comfortable with the testing patterns specific to component-driven frontends.
+CI/CD ownership: Designed and owned quality gates in GitHub Actions and Azure DevOps across multiple orgs; knows what good looks like and what breaks pipelines.
+Data-backed influence: Built quality metrics, coverage dashboards, and risk-based reporting systems used by engineering and product leadership to make release decisions.

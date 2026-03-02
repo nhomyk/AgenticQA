@@ -1,0 +1,73 @@
+Nick Homyk
+nickhomyk@gmail.com | +1 914 204 2139
+linkedin.com/in/nhomyk | github.com/nhomyk | medium.com/@nickhomyk
+
+SUMMARY
+
+SDET with 15+ years of experience building automation frameworks from scratch for distributed, high-availability systems. Built the entire QA function from zero at Blue Bite, an IoT SaaS platform with distributed device-cloud architecture that was acquired at scale. Currently building AgenticQA, an open-source Python-native multi-agent quality platform with distributed system validation, infrastructure reliability probes, stress testing, and self-healing CI. Deep experience validating complex back-end systems, containerized multi-service environments, and async distributed pipelines across Python, Docker, and GitHub Actions.
+
+TECHNICAL SKILLS
+
+Languages: Python (primary), Bash, JavaScript, TypeScript, Java, SQL
+Test Frameworks: pytest, custom framework architecture, integration and stress test suites, end-to-end system validation
+Distributed Systems: multi-agent pipeline testing, async workflow validation, distributed IoT cluster validation, event-driven and message-queue system testing
+Containerization: Docker, Docker Compose, multi-service stack orchestration, containerized test environment management
+CI/CD: GitHub Actions, Azure DevOps, CircleCI, quality gate design, preflight validation, automated release gating
+Observability: telemetry integration, performance profiling, bottleneck identification, coverage gap analysis, SARIF reporting
+Infrastructure: Kubernetes (test environment orchestration), Qdrant, Weaviate, Neo4j, PostgreSQL, SQLite
+API and Integration: REST API automation, contract testing, end-to-end system integration, async workflow validation, failure injection
+
+PROFESSIONAL EXPERIENCE
+
+AgenticQA (Open Source) | Independent
+Builder and Author | 2024 - Present
+- Built a Python-native multi-agent quality platform from scratch: distributed agent orchestration, CI/CD pipeline validation, performance regression detection, infrastructure health probing, and adaptive release gating.
+- Designed and shipped 110 REST API endpoints across 10 packages, a 16-page monitoring dashboard, and 3 GitHub Actions published to the Marketplace.
+- Built infrastructure reliability probes across 5 distributed systems (Qdrant, Weaviate, Neo4j, artifact store, learning metrics): health checks, degradation detection, version validation, and CI preflight gating.
+- Developed stress testing and failure injection patterns for distributed agent chains: validated end-to-end data flow, thread safety, race conditions, and failure recovery across 8-agent pipelines running 2300+ tests.
+- Implemented self-healing CI: automated detection of failures, fix generation, subprocess validation, and auto-commit of passing changes only.
+- Designed SARIF 2.1.0 export for security and compliance findings, wired into GitHub Code Scanning across 3 CI jobs.
+github.com/nhomyk/AgenticQA
+
+Launch Consulting Group | Remote (Client: Paychex, Fortune 500)
+Lead Agentic AI Engineer | Mar 2025 - Present
+- Validated distributed AI infrastructure across a heterogeneous stack: LangGraph agents, Astronomer Airflow pipelines, Snowflake data layers, and vector database integrations.
+- Designed data flow contracts and integration validation patterns across distributed AI systems at Fortune 500 scale.
+- Delivered a company-wide AI engineering curriculum covering distributed system design, agent orchestration, and infrastructure reliability patterns.
+
+Tax.com | New York, NY
+Contract Automation Engineer | Aug 2024 - Feb 2025
+- Built production-grade automation for a distributed Java/React SaaS platform in a regulated financial environment.
+- Designed and owned CI/CD validation pipelines in Azure DevOps across multiple environments and deployment targets.
+- Applied risk-based test strategy to prioritize coverage of high-integrity financial calculation paths and distributed rule engines.
+
+Blue Bite | New York, NY
+Interim Head of Engineering / Senior SDET | Jan 2020 - Dec 2022
+- Led a 15-person engineering organization spanning product, infrastructure, and QA at a scaling IoT SaaS company.
+- Owned quality strategy: CI quality gates, triage operating model, delivery risk management, and system reliability standards through the acquisition.
+- Partnered directly with infrastructure and platform engineers to identify distributed system bottlenecks and harden release pipelines.
+
+Blue Bite | New York, NY
+Senior Software Development Engineer in Test | Jan 2017 - Jun 2024
+- Built the QA function from zero at Blue Bite, an IoT SaaS platform with distributed device-cloud architecture that was successfully acquired.
+- Architected end-to-end automation across API, integration, and system layers for async device-cloud workflows with real-time telemetry validation.
+- Designed stress testing suites and load scenarios that exposed distributed system bottlenecks before production deployment.
+- Reduced regression cycles from weekly to same-day through framework modernization and CI pipeline integration.
+- Owned defect triage, root-cause analysis tooling, quality metrics, and continuous coverage expansion across all distributed system layers.
+
+Blue Bite | New York, NY
+Software Development Engineer in Test | Jan 2016 - Dec 2016
+- Built and maintained automated suites for distributed IoT back-end services and event-driven data pipelines.
+
+EDUCATION
+
+College of Saint Rose
+B.S. in Business
+
+ROLE ALIGNMENT
+
+Framework builder from zero: Built the automation framework at Blue Bite with no existing infrastructure and built AgenticQA end-to-end in Python. Both systems reached production scale. This is the work I know best.
+Distributed systems validation: Validated async device-cloud workflows at Blue Bite (IoT SaaS), multi-agent distributed pipelines in AgenticQA, and heterogeneous AI infrastructure at Paychex Fortune 500 scale.
+Python and back-end depth: Python is my primary language across AgenticQA (110 endpoints, 2300+ tests, multi-agent orchestration) and all automation and infrastructure work.
+Containerization and CI/CD: Docker, Docker Compose, and GitHub Actions across multiple production systems; CI preflight gates, health probes, and automated release validation.
+Stress testing and reliability: Designed failure injection, race condition validation, thread safety testing, and distributed bottleneck detection in multi-service agent pipelines.
