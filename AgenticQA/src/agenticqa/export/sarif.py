@@ -77,6 +77,18 @@ _SECURITY_SEVERITY: Dict[str, str] = {
     "AI_ACT_Art_13": "7.0",
     "AI_ACT_Art_14": "7.5",
     "AI_ACT_Art_22": "9.0",
+    # MCP Security scanner
+    "MCP_TOOL_POISONING":       "9.5",
+    "MCP_SSRF":                 "8.5",
+    "MCP_SUPPLY_CHAIN":         "9.0",
+    "MCP_CREDENTIAL_EXFIL":     "9.5",
+    "MCP_UNSAFE_DESERIALIZATION": "8.0",
+    "MCP_PROMPT_INJECTION":     "9.0",
+    # Cross-agent DataFlow tracer
+    "TAINT_PROPAGATION":        "7.5",
+    "UNSANITIZED_SINK":         "8.5",
+    "CROSS_AGENT_DATA_LEAK":    "9.0",
+    "UNVALIDATED_INPUT_FLOW":   "7.0",
 }
 
 _LEVEL_MAP = {
@@ -250,6 +262,58 @@ class SARIFExporter:
             added += 1
         return added
 
+    def add_mcp_result(self, result: Dict[str, Any]) -> int:
+        """Ingest MCPSecurityScanner output (mcp-scan-output.json). Returns findings added."""
+        added = 0
+        for finding in result.get("finding_details", []):
+            attack_type = finding.get("type", "MCP_FINDING")
+            rule_id = f"MCP_{attack_type.upper().replace(' ', '_').replace('-', '_')}"
+            msg = finding.get("desc", attack_type)
+            fp = finding.get("file", "src")
+            line = finding.get("line") or 1
+            severity = finding.get("severity", "medium")
+            level = "error" if severity == "critical" else (
+                "warning" if severity in ("high", "medium") else "note"
+            )
+            self._add(rule_id, msg, fp, line, severity=level,
+                      rule_desc=f"MCP Security: {attack_type}")
+            added += 1
+        # Summary finding if there are attacks but no details
+        if not added and result.get("findings", 0) > 0:
+            for attack_type in result.get("attack_types", ["MCP_FINDING"]):
+                rule_id = f"MCP_{attack_type.upper().replace(' ', '_').replace('-', '_')}"
+                msg = f"MCP security finding: {attack_type} ({result.get('findings', 1)} occurrence(s))"
+                self._add(rule_id, msg, "src", 1, severity="warning",
+                          rule_desc=f"MCP Security: {attack_type}")
+                added += 1
+        return added
+
+    def add_dataflow_result(self, result: Dict[str, Any]) -> int:
+        """Ingest CrossAgentDataFlowTracer output (dataflow-scan-output.json). Returns findings added."""
+        added = 0
+        for finding in result.get("finding_details", []):
+            finding_type = finding.get("type", "TAINT_PROPAGATION")
+            rule_id = finding_type.upper().replace(" ", "_").replace("-", "_")
+            msg = finding.get("desc", finding_type)
+            fp = finding.get("file", "src")
+            line = finding.get("line") or 1
+            severity = finding.get("severity", "medium")
+            level = "error" if severity == "critical" else (
+                "warning" if severity in ("high", "medium") else "note"
+            )
+            self._add(rule_id, msg, fp, line, severity=level,
+                      rule_desc=f"DataFlow: {finding_type}")
+            added += 1
+        # Summary finding if there are findings but no details
+        if not added and result.get("findings", 0) > 0:
+            for ftype in result.get("finding_types", ["TAINT_PROPAGATION"]):
+                rule_id = ftype.upper().replace(" ", "_").replace("-", "_")
+                msg = f"DataFlow finding: {ftype} ({result.get('findings', 1)} occurrence(s))"
+                self._add(rule_id, msg, "src", 1, severity="warning",
+                          rule_desc=f"DataFlow: {ftype}")
+                added += 1
+        return added
+
     # ------------------------------------------------------------------
     # Output
     # ------------------------------------------------------------------
@@ -292,22 +356,25 @@ def main() -> int:
     p.add_argument("--sre", help="Path to SRE agent JSON output")
     p.add_argument("--compliance", help="Path to Compliance agent JSON output")
     p.add_argument("--redteam", help="Path to Red Team agent JSON output")
+    p.add_argument("--mcp", help="Path to MCP security scan JSON output")
+    p.add_argument("--dataflow", help="Path to DataFlow tracer JSON output")
     p.add_argument("--repo-root", default=".", help="Repo root for relative paths")
     p.add_argument("--out", default="agenticqa-results.sarif", help="Output SARIF file")
     args = p.parse_args()
 
     exporter = SARIFExporter(repo_root=args.repo_root)
-    total = 0
 
     for flag, method in [
         (args.sre, exporter.add_sre_result),
         (args.compliance, exporter.add_compliance_result),
         (args.redteam, exporter.add_redteam_result),
+        (args.mcp, exporter.add_mcp_result),
+        (args.dataflow, exporter.add_dataflow_result),
     ]:
         if flag and os.path.exists(flag):
             try:
                 data = json.loads(Path(flag).read_text())
-                total += method(data)
+                method(data)
             except Exception as e:
                 print(f"Warning: could not load {flag}: {e}")
 

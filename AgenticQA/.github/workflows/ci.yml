@@ -1499,6 +1499,7 @@ jobs:
     permissions:
       contents: write
       actions: write
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -1674,6 +1675,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: "🔴 Red Team Security Scan"
+    permissions:
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -1787,6 +1790,33 @@ jobs:
           fi
         continue-on-error: true
 
+      - name: Export Red Team findings as SARIF
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import sys, json
+          from pathlib import Path
+          sys.path.insert(0, 'src')
+          from agenticqa.export.sarif import SARIFExporter
+          exporter = SARIFExporter(repo_root='.')
+          if Path('redteam-output.json').exists():
+              try:
+                  exporter.add_redteam_result(json.loads(Path('redteam-output.json').read_text()))
+              except Exception as e:
+                  print(f'Warning: redteam SARIF: {e}')
+          n = exporter.write('agenticqa-redteam.sarif')
+          print(f'Red Team SARIF: {n} finding(s) written to agenticqa-redteam.sarif')
+          PYEOF
+        continue-on-error: true
+
+      - name: Upload Red Team SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: agenticqa-redteam.sarif
+          category: agenticqa-redteam
+        continue-on-error: true
+
       - name: Save red team patterns (persist learned bypasses)
         if: always()
         uses: actions/cache/save@v4
@@ -1807,6 +1837,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     name: "🔍 MCP + DataFlow Security Scan"
+    permissions:
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -1977,6 +2009,37 @@ jobs:
               --skill-scan skill-scan-output.json \
               --run-id ${{ github.run_id }} || echo "⚠️  Skill scan ingest skipped"
           fi
+        continue-on-error: true
+
+      - name: Export MCP + DataFlow findings as SARIF
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import sys, json
+          from pathlib import Path
+          sys.path.insert(0, 'src')
+          from agenticqa.export.sarif import SARIFExporter
+          exporter = SARIFExporter(repo_root='.')
+          for fname, method in [
+              ('mcp-scan-output.json', exporter.add_mcp_result),
+              ('dataflow-scan-output.json', exporter.add_dataflow_result),
+          ]:
+              if Path(fname).exists():
+                  try:
+                      method(json.loads(Path(fname).read_text()))
+                  except Exception as e:
+                      print(f'Warning: {fname} SARIF: {e}')
+          n = exporter.write('agenticqa-security.sarif')
+          print(f'Security SARIF: {n} finding(s) written to agenticqa-security.sarif')
+          PYEOF
+        continue-on-error: true
+
+      - name: Upload MCP + DataFlow SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: agenticqa-security.sarif
+          category: agenticqa-security
         continue-on-error: true
 
       - name: Save learned patterns

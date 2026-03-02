@@ -9,7 +9,7 @@ Built on constitutional governance, forensic decision traceability, adversarial 
 [![Security Scan](https://github.com/nhomyk/AgenticQA/actions/workflows/feature-request.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/feature-request.yml)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![2300+ Tests](https://img.shields.io/badge/tests-2300%2B-brightgreen.svg)](https://github.com/nhomyk/AgenticQA/actions)
+[![2308+ Tests](https://img.shields.io/badge/tests-2308%2B-brightgreen.svg)](https://github.com/nhomyk/AgenticQA/actions)
 [![GitHub Action](https://img.shields.io/badge/GitHub_Action-available-purple.svg)](https://github.com/nhomyk/AgenticQA)
 
 ---
@@ -879,7 +879,7 @@ pip install -e .
 # Start infrastructure (optional — most features work without it)
 docker compose -f docker-compose.weaviate.yml up -d
 
-# Run 2300+ unit tests
+# Run 2308+ unit tests
 pytest tests/ -m unit -v
 
 # Launch control plane
@@ -1054,7 +1054,7 @@ agenticqa doctor --repo .             # readiness check with fix commands
 | **Dashboard** | Streamlit + Plotly (16 pages) |
 | **CI/CD** | GitHub Actions (16 jobs + GitHub Action marketplace, SARIF upload, nightly self-validation) |
 | **GitHub Action** | Composite action: one-line CI, SARIF, PR comments, delta scans, security grades |
-| **Testing** | Pytest (2300+ unit/integration tests, 6 e2e pipeline tests) |
+| **Testing** | Pytest (2308+ unit/integration tests, 6 e2e pipeline tests) |
 | **Language** | Python 3.8+ |
 | **Landing Page** | Vanilla HTML/CSS/JS · animated CSS grid · futuristic dark minimal UI |
 | **Frontend Testing** | Streamlit AppTest · Jest · Vitest · FrontendTestGenerator · FrontendTestRunner |
@@ -1111,7 +1111,7 @@ AgenticQA/
 ├── src/data_store/              # PatternAnalyzer, LearningMetrics, RepoProfile, DeveloperProfile, OrgMemory
 ├── ingest_ci_artifacts.py       # CI data bridge — ESLint, red-team, migration → learning system
 ├── scripts/                     # github_action_entrypoint.py, post_pr_comment.py, run_custom_agents.py
-├── tests/                       # 2300+ tests — unit, integration, e2e pipeline, preflight
+├── tests/                       # 2308+ tests — unit, integration, e2e pipeline, preflight
 │   ├── test_e2e_full_pipeline.py  # 6 e2e integration tests (real SQLite, real WorkerPool, real git)
 │   └── test_client_preflight.py   # 17 unit tests for deployment readiness
 └── .github/workflows/           # 16-job CI pipeline + feature-request pipeline + nightly self-validation

@@ -209,3 +209,174 @@ def test_rel_path_outside_root(tmp_path):
     exporter = SARIFExporter(repo_root=str(tmp_path))
     result = exporter._rel("/completely/different/path.py")
     assert "completely/different/path.py" in result
+
+
+# ---------------------------------------------------------------------------
+# SARIFExporter.add_mcp_result
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_add_mcp_result_with_details(tmp_path):
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    mcp_output = {
+        "files_scanned": 12,
+        "findings": 2,
+        "risk_score": 0.72,
+        "critical_count": 1,
+        "attack_types": ["tool_poisoning", "ssrf"],
+        "finding_details": [
+            {
+                "type": "tool_poisoning",
+                "severity": "critical",
+                "file": "src/tool.py",
+                "line": 42,
+                "desc": "Tool description contains injection payload",
+            },
+            {
+                "type": "ssrf",
+                "severity": "high",
+                "file": "src/fetcher.py",
+                "line": 17,
+                "desc": "Unvalidated URL passed to requests.get()",
+            },
+        ],
+    }
+    n = exporter.add_mcp_result(mcp_output)
+    assert n == 2
+    rule_ids = list(exporter._rules.keys())
+    assert any("TOOL_POISONING" in rid for rid in rule_ids)
+    assert any("SSRF" in rid for rid in rule_ids)
+    # Validate SARIF is well-formed
+    d = exporter.to_dict()
+    json.dumps(d)
+    assert len(d["runs"][0]["results"]) == 2
+
+
+@pytest.mark.unit
+def test_add_mcp_result_no_details_fallback(tmp_path):
+    """When finding_details is empty, falls back to attack_types summary."""
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    mcp_output = {
+        "findings": 3,
+        "attack_types": ["mcp_supply_chain"],
+        "finding_details": [],
+    }
+    n = exporter.add_mcp_result(mcp_output)
+    assert n == 1  # one summary finding per attack_type
+    assert any("MCP_SUPPLY_CHAIN" in rid or "SUPPLY_CHAIN" in rid
+               for rid in exporter._rules)
+
+
+@pytest.mark.unit
+def test_add_mcp_result_empty(tmp_path):
+    """Zero findings produces zero SARIF results."""
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    n = exporter.add_mcp_result({"findings": 0, "finding_details": []})
+    assert n == 0
+    assert exporter._results == []
+
+
+# ---------------------------------------------------------------------------
+# SARIFExporter.add_dataflow_result
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_add_dataflow_result_with_details(tmp_path):
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    df_output = {
+        "files_scanned": 20,
+        "findings": 2,
+        "risk_score": 0.55,
+        "critical_count": 1,
+        "finding_types": ["TAINT_PROPAGATION", "UNSANITIZED_SINK"],
+        "finding_details": [
+            {
+                "type": "TAINT_PROPAGATION",
+                "severity": "critical",
+                "file": "src/pipeline.py",
+                "line": 88,
+                "desc": "User input flows to SQL query without sanitization",
+            },
+            {
+                "type": "UNSANITIZED_SINK",
+                "severity": "high",
+                "file": "src/output.py",
+                "line": 33,
+                "desc": "Agent output written to public endpoint without validation",
+            },
+        ],
+    }
+    n = exporter.add_dataflow_result(df_output)
+    assert n == 2
+    rule_ids = list(exporter._rules.keys())
+    assert "TAINT_PROPAGATION" in rule_ids
+    assert "UNSANITIZED_SINK" in rule_ids
+    d = exporter.to_dict()
+    json.dumps(d)  # must be JSON-serializable
+
+
+@pytest.mark.unit
+def test_add_dataflow_result_no_details_fallback(tmp_path):
+    """When finding_details is empty, falls back to finding_types summary."""
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    df_output = {
+        "findings": 5,
+        "finding_types": ["CROSS_AGENT_DATA_LEAK"],
+        "finding_details": [],
+    }
+    n = exporter.add_dataflow_result(df_output)
+    assert n == 1
+    assert "CROSS_AGENT_DATA_LEAK" in exporter._rules
+
+
+@pytest.mark.unit
+def test_add_dataflow_result_empty(tmp_path):
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    n = exporter.add_dataflow_result({"findings": 0, "finding_details": []})
+    assert n == 0
+
+
+# ---------------------------------------------------------------------------
+# Combined MCP + DataFlow SARIF export
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_combined_mcp_dataflow_sarif(tmp_path):
+    """Both scanners contribute to a single SARIF file."""
+    exporter = SARIFExporter(repo_root=str(tmp_path))
+    exporter.add_mcp_result({
+        "findings": 1,
+        "finding_details": [
+            {"type": "mcp_credential_exfil", "severity": "critical",
+             "file": "src/tool.py", "line": 5, "desc": "Token exfiltration detected"},
+        ],
+    })
+    exporter.add_dataflow_result({
+        "findings": 1,
+        "finding_details": [
+            {"type": "TAINT_PROPAGATION", "severity": "high",
+             "file": "src/agent.py", "line": 12, "desc": "Tainted input reaches sink"},
+        ],
+    })
+    out = str(tmp_path / "combined.sarif")
+    n = exporter.write(out)
+    assert n == 2
+    parsed = json.loads(Path(out).read_text())
+    assert parsed["version"] == "2.1.0"
+    results = parsed["runs"][0]["results"]
+    assert len(results) == 2
+    rule_ids = {r["ruleId"] for r in results}
+    assert len(rule_ids) == 2  # distinct rules
+
+
+# ---------------------------------------------------------------------------
+# Security severity map includes MCP + DataFlow rules
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_mcp_rules_have_security_severity():
+    from agenticqa.export.sarif import _SECURITY_SEVERITY
+    assert "MCP_TOOL_POISONING" in _SECURITY_SEVERITY
+    assert float(_SECURITY_SEVERITY["MCP_TOOL_POISONING"]) >= 9.0
+    assert "MCP_SSRF" in _SECURITY_SEVERITY
+    assert "CROSS_AGENT_DATA_LEAK" in _SECURITY_SEVERITY
