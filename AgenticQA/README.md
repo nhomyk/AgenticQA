@@ -10,7 +10,23 @@ Built on constitutional governance, forensic decision traceability, adversarial 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![2308+ Tests](https://img.shields.io/badge/tests-2308%2B-brightgreen.svg)](https://github.com/nhomyk/AgenticQA/actions)
-[![GitHub Action](https://img.shields.io/badge/GitHub_Action-available-purple.svg)](https://github.com/nhomyk/AgenticQA)
+
+---
+
+## GitHub Marketplace Actions
+
+Standalone security and compliance scanners built on AgenticQA — free, no API key required, results in your GitHub Security tab.
+
+| Action | What It Does | Marketplace |
+|--------|-------------|-------------|
+| **MCP Security Scan** | Scans MCP servers & AI agents for 24 vulnerability classes: tool poisoning, SSRF, prompt injection, DataFlow taint | [![Marketplace](https://img.shields.io/badge/Marketplace-mcp--scan--action-blue?logo=github)](https://github.com/marketplace/actions/mcp-security-scan) |
+| **EU AI Act Compliance** | Annex III risk classification + Art.9/13/14/22 conformity check — fines up to €30M | [![Marketplace](https://img.shields.io/badge/Marketplace-eu--ai--act--check--action-blue?logo=github)](https://github.com/marketplace/actions/eu-ai-act-compliance-check) |
+
+```yaml
+# Add both to your CI in 2 lines:
+- uses: nhomyk/mcp-scan-action@v1          # MCP security
+- uses: nhomyk/eu-ai-act-check-action@v1   # EU AI Act compliance
+```
 
 ---
 
