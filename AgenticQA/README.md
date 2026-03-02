@@ -21,10 +21,12 @@ Standalone security and compliance scanners built on AgenticQA — free, no API 
 |--------|-------------|-------------|
 | **MCP Security Scan** | Scans MCP servers & AI agents for 24 vulnerability classes: tool poisoning, SSRF, prompt injection, DataFlow taint | [![Marketplace](https://img.shields.io/badge/Marketplace-mcp--scan--action-blue?logo=github)](https://github.com/marketplace/actions/mcp-security-scan) |
 | **EU AI Act Compliance** | Annex III risk classification + Art.9/13/14/22 conformity check — fines up to €30M | [![Marketplace](https://img.shields.io/badge/Marketplace-eu--ai--act--check--action-blue?logo=github)](https://github.com/marketplace/actions/eu-ai-act-compliance-check) |
+| **AgenticQA Architecture Scan** | Maps every integration point across 13 CWE categories — attack surface score, test coverage gaps, SARIF output | [![Marketplace](https://img.shields.io/badge/Marketplace-agenticqa--scan--action-blue?logo=github)](https://github.com/marketplace/actions/agenticqa-architecture-scan) |
 
 ```yaml
-# Add both to your CI in 2 lines:
-- uses: nhomyk/mcp-scan-action@v1          # MCP security
+# Full AI system security coverage in 3 lines:
+- uses: nhomyk/agenticqa-scan-action@v1    # architecture map — 13 CWE categories
+- uses: nhomyk/mcp-scan-action@v1          # MCP/AI-specific security threats
 - uses: nhomyk/eu-ai-act-check-action@v1   # EU AI Act compliance
 ```
 
