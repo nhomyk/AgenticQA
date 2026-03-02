@@ -7,6 +7,7 @@ Built on constitutional governance, forensic decision traceability, adversarial 
 [![CI Pipeline](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/ci.yml)
 [![Pipeline Validation](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/pipeline-validation.yml)
 [![Security Scan](https://github.com/nhomyk/AgenticQA/actions/workflows/feature-request.yml/badge.svg)](https://github.com/nhomyk/AgenticQA/actions/workflows/feature-request.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/nhomyk/AgenticQA/badge)](https://securityscorecards.dev/viewer/?uri=github.com/nhomyk/AgenticQA)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![2308+ Tests](https://img.shields.io/badge/tests-2308%2B-brightgreen.svg)](https://github.com/nhomyk/AgenticQA/actions)

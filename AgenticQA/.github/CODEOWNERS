@@ -1,0 +1,8 @@
+# All files require review from nhomyk
+* @nhomyk
+
+# Security-sensitive paths require explicit sign-off
+src/agenticqa/redteam/ @nhomyk
+src/agenticqa/compliance/ @nhomyk
+src/agenticqa/security/ @nhomyk
+.github/workflows/ @nhomyk
