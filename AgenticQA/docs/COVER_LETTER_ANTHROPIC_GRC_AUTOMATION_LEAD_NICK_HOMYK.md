@@ -1,12 +1,3 @@
-Nick Homyk
-nickhomyk@gmail.com | +1 914 204 2139
-linkedin.com/in/nhomyk | github.com/nhomyk | medium.com/@nickhomyk
-
-February 25, 2026
-
-GRC Automation Lead Search
-Anthropic
-
 Dear Hiring Team,
 
 I've been building with Claude since it first became available to developers. Anthropic is the company I respect most in the industry, not just for the technology, but for the seriousness with which you approach building it responsibly. So when I came across the GRC Automation Lead role, it felt like an obvious fit worth pursuing.

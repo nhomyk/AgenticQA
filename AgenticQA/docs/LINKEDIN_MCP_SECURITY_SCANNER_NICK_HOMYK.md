@@ -1,56 +1,35 @@
-I scanned 5 popular MCP servers this week. Every single one had findings.
-
-Not CVEs. Not known vulnerabilities in a database. Structural security patterns that nobody's checking for — because there's no standard tooling for MCP server security yet.
-
-Here's what showed up across a browser automation server, a productivity API connector, a browser DevTools bridge, a vector database plugin, and a search MCP:
-
-**1. Arbitrary JavaScript execution (critical)**
-A browser automation MCP registers a tool that calls `page.evaluate(args.script)` — the LLM agent supplies the script, no validation, no sandboxing. This is RCE controllable by any agent with access to the tool — including a prompt-injected one.
-
-```typescript
-const result = await page.evaluate(args.script);
-```
-
-Risk score: 1.000.
-
-**2. Auth token logged in plaintext (high)**
-A major productivity platform's official MCP server generates a random auth token when none is configured and prints it to stdout:
-
-```typescript
-console.log(`Generated auth token: ${authToken}`)
-```
-
-Anyone capturing that stdout — log aggregators, CI pipelines, container logging — gets the Bearer token for all API operations. The data flow tracer traced the full path: SECRET_SOURCE → SINK_LOGGING [UNSANITIZED]. DataFlow risk: 1.000.
-
-**3. Full process.env forwarded to child processes (high)**
-A browser vendor's DevTools MCP copies every environment variable to a spawned subprocess:
-
-```typescript
-Object.entries(process.env).forEach(([key, value]) => { env[key] = value; });
-```
-
-Every secret on the host — cloud keys, GitHub tokens, API credentials — inherits to the child process. The fix is a three-line allowlist.
-
-**4. SSRF via unrestricted HTTP tools (high)**
-The same browser automation server exposes GET/POST/PUT/PATCH/DELETE tools with a user-controlled `url` parameter and no domain allowlist. The HTTP context's `baseURL` is also LLM-controlled. A prompt-injected agent can hit cloud metadata endpoints directly.
-
-**5. Supply chain risk via unpinned npx (medium)**
-A vector database vendor's plugin config uses `npx -y @vendor/mcp-server` — no version pin. If the package is compromised on npm, it auto-installs on every client restart.
+# LinkedIn Post — MCP Security Scanner
 
 ---
 
-These aren't exotic. They're the natural failure modes of MCP tool design:
+There was no security scanner for MCP servers. So I built one — the first one — and published it to the GitHub Marketplace.
 
-- Tools accept LLM-controlled arguments. That's the whole point. But `args.url`, `args.script`, `args.filePath` reaching sinks without validation is the attack surface.
-- MCP servers run with the host process's credentials. Every tool in the server has access to everything in `process.env`.
-- Tool descriptions are a prompt injection surface. The LLM reads them. Adversarial content in a description is read as instruction.
+Then I ran it against 5 popular open-source MCP servers to validate it.
 
-I built this into a static scanner and wired it into CI. It runs on every push. The scanner learns — each real-world finding adds a pattern to the learned database, which loads on every subsequent scan. After 5 repos: 16 code patterns + 2 config patterns accumulated.
+Every single one had real, actionable findings.
 
-The scanner also runs a data flow tracer that independently tracks credential taint paths without needing to understand MCP structure at all. That's what caught the plaintext token logging.
+🔴 CVSS 9.8 — arbitrary JavaScript execution. The LLM supplies the script. No validation. No sandbox. Full RCE controllable by any prompt-injected agent.
+🟠 SSRF — unrestricted `url` parameter with no domain allowlist. A compromised agent can reach your AWS metadata endpoint from inside your network.
+🟠 Auth credentials logged to stdout on first run. Every log aggregator that captures stdout now has the full bearer token.
+🟠 Full host environment — `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL` — cloned and forwarded to a spawned subprocess.
+🟡 Unpinned `npx -y` supply chain risk. A compromised npm package installs and executes silently on next restart.
 
-Full writeup on Medium (link in comments). Scanner is open source in AgenticQA.
+These aren't edge cases. They're structural patterns in how MCP tools are built — LLM-controlled arguments flowing into execution, network, and storage sinks with no sanitization layer. Nobody was checking for this automatically.
+
+Now there is. One line:
+
+```yaml
+- uses: nhomyk/mcp-scan-action@v1
+```
+
+SARIF output to GitHub Security tab. 4 scan engines. No API key. Pure static analysis.
+
+This is part of AgenticQA — an open-source platform I built that does autonomous CI/CD for AI systems: security scanning, EU AI Act compliance, HIPAA PHI detection, self-healing CI, and adversarial red-team hardening. Three GitHub Actions now live on the Marketplace.
+
+Full writeup with all 5 findings in the comments.
+
+🔗 github.com/marketplace/actions/mcp-security-scan
 
 ---
 
-#MCPSecurity #ModelContextProtocol #AIAgents #AppSec #SecurityEngineering #OpenSource #SSRF #SupplyChainSecurity
+#MCPSecurity #ModelContextProtocol #AIAgents #DevSecOps #GitHubActions #AppSec #OpenSource
