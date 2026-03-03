@@ -6,7 +6,10 @@ Usage:
     python -m agenticqa.report /path/to/repo1 /path/to/repo2
     python -m agenticqa.report /path/to/repo --output report.md
     python -m agenticqa.report /path/to/repo --format json --output report.json
+    python -m agenticqa.report /path/to/repo --format html --output report.html
     python -m agenticqa.report /path/to/repo --fail-on-critical
+    python -m agenticqa.report --github owner/repo
+    python -m agenticqa.report --github https://github.com/owner/repo
 """
 from __future__ import annotations
 
@@ -28,8 +31,14 @@ def main() -> None:
     )
     parser.add_argument(
         "repos",
-        nargs="+",
+        nargs="*",
         help="Paths to repositories to scan",
+    )
+    parser.add_argument(
+        "--github",
+        nargs="+",
+        metavar="REPO",
+        help="GitHub repos to scan (owner/repo or full URL). Shallow-cloned automatically.",
     )
     parser.add_argument(
         "--output", "-o",
@@ -37,7 +46,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--format", "-f",
-        choices=["markdown", "json"],
+        choices=["markdown", "json", "html"],
         default="markdown",
         help="Output format (default: markdown)",
     )
@@ -48,16 +57,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Validate paths
-    for rp in args.repos:
-        if not Path(rp).exists():
+    # Collect all targets
+    targets: list[str] = list(args.repos or [])
+    if args.github:
+        targets.extend(args.github)
+
+    if not targets:
+        parser.error("Provide at least one repo path or --github slug")
+
+    # Validate local paths (skip GitHub refs)
+    from agenticqa.report.generator import _is_github_ref
+    for rp in targets:
+        if not _is_github_ref(rp) and not Path(rp).exists():
             print(f"Warning: {rp} does not exist", file=sys.stderr)
 
     gen = ReportGenerator()
-    report = gen.scan_repos(args.repos)
+    report = gen.scan_repos(targets)
 
     if args.format == "json":
         content = report.to_json()
+    elif args.format == "html":
+        content = report.to_html()
     else:
         content = report.to_markdown()
 
@@ -72,7 +92,7 @@ def main() -> None:
         total_critical = sum(r.total_critical for r in report.repos)
         if total_critical > 0:
             print(
-                f"\n{total_critical} critical finding(s) detected — exiting with code 1",
+                f"\n{total_critical} critical finding(s) detected - exiting with code 1",
                 file=sys.stderr,
             )
             sys.exit(1)

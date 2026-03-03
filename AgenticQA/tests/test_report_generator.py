@@ -1,5 +1,6 @@
 """Unit tests for agenticqa.report — @pytest.mark.unit"""
 import json
+import subprocess
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -10,8 +11,11 @@ from agenticqa.report.generator import (
     ScanReport,
     _risk_label,
     _render_markdown,
+    _render_html,
     _generate_recommendations,
     _get_notable_findings,
+    _is_github_ref,
+    clone_github_repo,
 )
 
 
@@ -358,3 +362,147 @@ class TestReportGenerator:
         report = gen.scan_repos(["/fake/repo"])
         parsed = json.loads(report.to_json())
         assert "repos" in parsed
+
+
+# ---------------------------------------------------------------------------
+# GitHub URL detection
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestIsGithubRef:
+    def test_full_url(self):
+        assert _is_github_ref("https://github.com/owner/repo") is True
+
+    def test_slug(self):
+        assert _is_github_ref("owner/repo") is True
+
+    def test_local_path(self):
+        assert _is_github_ref("/Users/someone/code/myrepo") is False
+
+    def test_relative_path(self):
+        assert _is_github_ref("../myrepo") is False
+
+    def test_dotted_slug_not_github(self):
+        # owner/repo.git would have a dot, so not a simple slug
+        assert _is_github_ref("owner/repo.git") is False
+
+    def test_three_part_path_not_github(self):
+        assert _is_github_ref("a/b/c") is False
+
+
+# ---------------------------------------------------------------------------
+# clone_github_repo
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestCloneGithubRepo:
+    @patch("agenticqa.report.generator.subprocess.run")
+    def test_slug_expanded_to_url(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        dest = Path("/tmp/fake_dest")
+        clone_github_repo("nhomyk/AgenticQA", dest=dest)
+        cmd = mock_run.call_args[0][0]
+        assert "https://github.com/nhomyk/AgenticQA.git" in cmd
+
+    @patch("agenticqa.report.generator.subprocess.run")
+    def test_full_url_gets_git_suffix(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        dest = Path("/tmp/fake_dest")
+        clone_github_repo("https://github.com/org/repo", dest=dest)
+        cmd = mock_run.call_args[0][0]
+        assert cmd[4] == "https://github.com/org/repo.git"
+
+    @patch("agenticqa.report.generator.subprocess.run", side_effect=subprocess.CalledProcessError(128, "git"))
+    def test_clone_failure_raises(self, mock_run):
+        with pytest.raises(subprocess.CalledProcessError):
+            clone_github_repo("bad/repo", dest=Path("/tmp/bad"))
+
+
+# ---------------------------------------------------------------------------
+# GitHub scanning integration
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestGithubScanning:
+    @patch("agenticqa.report.generator.clone_github_repo")
+    @patch("agenticqa.report.generator.ReportGenerator._scan_single_repo")
+    @patch("agenticqa.report.generator.shutil.rmtree")
+    def test_github_slug_is_cloned_and_scanned(self, mock_rm, mock_scan, mock_clone, tmp_path):
+        clone_dest = tmp_path / "cloned"
+        clone_dest.mkdir()
+        mock_clone.return_value = clone_dest
+        mock_scan.return_value = _make_repo_result("cloned")
+        gen = ReportGenerator()
+        report = gen.scan_repos(["owner/repo"])
+        assert len(report.repos) == 1
+        # The repo_path should be the original ref, not the tmp clone path
+        assert report.repos[0].repo_path == "owner/repo"
+        mock_clone.assert_called_once()
+
+    @patch("agenticqa.report.generator.clone_github_repo", side_effect=subprocess.CalledProcessError(128, "git", stderr=b"not found"))
+    def test_github_clone_failure_handled(self, mock_clone):
+        gen = ReportGenerator()
+        report = gen.scan_repos(["bad/repo"])
+        assert len(report.repos) == 1
+        assert "_clone_error" in report.repos[0].scanners
+
+
+# ---------------------------------------------------------------------------
+# HTML rendering
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestHTMLRendering:
+    def test_html_contains_structure(self):
+        report = ScanReport(
+            repos=[_make_repo_result("my-app")],
+            generated_at="2026-03-03 12:00:00 UTC",
+            total_elapsed_s=2.0,
+        )
+        html = report.to_html()
+        assert "<!DOCTYPE html>" in html
+        assert "AgenticQA Security Scan Report" in html
+        assert "my-app" in html
+        assert "Plotly.newPlot" in html
+
+    def test_html_contains_plotly_cdn(self):
+        report = ScanReport(repos=[], generated_at="2026-03-03")
+        html = report.to_html()
+        assert "cdn.plot.ly" in html
+
+    def test_html_contains_summary_cards(self):
+        report = ScanReport(
+            repos=[_make_repo_result()],
+            generated_at="2026-03-03",
+        )
+        html = report.to_html()
+        assert "Repositories" in html
+        assert "Total Findings" in html
+        assert "Critical" in html
+        assert "Overall Risk" in html
+
+    def test_html_contains_chart_divs(self):
+        report = ScanReport(
+            repos=[_make_repo_result()],
+            generated_at="2026-03-03",
+        )
+        html = report.to_html()
+        assert 'id="chart-repos"' in html
+        assert 'id="chart-scanners"' in html
+
+    def test_html_with_recommendations(self):
+        report = ScanReport(
+            repos=[_make_repo_result()],
+            generated_at="2026-03-03",
+        )
+        html = report.to_html()
+        assert "Recommendations" in html
+
+    def test_html_multi_repo(self):
+        report = ScanReport(
+            repos=[_make_repo_result("alpha"), _make_repo_result("beta")],
+            generated_at="2026-03-03",
+        )
+        html = report.to_html()
+        assert "alpha" in html
+        assert "beta" in html

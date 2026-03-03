@@ -22,7 +22,7 @@ _SEVERITY_WEIGHTS: Dict[str, float] = {
     "low": 0.1,
 }
 
-_SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go"}
+_SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rb"}
 
 _SKIP_DIRS = {
     "node_modules", ".venv", "venv", "__pycache__",
@@ -74,6 +74,16 @@ _DIRECT_CONCAT_PATTERNS = [
         r'(prompt|system|content)\s*[:+]?=\s*strings\.Join\s*\(',
         re.IGNORECASE,
     ),
+    # Ruby: string interpolation into prompt variable
+    re.compile(
+        r'(prompt|system|content|instruction)\s*[+]?=\s*"[^"]*#\{(user_?input|message|query|request|body|params)\b',
+        re.IGNORECASE,
+    ),
+    # Ruby: string concat with + or << into prompt variable
+    re.compile(
+        r'(prompt|system|content|instruction)\s*(?:<<|\+=)\s*.*\b(user_?input|message|query|params|request|body|input)\b',
+        re.IGNORECASE,
+    ),
 ]
 
 # Template injection via .format() or % formatting with user data
@@ -113,6 +123,16 @@ _TEMPLATE_INJECT_PATTERNS = [
     # Go: fmt.Sprintf with %s/%v and user-controlled args (broader)
     re.compile(
         r'fmt\.Sprintf\s*\(\s*[^,]+%[sv][^,]*,\s*[^)]*\b(user\w*|message|query|input|body)\b',
+    ),
+    # Ruby: ERB template with user data
+    re.compile(
+        r'(?:ERB|Erubis|Slim|Haml).*(?:new|render)\s*\(.*\b(user_?input|message|query|params|request)\b',
+        re.IGNORECASE,
+    ),
+    # Ruby: gsub/sub on prompt template with user input
+    re.compile(
+        r'(prompt|system|template|instruction)\.\s*(?:gsub|sub)\s*\([^)]*\b(user_?input|message|query|params|request)\b',
+        re.IGNORECASE,
     ),
 ]
 
@@ -156,6 +176,16 @@ _UNSAFE_OUTPUT_PATTERNS = [
     # Go: db.Exec/db.Query with LLM output (SQL injection via LLM)
     re.compile(
         r'(?:db|tx|conn|session)\.\s*(?:Exec|Query|QueryRow)\s*\([^)]*\b(response|completion|answer|output|generated)\b',
+    ),
+    # Ruby: system/exec/backtick with LLM output
+    re.compile(
+        r'(?:system|exec|%x|Kernel\.)\s*\(?[^)]*\b(llm_?output|response|completion|answer|generated)\b',
+        re.IGNORECASE,
+    ),
+    # Ruby: ActiveRecord execute/find_by_sql with LLM output
+    re.compile(
+        r'(?:execute|find_by_sql|where)\s*\(?[^)]*\b(llm_?output|response|completion|answer|generated)\b',
+        re.IGNORECASE,
     ),
 ]
 
@@ -289,7 +319,7 @@ class PromptInjectionScanner:
     """
     Pure-Python static scanner for prompt injection attack surface.
 
-    Languages: Python, JavaScript/TypeScript, Go.
+    Languages: Python, JavaScript/TypeScript, Go, Ruby.
 
     Detects six categories:
     1. Direct user input concatenation into LLM prompts (PROMPT_INJECTION_SURFACE)

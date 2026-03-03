@@ -27,7 +27,7 @@ class TestProtectedAttrInDecision:
 
     @pytest.mark.unit
     def test_age_in_hiring_decision(self, detector):
-        text = "The senior applicant was deemed unqualified for the position."
+        text = "The elderly applicant was deemed unqualified for the position."
         report = detector.scan(text)
         assert report.has_bias_risk
         assert "age" in report.categories_flagged
@@ -41,7 +41,7 @@ class TestProtectedAttrInDecision:
 
     @pytest.mark.unit
     def test_disability_in_decision(self, detector):
-        text = "The disabled employee was not promoted this cycle."
+        text = "The handicapped employee was not promoted this cycle."
         report = detector.scan(text)
         assert report.has_bias_risk
         assert "disability" in report.categories_flagged

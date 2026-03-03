@@ -321,3 +321,102 @@ class TestGoFileExtension:
               'package main\n\nfunc main() {\n\tfmt.Println("hello")\n}\n')
         result = make_scanner().scan(str(tmp_path))
         assert result.total_findings == 0
+
+
+# ---------------------------------------------------------------------------
+# Ruby language patterns
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestRubyDirectConcatenation:
+    def test_ruby_interpolation_into_prompt(self, tmp_path):
+        write(tmp_path / "chat.rb",
+              'prompt = "You are a helper. User says: #{user_input}"\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) >= 1
+        assert hits[0].severity == "critical"
+
+    def test_ruby_shovel_concat_into_prompt(self, tmp_path):
+        write(tmp_path / "handler.rb",
+              'prompt << "Context: " + params[:message]\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) >= 1
+
+    def test_ruby_plus_equals_into_prompt(self, tmp_path):
+        write(tmp_path / "agent.rb",
+              'instruction += user_input\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) >= 1
+
+    def test_ruby_hardcoded_prompt_no_finding(self, tmp_path):
+        write(tmp_path / "bot.rb",
+              'prompt = "You are a helpful assistant"\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) == 0
+
+
+@pytest.mark.unit
+class TestRubyTemplateInjection:
+    def test_ruby_erb_with_user_data(self, tmp_path):
+        write(tmp_path / "view.rb",
+              'template = ERB.new(prompt_template).render(user_input)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "TEMPLATE_INJECTION"]
+        assert len(hits) >= 1
+
+    def test_ruby_gsub_on_prompt(self, tmp_path):
+        write(tmp_path / "prompt.rb",
+              'result = prompt.gsub("{{USER}}", user_input)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "TEMPLATE_INJECTION"]
+        assert len(hits) >= 1
+
+
+@pytest.mark.unit
+class TestRubyUnsafeOutput:
+    def test_ruby_system_with_response(self, tmp_path):
+        write(tmp_path / "executor.rb",
+              'system(response)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) >= 1
+
+    def test_ruby_exec_with_completion(self, tmp_path):
+        write(tmp_path / "runner.rb",
+              'exec(completion)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) >= 1
+
+    def test_ruby_find_by_sql_with_llm_output(self, tmp_path):
+        write(tmp_path / "model.rb",
+              'User.find_by_sql(llm_output)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) >= 1
+
+    def test_ruby_safe_system_no_finding(self, tmp_path):
+        write(tmp_path / "safe.rb",
+              'system("ls -la")\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) == 0
+
+
+@pytest.mark.unit
+class TestRubyFileExtension:
+    def test_rb_files_are_scanned(self, tmp_path):
+        write(tmp_path / "app.rb",
+              'prompt = "You are a bot. User says: #{user_input}"\n')
+        result = make_scanner().scan(str(tmp_path))
+        assert result.total_findings >= 1
+
+    def test_clean_rb_file_no_findings(self, tmp_path):
+        write(tmp_path / "clean.rb",
+              'class Greeter\n  def hello\n    puts "hello"\n  end\nend\n')
+        result = make_scanner().scan(str(tmp_path))
+        assert result.total_findings == 0

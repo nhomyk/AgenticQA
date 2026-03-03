@@ -29,7 +29,7 @@ SKIP_DIRS: Set[str] = {
 
 SOURCE_EXTENSIONS: Set[str] = {
     ".py", ".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs",
-    ".swift", ".go", ".java", ".kt", ".rs",
+    ".swift", ".go", ".java", ".kt", ".rs", ".rb",
     ".yaml", ".yml", ".json",
 }
 
