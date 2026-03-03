@@ -19,33 +19,31 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 # ── Protected attributes ─────────────────────────────────────────────────────
 
+# Protected attribute terms that indicate potential bias when appearing
+# alongside decision-context keywords.  Terms are deliberately narrow to
+# avoid false positives on technical code (e.g. "whitespace", "blacklist",
+# "man page", "senior variable", "disabled button", "native code", etc.).
 PROTECTED_ATTRIBUTES: Dict[str, List[str]] = {
     "gender": [
-        "male", "female", "man", "woman", "boy", "girl",
-        "he ", "she ", "his ", "her ", "him ", "himself", "herself",
-        "transgender", "non-binary", "nonbinary",
+        "male", "female", "transgender", "non-binary", "nonbinary",
     ],
     "race": [
-        "white", "black", "african american", "hispanic", "latino",
-        "latina", "asian", "native american", "indigenous", "pacific islander",
-        "caucasian", "minority", "ethnic",
+        "african american", "hispanic", "latino", "latina",
+        "native american", "pacific islander", "caucasian",
     ],
     "age": [
-        "young", "old", "elderly", "senior", "junior", "mature",
-        "millennial", "boomer", "gen z", "gen x", "age ",
+        "elderly", "millennial", "boomer", "gen z", "gen x",
         "years old", "yrs old",
     ],
     "disability": [
-        "disabled", "handicapped", "impaired", "blind", "deaf",
-        "wheelchair", "accessibility", "accommodation",
+        "handicapped", "wheelchair",
     ],
     "religion": [
-        "christian", "muslim", "jewish", "hindu", "buddhist",
-        "atheist", "religious", "church", "mosque", "synagogue",
+        "muslim", "jewish", "hindu", "buddhist", "atheist",
+        "mosque", "synagogue",
     ],
     "nationality": [
-        "american", "foreign", "immigrant", "citizen", "national",
-        "domestic", "international",
+        "immigrant",
     ],
 }
 

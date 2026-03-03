@@ -53,6 +53,18 @@ _FRAMEWORK_IMPORTS: List[Tuple[re.Pattern, str]] = [
     (re.compile(r"\b(from|import)\s+pydantic_ai\b"), "pydantic-ai"),
     (re.compile(r"\b(from|import)\s+smolagents\b"), "smolagents"),
     (re.compile(r"\b(from|import)\s+microsoft\.semantic_kernel\b"), "semantic-kernel"),
+    # --- Additional frameworks (broader detection) ---
+    (re.compile(r"\b(from|import)\s+(?:agents|openai\.agents)\b"), "openai-agents"),
+    (re.compile(r"\b(from|import)\s+haystack\b"), "haystack"),
+    (re.compile(r"\b(from|import)\s+dspy\b"), "dspy"),
+    (re.compile(r"\b(from|import)\s+llama_index\b"), "llama-index"),
+    (re.compile(r"\b(from|import)\s+(?:phi\.(?:agent|assistant)|phidata)\b"), "phidata"),
+    (re.compile(r"\b(from|import)\s+controlflow\b"), "controlflow"),
+    (re.compile(r"\b(from|import)\s+magentic\b"), "magentic"),
+    (re.compile(r"\b(from|import)\s+google\.adk\b"), "google-adk"),
+    (re.compile(r"\b(from|import)\s+(?:taskweaver|metagpt)\b"), "metagpt"),
+    # Generic: detects custom agent classes in any codebase
+    (re.compile(r"class\s+(?!Test)\w+Agent\s*\("), "generic"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -70,6 +82,25 @@ _NODE_PATTERNS: List[Tuple[re.Pattern, str]] = [
     (re.compile(r'\bAgent\s*\(\s*(?:.*?)?name\s*=\s*["\']([^"\']+)["\']'), "swarm"),
     # LangChain: AgentExecutor — use variable name heuristic
     (re.compile(r'\bAgentExecutor\s*\('), "langchain"),
+    # --- Additional node patterns ---
+    # OpenAI Agents SDK: Agent(name="name")
+    (re.compile(r'\bAgent\s*\(\s*(?:.*?)?name\s*=\s*["\']([^"\']+)["\']'), "openai-agents"),
+    # Haystack: pipeline.add_component("name", component)
+    (re.compile(r'\.add_component\s*\(\s*["\']([^"\']+)["\']'), "haystack"),
+    # DSPy: class MyModule(dspy.Module/Predict/ChainOfThought)
+    (re.compile(r'class\s+(\w+)\s*\(\s*dspy\.(?:Module|Predict|ChainOfThought|Signature)'), "dspy"),
+    # LlamaIndex: OpenAIAgent / ReActAgent / AgentRunner
+    (re.compile(r'(\w+)\s*=\s*(?:OpenAIAgent|ReActAgent|FunctionCallingAgent|AgentRunner)\b'), "llama-index"),
+    # Phidata: Agent(name="name")
+    (re.compile(r'\bAgent\s*\(\s*(?:.*?)?name\s*=\s*["\']([^"\']+)["\']'), "phidata"),
+    # ControlFlow: cf.run / cf.Task
+    (re.compile(r'cf\.(?:run|Task)\s*\(\s*["\']([^"\']+)["\']'), "controlflow"),
+    # Google ADK: Agent(name="name")
+    (re.compile(r'\bAgent\s*\(\s*(?:.*?)?name\s*=\s*["\']([^"\']+)["\']'), "google-adk"),
+    # MetaGPT: Role(name="name")
+    (re.compile(r'\bRole\s*\(\s*(?:.*?)?name\s*=\s*["\']([^"\']+)["\']'), "metagpt"),
+    # Generic: class FooAgent(BaseClass) — captures any custom agent definition
+    (re.compile(r'class\s+(\w+Agent)\s*\('), "generic"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -88,6 +119,13 @@ _EDGE_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
     (re.compile(r'handoff_to\s*=\s*\[?([a-zA-Z_]\w*)'), "swarm", "handoff"),
     # Generic: delegate_to("agent_name")
     (re.compile(r'delegate_to\s*\(\s*["\']([^"\']+)["\']'), "custom", "delegation"),
+    # --- Additional edge patterns ---
+    # Haystack: pipeline.connect("src.output", "dst.input")
+    (re.compile(r'\.connect\s*\(\s*["\'](\w+)\.\w+["\'],\s*["\'](\w+)\.\w+["\']'), "haystack", "pipeline"),
+    # Generic: agent_a.delegate/handoff/transfer(agent_b)
+    (re.compile(r'(\w+)\s*\.\s*(?:delegate|handoff|transfer)\s*\(\s*(\w+)'), "generic", "delegation"),
+    # Generic: send_message(from_agent, to_agent)
+    (re.compile(r'send_message\s*\(\s*["\']([^"\']+)["\'],\s*["\']([^"\']+)["\']'), "generic", "message"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -99,6 +137,11 @@ _NO_HUMAN_PATTERNS: List[re.Pattern] = [
     re.compile(r'human_input_mode\s*=\s*["\']NEVER["\']'),
     re.compile(r'human_in_the_loop\s*=\s*False'),
     re.compile(r'require_human_approval\s*=\s*False'),
+    re.compile(r'auto_approve\s*=\s*True'),
+    re.compile(r'auto_execute\s*=\s*True'),
+    re.compile(r'require_confirmation\s*=\s*False'),
+    re.compile(r'human_confirmation\s*=\s*False'),
+    re.compile(r'autonomous\s*=\s*True'),
 ]
 
 # Unconstrained delegation in CrewAI
@@ -120,6 +163,15 @@ _PRIVILEGED_TOOL_NAMES: Set[str] = {
     "WriteFileTool", "DeleteTool", "MoveFileTool", "CopyFileTool",
     "SQLDatabaseToolkit", "SQLQueryTool", "DatabaseTool",
     "GmailSendMessage", "GithubCreatePullRequest",
+    # Additional dangerous tools
+    "ExecTool", "SubprocessTool", "RunCommandTool",
+    "FileSystemTool", "DirectoryTool",
+    "KubectlTool", "DockerTool", "HelmTool",
+    "AWSLambdaTool", "CloudFunctionTool",
+    "RequestsTool", "WebBrowserTool", "SeleniumTool",
+    "GitTool", "NPMTool", "PipTool",
+    "DynamoDBTool", "MongoDBTool", "RedisTool",
+    "SlackPostMessage", "TeamsPostMessage",
 }
 _PRIVILEGED_TOOL_RE = re.compile(
     r'\b(' + '|'.join(re.escape(t) for t in _PRIVILEGED_TOOL_NAMES) + r')\b'

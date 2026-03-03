@@ -53,13 +53,20 @@ _INJECTION_PATTERNS: List[Tuple[str, re.Pattern, str]] = [
         re.I,
     ), "high"),
 
-    # System message spoofing
+    # System message spoofing — only match structured delimiters and
+    # role markers that appear at start-of-line (not mid-sentence references
+    # in docs/comments like "the Human: field" or "see Assistant: output").
     ("DELIMITER_INJECTION", re.compile(
         r"(?:<\|?(?:system|user|assistant|im_start|im_end)\|?>|"
-        r"\[SYSTEM\]|\[INST\]|<<SYS>>|<\|endoftext\|>|"
-        r"Human:|Assistant:|System:)",
+        r"\[SYSTEM\]|\[INST\]|<<SYS>>|<\|endoftext\|>)",
         re.I,
     ), "critical"),
+
+    # Role markers only when at start of line (actual prompt boundaries)
+    ("DELIMITER_INJECTION_ROLE", re.compile(
+        r"^(?:Human|Assistant|System)\s*:",
+        re.MULTILINE,
+    ), "medium"),
 
     # Data exfiltration
     ("EXFILTRATION", re.compile(

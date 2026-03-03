@@ -40,7 +40,7 @@ _MODEL_PATTERNS: List[tuple] = [
     ("google", re.compile(r"""["'](?:gemini-(?:pro|ultra|nano|flash|2\.0)[-\w]*|palm\d?)["']""", re.I)),
     ("meta", re.compile(r"""["'](?:llama[-\s]?\d|codellama)[-\w]*["']""", re.I)),
     ("mistral", re.compile(r"""["'](?:mistral[-\w]*|mixtral[-\w]*)["']""", re.I)),
-    ("cohere", re.compile(r"""["'](?:command[-\w]*|embed[-\w]*)["']""", re.I)),
+    ("cohere", re.compile(r"""["'](?:command-(?:r|r-plus|light|nightly|r-(?:08-2024|plus-(?:04|08)-2024))[-\w]*|embed-(?:english|multilingual|v\d)[-\w]*)["']""", re.I)),
     ("deepseek", re.compile(r"""["']deepseek[-\w]*["']""", re.I)),
 ]
 

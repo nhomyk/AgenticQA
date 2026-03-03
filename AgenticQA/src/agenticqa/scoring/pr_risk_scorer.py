@@ -190,43 +190,49 @@ class PRRiskScorer:
     def _author_fix_rate(self, email: str, repo_path: str) -> Optional[float]:
         """Read fix rate from DeveloperProfile store if available.
 
-        Uses the canonical repo_path on disk to derive a stable repo_id,
-        avoiding any shell execution.
+        Uses DeveloperProfile.for_email() with the same repo_id derivation
+        as the SRE agent (sha1 of git remote URL) and the same email hash
+        (sha1[:12]) so reads match writes.
         """
         try:
-            import hashlib
-            import json
+            from data_store.developer_profile import DeveloperProfile
+            from data_store.repo_profile import _detect_repo_id
 
-            # Derive repo_id from the resolved absolute path — no shell needed.
-            resolved = str(Path(repo_path).resolve())
-            repo_id = hashlib.md5(resolved.encode()).hexdigest()[:12]
+            repo_id = _detect_repo_id(cwd=repo_path)
+            profile = DeveloperProfile.for_email(email, repo_id)
 
-            email_hash = hashlib.md5(email.lower().encode()).hexdigest()[:16]
-            profile_path = (
-                Path.home() / ".agenticqa" / "developers" / repo_id / f"{email_hash}.json"
-            )
-            if profile_path.exists():
-                data = json.loads(profile_path.read_text())
-                return data.get("ewma_fix_rate")
+            total_v = profile.total_violations
+            total_f = profile.total_fixes
+            if total_v == 0:
+                return None  # no history yet
+            return round(total_f / total_v, 4)
         except Exception:
             pass
         return None
 
     def _unfixable_rules(self, repo_path: str) -> set:
-        """Load unfixable rules from org memory store."""
+        """Load unfixable rules from org memory store.
+
+        Uses OrgMemory.for_repo() so the org is auto-detected from
+        the git remote URL instead of defaulting to 'unknown'.
+        """
         try:
-            from agenticqa.data_store.org_memory import OrgMemory
-            mem = OrgMemory()
+            from data_store.org_memory import OrgMemory
+            mem = OrgMemory.for_repo(repo_path)
             return set(mem.unfixable_rules)
         except Exception:
             return set()
 
     def _learning_trend(self, repo_path: str) -> str:
-        """Get overall learning trend for this repo."""
+        """Get overall learning trend for this repo.
+
+        The key returned by LearningMetricsSnapshot.summary() is
+        'fix_rate_trend', not 'trend'.
+        """
         try:
-            from agenticqa.data_store.learning_metrics import LearningMetricsSnapshot
+            from data_store.learning_metrics import LearningMetricsSnapshot
             snap = LearningMetricsSnapshot()
             summary = snap.summary()
-            return summary.get("trend", "unknown")
+            return summary.get("fix_rate_trend") or "unknown"
         except Exception:
             return "unknown"

@@ -94,13 +94,23 @@ class CVEReachabilityAnalyzer:
     # ── Audit runners ─────────────────────────────────────────────────────────
 
     def _run_pip_audit(self, repo: Path) -> Optional[Dict[str, Any]]:
+        # Only attempt if the repo has Python dependency files
+        has_py_deps = any(
+            (repo / f).exists()
+            for f in ("requirements.txt", "setup.py", "setup.cfg", "pyproject.toml", "Pipfile.lock")
+        )
+        if not has_py_deps:
+            return None
+
+        # Build the command — target requirements.txt if present for better results
+        cmd = ["pip-audit", "--format=json", "--no-deps"]
+        req_txt = repo / "requirements.txt"
+        if req_txt.exists():
+            cmd.extend(["-r", str(req_txt)])
+
         try:
             proc = subprocess.run(
-                ["pip-audit", "--format=json", "--no-deps"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-                cwd=repo,
+                cmd, capture_output=True, text=True, timeout=120, cwd=repo,
             )
             text = proc.stdout.strip()
             return json.loads(text) if text else None
@@ -110,16 +120,23 @@ class CVEReachabilityAnalyzer:
             return None
 
     def _run_npm_audit(self, repo: Path) -> Optional[Dict[str, Any]]:
-        # Only run if package.json exists
+        # Only run if package.json AND a lock file exist (npm audit needs a lock file)
         if not (repo / "package.json").exists():
             return None
+        has_lock = (repo / "package-lock.json").exists() or (repo / "yarn.lock").exists()
+        if not has_lock:
+            # Try to generate a package-lock.json so npm audit can work
+            try:
+                subprocess.run(
+                    ["npm", "install", "--package-lock-only", "--ignore-scripts"],
+                    capture_output=True, timeout=120, cwd=repo,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                return None
         try:
             proc = subprocess.run(
                 ["npm", "audit", "--json"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-                cwd=repo,
+                capture_output=True, text=True, timeout=120, cwd=repo,
             )
             # npm audit exits non-zero when vulnerabilities are found; stdout is still valid JSON
             text = proc.stdout.strip()

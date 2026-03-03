@@ -213,6 +213,26 @@ _SKIP_DIRS = frozenset({
     ".gradle", ".mvn",
 })
 
+# Files with credential reads — scanned even without agent framework markers
+_CREDENTIAL_FILE_MARKERS = [
+    # Python: os.environ/getenv with credential names
+    r"os\.(?:environ|getenv)\s*[\[\(].*(?i:PASSWORD|SECRET|TOKEN|CREDENTIAL)",
+    # Python: secrets stores
+    r"(?:secretsmanager|vault|keyring)\s*\.\s*(?:get_secret|get_password)\s*\(",
+    # TypeScript/JavaScript: process.env credential reads
+    r"process\.env\.(?:\w*(?:SECRET|TOKEN|PASSWORD|CREDENTIAL)\w*)",
+    # Go: os.Getenv with credential names
+    r'os\.Getenv\s*\(\s*"[^"]*(?:SECRET|TOKEN|PASSWORD|CREDENTIAL)',
+    # Java: System.getenv with credential names
+    r'System\.getenv\s*\(\s*"[^"]*(?:SECRET|TOKEN|PASSWORD|CREDENTIAL)',
+    # Rust: std::env::var with credential names
+    r'std::env::var\s*\(\s*"[^"]*(?:SECRET|TOKEN|PASSWORD|CREDENTIAL)',
+    # SQL queries on sensitive tables
+    r"(?i:SELECT)\s+\S+\s+(?i:FROM)\s+(?i:users|patients|credentials|accounts)",
+    # Django/Flask settings with credential variables
+    r"(?:DATABASE_PASSWORD|SECRET_KEY|AUTH_TOKEN)\s*=",
+]
+
 SEVERITY_WEIGHTS: Dict[str, float] = {
     "critical": 0.30, "high": 0.15, "medium": 0.08, "low": 0.03,
 }
@@ -380,7 +400,8 @@ class CrossAgentDataFlowTracer:
             src = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return False
-        return any(re.search(m, src) for m in _AGENT_MARKERS)
+        return (any(re.search(m, src) for m in _AGENT_MARKERS)
+                or any(re.search(m, src) for m in _CREDENTIAL_FILE_MARKERS))
 
     # ── File-level analysis ──────────────────────────────────────────────────
 

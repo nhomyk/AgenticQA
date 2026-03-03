@@ -226,31 +226,22 @@ def scan_repo(repo_path: str) -> dict:
         from agenticqa.security.indirect_injection_guard import IndirectInjectionGuard
         from agenticqa.security.safe_file_iter import iter_source_files, safe_read_text
         guard = IndirectInjectionGuard()
-        # Only scan code files for critical injection patterns.
-        # .md/.txt are documentation — "Human:" / "Assistant:" / "[INST]" are
-        # expected in docs and produce massive false positives.
+        # Only scan code files — docs (.md/.txt/.rst/.html) produce
+        # massive false positives from "Human:" / "Assistant:" / "[INST]"
+        # in documentation and prompt examples.
         _CODE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx"}
-        _DOC_EXTS = {".md", ".txt"}
         unsafe_files = 0
         total_findings = 0
         critical_findings = 0
-        for fpath in iter_source_files(Path(repo_path), extensions=_CODE_EXTS | _DOC_EXTS, max_files=5000):
+        for fpath in iter_source_files(Path(repo_path), extensions=_CODE_EXTS, max_files=5000):
             content = safe_read_text(fpath)
             if not content:
                 continue
             report = guard.scan(content)
             if not report.is_safe:
-                is_doc = fpath.suffix.lower() in _DOC_EXTS
-                if is_doc:
-                    # Docs get downgraded: only count non-critical findings
-                    doc_findings = [f for f in report.findings if f.severity not in ("critical",)]
-                    if doc_findings:
-                        unsafe_files += 1
-                        total_findings += len(doc_findings)
-                else:
-                    unsafe_files += 1
-                    total_findings += report.total_findings
-                    critical_findings += len(report.critical_findings)
+                unsafe_files += 1
+                total_findings += report.total_findings
+                critical_findings += len(report.critical_findings)
         return {
             "total_findings": total_findings,
             "unsafe_files": unsafe_files,

@@ -199,3 +199,107 @@ def test_golden_snapshot_failure_does_not_block():
                side_effect=RuntimeError("regression down")):
         result = agent.execute(_simple_qa_data())
     assert result["total_tests"] == 10
+
+
+# ── Safety annotations — closed loop verification ─────────────────────────
+
+@pytest.mark.unit
+def test_execute_populates_regression_annotation():
+    """execute() must populate _safety_annotations.regression_check."""
+    agent = QAAssistantAgent()
+    mock_reg_result = MagicMock()
+    mock_reg_result.similarity_score = 0.92
+    mock_reg_result.regression_detected = False
+    mock_reg_result.threshold_used = 0.75
+    mock_reg_result.baseline_snapshot = MagicMock()  # has baseline
+
+    with patch("agenticqa.regression.model_regression.ModelRegressionTester") as MockTester:
+        mock_instance = MockTester.return_value
+        mock_instance.compare.return_value = mock_reg_result
+        result = agent.execute(_simple_qa_data())
+
+    ann = result.get("_safety_annotations", {})
+    assert "regression_check" in ann
+    assert ann["regression_check"]["similarity_score"] == 0.92
+    assert ann["regression_check"]["regression_detected"] is False
+    assert ann["regression_check"]["has_baseline"] is True
+    # compare() must be called BEFORE capture_golden()
+    mock_instance.compare.assert_called_once()
+    mock_instance.capture_golden.assert_called_once()
+
+
+@pytest.mark.unit
+def test_execute_populates_provenance_annotation():
+    """execute() must populate _safety_annotations.provenance_verified."""
+    agent = QAAssistantAgent()
+    mock_verify_result = MagicMock()
+    mock_verify_result.valid = True
+    mock_verify_result.reason = "valid"
+
+    with patch("agenticqa.provenance.output_provenance.OutputProvenanceLogger") as MockProv:
+        mock_instance = MockProv.return_value
+        mock_instance.verify.return_value = mock_verify_result
+        result = agent.execute(_simple_qa_data())
+
+    ann = result.get("_safety_annotations", {})
+    assert "provenance_verified" in ann
+    assert ann["provenance_verified"]["valid"] is True
+    assert ann["provenance_verified"]["reason"] == "valid"
+    mock_instance.sign_and_log.assert_called_once()
+    mock_instance.verify.assert_called_once()
+
+
+@pytest.mark.unit
+def test_execute_populates_audit_chain_annotation():
+    """execute() must populate _safety_annotations.audit_chain_intact."""
+    agent = QAAssistantAgent()
+
+    with patch("agenticqa.security.immutable_audit.ImmutableAuditChain") as MockChain:
+        mock_instance = MockChain.return_value
+        mock_instance.verify_chain.return_value = (True, [])
+        mock_instance.length.return_value = 42
+        result = agent.execute(_simple_qa_data())
+
+    ann = result.get("_safety_annotations", {})
+    assert "audit_chain_intact" in ann
+    assert ann["audit_chain_intact"]["intact"] is True
+    assert ann["audit_chain_intact"]["chain_length"] == 42
+    assert ann["audit_chain_intact"]["violations"] == 0
+
+
+@pytest.mark.unit
+def test_execute_populates_hallucination_annotation():
+    """execute() must populate _safety_annotations.hallucination_risk with findings."""
+    agent = QAAssistantAgent()
+    mock_finding = MagicMock()
+    mock_finding.finding_type = "ABSOLUTE_CERTAINTY"
+    mock_finding.severity = "medium"
+    mock_finding.detail = "Certainty keyword near compliance language"
+    mock_finding.excerpt = "definitely all tests pass"
+
+    with patch("agenticqa.security.hallucination_guard.HallucinationConfidenceGate") as MockGate:
+        mock_instance = MockGate.return_value
+        mock_instance.scan.return_value = [mock_finding]
+        mock_instance.risk_score.return_value = 0.25
+        result = agent.execute(_simple_qa_data())
+
+    ann = result.get("_safety_annotations", {})
+    assert "hallucination_risk" in ann
+    assert ann["hallucination_risk"]["risk_score"] == 0.25
+    assert ann["hallucination_risk"]["is_safe"] is True
+    assert ann["hallucination_risk"]["finding_count"] == 1
+    assert len(ann["hallucination_risk"]["findings"]) == 1
+    assert ann["hallucination_risk"]["findings"][0]["type"] == "ABSOLUTE_CERTAINTY"
+    mock_instance.scan.assert_called_once()
+    mock_instance.risk_score.assert_called_once()
+
+
+@pytest.mark.unit
+def test_execute_populates_contract_annotation():
+    """execute() must populate _safety_annotations.contract_valid on success."""
+    agent = QAAssistantAgent()
+    result = agent.execute(_simple_qa_data())
+
+    ann = result.get("_safety_annotations", {})
+    assert "contract_valid" in ann
+    assert ann["contract_valid"] is True

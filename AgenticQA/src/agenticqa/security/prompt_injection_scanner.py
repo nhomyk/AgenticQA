@@ -50,6 +50,16 @@ _DIRECT_CONCAT_PATTERNS = [
         r'content\s*:\s*(request\.(body|text|json\(\))|body\.(message|query|prompt|input))',
         re.IGNORECASE,
     ),
+    # String concatenation with + operator: prompt += user_input
+    re.compile(
+        r'(prompt|system_message|system|content|instruction)\s*\+=\s*.*\b(user|input|query|message|request)',
+        re.IGNORECASE,
+    ),
+    # JavaScript concat: prompt = "..." + userInput
+    re.compile(
+        r'(prompt|systemMessage|system|content)\s*=\s*[^;]*\+\s*\b(user\w*|message|query|input|req\.\w+)',
+        re.IGNORECASE,
+    ),
 ]
 
 # Template injection via .format() or % formatting with user data
@@ -65,6 +75,16 @@ _TEMPLATE_INJECT_PATTERNS = [
     # Jinja2 render with user data
     re.compile(
         r'(render_template|Template\s*\(|from_string\s*\().*\b(user_?input|message|query|request)\b',
+        re.IGNORECASE,
+    ),
+    # Broader .format() with user-like variables
+    re.compile(
+        r'\.format\s*\([^)]*\b(user_?input|user_?message|message|query|request|body)\b',
+        re.IGNORECASE,
+    ),
+    # Mustache/Handlebars/EJS templates with user data
+    re.compile(
+        r'(?:\{\{|<%[=]?)\s*(?:user_?input|user_?message|message|query|body|input)\s*(?:\}\}|%>)',
         re.IGNORECASE,
     ),
 ]
@@ -86,6 +106,54 @@ _UNSAFE_OUTPUT_PATTERNS = [
     # innerHTML / dangerouslySetInnerHTML without sanitization
     re.compile(
         r'(innerHTML|dangerouslySetInnerHTML\s*=\s*\{\s*\{?\s*__html)\s*[:=]\s*(llm_?output|response|completion|answer)',
+        re.IGNORECASE,
+    ),
+    # LLM output in SQL query (SQL injection via LLM)
+    re.compile(
+        r'(?:cursor|db|connection|session)\s*\.\s*(?:execute|query|raw)\s*\(.*\b(llm_?output|response|completion|answer|generated)',
+        re.IGNORECASE,
+    ),
+    # LLM output used in import/module loading
+    re.compile(
+        r'(?:importlib\.|__import__|require)\s*\(.*\b(response|output|result|completion)',
+        re.IGNORECASE,
+    ),
+]
+
+# Chat API injection — user input flows directly into LLM messages construction
+_CHAT_API_INJECTION_PATTERNS = [
+    # messages.append with user-controlled content
+    re.compile(
+        r'messages\s*\.\s*append\s*\(\s*\{[^}]*content\s*:\s*(user_?input|message|query|req\.\w+|request\.\w+)',
+        re.IGNORECASE,
+    ),
+    # Direct request body as LLM input (JS/TS)
+    re.compile(
+        r'content\s*[=:]\s*(?:req|request)\s*\.\s*(?:body|query|params|form)\s*[\[.]',
+        re.IGNORECASE,
+    ),
+    # System message built from user input
+    re.compile(
+        r'role\s*[=:]\s*["\']system["\'].*content\s*[=:]\s*[^"\']*\b(user|input|query|message|req)\b',
+        re.IGNORECASE,
+    ),
+]
+
+# RAG context injection — retrieved content inserted into prompts without sanitization
+_RAG_INJECTION_PATTERNS = [
+    # Retrieved context directly concatenated into prompt
+    re.compile(
+        r'(prompt|system|template|instruction)\s*[+]?=\s*.*\b(context|retrieved|chunks?|documents?|passages?|search_results?)\b',
+        re.IGNORECASE,
+    ),
+    # f-string with retrieved context
+    re.compile(
+        r'(prompt|system|content)\s*=\s*f["\'].*\{(?:context|retrieved|chunks?|documents?|passages?|search_results?)\}',
+        re.IGNORECASE,
+    ),
+    # Template .format() with RAG results
+    re.compile(
+        r'\.format\s*\([^)]*(?:context|retrieved|chunks?|documents?|passages?|search_results?)\s*=',
         re.IGNORECASE,
     ),
 ]
@@ -169,6 +237,8 @@ class PromptInjectionScanner:
             findings.extend(self._scan_unvalidated_template(repo))
             findings.extend(self._scan_missing_output_validation(repo))
             findings.extend(self._scan_system_prompt_override(repo))
+            findings.extend(self._scan_chat_api_injection(repo))
+            findings.extend(self._scan_rag_injection(repo))
             return self._build_result(findings)
         except Exception as exc:
             return InjectionScanResult(findings=[], surface_score=0.0, scan_error=str(exc))
@@ -271,6 +341,56 @@ class PromptInjectionScanner:
                             ),
                             evidence=line.strip()[:200],
                             sink="messages_role",
+                        ))
+                        break
+        return findings
+
+    def _scan_chat_api_injection(self, repo: Path) -> List[InjectionFinding]:
+        findings: List[InjectionFinding] = []
+        for fpath in self._iter_source_files(repo):
+            try:
+                lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                continue
+            rel = str(fpath.relative_to(repo))
+            for lineno, line in enumerate(lines, 1):
+                for pat in _CHAT_API_INJECTION_PATTERNS:
+                    if pat.search(line):
+                        findings.append(InjectionFinding(
+                            file=rel, line=lineno,
+                            rule_id="CHAT_API_INJECTION",
+                            severity="high",
+                            message=(
+                                "User-controlled input flows directly into LLM chat messages — "
+                                "attacker can inject system-level instructions"
+                            ),
+                            evidence=line.strip()[:200],
+                            sink="chat_messages",
+                        ))
+                        break
+        return findings
+
+    def _scan_rag_injection(self, repo: Path) -> List[InjectionFinding]:
+        findings: List[InjectionFinding] = []
+        for fpath in self._iter_source_files(repo):
+            try:
+                lines = fpath.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                continue
+            rel = str(fpath.relative_to(repo))
+            for lineno, line in enumerate(lines, 1):
+                for pat in _RAG_INJECTION_PATTERNS:
+                    if pat.search(line):
+                        findings.append(InjectionFinding(
+                            file=rel, line=lineno,
+                            rule_id="RAG_CONTEXT_INJECTION",
+                            severity="medium",
+                            message=(
+                                "Retrieved content or search results injected into LLM prompt "
+                                "without sanitization — indirect prompt injection risk"
+                            ),
+                            evidence=line.strip()[:200],
+                            sink="prompt_template",
                         ))
                         break
         return findings

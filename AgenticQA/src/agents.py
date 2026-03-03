@@ -434,7 +434,11 @@ class BaseAgent(ABC):
             finally:
                 self._last_retrieved_doc_ids = []
 
-        # 4. Capture golden snapshot for model regression testing — non-blocking
+        # ── Safety annotations — close the read-back loop ──────────────────
+        _annotations: Dict[str, Any] = {}
+        _feedback_doc_ids = list(self._last_retrieved_doc_ids) if self._last_retrieved_doc_ids else []
+
+        # 4. Golden snapshot + regression check — non-blocking
         if status == "success":
             try:
                 import os as _os
@@ -443,12 +447,25 @@ class BaseAgent(ABC):
                 _out_text = str(output)[:4000]
                 _run_id = _os.getenv("GITHUB_RUN_ID", "local")
                 _tester = ModelRegressionTester()
-                _tester.capture_golden(self.agent_name, _model_id, {"agent": self.agent_name},
+                # READ: compare against previous golden BEFORE overwriting
+                _reg_result = _tester.compare(
+                    self.agent_name, _model_id, _model_id,
+                    _out_text, {"agent": self.agent_name},
+                )
+                _annotations["regression_check"] = {
+                    "similarity_score": _reg_result.similarity_score,
+                    "regression_detected": _reg_result.regression_detected,
+                    "threshold_used": _reg_result.threshold_used,
+                    "has_baseline": _reg_result.baseline_snapshot is not None,
+                }
+                # WRITE: capture new golden (overwrites previous)
+                _tester.capture_golden(self.agent_name, _model_id,
+                                       {"agent": self.agent_name},
                                        _out_text, run_id=_run_id)
             except Exception:
                 pass  # non-blocking
 
-        # 5. Sign output for provenance chain — non-blocking
+        # 5. Sign output + verify provenance — non-blocking
         if status == "success":
             try:
                 import os as _os
@@ -456,20 +473,28 @@ class BaseAgent(ABC):
                 _model_id = getattr(self, "_model_id", "unknown")
                 _out_text = str(output)[:4000]
                 _run_id = _os.getenv("GITHUB_RUN_ID", "local")
-                OutputProvenanceLogger().sign_and_log(
+                _prov_logger = OutputProvenanceLogger()
+                _prov_logger.sign_and_log(
                     agent_name=self.agent_name,
                     model_id=_model_id,
                     output_text=_out_text,
                     run_id=_run_id,
                     input_data={"agent": self.agent_name},
                 )
+                # READ: verify the signature we just wrote
+                _vr = _prov_logger.verify(_out_text, self.agent_name)
+                _annotations["provenance_verified"] = {
+                    "valid": _vr.valid,
+                    "reason": _vr.reason,
+                }
             except Exception:
                 pass  # non-blocking
 
-        # 6. Append to immutable audit chain — non-blocking
+        # 6. Append to immutable audit chain + verify integrity — non-blocking
         try:
             from agenticqa.security.immutable_audit import ImmutableAuditChain, AuditEvent
-            ImmutableAuditChain().append(AuditEvent(
+            _chain = ImmutableAuditChain()
+            _chain.append(AuditEvent(
                 event_type="AGENT_EXEC",
                 actor=self.agent_name,
                 action=status,
@@ -479,15 +504,34 @@ class BaseAgent(ABC):
                     "output_keys": list(output.keys()) if isinstance(output, dict) else [],
                 },
             ))
+            # READ: verify Merkle chain integrity
+            _chain_ok, _chain_violations = _chain.verify_chain()
+            _annotations["audit_chain_intact"] = {
+                "intact": _chain_ok,
+                "chain_length": _chain.length(),
+                "violations": len(_chain_violations),
+            }
         except Exception:
             pass  # non-blocking
 
-        # 7. Hallucination confidence check — log warning if overconfident output
+        # 7. Hallucination check with full findings — non-blocking
         if status == "success":
             try:
                 from agenticqa.security.hallucination_guard import HallucinationConfidenceGate
                 _out_text = str(output)[:4000]
-                _score = HallucinationConfidenceGate().risk_score(_out_text)
+                _gate = HallucinationConfidenceGate()
+                _findings = _gate.scan(_out_text)
+                _score = _gate.risk_score(_out_text)
+                _annotations["hallucination_risk"] = {
+                    "risk_score": round(_score, 4),
+                    "is_safe": _score < 0.5,
+                    "finding_count": len(_findings),
+                    "findings": [
+                        {"type": f.finding_type, "severity": f.severity,
+                         "detail": f.detail, "excerpt": f.excerpt[:120]}
+                        for f in _findings[:10]
+                    ],
+                }
                 if _score > 0.5:
                     self.log(
                         f"HallucinationConfidenceGate: risk={_score:.2f} — output may contain "
@@ -497,18 +541,42 @@ class BaseAgent(ABC):
             except Exception:
                 pass  # non-blocking
 
-        # 8. Output contract validation — non-blocking; logs warning on schema drift
+        # 8. Output contract validation with violation details — non-blocking
         if status == "success" and isinstance(output, dict):
             try:
                 from agenticqa.contracts import validate_agent_output
                 validate_agent_output(self.agent_name, output)
+                _annotations["contract_valid"] = True
             except KeyError:
                 pass  # agent not in registry — custom/unregistered agent
             except Exception as _contract_err:
+                _violation_details = []
+                if hasattr(_contract_err, "errors"):
+                    _violation_details = [
+                        {"field": ".".join(str(p) for p in e.get("loc", ())),
+                         "type": e.get("type", "unknown"),
+                         "message": e.get("msg", str(e))}
+                        for e in _contract_err.errors()[:10]
+                    ]
+                _annotations["contract_valid"] = False
+                _annotations["contract_violations"] = _violation_details or [str(_contract_err)]
                 self.log(
                     f"Contract violation: {_contract_err}",
                     "WARNING",
                 )
+
+        # ── Attach safety annotations to output dict ──────────────────────
+        if _annotations and isinstance(output, dict):
+            output["_safety_annotations"] = _annotations
+
+        # ── Hallucination risk penalizes retrieved docs ───────────────────
+        if (self.feedback and _feedback_doc_ids
+                and _annotations.get("hallucination_risk", {}).get("risk_score", 0) > 0.5):
+            try:
+                for doc_id in _feedback_doc_ids:
+                    self.feedback.record_feedback(doc_id, success=False)
+            except Exception:
+                pass  # non-blocking
 
         return artifact_id
 
@@ -983,6 +1051,23 @@ class QAAssistantAgent(BaseAgent):
                 if insight_text and insight_text not in recommendations:
                     recommendations.append(f"[High Confidence] {insight_text}")
 
+            # Surface pattern-guard warnings from learning system
+            pw = augmented_context.get("pattern_warnings")
+            if pw:
+                known = pw.get("known_failure_types", [])
+                if known:
+                    recommendations.append(
+                        f"[Pattern Memory] Known failure types detected: {', '.join(known[:5])}. "
+                        "Extra validation recommended."
+                    )
+            fw = augmented_context.get("flakiness_warning")
+            if fw:
+                recommendations.append(
+                    f"[Pattern Memory] Flakiness trend: {fw.get('trend', 'unknown')} "
+                    f"(failure rate {fw.get('recent_failure_rate', 0):.0%}). "
+                    f"{fw.get('recommendation', '')}"
+                )
+
         return recommendations
 
 
@@ -1065,6 +1150,14 @@ class PerformanceAgent(BaseAgent):
                     insight = rec.get("insight", "")
                     if insight and insight not in suggestions:
                         suggestions.append(f"[RAG] {insight}")
+
+            # Surface flakiness warnings from pattern guards
+            fw = augmented_context.get("flakiness_warning")
+            if fw and fw.get("recent_failure_rate", 0) > 0.3:
+                suggestions.append(
+                    f"[Pattern Memory] High flakiness ({fw.get('recent_failure_rate', 0):.0%} failure rate) — "
+                    "performance measurements may be unreliable. Consider retry logic or isolated benchmarks."
+                )
 
         return suggestions
 
@@ -1260,6 +1353,14 @@ class ComplianceAgent(BaseAgent):
                     insight = rec.get("insight", "")
                     if insight and insight not in violations:
                         violations.append(f"[RAG] {insight}")
+
+            # Surface pattern-guard warnings as compliance observations
+            pw = augmented_context.get("pattern_warnings")
+            if pw and pw.get("known_failure_types"):
+                violations.append(
+                    f"[Pattern Memory] {len(pw['known_failure_types'])} historically-failing "
+                    "rule type(s) detected — review may require manual override."
+                )
 
         return violations
 
@@ -1758,6 +1859,22 @@ class DevOpsAgent(BaseAgent):
                 "rag_insights_used": augmented_context.get("rag_insights_count", 0),
             }
 
+            # Surface pattern-guard warnings so DevOps output reflects learning state
+            pw = augmented_context.get("pattern_warnings")
+            fw = augmented_context.get("flakiness_warning")
+            if pw or fw:
+                warnings = []
+                if pw:
+                    warnings.append(
+                        f"Known failure types: {', '.join(pw.get('known_failure_types', [])[:5])}"
+                    )
+                if fw:
+                    warnings.append(
+                        f"Flakiness: {fw.get('trend', 'unknown')} "
+                        f"({fw.get('recent_failure_rate', 0):.0%} failure rate)"
+                    )
+                result["pattern_warnings"] = warnings
+
             self._record_execution("success", result, tags=["deployment"])
             self.log("Deployment complete")
             return result
@@ -1905,10 +2022,27 @@ class SREAgent(BaseAgent):
 
             fixes_applied = []
 
+            # Merge statically-defined architectural rules with dynamically-learned
+            # unfixable rules from RepoProfile (accumulated across prior CI runs).
+            effective_arch_rules = set(self.ARCHITECTURAL_RULES)
+            try:
+                from data_store.repo_profile import RepoProfile
+                _rp = RepoProfile.for_current_repo(cwd=repo_path)
+                _learned = _rp.known_unfixable_rules
+                if _learned:
+                    effective_arch_rules |= set(_learned)
+                    self.log(
+                        f"RepoProfile: added {len(_learned)} learned unfixable rules: "
+                        f"{', '.join(sorted(_learned)[:5])}",
+                        "DEBUG",
+                    )
+            except Exception:
+                pass  # non-blocking — fall back to static set only
+
             # Split errors: architectural violations are reported separately and
             # excluded from the fix_rate so the rate reflects achievable outcomes.
-            architectural = [e for e in errors if e.get("rule", "") in self.ARCHITECTURAL_RULES]
-            fixable_errors = [e for e in errors if e.get("rule", "") not in self.ARCHITECTURAL_RULES]
+            architectural = [e for e in errors if e.get("rule", "") in effective_arch_rules]
+            fixable_errors = [e for e in errors if e.get("rule", "") not in effective_arch_rules]
 
             # Pattern guard: known failure types short-circuit RAG for recognised rules
             exec_strategy = self._get_execution_strategy()
@@ -2013,6 +2147,26 @@ class SREAgent(BaseAgent):
                     )
                 except Exception:
                     pass
+
+            # Record learning metrics snapshot — enables PRRiskScorer trend detection
+            try:
+                from data_store.learning_metrics import LearningMetricsSnapshot
+                import hashlib as _hl_lm, subprocess as _sp_lm
+                _cwd_lm = linting_data.get("repo_path", ".")
+                _p_lm = _sp_lm.run(["git", "remote", "get-url", "origin"],
+                                    capture_output=True, text=True, timeout=5, cwd=_cwd_lm)
+                _url_lm = _p_lm.stdout.strip().lower().rstrip("/").removesuffix(".git")
+                _rid_lm = _hl_lm.sha1(_url_lm.encode()).hexdigest()[:12] if _url_lm else None
+                LearningMetricsSnapshot().record(
+                    run_id=linting_data.get("run_id", "unknown"),
+                    fix_rate=result["fix_rate"],
+                    fixable_errors=fixable_count,
+                    fixes_applied=result["fixes_applied"],
+                    architectural_violations=len(architectural),
+                    repo_id=_rid_lm,
+                )
+            except Exception:
+                pass  # non-blocking
 
             # Record timestamped violation snapshot in Neo4j temporal graph — non-blocking
             try:
