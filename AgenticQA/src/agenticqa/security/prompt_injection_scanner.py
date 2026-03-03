@@ -22,7 +22,7 @@ _SEVERITY_WEIGHTS: Dict[str, float] = {
     "low": 0.1,
 }
 
-_SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
+_SOURCE_EXTS = {".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go"}
 
 _SKIP_DIRS = {
     "node_modules", ".venv", "venv", "__pycache__",
@@ -60,6 +60,20 @@ _DIRECT_CONCAT_PATTERNS = [
         r'(prompt|systemMessage|system|content)\s*=\s*[^;]*\+\s*\b(user\w*|message|query|input|req\.\w+)',
         re.IGNORECASE,
     ),
+    # Go: fmt.Sprintf into prompt/system variable
+    re.compile(
+        r'(prompt|system|content|instruction)\s*[:+]?=\s*fmt\.Sprintf\s*\(',
+        re.IGNORECASE,
+    ),
+    # Go: string concat with + into prompt variable
+    re.compile(
+        r'(prompt|system|content|instruction)\s*[+]?=\s*.*\+\s*\b(userInput|userMessage|message|query|request|body|input)\b',
+    ),
+    # Go: strings.Join used to build prompt from user data
+    re.compile(
+        r'(prompt|system|content)\s*[:+]?=\s*strings\.Join\s*\(',
+        re.IGNORECASE,
+    ),
 ]
 
 # Template injection via .format() or % formatting with user data
@@ -86,6 +100,19 @@ _TEMPLATE_INJECT_PATTERNS = [
     re.compile(
         r'(?:\{\{|<%[=]?)\s*(?:user_?input|user_?message|message|query|body|input)\s*(?:\}\}|%>)',
         re.IGNORECASE,
+    ),
+    # Go: text/template.Execute with user-supplied data
+    re.compile(
+        r'\.Execute\w*\s*\([^)]*\b(user\w*|message|query|request|input|body)\b',
+    ),
+    # Go: strings.Replace/ReplaceAll on prompt template with user input
+    re.compile(
+        r'strings\.Replace(?:All)?\s*\(\s*(prompt|system|template|instruction)',
+        re.IGNORECASE,
+    ),
+    # Go: fmt.Sprintf with %s/%v and user-controlled args (broader)
+    re.compile(
+        r'fmt\.Sprintf\s*\(\s*[^,]+%[sv][^,]*,\s*[^)]*\b(user\w*|message|query|input|body)\b',
     ),
 ]
 
@@ -118,6 +145,18 @@ _UNSAFE_OUTPUT_PATTERNS = [
         r'(?:importlib\.|__import__|require)\s*\(.*\b(response|output|result|completion)',
         re.IGNORECASE,
     ),
+    # Go: exec.Command with LLM output
+    re.compile(
+        r'exec\.Command\w*\s*\([^)]*\b(llmOutput|response|completion|answer|generated)\b',
+    ),
+    # Go: os.Exec / syscall.Exec with LLM output
+    re.compile(
+        r'(?:os|syscall)\.Exec\s*\([^)]*\b(response|completion|answer|output)\b',
+    ),
+    # Go: db.Exec/db.Query with LLM output (SQL injection via LLM)
+    re.compile(
+        r'(?:db|tx|conn|session)\.\s*(?:Exec|Query|QueryRow)\s*\([^)]*\b(response|completion|answer|output|generated)\b',
+    ),
 ]
 
 # Chat API injection — user input flows directly into LLM messages construction
@@ -136,6 +175,18 @@ _CHAT_API_INJECTION_PATTERNS = [
     re.compile(
         r'role\s*[=:]\s*["\']system["\'].*content\s*[=:]\s*[^"\']*\b(user|input|query|message|req)\b',
         re.IGNORECASE,
+    ),
+    # Go: OpenAI ChatCompletionMessage with user content
+    re.compile(
+        r'ChatCompletionMessage\s*\{[^}]*Content\s*:\s*\b(userInput|userMessage|message|query|input|body)\b',
+    ),
+    # Go: messages = append(messages, ...) with user content
+    re.compile(
+        r'messages\s*=\s*append\s*\(\s*messages\s*,.*Content\s*:\s*\b(user\w*|message|query|input|body)\b',
+    ),
+    # Go: Anthropic/generic LLM message struct with user content
+    re.compile(
+        r'(?:Message|Prompt)\s*\{[^}]*(?:Content|Text)\s*:\s*\b(userInput|userMessage|message|query|input|body)\b',
     ),
 ]
 
@@ -156,6 +207,14 @@ _RAG_INJECTION_PATTERNS = [
         r'\.format\s*\([^)]*(?:context|retrieved|chunks?|documents?|passages?|search_results?)\s*=',
         re.IGNORECASE,
     ),
+    # Go: fmt.Sprintf with context/retrieved data into prompt
+    re.compile(
+        r'fmt\.Sprintf\s*\([^)]*\b(context|retrieved|chunks?|documents?|passages?|searchResults?)\b',
+    ),
+    # Go: prompt += context or prompt = prompt + context
+    re.compile(
+        r'(prompt|system|content)\s*[+]?=\s*.*\b(context|retrieved|chunks?|documents?|passages?|searchResults?)\b',
+    ),
 ]
 
 # User controls role field in messages array
@@ -173,6 +232,14 @@ _ROLE_OVERRIDE_PATTERNS = [
     re.compile(
         r'\{\s*role\s*:\s*[a-z_]*role[a-z_]*\s*,\s*content',
         re.IGNORECASE,
+    ),
+    # Go: Role field from variable in struct literal
+    re.compile(
+        r'Role\s*:\s*\b(userRole|role|inputRole|requestRole)\b',
+    ),
+    # Go: System role with user content in struct
+    re.compile(
+        r'Role\s*:\s*(?:openai\.)?(?:ChatMessageRole)?[Ss]ystem.*Content\s*:\s*\b(userInput|userMessage|message|query|input|body)\b',
     ),
 ]
 
@@ -222,11 +289,15 @@ class PromptInjectionScanner:
     """
     Pure-Python static scanner for prompt injection attack surface.
 
-    Detects four categories:
+    Languages: Python, JavaScript/TypeScript, Go.
+
+    Detects six categories:
     1. Direct user input concatenation into LLM prompts (PROMPT_INJECTION_SURFACE)
-    2. Template injection via format() / Jinja2 (TEMPLATE_INJECTION)
+    2. Template injection via format() / Jinja2 / Go templates (TEMPLATE_INJECTION)
     3. Unvalidated LLM output to dangerous sinks (UNVALIDATED_LLM_OUTPUT)
     4. User-controlled role field in messages (SYSTEM_PROMPT_OVERRIDE)
+    5. Chat API injection — user input in LLM message construction (CHAT_API_INJECTION)
+    6. RAG context injection — retrieved content in prompts (RAG_CONTEXT_INJECTION)
     """
 
     def scan(self, repo_path: str = ".") -> InjectionScanResult:

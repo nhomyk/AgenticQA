@@ -164,3 +164,160 @@ class TestSurfaceScore:
         result = make_scanner().scan(str(tmp_path))
         assert result.surface_score == 0.0
         assert result.scan_error is None
+
+
+# ---------------------------------------------------------------------------
+# Go language patterns
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+class TestGoDirectConcatenation:
+    def test_go_sprintf_into_prompt(self, tmp_path):
+        write(tmp_path / "llm.go",
+              'prompt := fmt.Sprintf("You are a bot. User said: %s", userInput)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) >= 1
+        assert hits[0].severity == "critical"
+
+    def test_go_string_concat_into_prompt(self, tmp_path):
+        write(tmp_path / "handler.go",
+              'prompt += "Context: " + userMessage\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) >= 1
+
+    def test_go_strings_join_into_prompt(self, tmp_path):
+        write(tmp_path / "agent.go",
+              'system := strings.Join(parts, "\\n")\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) >= 1
+
+    def test_go_hardcoded_prompt_no_finding(self, tmp_path):
+        write(tmp_path / "bot.go",
+              'prompt := "You are a helpful assistant"\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "PROMPT_INJECTION_SURFACE"]
+        assert len(hits) == 0
+
+
+@pytest.mark.unit
+class TestGoTemplateInjection:
+    def test_go_template_execute_with_user_data(self, tmp_path):
+        write(tmp_path / "render.go",
+              'err := tmpl.Execute(buf, userInput)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "TEMPLATE_INJECTION"]
+        assert len(hits) >= 1
+
+    def test_go_strings_replace_on_prompt(self, tmp_path):
+        write(tmp_path / "prompt.go",
+              'result := strings.ReplaceAll(prompt, "{{USER}}", userMsg)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "TEMPLATE_INJECTION"]
+        assert len(hits) >= 1
+
+    def test_go_sprintf_with_user_var(self, tmp_path):
+        write(tmp_path / "chat.go",
+              'msg := fmt.Sprintf("System: %s\\nUser: %s", sysPrompt, userInput)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "TEMPLATE_INJECTION"]
+        assert len(hits) >= 1
+
+
+@pytest.mark.unit
+class TestGoUnsafeOutput:
+    def test_go_exec_command_with_response(self, tmp_path):
+        write(tmp_path / "runner.go",
+              'cmd := exec.Command("bash", "-c", response)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) >= 1
+
+    def test_go_db_exec_with_completion(self, tmp_path):
+        write(tmp_path / "store.go",
+              'db.Exec(completion)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) >= 1
+
+    def test_go_safe_exec_no_finding(self, tmp_path):
+        write(tmp_path / "safe.go",
+              'cmd := exec.Command("ls", "-la")\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "UNVALIDATED_LLM_OUTPUT"]
+        assert len(hits) == 0
+
+
+@pytest.mark.unit
+class TestGoChatAPIInjection:
+    def test_go_openai_message_with_user_input(self, tmp_path):
+        write(tmp_path / "openai.go",
+              'msg := openai.ChatCompletionMessage{Role: "system", Content: userInput}\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "CHAT_API_INJECTION"]
+        assert len(hits) >= 1
+
+    def test_go_append_messages_with_body(self, tmp_path):
+        write(tmp_path / "chat.go",
+              'messages = append(messages, Message{Role: "user", Content: body})\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "CHAT_API_INJECTION"]
+        assert len(hits) >= 1
+
+    def test_go_hardcoded_message_no_finding(self, tmp_path):
+        write(tmp_path / "fixed.go",
+              'msg := Message{Role: "system", Content: "You are helpful"}\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "CHAT_API_INJECTION"]
+        assert len(hits) == 0
+
+
+@pytest.mark.unit
+class TestGoRAGInjection:
+    def test_go_sprintf_with_context(self, tmp_path):
+        write(tmp_path / "rag.go",
+              'prompt := fmt.Sprintf("Context: %s\\nQuestion: %s", context, question)\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "RAG_CONTEXT_INJECTION"]
+        assert len(hits) >= 1
+
+    def test_go_prompt_concat_with_chunks(self, tmp_path):
+        write(tmp_path / "search.go",
+              'prompt += "\\nRelevant documents: " + chunks\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "RAG_CONTEXT_INJECTION"]
+        assert len(hits) >= 1
+
+
+@pytest.mark.unit
+class TestGoRoleOverride:
+    def test_go_role_from_variable(self, tmp_path):
+        write(tmp_path / "msg.go",
+              'msg := Message{Role: userRole, Content: text}\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "SYSTEM_PROMPT_OVERRIDE"]
+        assert len(hits) >= 1
+
+    def test_go_fixed_role_no_finding(self, tmp_path):
+        write(tmp_path / "safe.go",
+              'msg := Message{Role: "assistant", Content: text}\n')
+        result = make_scanner().scan(str(tmp_path))
+        hits = [f for f in result.findings if f.rule_id == "SYSTEM_PROMPT_OVERRIDE"]
+        assert len(hits) == 0
+
+
+@pytest.mark.unit
+class TestGoFileExtension:
+    def test_go_files_are_scanned(self, tmp_path):
+        write(tmp_path / "main.go",
+              'system := fmt.Sprintf("You are helpful. User: %s", userInput)\n')
+        result = make_scanner().scan(str(tmp_path))
+        assert result.total_findings >= 1
+
+    def test_clean_go_file_no_findings(self, tmp_path):
+        write(tmp_path / "main.go",
+              'package main\n\nfunc main() {\n\tfmt.Println("hello")\n}\n')
+        result = make_scanner().scan(str(tmp_path))
+        assert result.total_findings == 0
