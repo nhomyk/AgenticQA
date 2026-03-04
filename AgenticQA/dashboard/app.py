@@ -7227,6 +7227,453 @@ def _render_workspace_safety(api_base: str):
             st.error(f"API error: {exc}")
 
 
+def render_load_testing():
+    """Load Testing — Locust-based API stress testing with regression detection."""
+    import requests as _req
+    import pandas as pd
+    import plotly.graph_objects as go
+
+    st.subheader("Load Testing")
+    st.markdown(
+        "Locust-based stress testing for the AgenticQA API. "
+        "6 scenario types simulate real user personas — from health probes to adversarial "
+        "rate limit attacks. Results are persisted to JSONL and analysed for performance "
+        "regressions using a split-half trend algorithm."
+    )
+
+    api_base = st.text_input(
+        "API URL",
+        value=os.getenv("AGENTICQA_API_URL", "http://localhost:8000"),
+        key="loadtest_api_base",
+    ).rstrip("/")
+
+    tab_overview, tab_endpoints, tab_scenarios = st.tabs(
+        ["Overview & Trends", "Endpoint Analysis", "Scenarios & How It Works"]
+    )
+
+    # ── Tab 1: Overview & Trends ──────────────────────────────────────────────
+    with tab_overview:
+        st.caption(
+            "Latest run metrics, latency percentile trends, and automated regression detection. "
+            "The trend algorithm splits history into early/recent halves and compares average p95 latency."
+        )
+
+        if st.button("Load Test History", key="lt_load_btn", type="primary"):
+            with st.spinner("Fetching load test data..."):
+                try:
+                    hist_resp = _req.get(
+                        f"{api_base}/api/loadtest/history",
+                        params={"limit": 50},
+                        timeout=15,
+                    )
+                except Exception as exc:
+                    st.error(f"Could not reach API: {exc}")
+                    return
+
+                if hist_resp.status_code != 200:
+                    st.error(f"API error {hist_resp.status_code}: {hist_resp.text[:300]}")
+                    return
+
+                try:
+                    trend_resp = _req.get(
+                        f"{api_base}/api/loadtest/trend",
+                        params={"window": 10},
+                        timeout=15,
+                    )
+                    trend = trend_resp.json() if trend_resp.status_code == 200 else {}
+                except Exception:
+                    trend = {}
+
+            history = hist_resp.json().get("history", [])
+
+            if not history:
+                st.info(
+                    "No load test results yet. Run a load test with:\n\n"
+                    "```\npython scripts/run_load_test.py --host http://localhost:8000 "
+                    "--users 20 --duration 60\n```"
+                )
+                return
+
+            # Store for cross-tab access
+            st.session_state["lt_history"] = history
+            st.session_state["lt_trend"] = trend
+
+            latest = history[-1]
+            direction = trend.get("direction", "unknown")
+
+            arrow_map = {
+                "improving": "↓", "stable": "→", "degrading": "↑",
+                "insufficient_data": "—",
+            }
+            arrow = arrow_map.get(direction, "?")
+
+            # ── Latest run metadata ───────────────────────────────────────
+            st.markdown("---")
+            st.markdown(
+                f"**Latest Run:** `{latest.get('timestamp', 'unknown')}`  |  "
+                f"**Host:** `{latest.get('host', 'unknown')}`  |  "
+                f"**Users:** {latest.get('users', 0)}  |  "
+                f"**Duration:** {latest.get('duration_s', 0)}s"
+            )
+
+            # ── Metrics row ───────────────────────────────────────────────
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("Total Requests", f"{latest.get('total_requests', 0):,}")
+            m2.metric("Failure Rate", f"{latest.get('overall_failure_rate', 0):.2%}")
+            m3.metric("p95 Latency", f"{latest.get('p95_ms', 0):.1f}ms")
+            m4.metric("Throughput", f"{latest.get('overall_rps', 0):.1f} req/s")
+            m5.metric("Trend", f"{arrow} {direction.replace('_', ' ').capitalize()}")
+
+            # ── Regression banner ─────────────────────────────────────────
+            if direction == "degrading":
+                st.error(
+                    f"**Performance Regression Detected** — p95 latency increased by "
+                    f"{trend.get('delta_p95_ms', 0):+.1f}ms "
+                    f"({trend.get('early_avg_p95_ms', 0):.1f}ms → "
+                    f"{trend.get('recent_avg_p95_ms', 0):.1f}ms). "
+                    "Investigate recent code changes or infrastructure issues."
+                )
+            elif direction == "improving":
+                st.success(
+                    f"**Performance Improving** — p95 latency decreased by "
+                    f"{abs(trend.get('delta_p95_ms', 0)):.1f}ms."
+                )
+            elif direction == "stable":
+                st.info("**Performance Stable** — no significant change in p95 latency.")
+
+            # ── Latency trend chart ───────────────────────────────────────
+            st.markdown("#### Latency Percentiles Over Time")
+            st.caption(
+                "**p50** (median) — half of requests are faster.  "
+                "**p95** — the standard SLA metric.  "
+                "**p99** — tail latency; the worst 1%."
+            )
+
+            hdf = pd.DataFrame(history)
+            fig_lat = go.Figure()
+            fig_lat.add_trace(go.Scatter(
+                x=hdf["timestamp"], y=hdf.get("p50_ms", []),
+                mode="lines+markers", name="p50 (median)",
+                line=dict(color="#1f77b4"),
+            ))
+            fig_lat.add_trace(go.Scatter(
+                x=hdf["timestamp"], y=hdf.get("p95_ms", []),
+                mode="lines+markers", name="p95",
+                line=dict(color="#ffc107", width=2),
+            ))
+            fig_lat.add_trace(go.Scatter(
+                x=hdf["timestamp"], y=hdf.get("p99_ms", []),
+                mode="lines+markers", name="p99 (tail)",
+                line=dict(color="#dc3545", dash="dot"),
+            ))
+            fig_lat.update_layout(
+                height=350,
+                margin=dict(l=0, r=0, t=30, b=0),
+                title="Response Time Percentiles (ms)",
+                xaxis_title="Run",
+                yaxis_title="Latency (ms)",
+                legend=dict(x=0, y=1.1, orientation="h"),
+                hovermode="x unified",
+            )
+            st.plotly_chart(fig_lat, use_container_width=True)
+
+            # ── Throughput chart ──────────────────────────────────────────
+            st.markdown("#### Throughput Over Time")
+            st.caption(
+                "Requests per second (RPS) — higher is better. "
+                "A drop alongside rising latency signals capacity saturation."
+            )
+
+            fig_rps = go.Figure()
+            fig_rps.add_trace(go.Scatter(
+                x=hdf["timestamp"], y=hdf.get("overall_rps", []),
+                mode="lines+markers", name="RPS",
+                line=dict(color="#28a745", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(40,167,69,0.08)",
+            ))
+            fig_rps.update_layout(
+                height=280,
+                margin=dict(l=0, r=0, t=30, b=0),
+                title="Requests Per Second",
+                xaxis_title="Run",
+                yaxis_title="RPS",
+                hovermode="x unified",
+            )
+            st.plotly_chart(fig_rps, use_container_width=True)
+
+            # ── Failure rate chart (conditional) ──────────────────────────
+            if any(r.get("overall_failure_rate", 0) > 0 for r in history):
+                st.markdown("#### Failure Rate Over Time")
+                fig_fail = go.Figure()
+                fig_fail.add_trace(go.Scatter(
+                    x=hdf["timestamp"],
+                    y=hdf["overall_failure_rate"] * 100,
+                    mode="lines+markers", name="Failure Rate (%)",
+                    line=dict(color="#dc3545"),
+                    fill="tozeroy",
+                    fillcolor="rgba(220,53,69,0.08)",
+                ))
+                fig_fail.update_layout(
+                    height=220,
+                    margin=dict(l=0, r=0, t=30, b=0),
+                    title="Failure Rate (%)",
+                    xaxis_title="Run",
+                    yaxis_title="Failure %",
+                )
+                st.plotly_chart(fig_fail, use_container_width=True)
+
+            # ── Run history table ─────────────────────────────────────────
+            st.markdown("#### Run History")
+            cols_to_show = ["timestamp", "users", "duration_s", "total_requests",
+                            "overall_failure_rate", "overall_rps", "p50_ms", "p95_ms", "p99_ms"]
+            summary_df = hdf[[c for c in cols_to_show if c in hdf.columns]].copy()
+            if "overall_failure_rate" in summary_df.columns:
+                summary_df["overall_failure_rate"] = summary_df["overall_failure_rate"].apply(
+                    lambda x: f"{x:.2%}"
+                )
+            summary_df = summary_df.rename(columns={
+                "timestamp": "Timestamp", "users": "Users",
+                "duration_s": "Duration (s)", "total_requests": "Requests",
+                "overall_failure_rate": "Failure Rate", "overall_rps": "RPS",
+                "p50_ms": "p50 (ms)", "p95_ms": "p95 (ms)", "p99_ms": "p99 (ms)",
+            })
+            st.dataframe(
+                summary_df.iloc[::-1],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    # ── Tab 2: Endpoint Analysis ──────────────────────────────────────────────
+    with tab_endpoints:
+        st.caption(
+            "Per-endpoint latency and throughput from the most recent load test run. "
+            "Identifies slow endpoints that may need optimisation — caching, query tuning, or scaling."
+        )
+
+        history = st.session_state.get("lt_history")
+        if not history:
+            st.info("Click **Load Test History** on the Overview tab first to fetch data.")
+        else:
+            latest = history[-1]
+            endpoints = latest.get("endpoints", [])
+
+            if not endpoints:
+                st.info("No per-endpoint data in the latest run.")
+            else:
+                ep_df = pd.DataFrame(endpoints)
+
+                # ── p95 bar chart ─────────────────────────────────────────
+                st.markdown("#### p95 Latency by Endpoint")
+                ep_sorted = ep_df.sort_values("p95_ms", ascending=True)
+                colors = []
+                for val in ep_sorted["p95_ms"]:
+                    if val < 100:
+                        colors.append("#28a745")
+                    elif val < 500:
+                        colors.append("#ffc107")
+                    else:
+                        colors.append("#dc3545")
+
+                fig_ep = go.Figure(go.Bar(
+                    x=ep_sorted["p95_ms"],
+                    y=ep_sorted["name"],
+                    orientation="h",
+                    marker_color=colors,
+                    text=[f"{v:.0f}ms" for v in ep_sorted["p95_ms"]],
+                    textposition="outside",
+                ))
+                fig_ep.update_layout(
+                    height=max(300, len(ep_df) * 35),
+                    margin=dict(l=0, r=60, t=30, b=0),
+                    title="p95 Response Time by Endpoint",
+                    xaxis_title="p95 (ms)",
+                    yaxis={"categoryorder": "total ascending"},
+                )
+                st.plotly_chart(fig_ep, use_container_width=True)
+
+                # ── Throughput bar chart ──────────────────────────────────
+                st.markdown("#### Throughput by Endpoint")
+                ep_rps = ep_df.sort_values("requests_per_sec", ascending=True)
+                fig_rps_ep = go.Figure(go.Bar(
+                    x=ep_rps["requests_per_sec"],
+                    y=ep_rps["name"],
+                    orientation="h",
+                    marker_color="#1f77b4",
+                    text=[f"{v:.1f}/s" for v in ep_rps["requests_per_sec"]],
+                    textposition="outside",
+                ))
+                fig_rps_ep.update_layout(
+                    height=max(300, len(ep_df) * 35),
+                    margin=dict(l=0, r=60, t=30, b=0),
+                    title="Requests Per Second by Endpoint",
+                    xaxis_title="RPS",
+                    yaxis={"categoryorder": "total ascending"},
+                )
+                st.plotly_chart(fig_rps_ep, use_container_width=True)
+
+                # ── Detail table ──────────────────────────────────────────
+                st.markdown("#### Endpoint Detail Table")
+                disp_cols = ["name", "method", "num_requests", "num_failures",
+                             "avg_response_time_ms", "p50_ms", "p95_ms", "p99_ms",
+                             "min_response_time_ms", "max_response_time_ms",
+                             "requests_per_sec", "failure_rate"]
+                display_ep = ep_df[[c for c in disp_cols if c in ep_df.columns]].rename(columns={
+                    "name": "Endpoint", "method": "Method",
+                    "num_requests": "Requests", "num_failures": "Failures",
+                    "avg_response_time_ms": "Avg (ms)", "p50_ms": "p50 (ms)",
+                    "p95_ms": "p95 (ms)", "p99_ms": "p99 (ms)",
+                    "min_response_time_ms": "Min (ms)", "max_response_time_ms": "Max (ms)",
+                    "requests_per_sec": "RPS", "failure_rate": "Fail Rate",
+                }).sort_values("Requests", ascending=False)
+                st.dataframe(display_ep, use_container_width=True, hide_index=True)
+
+                # ── Summary metrics ───────────────────────────────────────
+                st.markdown("---")
+                total_ep = len(endpoints)
+                failing_ep = sum(1 for e in endpoints if e.get("failure_rate", 0) > 0)
+                slowest = max(endpoints, key=lambda e: e.get("p95_ms", 0))
+
+                e1, e2, e3 = st.columns(3)
+                e1.metric("Endpoints Tested", total_ep)
+                e2.metric("Endpoints with Failures", failing_ep)
+                e3.metric(
+                    "Slowest Endpoint",
+                    f"{slowest['name']} ({slowest['p95_ms']:.0f}ms)",
+                )
+
+    # ── Tab 3: Scenarios & How It Works ───────────────────────────────────────
+    with tab_scenarios:
+        st.markdown(
+            "How the load testing subsystem works, what each scenario tests, "
+            "and how to run it yourself."
+        )
+
+        st.markdown("---")
+        st.markdown("### Architecture")
+        st.markdown(
+            "1. **Locust** (open-source load testing tool) runs in headless mode "
+            "via `scripts/run_load_test.py`\n"
+            "2. **6 scenario classes** simulate different user personas hitting "
+            "the API concurrently\n"
+            "3. After each run, per-endpoint stats are collected and persisted to "
+            "**JSONL** (`~/.agenticqa/loadtest_history.jsonl`)\n"
+            "4. A **split-half trend algorithm** compares early vs. recent p95 "
+            "averages to detect regression\n"
+            "5. **Regression threshold**: if current p95 exceeds 2x the baseline "
+            "average (last 5 runs), the run fails with exit code 1 — gating CI deployment"
+        )
+
+        st.markdown("#### How to Run")
+        st.code(
+            "# Install Locust\n"
+            "pip install agenticqa[loadtest]\n\n"
+            "# Run all scenarios (20 users, 60 seconds)\n"
+            "python scripts/run_load_test.py --host http://localhost:8000 "
+            "--users 20 --duration 60\n\n"
+            "# Run specific scenarios\n"
+            "python scripts/run_load_test.py --scenarios health,agents "
+            "--users 10 --duration 30\n\n"
+            "# High-load stress test\n"
+            "python scripts/run_load_test.py --users 100 --duration 120 "
+            "--spawn-rate 10",
+            language="bash",
+        )
+
+        st.markdown("#### Trend Detection Algorithm")
+        st.markdown(
+            "- Takes the last *N* runs (configurable window, default 10)\n"
+            "- Splits into **early half** and **recent half**\n"
+            "- Compares average p95 latency of each half\n"
+            "- Threshold = max(1.0 ms, 10% of early average)\n"
+            "- If `recent − early > threshold` → **degrading**\n"
+            "- If `early − recent > threshold` → **improving**\n"
+            "- Otherwise → **stable**"
+        )
+
+        st.markdown("---")
+        st.markdown("### Scenario Reference")
+
+        _scenarios = [
+            ("HealthCheckUser", "health",
+             "Simulates monitoring and readiness probes under load. "
+             "Lightweight GET requests to /health, /api/system/readiness, "
+             "and /api/health/dataflow.",
+             "GET /health, GET /api/system/readiness, GET /api/health/dataflow",
+             "0.5-1.5s between requests",
+             "Validates that health endpoints remain responsive under load — "
+             "critical for Kubernetes liveness/readiness probes."),
+            ("AgentExecutionUser", "agents",
+             "Simulates data scientists triggering agent runs. POSTs to "
+             "/api/agents/execute with realistic payloads, plus reads from "
+             "/api/agents/insights.",
+             "POST /api/agents/execute, GET /api/agents/insights, "
+             "GET /api/datastore/patterns",
+             "1-3s between requests",
+             "Tests the core product path — agent orchestration under "
+             "concurrent load."),
+            ("SecurityScanUser", "security",
+             "Simulates security-focused API usage — prompt injection scanning, "
+             "bias detection, and architecture scanning.",
+             "POST /api/security/injection-scan, POST /api/security/bias-scan, "
+             "GET /api/security/architecture-scan",
+             "2-5s between requests",
+             "Ensures security scanning endpoints don't degrade under "
+             "concurrent access."),
+            ("ObservabilityUser", "observability",
+             "Simulates dashboard reads and trend queries — the kind of traffic "
+             "a monitoring dashboard generates.",
+             "GET /api/observability/traces, GET /api/scan-trend/history, "
+             "GET /api/scan-trend/trend, GET /api/learning-metrics",
+             "1-3s between requests",
+             "Validates that read-heavy observability queries scale well."),
+            ("ConcurrentMixUser", "mixed",
+             "Realistic mixed workload combining health checks, datastore reads, "
+             "agent execution, constitution checks, and red team scans with "
+             "weighted probabilities.",
+             "GET /health, GET /api/datastore/stats, POST /api/agents/execute, "
+             "POST /api/system/constitution/check, POST /api/red-team/scan",
+             "0.5-2s between requests",
+             "The most realistic scenario — simulates actual production "
+             "traffic patterns."),
+            ("RateLimitProbeUser", "ratelimit",
+             "Fires rapid requests (~10/s per user) to verify rate limiter "
+             "behaviour. Expects 429 responses once the limit (default 60 rpm) "
+             "is exceeded. 429s are counted as successes to avoid inflating "
+             "failure stats.",
+             "GET /health (rapid fire)",
+             "0.1s (constant — intentionally aggressive)",
+             "Validates that the rate limiter correctly throttles abusive "
+             "traffic without crashing."),
+        ]
+
+        for name, key, desc, eps, wait, purpose in _scenarios:
+            with st.expander(f"**{name}** (`--scenarios {key}`)"):
+                st.markdown(desc)
+                st.markdown(f"**Endpoints:** `{eps}`")
+                st.markdown(f"**Wait time:** {wait}")
+                st.markdown(f"**Purpose:** {purpose}")
+
+        st.markdown("---")
+        st.markdown("### Key Metrics Explained")
+        st.markdown(
+            "| Metric | What It Means | Why It Matters |\n"
+            "|--------|---------------|----------------|\n"
+            "| **p50 (median)** | Half of requests are faster | Typical user experience |\n"
+            "| **p95** | 95% of requests are faster | Standard SLA metric — what most users experience worst-case |\n"
+            "| **p99 (tail)** | 99% of requests are faster | Catches outliers — DB timeouts, GC pauses |\n"
+            "| **RPS** | Requests per second sustained | Capacity ceiling — drop signals saturation |\n"
+            "| **Failure Rate** | Percentage returning errors | Reliability — target < 0.1% for production |\n"
+            "| **Rate Limit Hits** | 429 Too Many Requests count | Rate limiter working correctly |"
+        )
+
+        st.caption(
+            "Scenarios: src/agenticqa/loadtest/scenarios.py  |  "
+            "Results: ~/.agenticqa/loadtest_history.jsonl  |  "
+            "Regression threshold (2x) matches PerformanceAgent."
+        )
+
+
 def main():
     """Main dashboard"""
     render_header()
@@ -7247,7 +7694,7 @@ def main():
         st.title("📊 Navigation")
         st.markdown("---")
 
-        pages = ["Workspace", "Live Pipeline Demo", "Onboarding", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Release Readiness"]
+        pages = ["Workspace", "Live Pipeline Demo", "Onboarding", "Operator Console", "System Overview", "Collaboration", "Performance", "GraphRAG", "Ontology", "Pipeline", "Governance", "Compliance Scan", "Architecture Scan", "Agent Safety", "Red Team", "Agent Learning", "Load Testing", "Release Readiness"]
 
         selected_view = str(st.query_params.get("view", "")).strip().lower()
         if selected_view in {"operator", "prompt-ops", "prompt_ops"}:
@@ -7262,6 +7709,8 @@ def main():
             default_index = pages.index("Onboarding")
         elif selected_view in {"workspace", "files", "mail", "links"}:
             default_index = pages.index("Workspace")
+        elif selected_view in {"loadtest", "load-test", "load_test"}:
+            default_index = pages.index("Load Testing")
         else:
             default_index = pages.index("Workspace")  # default landing page
 
@@ -7414,6 +7863,9 @@ def main():
 
     elif page == "Agent Learning":
         render_agent_learning()
+
+    elif page == "Load Testing":
+        render_load_testing()
 
     elif page == "Release Readiness":
         render_release_readiness()
