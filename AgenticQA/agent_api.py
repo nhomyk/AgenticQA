@@ -5234,6 +5234,24 @@ async def scan_trend_org_rollup(limit: int = 100):
     return agg.org_rollup(limit=limit)
 
 
+# ── Load Test endpoints ────────────────────────────────────────────────────
+
+@app.get("/api/loadtest/history", tags=["Load Test"])
+async def loadtest_history(limit: int = 50):
+    """Get load test run history."""
+    from agenticqa.loadtest.results import LoadTestAnalyzer
+    analyzer = LoadTestAnalyzer()
+    return {"history": analyzer.history(limit=limit)}
+
+
+@app.get("/api/loadtest/trend", tags=["Load Test"])
+async def loadtest_trend(window: int = 10):
+    """Get load test performance trend (improving/stable/degrading)."""
+    from agenticqa.loadtest.results import LoadTestAnalyzer
+    analyzer = LoadTestAnalyzer()
+    return analyzer.trend(window=window)
+
+
 # ── Compliance Report endpoint ─────────────────────────────────────────────
 
 @app.post("/api/compliance/report", tags=["Compliance"])

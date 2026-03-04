@@ -72,6 +72,9 @@ test = [
     "certifi>=2024.12.14",
     "setuptools>=78.0.0",
 ]
+loadtest = [
+    "locust>=2.20.0",
+]
 rag = [
     "weaviate-client>=4.0.0",
     "qdrant-client>=1.7.0",
@@ -113,6 +116,7 @@ markers = [
     "data_quality: data quality tests",
     "data_security: data security tests",
     "fast: fast tests",
+    "loadtest: load test suite",
 ]
 
 [tool.black]
