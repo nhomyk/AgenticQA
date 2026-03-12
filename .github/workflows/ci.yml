@@ -45,6 +45,7 @@ jobs:
   # Runs FIRST to detect and fix any critical issues
   pipeline-rescue:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: 🚨 Pipeline Health Check & Emergency Repair
     permissions:
       contents: write
@@ -112,6 +113,7 @@ jobs:
   pipeline-framework:
     needs: [pipeline-rescue]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "✅ Pipeline Framework Health Check"
     permissions:
       contents: read
@@ -279,6 +281,7 @@ jobs:
   linting-fix:
     needs: [pipeline-rescue]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "🔧 Auto-Fix Linting Issues (SRE Agent)"
     permissions:
       contents: write
@@ -325,6 +328,7 @@ jobs:
   lint:
     needs: [linting-fix]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: Code Linting
     steps:
       - uses: actions/checkout@v4
@@ -342,6 +346,7 @@ jobs:
   live-vector-migration-parity:
     needs: [lint]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "🔁 Live Vector Migration Parity"
     services:
       qdrant:
@@ -411,6 +416,7 @@ jobs:
   phase-1-testing:
     needs: [lint]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "Phase 1️⃣ Consolidated Testing"
     steps:
       - uses: actions/checkout@v4
@@ -636,6 +642,7 @@ jobs:
   # Phase 1: Compliance Scans (Pa11y, Security, Audit) - Matrix Strategy
   phase-1-compliance-scans:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: Accessibility & Security Compliance
     strategy:
       matrix:
@@ -970,6 +977,7 @@ jobs:
     needs: [phase-1-testing, phase-1-compliance-scans]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "Phase 1️⃣ SDET Agent"
     steps:
       - uses: actions/checkout@v4
@@ -1044,6 +1052,7 @@ jobs:
     needs: [phase-1-testing, phase-1-compliance-scans]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "Phase 1️⃣ Compliance Agent"
     steps:
       - uses: actions/checkout@v4
@@ -1108,6 +1117,7 @@ jobs:
   compliance-summary:
     needs: [sdet-agent, compliance-agent]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: Compliance Summary
     if: always()
     
@@ -1163,6 +1173,7 @@ jobs:
     needs: [compliance-summary]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "Phase 2️⃣ Fullstack Agent (Code & Compliance Fixes)"
     permissions:
       contents: write
@@ -1210,6 +1221,7 @@ jobs:
     needs: [fullstack-agent]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "Phase 3️⃣ SRE Agent (Pipeline & Production Fixes)"
     permissions:
       contents: write
@@ -1240,6 +1252,7 @@ jobs:
   pipeline-health-check:
     needs: [sre-agent]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🏥 Pipeline Health Verification
     if: always()
     steps:
@@ -1283,6 +1296,7 @@ jobs:
       pipeline-health-check
     ]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🧠 Pipeline Failure Learning (SRE Agent)
     if: failure()  # Only run if pipeline failed
     steps:

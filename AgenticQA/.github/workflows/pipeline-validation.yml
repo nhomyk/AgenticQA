@@ -39,6 +39,7 @@ jobs:
       run:
         working-directory: AgenticQA
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🏥 Pipeline Health Check
     outputs:
       pipeline_healthy: ${{ steps.health.outputs.healthy }}
@@ -88,6 +89,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔧 SRE Agent — Linting, Shellcheck, TypeScript
     defaults:
       run:
@@ -123,6 +125,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 📊 SDET Agent — Coverage + LLM-Generated Tests
     defaults:
       run:
@@ -154,6 +157,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 💻 Fullstack Agent — Code Generation
     defaults:
       run:
@@ -182,6 +186,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🛡️ Compliance, QA, Performance, DevOps Agents
     defaults:
       run:
@@ -223,6 +228,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: ⚖️ Constitutional Governance + Agent Scopes
     defaults:
       run:
@@ -255,6 +261,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔴 Red Team Agent — Adversarial Hardening
     defaults:
       run:
@@ -290,6 +297,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔒 IP Moat — SBOM + Trust Graph + Bypass Closures
     defaults:
       run:
@@ -329,6 +337,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🧠 ML Learning Loop — All 5 Phases
     defaults:
       run:
@@ -370,6 +379,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🏭 Agent Factory — NL → Governed Agent
     defaults:
       run:
@@ -407,6 +417,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 📡 DataflowHealthMonitor + SARIF Export
     defaults:
       run:
@@ -444,6 +455,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🤝 Agent Collaboration — Delegation + Guardrails
     defaults:
       run:
@@ -482,6 +494,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🗄️ RAG Learning System — Weaviate 1.27.0
     defaults:
       run:
@@ -538,6 +551,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔒 Data Integrity, Snapshots, Pipeline Framework
     defaults:
       run:
@@ -581,6 +595,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🛠️ Pipeline Tools — Linting, Coverage, Deployment Gates
     defaults:
       run:
@@ -625,6 +640,7 @@ jobs:
     needs: [test-sre-agent-self-healing, test-sdet-agent-coverage, test-fullstack-agent-generation]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔗 Agent Integration Workflows
     defaults:
       run:
@@ -661,6 +677,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🛡️ Defense-in-Depth — Prompt Guard + Tenant Isolation + Loop Integrity
     defaults:
       run:
@@ -742,6 +759,7 @@ jobs:
     needs: [test-mcp-dataflow-scanners, test-defense-in-depth]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🌐 External MCP Scan — stripe/mcp (mcp/com.stripe)
     defaults:
       run:
@@ -822,6 +840,7 @@ jobs:
     needs: [test-defense-in-depth]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🏗️ Architecture Scan — integration map + attack surface
     defaults:
       run:
@@ -953,6 +972,7 @@ jobs:
     needs: pipeline-health-check
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🛡️ Agent Safety — Interceptor + Leases + Warden
     defaults:
       run:
@@ -1124,6 +1144,7 @@ jobs:
     needs: [test-ip-moat-features]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "🔍 MCP + DataFlow Security Scanners"
     defaults:
       run:
@@ -1225,6 +1246,7 @@ jobs:
     needs: [test-mcp-dataflow-scanners]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: "🧪 Generate-and-Validate Pipeline — correctness + security loop"
     defaults:
       run:
@@ -1375,6 +1397,7 @@ jobs:
       - test-generate-and-validate-pipeline
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 📋 Generate Pipeline Health Report
     defaults:
       run:
@@ -1501,6 +1524,7 @@ jobs:
     needs: generate-pipeline-health-report
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🎯 Final Validation Summary
     defaults:
       run:

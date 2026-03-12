@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 def _hash_email(email: str) -> str:
     """One-way hash of a developer email — same algorithm as repo_id."""
-    return hashlib.sha1(email.lower().strip().encode()).hexdigest()[:12]
+    return hashlib.sha256(email.lower().strip().encode()).hexdigest()[:12]
 
 
 def _get_primary_author(file_path: str, cwd: Optional[str] = None) -> Optional[str]:

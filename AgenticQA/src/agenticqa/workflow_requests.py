@@ -700,6 +700,14 @@ class PromptWorkflowStore:
             if extra_updates:
                 update_pairs.update(extra_updates)
 
+            # Whitelist allowed column names to prevent SQL column injection
+            _ALLOWED_COLUMNS = frozenset({
+                "status", "next_action", "updated_at",
+                "branch_name", "commit_sha", "pr_url", "error_message",
+            })
+            invalid = set(update_pairs.keys()) - _ALLOWED_COLUMNS
+            if invalid:
+                raise ValueError(f"Attempt to update disallowed columns: {invalid}")
             assignments = ", ".join([f"{k} = ?" for k in update_pairs.keys()])
             values = list(update_pairs.values()) + [request_id]
             c.execute(f"UPDATE workflow_requests SET {assignments} WHERE id = ?", values)

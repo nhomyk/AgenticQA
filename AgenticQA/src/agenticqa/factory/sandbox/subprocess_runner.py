@@ -84,8 +84,11 @@ class SubprocessRunner:
 
         if proc.returncode != 0:
             stderr_snippet = proc.stderr.decode(errors="replace")[:500]
+            # Use basename only — avoid leaking full filesystem paths to callers
+            import os as _os
+            script_name = _os.path.basename(str(script_path))
             raise SubprocessError(
-                f"Agent script '{script_path}' exited {proc.returncode}: {stderr_snippet}"
+                f"Agent script '{script_name}' exited {proc.returncode}: {stderr_snippet}"
             )
 
         stdout = proc.stdout.decode(errors="replace").strip()

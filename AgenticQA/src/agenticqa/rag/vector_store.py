@@ -37,7 +37,7 @@ class VectorStore:
         self, content: str, embedding: List[float], metadata: Dict, doc_type: str
     ) -> str:
         """Add document to vector store"""
-        doc_id = hashlib.md5(f"{content}{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest()
+        doc_id = hashlib.sha256(f"{content}{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest()
 
         doc = VectorDocument(
             id=doc_id,

@@ -48,7 +48,14 @@ class TemporalViolationStore:
     ):
         self._uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self._user = user or os.getenv("NEO4J_USER", "neo4j")
-        self._password = password or os.getenv("NEO4J_PASSWORD", "agenticqa123")
+        _pw = password or os.getenv("NEO4J_PASSWORD")
+        if not _pw:
+            logger.warning(
+                "NEO4J_PASSWORD is not set. Using insecure default — "
+                "set NEO4J_PASSWORD in production environments."
+            )
+            _pw = "agenticqa123"
+        self._password = _pw
         self._database = database
         self._driver = None
 

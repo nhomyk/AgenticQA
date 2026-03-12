@@ -84,7 +84,7 @@ class SimpleHashEmbedder(Embedder):
 
         for feature_name, count in features.items():
             # Hash feature to bucket
-            hash_val = int(hashlib.md5(feature_name.encode()).hexdigest(), 16)
+            hash_val = int(hashlib.sha256(feature_name.encode()).hexdigest(), 16)
             bucket = hash_val % self.embedding_dim
 
             # Add count to bucket

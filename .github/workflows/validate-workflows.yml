@@ -11,6 +11,7 @@ permissions:
 jobs:
   validate-and-fix:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: Validate & Auto-Fix Workflows
     steps:
       - uses: actions/checkout@v4

@@ -1933,6 +1933,61 @@ class DevOpsAgent(BaseAgent):
             return False
 
 
+_DANGEROUS_CALL_NAMES = frozenset({
+    # Shell execution
+    "system", "popen", "execv", "execve", "execvp", "execvpe", "spawn",
+    # Subprocess (only allow the names — context check prevents over-blocking)
+    "call", "check_call", "check_output", "getoutput", "getstatusoutput",
+    # Dynamic code execution
+    "eval", "exec", "compile", "__import__",
+    # Dangerous builtins
+    "breakpoint",
+})
+
+_DANGEROUS_MODULE_ATTRS = frozenset({
+    # Deletion / destructive FS ops outside test dir
+    "rmtree", "remove", "unlink", "rmdir",
+    # Network
+    "urlopen", "urlretrieve",
+})
+
+
+def _check_llm_generated_code_safety(code: str) -> tuple:
+    """
+    AST-scan LLM-generated Python code for dangerous call patterns.
+
+    Returns (is_safe: bool, reason: str).
+    Blocks obvious exfiltration / execution primitives while allowing
+    legitimate test patterns (os.path, subprocess in assertions, etc.).
+    """
+    import ast as _ast
+
+    try:
+        tree = _ast.parse(code)
+    except SyntaxError:
+        return True, ""  # compile() will catch this downstream
+
+    for node in _ast.walk(tree):
+        if not isinstance(node, _ast.Call):
+            continue
+
+        func = node.func
+        # Direct call: eval(...), exec(...), __import__(...)
+        if isinstance(func, _ast.Name) and func.id in _DANGEROUS_CALL_NAMES:
+            return False, f"Dangerous call detected: {func.id}()"
+
+        # Attribute call: os.system(...), shutil.rmtree(...)
+        if isinstance(func, _ast.Attribute):
+            if func.attr in _DANGEROUS_CALL_NAMES or func.attr in _DANGEROUS_MODULE_ATTRS:
+                return False, f"Dangerous attribute call: {func.attr}()"
+
+    # Check for network socket creation
+    if "socket.socket(" in code or "socket.create_connection(" in code:
+        return False, "Network socket creation detected in generated code"
+
+    return True, ""
+
+
 class SREAgent(BaseAgent):
     """SRE (Site Reliability Engineering) Agent - Fixes linting and code quality issues"""
 
@@ -2423,6 +2478,11 @@ class SREAgent(BaseAgent):
         except Exception as exc:
             return {"repaired": False, "patch_applied": False, "fix_summary": f"LLM unavailable: {exc}"}
 
+        # Safety scan: reject dangerous patterns before any execution
+        safe, reason = _check_llm_generated_code_safety(fixed_code)
+        if not safe:
+            return {"repaired": False, "patch_applied": False, "fix_summary": f"Generated code failed safety scan: {reason}"}
+
         # Verify the fix compiles before any sandbox execution
         try:
             compile(fixed_code, test_file, "exec")
@@ -2437,6 +2497,8 @@ class SREAgent(BaseAgent):
             ) as tmp:
                 tmp.write(fixed_code)
                 tmp_path = tmp.name
+            import os as _os_tmp
+            _os_tmp.chmod(tmp_path, 0o600)
 
             proc = subprocess.run(
                 ["python", "-m", "pytest", tmp_path, "-x", "-q", "--tb=no", "--no-header"],
@@ -3042,6 +3104,11 @@ class SDETAgent(BaseAgent):
         test_code = re.sub(r"^```[a-zA-Z]*\n?", "", test_code)
         test_code = re.sub(r"\n?```$", "", test_code).strip()
 
+        # Step 3b: Safety scan — block dangerous patterns before any disk I/O
+        _safe, _reason = _check_llm_generated_code_safety(test_code)
+        if not _safe:
+            return {"generated": False, "file_path": "", "error": f"Generated code failed safety scan: {_reason}"}
+
         # Step 4: compile() syntax gate — fast check before any disk I/O
         try:
             compile(test_code, "<generated>", "exec")
@@ -3071,6 +3138,8 @@ class SDETAgent(BaseAgent):
             ) as _tmp:
                 _tmp.write(test_code)
                 tmp_path_str = _tmp.name
+            import os as _os_tmp2
+            _os_tmp2.chmod(tmp_path_str, 0o600)
 
             _proc = _sp.run(
                 [

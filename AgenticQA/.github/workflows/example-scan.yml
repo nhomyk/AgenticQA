@@ -43,7 +43,7 @@ jobs:
 
       - name: Run AgenticQA scan
         id: scan
-        uses: nhomyk/AgenticQA@main
+        uses: nhomyk/AgenticQA@90a59c9ef8928fcdb01931bab07f568ecf0583eb  # pinned SHA — pin to a release tag once versioned
         with:
           path: '.'
           fail-on-critical: 'true'

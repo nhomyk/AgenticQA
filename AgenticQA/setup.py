@@ -27,7 +27,9 @@ setup(
         "Programming Language :: Python :: 3.11",
     ],
     python_requires=">=3.8",
-    install_requires=[],
+    install_requires=[
+        "defusedxml>=0.7.1",  # XXE-safe XML parsing (replaces stdlib ET for untrusted input)
+    ],
     extras_require={
         "quality": [
             "great-expectations>=0.14.0",

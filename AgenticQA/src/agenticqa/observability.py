@@ -193,7 +193,8 @@ class ObservabilityStore:
             params.append(event_type)
 
         clause = f"WHERE {' AND '.join(where)}" if where else ""
-        order_clause = "DESC" if newest_first else "ASC"
+        # Derive from boolean — explicit dict prevents any injection path
+        order_clause = {True: "DESC", False: "ASC"}[bool(newest_first)]
         c = self.conn.cursor()
         c.execute(
             f"""

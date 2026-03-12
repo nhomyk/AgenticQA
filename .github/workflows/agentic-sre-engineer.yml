@@ -8,12 +8,15 @@ on:
       - completed
 
 permissions:
-  actions: write
-  contents: write
+  contents: read  # Minimum at workflow level — jobs escalate only what they need
 
 jobs:
   agentic-sre-engineer:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: write
+      contents: write
     if: ${{ github.event.workflow_run.conclusion != 'success' }}
     steps:
       - name: Checkout repository
@@ -34,7 +37,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh run download ${{ github.event.workflow_run.id }} -D ./ci-logs || true
+          # Validate run ID is numeric before using in shell (injection prevention)
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          if [[ ! "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: Invalid run ID format" >&2
+            exit 1
+          fi
+          gh run download "$RUN_ID" -D ./ci-logs || true
 
       - name: Run Agentic SRE Engineer
         env:

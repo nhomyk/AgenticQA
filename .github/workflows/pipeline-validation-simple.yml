@@ -16,6 +16,7 @@ on:
 jobs:
   test-sre-agent:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: Test SRE Agent
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +33,11 @@ jobs:
 
   test-weaviate-etl:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: Test Weaviate ETL Pipeline
     services:
       weaviate:
-        image: semitechnologies/weaviate:latest
+        image: semitechnologies/weaviate:1.27.0  # pinned — required version; latest may break silently
         env:
           AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
           PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
@@ -93,6 +95,7 @@ jobs:
     needs: [test-sre-agent, test-weaviate-etl]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: Generate Health Report
     steps:
       - name: Generate Report

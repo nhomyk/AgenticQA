@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import json
 import socket
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+
+try:
+    import defusedxml.ElementTree as ET  # XXE-safe XML parser
+except ImportError:
+    import xml.etree.ElementTree as ET  # type: ignore[no-redef]
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional

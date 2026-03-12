@@ -34,6 +34,7 @@ env:
 jobs:
   pipeline-health-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🏥 Pipeline Health Check
     outputs:
       pipeline_healthy: ${{ steps.health.outputs.healthy }}
@@ -66,6 +67,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔧 Test SRE Agent Self-Healing
     steps:
       - uses: actions/checkout@v4
@@ -114,6 +116,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 📊 Test SDET Agent Coverage Analysis
     steps:
       - uses: actions/checkout@v4
@@ -158,6 +161,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 💻 Test Fullstack Agent Code Generation
     steps:
       - uses: actions/checkout@v4
@@ -205,6 +209,7 @@ jobs:
   test-agent-integration-workflows:
     needs: [test-sre-agent-self-healing, test-sdet-agent-coverage, test-fullstack-agent-generation]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🔗 Test Agent Integration Workflows
     steps:
       - uses: actions/checkout@v4
@@ -247,6 +252,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🤝 Test Agent Collaboration (Tier 3)
     steps:
       - uses: actions/checkout@v4
@@ -314,10 +320,11 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🧠 Test RAG Learning System
     services:
       weaviate:
-        image: semitechnologies/weaviate:latest
+        image: semitechnologies/weaviate:1.27.0  # pinned — required version per MEMORY.md; latest breaks RAG writes
         env:
           QUERY_DEFAULTS_LIMIT: 25
           AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
@@ -433,6 +440,7 @@ jobs:
     needs: pipeline-health-check
     if: needs.pipeline-health-check.outputs.pipeline_healthy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🛠️ Test Pipeline Tools
     steps:
       - uses: actions/checkout@v4
@@ -495,6 +503,7 @@ jobs:
     ]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 📋 Generate Pipeline Health Report
     steps:
       - uses: actions/checkout@v4
@@ -613,6 +622,7 @@ jobs:
     needs: generate-pipeline-health-report
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     name: 🎯 Final Validation Summary
     steps:
       - name: Summary

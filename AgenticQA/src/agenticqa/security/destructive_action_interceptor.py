@@ -107,7 +107,7 @@ class ActionCall:
     agent_id: str = "unknown"
     session_id: str = ""
     context_snippet: str = ""    # last ~200 chars of agent reasoning
-    call_id: str = field(default_factory=lambda: secrets.token_hex(8))
+    call_id: str = field(default_factory=lambda: secrets.token_urlsafe(32))
 
 
 @dataclass
@@ -248,6 +248,7 @@ class DestructiveActionInterceptor:
         self._auto_approve_reversible = auto_approve_reversible
         self._classifier = ActionClassifier()
         self._pending: Dict[str, dict] = {}   # token → verdict dict + expiry
+        self._approved: Dict[str, dict] = {}  # token → approved verdict (after pop from _pending)
         self._audit_path = audit_path or _AUDIT_DIR
         self._counters: Dict[str, int] = {}   # agent_id → destructive action count
 
@@ -296,16 +297,17 @@ class DestructiveActionInterceptor:
         """
         Approve a pending action by token.
         Returns True if the token was valid and not expired.
+        Atomically removes-then-checks to prevent double-approval race.
         """
-        entry = self._pending.get(token)
+        entry = self._pending.pop(token, None)
         if not entry:
             return False  # unknown token
         if time.time() > entry["expires_at"]:
-            del self._pending[token]
-            return False  # expired
+            return False  # expired — already removed from pending
         entry["approved"] = True
         entry["approved_by"] = approved_by
         entry["approved_at"] = time.time()
+        self._approved[token] = entry  # move to approved store so is_approved() can find it
         self._audit_approval(token, entry, approved_by)
         return True
 
@@ -319,6 +321,11 @@ class DestructiveActionInterceptor:
 
     def is_approved(self, token: str) -> bool:
         """Check if a token has been approved (and not expired)."""
+        # Check approved store first (entries moved here by approve())
+        entry = self._approved.get(token)
+        if entry:
+            return not (time.time() > entry["expires_at"])
+        # Fall back to pending (not yet approved)
         entry = self._pending.get(token)
         if not entry:
             return False

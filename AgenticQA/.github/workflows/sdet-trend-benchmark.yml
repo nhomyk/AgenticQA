@@ -8,6 +8,7 @@ on:
 jobs:
   sdet-trend:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     name: Run SDET learning trend benchmark
     steps:
       - name: Checkout
