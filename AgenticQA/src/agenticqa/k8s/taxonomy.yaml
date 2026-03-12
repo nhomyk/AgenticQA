@@ -1,0 +1,730 @@
+# =============================================================================
+# K8s Failure Taxonomy — ~450 scenarios across 7 categories
+# =============================================================================
+#
+# INTERVIEW CONCEPT: Kubernetes has a finite set of failure modes. The
+# complexity comes from their combinations, not from infinite possibilities.
+# This taxonomy enumerates every known failure mode so we can measure
+# coverage against it.
+#
+# Each scenario has:
+#   id:          Unique identifier (category-NNN)
+#   name:        Human-readable name
+#   category:    One of 7 top-level failure domains
+#   tier:        1 (infra), 2 (platform-specific), 3 (observability)
+#   severity:    critical / high / medium / low
+#   k8s_concept: The K8s primitive being tested (for interview prep)
+#   description: What happens and why it matters
+#   detection:   How you'd notice this in production
+#   test_method: How to reproduce it in a test environment
+#   variants:    Platform-specific expansions (e.g., Domino workspace pod)
+
+categories:
+  # ===========================================================================
+  # CATEGORY 1: POD FAILURES
+  # ===========================================================================
+  # INTERVIEW: "Walk me through the pod lifecycle states."
+  # Answer: Pending → ContainerCreating → Running → (Succeeded|Failed)
+  # Pods can also be: Unknown, Evicted, OOMKilled, CrashLoopBackOff
+  # ===========================================================================
+  pod_failures:
+    description: >
+      Pod-level failures are the most common K8s issues. Every pod runs
+      through a lifecycle managed by the kubelet on its node. Failures
+      happen at image pull, container start, runtime, or probe evaluation.
+    scenarios:
+      - id: POD-001
+        name: OOMKilled
+        severity: critical
+        k8s_concept: Resource limits (spec.containers[].resources.limits.memory)
+        description: >
+          Container exceeds its memory limit. The kernel's OOM killer
+          terminates the process. The pod status shows OOMKilled.
+        detection: "kubectl describe pod — Last State: OOMKilled"
+        test_method: "Deploy pod with 64Mi limit running a memory-hungry process"
+        variants:
+          - "Workspace pod OOM during large dataset load"
+          - "Model API pod OOM during batch inference"
+          - "Sidecar (Istio envoy) OOM under high traffic"
+
+      - id: POD-002
+        name: CrashLoopBackOff
+        severity: critical
+        k8s_concept: Restart policy (spec.restartPolicy) + exponential backoff
+        description: >
+          Container starts, crashes immediately, kubelet restarts it with
+          exponential backoff (10s, 20s, 40s, ... up to 5min cap).
+          Usually caused by missing config, bad entrypoint, or dependency
+          not ready.
+        detection: "kubectl get pods — STATUS: CrashLoopBackOff, RESTARTS: N"
+        test_method: "Deploy pod with invalid command or missing env var"
+        variants:
+          - "App crashes because ConfigMap not mounted"
+          - "App crashes because database not reachable yet"
+          - "Init container succeeds but main container fails"
+
+      - id: POD-003
+        name: ImagePullBackOff
+        severity: high
+        k8s_concept: Container image resolution + registry authentication
+        description: >
+          Kubelet cannot pull the container image. Either the tag doesn't
+          exist, the registry requires auth (imagePullSecrets), or the
+          registry is unreachable.
+        detection: "kubectl describe pod — Events: Failed to pull image"
+        test_method: "Reference nonexistent image tag or remove imagePullSecret"
+        variants:
+          - "Private registry credential expired"
+          - "Image tag :latest was overwritten with breaking change"
+          - "Registry rate limit (Docker Hub: 100 pulls/6h for anonymous)"
+
+      - id: POD-004
+        name: Eviction (node resource pressure)
+        severity: high
+        k8s_concept: Node conditions (DiskPressure, MemoryPressure, PIDPressure)
+        description: >
+          Kubelet evicts pods when the node is under resource pressure.
+          Eviction order: BestEffort → Burstable → Guaranteed (by QoS class).
+          Evicted pods are NOT rescheduled automatically unless managed by
+          a controller (Deployment, StatefulSet).
+        detection: "kubectl get pods — STATUS: Evicted"
+        test_method: "Fill node disk to trigger DiskPressure condition"
+        variants:
+          - "Long-running training job evicted by higher-priority workspace"
+          - "Eviction during node memory pressure from co-located pods"
+
+      - id: POD-005
+        name: Liveness probe failure
+        severity: critical
+        k8s_concept: "spec.containers[].livenessProbe (httpGet / tcpSocket / exec)"
+        description: >
+          Kubelet's liveness probe fails consecutively (failureThreshold
+          times). Kubelet kills the container and restarts it per
+          restartPolicy. This is K8s's self-healing mechanism.
+        detection: "kubectl describe pod — Events: Liveness probe failed, killing"
+        test_method: "Deploy app with /healthz endpoint that returns 500 after N requests"
+        variants:
+          - "App deadlocked — process alive but not responding"
+          - "Health endpoint slow under load (timeout too aggressive)"
+
+      - id: POD-006
+        name: Readiness probe failure
+        severity: high
+        k8s_concept: "spec.containers[].readinessProbe — controls Service endpoints"
+        description: >
+          Readiness probe fails → pod removed from Service endpoints →
+          no traffic routed to it. Unlike liveness, pod is NOT restarted.
+          This is how K8s does graceful load shedding.
+        detection: "kubectl get endpoints — pod IP disappears from endpoint list"
+        test_method: "App returns 503 on /ready when overloaded"
+        variants:
+          - "Model API pod not ready during model loading (cold start)"
+          - "Database connection pool exhausted"
+
+      - id: POD-007
+        name: Startup probe timeout
+        severity: high
+        k8s_concept: "spec.containers[].startupProbe — protects slow-starting containers"
+        description: >
+          Startup probe exists to give slow-starting apps time to initialize
+          before liveness kicks in. If it exceeds failureThreshold *
+          periodSeconds, the container is killed.
+        detection: "kubectl describe pod — Events: Startup probe failed"
+        test_method: "App takes 120s to start, startup probe timeout set to 60s"
+        variants:
+          - "ML model loading takes 5+ minutes"
+          - "Database migration runs on startup"
+
+      - id: POD-008
+        name: Init container failure
+        severity: high
+        k8s_concept: "spec.initContainers — run sequentially before main containers"
+        description: >
+          Init containers run to completion before main containers start.
+          If any init container fails, the pod stays in Init:Error state.
+          Used for: waiting on dependencies, running migrations, setting permissions.
+        detection: "kubectl get pods — STATUS: Init:CrashLoopBackOff"
+        test_method: "Init container that waits for a service that doesn't exist"
+        variants:
+          - "Schema migration init container fails"
+          - "Secret-fetching init container can't reach Vault"
+
+      - id: POD-009
+        name: Sidecar crash
+        severity: high
+        k8s_concept: Sidecar pattern (service mesh proxy, log collector, etc.)
+        description: >
+          A sidecar container (e.g., Istio envoy, Fluentd log shipper)
+          crashes. The main container may keep running but loses the
+          sidecar's functionality (no mesh routing, no log shipping).
+        detection: "kubectl describe pod — one container in CrashLoopBackOff"
+        test_method: "Kill the sidecar process, verify main container behavior"
+        variants:
+          - "Istio envoy crash — pod loses mTLS and traffic routing"
+          - "Log shipper crash — logs lost silently"
+
+      - id: POD-010
+        name: Preemption
+        severity: medium
+        k8s_concept: PriorityClass + preemption policy
+        description: >
+          Higher-priority pod needs resources → scheduler evicts lower-priority
+          pods. Controlled by PriorityClass and preemptionPolicy.
+        detection: "kubectl get events — Preempted by higher-priority pod"
+        test_method: "Create high-priority pod on fully scheduled node"
+        variants:
+          - "Dev workspace preempted by production model serving"
+          - "Batch job preempted by interactive workspace"
+
+  # ===========================================================================
+  # CATEGORY 2: SCHEDULING FAILURES
+  # ===========================================================================
+  # INTERVIEW: "A pod is stuck in Pending — walk me through your debugging."
+  # Answer: kubectl describe pod → Events section → look for FailedScheduling
+  # Check: node resources, affinity rules, taints, PVC binding, quotas
+  # ===========================================================================
+  scheduling:
+    description: >
+      Scheduling failures happen before a pod runs. The kube-scheduler
+      can't find a node that satisfies all constraints. Pod stays Pending.
+    scenarios:
+      - id: SCHED-001
+        name: Insufficient resources
+        severity: critical
+        k8s_concept: "requests vs limits, node allocatable resources"
+        description: >
+          No node has enough CPU/memory to satisfy the pod's resource
+          requests. Pod stays Pending with FailedScheduling event.
+        detection: "0/N nodes are available: insufficient cpu/memory"
+        test_method: "Request more CPU than any node has allocatable"
+        variants:
+          - "GPU request when no GPU nodes exist"
+          - "All nodes at capacity, cluster autoscaler slow to provision"
+
+      - id: SCHED-002
+        name: Node affinity unsatisfiable
+        severity: high
+        k8s_concept: "nodeAffinity (requiredDuringSchedulingIgnoredDuringExecution)"
+        description: >
+          Pod requires specific node labels (e.g., gpu=true, zone=us-west-2a)
+          but no nodes match. requiredDuring... is a hard constraint.
+          preferredDuring... is a soft constraint (scheduler tries but won't block).
+        detection: "0/N nodes are available: node(s) didn't match node affinity"
+        test_method: "Require label that no node has"
+        variants:
+          - "GPU affinity when GPU node pool is scaled to zero"
+          - "Zone affinity after AZ outage"
+
+      - id: SCHED-003
+        name: Taint/toleration mismatch
+        severity: high
+        k8s_concept: "Taints (on nodes) + Tolerations (on pods)"
+        description: >
+          Nodes have taints (e.g., dedicated=gpu:NoSchedule). Pods must
+          have matching tolerations to schedule there. Without tolerations,
+          the pod is rejected from tainted nodes.
+        detection: "node(s) had taint {key: NoSchedule}, that the pod didn't tolerate"
+        test_method: "Taint all nodes, deploy pod without tolerations"
+        variants:
+          - "GPU nodes tainted, non-GPU pod accidentally targets them"
+          - "Maintenance taint applied, draining node"
+
+      - id: SCHED-004
+        name: PVC not bound
+        severity: critical
+        k8s_concept: "PersistentVolumeClaim lifecycle: Pending → Bound"
+        description: >
+          Pod references a PVC that can't bind to a PV. Either the
+          StorageClass doesn't exist, the provisioner is broken, or
+          the requested size exceeds available capacity.
+        detection: "pod has unbound immediate PersistentVolumeClaims"
+        test_method: "Reference nonexistent StorageClass in PVC"
+        variants:
+          - "EBS provisioner can't create volume (AWS API limit)"
+          - "NFS server unreachable"
+          - "Dataset volume claim exceeds quota"
+
+      - id: SCHED-005
+        name: Topology spread constraint violation
+        severity: medium
+        k8s_concept: "topologySpreadConstraints — distribute pods across zones/nodes"
+        description: >
+          Pods must be spread across topology domains (zones, nodes).
+          If spreading them would violate maxSkew, scheduling is blocked.
+        detection: "doesn't satisfy topology spread constraint"
+        test_method: "Require maxSkew=1 across 3 zones with only 2 zones available"
+        variants:
+          - "HA deployment can't spread across enough AZs"
+
+      - id: SCHED-006
+        name: ResourceQuota exceeded
+        severity: high
+        k8s_concept: "ResourceQuota — namespace-level resource limits"
+        description: >
+          Namespace has a ResourceQuota. Creating a pod that would push
+          total usage over the quota is rejected by the admission controller.
+        detection: "forbidden: exceeded quota"
+        test_method: "Set quota to 1 CPU, try to schedule 2 pods requesting 1 CPU each"
+        variants:
+          - "Team namespace hits CPU quota during burst"
+          - "GPU quota prevents new training jobs"
+
+  # ===========================================================================
+  # CATEGORY 3: NETWORK FAILURES
+  # ===========================================================================
+  # INTERVIEW: "How does pod-to-pod networking work in K8s?"
+  # Answer: Every pod gets a unique IP. CNI plugin (Calico/Cilium/Flannel)
+  # sets up routing. Services provide stable VIPs. CoreDNS resolves
+  # service-name.namespace.svc.cluster.local.
+  # ===========================================================================
+  network:
+    description: >
+      Network failures range from DNS resolution to CNI plugin crashes.
+      K8s networking model: every pod gets an IP, every Service gets a
+      ClusterIP, DNS maps service names to ClusterIPs.
+    scenarios:
+      - id: NET-001
+        name: DNS resolution failure
+        severity: critical
+        k8s_concept: "CoreDNS — cluster DNS for service discovery"
+        description: >
+          CoreDNS pods are down or misconfigured. Pods can't resolve
+          service names. Everything breaks because K8s relies on DNS
+          for service discovery.
+        detection: "nslookup kubernetes.default.svc.cluster.local fails from pod"
+        test_method: "Scale CoreDNS to 0 replicas, attempt DNS resolution"
+        variants:
+          - "CoreDNS cache poisoned"
+          - "ndots:5 default causes slow external DNS (search domain appending)"
+
+      - id: NET-002
+        name: Service selector mismatch
+        severity: high
+        k8s_concept: "Service spec.selector → Endpoints"
+        description: >
+          Service selector labels don't match any pod labels → Service has
+          0 endpoints → all traffic to the Service gets connection refused.
+        detection: "kubectl get endpoints svc-name — no endpoints listed"
+        test_method: "Create Service with selector that matches no pods"
+        variants:
+          - "Label typo after refactor (app: myapp vs app: my-app)"
+          - "Deployment rolled back but Service selector updated"
+
+      - id: NET-003
+        name: NetworkPolicy blocking traffic
+        severity: high
+        k8s_concept: "NetworkPolicy — namespace/pod-level firewall rules"
+        description: >
+          NetworkPolicy denies traffic. Default-deny policy blocks all
+          ingress/egress unless explicitly allowed. Policies are additive
+          (if any policy selects a pod, only allowed traffic gets through).
+        detection: "Connection timeout between pods that should communicate"
+        test_method: "Apply default-deny, verify inter-pod communication fails"
+        variants:
+          - "New microservice deployed, no NetworkPolicy allows traffic to it"
+          - "Egress policy blocks access to external API"
+
+      - id: NET-004
+        name: Ingress misconfiguration
+        severity: high
+        k8s_concept: "Ingress resource + IngressController (nginx, traefik, ALB)"
+        description: >
+          Ingress rules incorrect → 404 (no matching rule), 502 (backend
+          unreachable), or 503 (no healthy backends).
+        detection: "curl returns 502/503; kubectl describe ingress shows warnings"
+        test_method: "Create Ingress pointing to nonexistent Service"
+        variants:
+          - "Path regex doesn't match expected URLs"
+          - "TLS secret missing → falls back to default cert"
+
+      - id: NET-005
+        name: CNI plugin failure
+        severity: critical
+        k8s_concept: "Container Network Interface — plugin that assigns pod IPs"
+        description: >
+          CNI plugin (Calico, Cilium, Flannel) crashes or misconfigured.
+          New pods can't get IPs, existing pods may lose connectivity.
+        detection: "Pods stuck in ContainerCreating; NetworkPlugin errors in events"
+        test_method: "Delete CNI DaemonSet pods, observe new pod scheduling"
+        variants:
+          - "Calico IP pool exhausted"
+          - "Cilium agent crash on node"
+
+      - id: NET-006
+        name: Load balancer health check failure
+        severity: high
+        k8s_concept: "Service type=LoadBalancer — cloud LB integration"
+        description: >
+          Cloud load balancer health checks fail → removes node from
+          rotation → traffic only goes to healthy nodes.
+        detection: "Cloud LB console shows unhealthy targets"
+        test_method: "Make health check endpoint return 500"
+        variants:
+          - "Health check path changed but LB not updated"
+          - "Node port changed after Service recreation"
+
+      - id: NET-007
+        name: TLS certificate expiry
+        severity: critical
+        k8s_concept: "TLS Secrets + cert-manager automation"
+        description: >
+          TLS certificate in a Secret expires. Ingress starts serving
+          with expired cert → browser warnings or hard failures.
+        detection: "openssl s_client shows expired certificate"
+        test_method: "Create Secret with already-expired certificate"
+        variants:
+          - "cert-manager renewal failed silently"
+          - "Intermediate CA expired"
+
+      - id: NET-008
+        name: Service mesh sidecar injection failure
+        severity: medium
+        k8s_concept: "MutatingWebhookConfiguration — auto-inject sidecars"
+        description: >
+          Istio/Linkerd sidecar injection webhook fails or is misconfigured.
+          Pods start without the mesh proxy → lose mTLS, observability,
+          traffic management.
+        detection: "Pod has 1/1 containers instead of 2/2 (no sidecar)"
+        test_method: "Disable injection webhook, deploy pod in mesh namespace"
+        variants:
+          - "Webhook certificate expired"
+          - "Namespace missing istio-injection=enabled label"
+
+  # ===========================================================================
+  # CATEGORY 4: STORAGE FAILURES
+  # ===========================================================================
+  # INTERVIEW: "Explain the PV/PVC/StorageClass relationship."
+  # Answer: StorageClass defines HOW to provision. PVC is a REQUEST for storage.
+  # PV is the ACTUAL volume. PVC binds to PV. Pod mounts PVC.
+  # ===========================================================================
+  storage:
+    description: >
+      Storage failures affect stateful workloads. K8s storage model:
+      StorageClass → PersistentVolume (PV) → PersistentVolumeClaim (PVC) → Pod mount.
+    scenarios:
+      - id: STOR-001
+        name: PV dynamic provisioning failure
+        severity: critical
+        k8s_concept: "StorageClass provisioner (e.g., ebs.csi.aws.com)"
+        description: >
+          Dynamic provisioner can't create the underlying volume.
+          Cloud API error, quota exceeded, or provisioner pod is down.
+        detection: "PVC stuck in Pending; kubectl describe pvc shows ProvisioningFailed"
+        test_method: "Use StorageClass with broken provisioner endpoint"
+        variants:
+          - "AWS EBS quota exceeded in AZ"
+          - "GCP PD API throttled"
+
+      - id: STOR-002
+        name: Volume mount permission denied
+        severity: high
+        k8s_concept: "securityContext.fsGroup, runAsUser"
+        description: >
+          Container can't read/write the mounted volume because UID/GID
+          mismatch. The volume's filesystem permissions don't match the
+          container's user.
+        detection: "Permission denied errors in application logs"
+        test_method: "Mount volume owned by root, run container as non-root without fsGroup"
+        variants:
+          - "NFS share has restrictive permissions"
+          - "Container image changed UID"
+
+      - id: STOR-003
+        name: Volume stuck in Attached state
+        severity: high
+        k8s_concept: "Volume attachment lifecycle: Detach → Attach → Mount"
+        description: >
+          Volume is attached to old node (after pod reschedule) and can't
+          attach to new node. EBS volumes can only attach to one node.
+          Takes up to 6 minutes for force-detach timeout.
+        detection: "Multi-Attach error for volume; pod stuck in ContainerCreating"
+        test_method: "Drain node without waiting for volume detach, reschedule pod"
+        variants:
+          - "Node crashed, volume still shows as attached"
+          - "StatefulSet pod rescheduled to different zone"
+
+      - id: STOR-004
+        name: StorageClass misconfigured
+        severity: high
+        k8s_concept: "StorageClass parameters, reclaimPolicy, volumeBindingMode"
+        description: >
+          StorageClass parameters wrong (wrong zone, wrong disk type) or
+          volumeBindingMode=Immediate when it should be WaitForFirstConsumer.
+        detection: "PVC binds in wrong zone; pod can't schedule to that zone"
+        test_method: "Create SC with Immediate binding in multi-zone cluster"
+        variants:
+          - "gp2 vs gp3 performance difference"
+          - "Reclaim policy Delete when Retain was intended"
+
+      - id: STOR-005
+        name: Ephemeral storage exhaustion
+        severity: medium
+        k8s_concept: "ephemeral-storage limits, emptyDir sizeLimit"
+        description: >
+          Container writes too much to its writable layer or emptyDir.
+          Kubelet evicts the pod when ephemeral-storage limit is exceeded.
+        detection: "Pod evicted; reason: ephemeral-storage exceeded"
+        test_method: "Set emptyDir sizeLimit=10Mi, write 100Mi to it"
+        variants:
+          - "Log files fill up container filesystem"
+          - "Temp files from data processing"
+
+  # ===========================================================================
+  # CATEGORY 5: CONTROL PLANE FAILURES
+  # ===========================================================================
+  # INTERVIEW: "What happens when etcd goes down?"
+  # Answer: etcd is the single source of truth. If etcd is down, the API server
+  # can't read or write state. Existing pods keep running (kubelet is
+  # autonomous) but no new scheduling, no updates, no scaling.
+  # ===========================================================================
+  control_plane:
+    description: >
+      Control plane failures affect cluster-wide operations. Existing
+      workloads often continue (kubelet is autonomous) but no new
+      operations can proceed.
+    scenarios:
+      - id: CP-001
+        name: etcd leader election failure
+        severity: critical
+        k8s_concept: "etcd Raft consensus — requires majority quorum"
+        description: >
+          etcd cluster loses quorum (majority of members down). API server
+          can't read/write. All mutations fail. Existing pods keep running.
+        detection: "kubectl commands timeout; etcd logs show 'no leader'"
+        test_method: "Kill majority of etcd pods in 3-node etcd cluster"
+        variants:
+          - "Network partition splits etcd members"
+          - "Disk full on etcd node (WAL can't write)"
+
+      - id: CP-002
+        name: API server overload
+        severity: critical
+        k8s_concept: "kube-apiserver — RESTful interface to etcd"
+        description: >
+          API server overwhelmed by requests → returns 429 (Too Many Requests)
+          or times out. Custom controllers with aggressive reconciliation
+          loops are a common cause.
+        detection: "kubectl commands slow or return 429; API server CPU pegged"
+        test_method: "Flood API server with list requests from multiple clients"
+        variants:
+          - "CRD controller watch storm"
+          - "Large cluster (5000+ pods) with many watchers"
+
+      - id: CP-003
+        name: Scheduler down
+        severity: critical
+        k8s_concept: "kube-scheduler — assigns pods to nodes"
+        description: >
+          Scheduler is not running. New pods stay Pending forever.
+          Existing pods are unaffected.
+        detection: "New pods stuck in Pending; no FailedScheduling events (no scheduler to emit them)"
+        test_method: "Scale kube-scheduler deployment to 0"
+        variants:
+          - "Scheduler leader election stuck between replicas"
+
+      - id: CP-004
+        name: Controller manager down
+        severity: critical
+        k8s_concept: "kube-controller-manager — runs all built-in controllers"
+        description: >
+          No reconciliation loops running. Deployments don't create ReplicaSets,
+          ReplicaSets don't create pods, Jobs don't track completion.
+        detection: "Deployment created but no pods appear; no ReplicaSet events"
+        test_method: "Scale kube-controller-manager to 0, create Deployment"
+        variants:
+          - "Single controller crash (e.g., endpoint controller)"
+
+      - id: CP-005
+        name: Webhook admission failure
+        severity: high
+        k8s_concept: "ValidatingWebhookConfiguration / MutatingWebhookConfiguration"
+        description: >
+          Admission webhook is down but has failurePolicy=Fail. All
+          matching API requests are rejected. Can block ALL pod creation
+          if webhook matches pods.
+        detection: "kubectl create fails with 'webhook ... denied the request'"
+        test_method: "Deploy webhook with failurePolicy=Fail, then kill webhook pod"
+        variants:
+          - "OPA/Gatekeeper webhook crash blocks all deploys"
+          - "Cert-manager webhook down blocks Certificate creation"
+
+      - id: CP-006
+        name: CRD operator crash
+        severity: high
+        k8s_concept: "Custom Resource Definitions + Operator pattern"
+        description: >
+          Operator managing custom resources crashes. Custom resources
+          exist but aren't reconciled. Finalizers may block deletion.
+        detection: "Custom resources stuck in Terminating; operator logs show crash"
+        test_method: "Kill operator pod, try to delete custom resource with finalizer"
+        variants:
+          - "Prometheus Operator crash — no alert routing changes"
+          - "Cert-manager crash — no certificate renewals"
+
+  # ===========================================================================
+  # CATEGORY 6: SCALING & UPDATE FAILURES
+  # ===========================================================================
+  # INTERVIEW: "How does a rolling update work? What can go wrong?"
+  # Answer: Deployment creates new ReplicaSet, scales it up while scaling old
+  # one down. maxSurge and maxUnavailable control the pace. If new pods
+  # fail readiness, rollout stalls. rollback via kubectl rollout undo.
+  # ===========================================================================
+  scaling_updates:
+    description: >
+      Scaling and update failures happen during dynamic operations:
+      autoscaling, rolling updates, and cluster scaling events.
+    scenarios:
+      - id: SCALE-001
+        name: HPA flapping
+        severity: medium
+        k8s_concept: "HorizontalPodAutoscaler — CPU/memory/custom metrics based scaling"
+        description: >
+          HPA rapidly scales up and down (thrashing). Usually caused by
+          metrics that oscillate around the target. stabilizationWindowSeconds
+          and behavior.scaleDown.policies control this.
+        detection: "kubectl get hpa — REPLICAS oscillating between min and max"
+        test_method: "Set target CPU to 50%, send bursty traffic"
+        variants:
+          - "Custom metric (queue depth) spikes on batch job completion"
+
+      - id: SCALE-002
+        name: Rolling update stuck
+        severity: critical
+        k8s_concept: "Deployment strategy: RollingUpdate (maxSurge, maxUnavailable)"
+        description: >
+          New pods fail readiness probe → rollout can't proceed → old pods
+          can't be terminated → deployment stuck with mixed versions.
+        detection: "kubectl rollout status — waiting for deployment to finish"
+        test_method: "Deploy new version with broken readiness probe"
+        variants:
+          - "New version can't connect to database"
+          - "Config missing in new version's ConfigMap"
+
+      - id: SCALE-003
+        name: PodDisruptionBudget blocking drain
+        severity: high
+        k8s_concept: "PDB — minimum available or maximum unavailable during disruptions"
+        description: >
+          PDB says minAvailable=2 but only 2 replicas exist. kubectl drain
+          can't evict any pod because it would violate PDB. Node drain hangs.
+        detection: "kubectl drain hangs; events show 'Cannot evict pod, would violate PDB'"
+        test_method: "Create PDB with minAvailable=N equal to replica count, try drain"
+        variants:
+          - "K8s upgrade blocked because PDB prevents node drain"
+          - "Cluster autoscaler can't scale down node"
+
+      - id: SCALE-004
+        name: Cluster autoscaler can't provision nodes
+        severity: critical
+        k8s_concept: "Cluster Autoscaler — adds/removes nodes based on pending pods"
+        description: >
+          Pods are Pending, autoscaler tries to add nodes but can't.
+          Cloud quota exceeded, instance type unavailable, or ASG/MIG at max.
+        detection: "Cluster autoscaler logs: 'scale up: no feasible node group'"
+        test_method: "Set ASG max to current size, create pods that need more nodes"
+        variants:
+          - "GPU instance type sold out in region"
+          - "Spot instance pool exhausted"
+
+      - id: SCALE-005
+        name: Rollback failure
+        severity: high
+        k8s_concept: "kubectl rollout undo — reverts to previous ReplicaSet"
+        description: >
+          Rollback attempted but previous revision also broken (e.g.,
+          the image was deleted from registry). No good version to roll back to.
+        detection: "kubectl rollout undo succeeds but new pods also fail"
+        test_method: "Push 2 bad versions, try rollback"
+        variants:
+          - "Previous image tag was mutable and now points to different code"
+
+      - id: SCALE-006
+        name: Surge deployment exceeds quota
+        severity: medium
+        k8s_concept: "maxSurge creates temporary extra pods during rollout"
+        description: >
+          During rolling update with maxSurge=25%, temporary extra pods
+          push namespace over ResourceQuota. Rollout stalls.
+        detection: "New ReplicaSet can't create pods: exceeded quota"
+        test_method: "Set quota just above current usage, trigger rollout with maxSurge"
+        variants:
+          - "GPU quota exceeded during canary deployment"
+
+  # ===========================================================================
+  # CATEGORY 7: STATE & CONFIG DRIFT
+  # ===========================================================================
+  # INTERVIEW: "How do you handle ConfigMap updates in running pods?"
+  # Answer: ConfigMaps mounted as volumes update eventually (~1 min, kubelet sync).
+  # ConfigMaps used as env vars do NOT update — pod must be restarted.
+  # Use a hash annotation to trigger rolling restart on ConfigMap change.
+  # ===========================================================================
+  config_drift:
+    description: >
+      Config drift happens when cluster state diverges from desired state.
+      Often silent — no errors, just wrong behavior.
+    scenarios:
+      - id: DRIFT-001
+        name: ConfigMap update not propagated
+        severity: high
+        k8s_concept: "ConfigMap consumption: envFrom (static) vs volumeMount (eventually consistent)"
+        description: >
+          ConfigMap updated but pods using envFrom still have old values.
+          Env vars are set at pod creation and never refreshed. Volume
+          mounts update within kubelet sync period (~1 min).
+        detection: "Application uses stale config; kubectl exec shows old env value"
+        test_method: "Update ConfigMap env var, verify pod still has old value"
+        variants:
+          - "Feature flag changed but not picked up"
+          - "Database connection string rotated"
+
+      - id: DRIFT-002
+        name: RBAC permission denied at runtime
+        severity: high
+        k8s_concept: "Role, ClusterRole, RoleBinding, ClusterRoleBinding, ServiceAccount"
+        description: >
+          Service account lacks permissions for API calls the app makes
+          at runtime. Often missed in testing because devs use admin kubeconfig.
+        detection: "Application logs: 'forbidden: User system:serviceaccount:ns:sa'"
+        test_method: "Create SA with minimal role, deploy app that needs more permissions"
+        variants:
+          - "App needs list pods but SA only has get"
+          - "CronJob SA can't create Jobs (missing RBAC)"
+
+      - id: DRIFT-003
+        name: Namespace quota exhaustion
+        severity: medium
+        k8s_concept: "LimitRange + ResourceQuota per namespace"
+        description: >
+          Gradual resource accumulation pushes namespace to quota limit.
+          Next legitimate workload can't schedule.
+        detection: "New pod creation fails: exceeded quota"
+        test_method: "Create pods until quota is nearly full, then one more"
+        variants:
+          - "Leaked pods from failed Jobs (no TTL set)"
+          - "Orphaned PVCs consuming storage quota"
+
+      - id: DRIFT-004
+        name: Finalizer deadlock
+        severity: medium
+        k8s_concept: "metadata.finalizers — block deletion until controller cleans up"
+        description: >
+          Object has a finalizer but the controller that would remove it
+          is gone. Object stuck in Terminating forever.
+        detection: "kubectl get ns — namespace stuck in Terminating"
+        test_method: "Add custom finalizer, delete controller, try to delete object"
+        variants:
+          - "Namespace stuck in Terminating after CRD deletion"
+          - "PV stuck in Released with protection finalizer"
+
+      - id: DRIFT-005
+        name: Orphaned resources after Helm rollback
+        severity: medium
+        k8s_concept: "Helm release history, 3-way merge"
+        description: >
+          Helm rollback doesn't clean up resources that were added in the
+          rolled-back release. CRDs, PVCs, and out-of-band resources persist.
+        detection: "kubectl get all shows resources not in Helm release"
+        test_method: "Helm install with CRD, helm rollback, check if CRD persists"
+        variants:
+          - "CRDs survive rollback (Helm doesn't manage CRD lifecycle)"
+          - "Manually-created ConfigMaps not tracked by Helm"
