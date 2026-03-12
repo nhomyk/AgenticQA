@@ -4364,7 +4364,6 @@ async def pipeline_scan_diff(req: GitDiffScanRequest):
     }
 
 
-
 # ── Onboarding — first-run client experience ────────────────────────────────────
 
 class OnboardingRunRequest(BaseModel):
@@ -4422,7 +4421,6 @@ async def onboarding_status(repo_path: str = "."):
         return {"success": True, "baseline": data, "repo_id": repo_id}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-
 
 
 # ── Post-SHIP UI Test Scan ─────────────────────────────────────────────────────

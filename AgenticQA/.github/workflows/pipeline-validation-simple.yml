@@ -25,8 +25,8 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest
+          python -m pip install --upgrade pip
+          pip install -e . pytest
       - name: Test SRE Agent
         run: |
           pytest tests/test_agent_error_handling.py::TestSREAgentLintingFixes -v
@@ -50,8 +50,8 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          pip install -e .
-          pip install pytest weaviate-client
+          python -m pip install --upgrade pip
+          pip install -e . pytest weaviate-client
       - name: Set Weaviate Environment
         run: |
           echo "WEAVIATE_HOST=localhost" >> $GITHUB_ENV

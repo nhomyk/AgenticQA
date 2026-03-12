@@ -9,9 +9,7 @@ updates:
       - "dependencies"
       - "python"
     open-pull-requests-limit: 5
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch"]
+    # Do NOT ignore patch updates — security CVEs are often patch releases
 
   - package-ecosystem: "github-actions"
     directory: "/"

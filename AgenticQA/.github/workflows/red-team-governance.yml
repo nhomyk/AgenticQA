@@ -55,7 +55,9 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -e ".[rag,dev]" --quiet
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[rag,dev]" --quiet
 
       - name: Restore learning cache
         uses: actions/cache/restore@v4
