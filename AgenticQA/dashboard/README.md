@@ -11,7 +11,7 @@ Real-time visualization and analytics for AI agent collaboration patterns.
 ### 1. Install Dependencies
 
 ```bash
-cd /Users/nicholashomyk/mono/AgenticQA
+cd AgenticQA
 pip install -r requirements-dashboard.txt
 ```
 
@@ -209,7 +209,7 @@ Click on any chart to download as PNG or CSV.
 # Neo4j connection (optional)
 export NEO4J_URI="bolt://localhost:7687"
 export NEO4J_USER="neo4j"
-export NEO4J_PASSWORD="agenticqa123"
+export NEO4J_PASSWORD="your-secure-password-here"
 
 # Dashboard settings
 export STREAMLIT_SERVER_PORT=8501
@@ -386,48 +386,6 @@ trends = store.get_delegation_trends(
 
 ---
 
-## 🎓 For Shelf Interview
-
-### Demo Script (5 Minutes)
-
-1. **Show Dashboard** (1 min)
-   - Launch: `streamlit run dashboard/app.py`
-   - Overview: "Real-time analytics for 7 AI agents"
-
-2. **Network Visualization** (2 min)
-   - Click "Network" tab
-   - "This shows agent collaboration patterns"
-   - Hover over edges: "Success rates, durations"
-   - "Color coding shows performance"
-
-3. **Advanced Analytics** (1 min)
-   - Performance tab: "Bottleneck detection"
-   - "P95 latencies, success rate trends"
-
-4. **GraphRAG** (1 min)
-   - GraphRAG tab
-   - "AI-powered delegation recommendations"
-   - "Based on Neo4j graph patterns + Weaviate semantic search"
-
-### Key Talking Points
-
-- "Built with Streamlit, Plotly, and Neo4j"
-- "Real-time network visualization of agent collaboration"
-- "Advanced analytics: failure prediction, path optimization, cost analysis"
-- "GraphRAG combining semantic (Weaviate) and structural (Neo4j) intelligence"
-
-### Questions to Expect
-
-**Q: How does the dashboard handle real-time updates?**
-A: Streamlit rerun mechanism with optional 30-second auto-refresh
-
-**Q: What's the performance with large datasets?**
-A: Neo4j indexes ensure sub-second queries even with millions of delegations
-
-**Q: Can this be deployed for production monitoring?**
-A: Yes, with auth, HTTPS, and Docker deployment (showed example)
-
----
 
 ## 🌟 Features Summary
 

@@ -14,12 +14,40 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import urlparse
 
 import urllib.request
 import urllib.error
+
+
+_PRIVATE_HOST_PATTERNS = [
+    re.compile(r"^localhost$", re.I),
+    re.compile(r"^127\."),
+    re.compile(r"^10\."),
+    re.compile(r"^172\.(1[6-9]|2\d|3[01])\."),
+    re.compile(r"^192\.168\."),
+    re.compile(r"^0\.0\.0\.0$"),
+    re.compile(r"^\[?::1\]?$"),
+    re.compile(r"^169\.254\."),
+    re.compile(r"^metadata\.google\.internal$", re.I),
+]
+
+
+def _validate_webhook_url(url: str) -> None:
+    """Raise ValueError if URL targets a private/internal host (SSRF prevention)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Webhook URL scheme '{parsed.scheme}' not allowed")
+    host = parsed.hostname or ""
+    if not host:
+        raise ValueError("Webhook URL has no host")
+    for pattern in _PRIVATE_HOST_PATTERNS:
+        if pattern.match(host):
+            raise ValueError(f"Webhook URL targets a private/internal host: {host}")
 
 
 @dataclass
@@ -194,6 +222,10 @@ class SlackNotifier:
 
     def _send(self, payload: dict) -> NotificationResult:
         """Send payload to Slack webhook with retry."""
+        try:
+            _validate_webhook_url(self._url)
+        except ValueError as e:
+            return NotificationResult(error=str(e), platform="slack")
         data = json.dumps(payload).encode()
 
         for attempt in range(self._max_retries + 1):
@@ -257,6 +289,11 @@ class TeamsNotifier:
                 "markdown": True,
             }],
         }
+
+        try:
+            _validate_webhook_url(self._url)
+        except ValueError as e:
+            return NotificationResult(error=str(e), platform="teams")
 
         try:
             req = urllib.request.Request(

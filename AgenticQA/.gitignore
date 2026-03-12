@@ -4,8 +4,35 @@
 __pycache__/
 *.py[cod]
 
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
 # Local test artifact output
 .test-artifact-store/
 
 # Worker pool git worktrees (concurrent execution isolation)
 .agenticqa/worktrees/
+
+# Personal documents -- NEVER commit these
+docs/COVER_LETTER_*
+docs/RESUME_*
+docs/INTERVIEW_PREP_*
+docs/MOCK_INTERVIEW_*
+docs/CODING_EXERCISES_*
+docs/INTERVIEW_PATTERN_*
+docs/HANDOFF_*
+docs/LINKEDIN_*
+docs/MEDIUM_*
+docs/WHY_ANTHROPIC_*
+docs/machinify_*
+docs/SECURITY_SCAN_*
+docs/*DOMINO*
+docs/reports/
+prep/
+
+# Environment and secrets
+.env
+.env.*
+!.env.*.example

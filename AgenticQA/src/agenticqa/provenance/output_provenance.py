@@ -29,7 +29,17 @@ from typing import Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 _PROVENANCE_DIR = Path(".agenticqa") / "provenance"
-_DEFAULT_SECRET = "agenticqa-provenance-dev-key-change-in-prod"
+def _generate_local_secret() -> str:
+    """Generate a per-install secret so local runs are not all signed with the same key."""
+    secret_file = Path.home() / ".agenticqa" / ".provenance_secret"
+    if secret_file.exists():
+        return secret_file.read_text().strip()
+    secret_file.parent.mkdir(parents=True, exist_ok=True)
+    import secrets as _secrets
+    key = _secrets.token_urlsafe(32)
+    secret_file.write_text(key)
+    secret_file.chmod(0o600)
+    return key
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +98,7 @@ class OutputProvenanceLogger:
                     UserWarning,
                     stacklevel=2,
                 )
-            resolved_secret = _DEFAULT_SECRET
+            resolved_secret = _generate_local_secret()
         self._secret = resolved_secret.encode()
 
     # ------------------------------------------------------------------

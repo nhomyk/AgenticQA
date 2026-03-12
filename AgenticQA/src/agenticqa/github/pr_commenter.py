@@ -180,7 +180,7 @@ class PRCommenter:
                 lines.append(cve_line)
             lines.append("")
 
-        lines.append("*Posted by [AgenticQA](https://github.com/nickhomyk/AgenticQA)*")
+        lines.append("*Posted by [AgenticQA](https://github.com/nhomyk/AgenticQA)*")
         return "\n".join(lines)
 
     # ── PR number detection ───────────────────────────────────────────────────

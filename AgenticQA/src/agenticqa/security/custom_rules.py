@@ -151,9 +151,12 @@ class CustomRuleEngine:
             return CustomRuleScanResult(rules_loaded=len(self._rules), rules_matched=0,
                                        total_findings=0, critical=0)
 
-        # Compile patterns once
+        # Compile patterns once (with length limit to prevent ReDoS)
+        _MAX_PATTERN_LEN = 500
         compiled = []
         for rule in enabled_rules:
+            if len(rule.pattern) > _MAX_PATTERN_LEN:
+                continue
             try:
                 compiled.append((rule, re.compile(rule.pattern, re.IGNORECASE)))
             except re.error:

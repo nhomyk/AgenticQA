@@ -50,11 +50,10 @@ class TemporalViolationStore:
         self._user = user or os.getenv("NEO4J_USER", "neo4j")
         _pw = password or os.getenv("NEO4J_PASSWORD")
         if not _pw:
-            logger.warning(
-                "NEO4J_PASSWORD is not set. Using insecure default — "
-                "set NEO4J_PASSWORD in production environments."
+            raise EnvironmentError(
+                "NEO4J_PASSWORD is not set. "
+                "Set the NEO4J_PASSWORD environment variable before connecting."
             )
-            _pw = "agenticqa123"
         self._password = _pw
         self._database = database
         self._driver = None
